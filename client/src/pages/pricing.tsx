@@ -94,12 +94,21 @@ function SubscribeForm({ plan }: { plan: PricingPlan }) {
     try {
       // First ensure demo user exists
       const demoUserResponse = await apiRequest('POST', '/api/create-demo-user', {});
-      const demoUser = demoUserResponse.user;
+      const demoUserData = await demoUserResponse.json();
+      console.log('Demo user response:', demoUserData);
       
-      const result = await apiRequest('POST', '/api/apply-promo', {
+      if (!demoUserData.user || !demoUserData.user.id) {
+        throw new Error('Failed to create demo user');
+      }
+      
+      const demoUser = demoUserData.user;
+      
+      const promoResponse = await apiRequest('POST', '/api/apply-promo', {
         userId: demoUser.id,
         promoCode: promoCode.toUpperCase()
       });
+      
+      const result = await promoResponse.json();
 
       if (result.success) {
         setPromoApplied(true);
@@ -109,13 +118,14 @@ function SubscribeForm({ plan }: { plan: PricingPlan }) {
         });
         
         // If lifetime access, redirect to chat
-        if (result.user.subscriptionStatus === 'lifetime') {
+        if (result.user && result.user.subscriptionStatus === 'lifetime') {
           setTimeout(() => {
             window.location.href = '/';
           }, 2000);
         }
       }
     } catch (error: any) {
+      console.error('Promo code error:', error);
       toast({
         title: "Invalid Code",
         description: error.message || "This promo code is not valid",
@@ -373,19 +383,25 @@ export default function Pricing() {
 
   // Create demo user first
   const createDemoUserMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/create-demo-user', {}),
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/create-demo-user', {});
+      return await response.json();
+    },
   });
 
   const applyPromoMutation = useMutation({
     mutationFn: async ({ promoCode }: { promoCode: string }) => {
       // First ensure demo user exists
       const demoUserResponse = await apiRequest('POST', '/api/create-demo-user', {});
-      const demoUser = demoUserResponse.user;
+      const demoUserData = await demoUserResponse.json();
+      const demoUser = demoUserData.user;
       
-      return await apiRequest('POST', '/api/apply-promo', {
+      const promoResponse = await apiRequest('POST', '/api/apply-promo', {
         userId: demoUser.id,
         promoCode: promoCode.toUpperCase()
       });
+      
+      return await promoResponse.json();
     },
     onSuccess: (data) => {
       toast({
