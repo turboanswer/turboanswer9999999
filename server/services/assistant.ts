@@ -18,7 +18,7 @@ export async function initializeAssistant(): Promise<string> {
         You excel at providing detailed explanations, solving complex problems, analyzing data, and offering practical insights. 
         You have access to code interpretation capabilities and can help with programming, data analysis, and technical tasks.
         Always be thorough, accurate, and helpful while maintaining a conversational tone.`,
-      model: "gpt-4-turbo", // Using the most advanced model
+      model: "gpt-4o", // Using the latest OpenAI model
       tools: [
         { type: "code_interpreter" }, // Enable code execution
         { type: "file_search" } // Enable document search
