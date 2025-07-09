@@ -39,12 +39,26 @@ export default function ChatSimple() {
   const createConversationMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/conversations', {}),
     onSuccess: (data) => {
-      console.log('Conversation created:', data.id);
+      console.log('Conversation created successfully:', data);
       setCurrentConversationId(data.id);
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+      
+      // If there's a pending message, send it now
+      const pendingMessage = message.trim();
+      if (pendingMessage) {
+        setTimeout(() => {
+          console.log('Auto-sending pending message:', pendingMessage);
+          setIsTyping(true);
+          sendMessageMutation.mutate({
+            message: pendingMessage,
+            aiModel: 'auto',
+          });
+        }, 100);
+      }
     },
     onError: (error) => {
       console.error('Failed to create conversation:', error);
+      setIsTyping(false);
     },
   });
 
@@ -92,21 +106,10 @@ export default function ChatSimple() {
 
   const createNewConversation = () => {
     console.log('Creating new conversation');
+    setCurrentConversationId(null);
+    setMessage('');
     createConversationMutation.mutate();
   };
-
-  // Auto-send message after conversation is created
-  if (createConversationMutation.isSuccess && currentConversationId && message.trim() && !sendMessageMutation.isPending) {
-    const pendingMessage = message.trim();
-    setTimeout(() => {
-      console.log('Auto-sending pending message:', pendingMessage);
-      setIsTyping(true);
-      sendMessageMutation.mutate({
-        message: pendingMessage,
-        aiModel: 'auto',
-      });
-    }, 100);
-  }
 
   return (
     <div style={{ 
