@@ -49,10 +49,13 @@ Performance priority: AI responses must be fast - removed top-right icons and st
 - `GET /api/conversations/:id` - Get specific conversation
 - `GET /api/conversations/:id/messages` - Get messages for conversation
 - `POST /api/conversations/:id/messages` - Send message and get AI response
+- `POST /api/analyze-document` - Upload and analyze documents with AI
+- `GET /api/analysis-options` - Get available document analysis types
+- `GET /api/supported-file-types` - Get supported file formats for upload
 - `POST /api/get-or-create-subscription` - Create Stripe subscription for Pro plan
 
 ### Frontend Pages
-- **Chat Page** (`/`): Main chat interface with conversation management
+- **Chat Page** (`/`): Main chat interface with conversation management and document upload
 - **Subscribe Page** (`/subscribe`): Stripe-powered subscription upgrade to Pro plan
 - **404 Page**: Error handling for unknown routes
 

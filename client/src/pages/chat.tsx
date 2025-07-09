@@ -4,10 +4,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, History, Send, Bot, User, Mic, MicOff, Volume2, Crown } from "lucide-react";
+import { Send, Bot, User, Mic, MicOff, Volume2, FileText, X } from "lucide-react";
 import { Link } from "wouter";
 import { TurboLogo } from "@/components/TurboLogo";
 import { useToast } from "@/hooks/use-toast";
+import { DocumentUpload } from "@/components/DocumentUpload";
 import type { Conversation, Message } from "@shared/schema";
 
 export default function Chat() {
@@ -17,6 +18,7 @@ export default function Chat() {
   const [isListening, setIsListening] = useState(false);
   const [isRecognitionSupported, setIsRecognitionSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -184,7 +186,18 @@ export default function Chat() {
 
     setIsTyping(true);
     sendMessageMutation.mutate(messageContent.trim());
-  };
+  }
+
+  const handleDocumentAnalysis = (analysis: any) => {
+    // Add the analysis result as a message in the current conversation
+    if (currentConversationId && analysis) {
+      const analysisMessage = `📄 **Document Analysis: ${analysis.filename}**\n\n**Analysis Type:** ${analysis.analysisType}\n\n**Result:**\n${analysis.analysis}`;
+      
+      // Send the analysis as a regular message
+      sendMessageMutation.mutate(analysisMessage);
+      setShowDocumentUpload(false);
+    }
+  };;
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -278,19 +291,39 @@ export default function Chat() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Link href="/pricing">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-none"
-              >
-                <Crown className="h-4 w-4 mr-1" />
-                Upgrade to Pro
-              </Button>
-            </Link>
+            <Button
+              onClick={() => setShowDocumentUpload(!showDocumentUpload)}
+              variant="outline"
+              size="sm"
+              className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+            >
+              <FileText className="h-4 w-4 mr-1" />
+              {showDocumentUpload ? 'Hide Upload' : 'Upload Doc'}
+            </Button>
           </div>
         </div>
       </header>
+
+      {/* Document Upload Panel */}
+      {showDocumentUpload && (
+        <div className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 sm:px-6 relative z-30">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-white">Document Analysis</h3>
+            <Button
+              onClick={() => setShowDocumentUpload(false)}
+              variant="ghost"
+              size="sm"
+              className="text-zinc-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <DocumentUpload 
+            conversationId={currentConversationId} 
+            onAnalysisComplete={handleDocumentAnalysis}
+          />
+        </div>
+      )}
 
       {/* Messages - Stable container */}
       <div className="flex-1 overflow-y-auto bg-zinc-900 relative z-10">

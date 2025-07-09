@@ -1,15 +1,32 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import Stripe from "stripe";
+import multer from "multer";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import { generateCustomAIResponse } from "./services/custom-ai";
+import { 
+  extractTextFromFile, 
+  analyzeDocument, 
+  validateFile, 
+  getAnalysisOptions,
+  SUPPORTED_FILE_TYPES 
+} from "./services/document-analysis";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-06-30.basil",
+});
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1 // Single file upload
+  }
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -282,6 +299,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Subscription error:', error);
       return res.status(400).json({ error: { message: error.message } });
+    }
+  });
+
+  // File upload and document analysis
+  app.post("/api/analyze-document", upload.single('document'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const { originalname, mimetype, size, buffer } = req.file;
+      const { analysisType = 'general', conversationId } = req.body;
+
+      // Validate file
+      const validation = validateFile(size, mimetype);
+      if (!validation.valid) {
+        return res.status(400).json({ message: validation.error });
+      }
+
+      // Extract text from file
+      const fileContent = await extractTextFromFile(buffer, mimetype, originalname);
+      
+      // Get conversation history if conversationId provided
+      let conversationHistory: Array<{role: string, content: string}> = [];
+      if (conversationId) {
+        const messages = await storage.getMessagesByConversation(parseInt(conversationId));
+        conversationHistory = messages.slice(-3).map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+      }
+
+      // Analyze document
+      const analysisResult = await analyzeDocument(
+        fileContent, 
+        originalname, 
+        analysisType,
+        conversationHistory
+      );
+
+      res.json({
+        filename: originalname,
+        fileType: SUPPORTED_FILE_TYPES[mimetype],
+        fileSize: size,
+        analysisType,
+        analysis: analysisResult,
+        contentPreview: fileContent.substring(0, 200) + (fileContent.length > 200 ? '...' : '')
+      });
+
+    } catch (error: any) {
+      console.error("Document analysis error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get available analysis options
+  app.get("/api/analysis-options", async (req, res) => {
+    try {
+      const options = getAnalysisOptions();
+      res.json(options);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Get supported file types
+  app.get("/api/supported-file-types", async (req, res) => {
+    try {
+      res.json({
+        mimeTypes: Object.keys(SUPPORTED_FILE_TYPES),
+        extensions: Object.values(SUPPORTED_FILE_TYPES),
+        maxSize: "10MB"
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 
