@@ -23,7 +23,7 @@ export default function ChatMobile() {
   const [isTyping, setIsTyping] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState('conversational');
   const [isListening, setIsListening] = useState(false);
-  const [isWakeWordListening, setIsWakeWordListening] = useState(true); // Enable Hey Turbo
+  const [isWakeWordListening, setIsWakeWordListening] = useState(false); // Enable Hey Turbo
   const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef<any>(null);
   const wakeWordRef = useRef<any>(null);
@@ -50,11 +50,13 @@ export default function ChatMobile() {
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
       
       // If we have a pending message, send it now
-      if (message.trim()) {
+      const pendingMessage = message.trim();
+      if (pendingMessage) {
         setTimeout(() => {
+          console.log('Sending pending message after conversation creation:', pendingMessage);
           setIsTyping(true);
           sendMessageMutation.mutate({
-            message: message.trim(),
+            message: pendingMessage,
             aiModel: selectedAIModel,
           });
         }, 100);
@@ -64,9 +66,16 @@ export default function ChatMobile() {
 
   // Send message mutation
   const sendMessageMutation = useMutation({
-    mutationFn: (messageData: { message: string; aiModel: string }) =>
-      apiRequest('POST', `/api/conversations/${currentConversationId}/messages`, messageData),
+    mutationFn: (messageData: { message: string; aiModel: string }) => {
+      const requestBody = {
+        content: messageData.message,
+        selectedModel: messageData.aiModel
+      };
+      console.log('Sending API request:', requestBody, 'to conversation:', currentConversationId);
+      return apiRequest('POST', `/api/conversations/${currentConversationId}/messages`, requestBody);
+    },
     onSuccess: (data) => {
+      console.log('Message sent successfully:', data);
       queryClient.invalidateQueries({ 
         queryKey: ['/api/conversations', currentConversationId, 'messages'] 
       });
@@ -74,11 +83,12 @@ export default function ChatMobile() {
       setIsTyping(false);
       
       // Auto-speak for conversational/emotional AI
-      if (data.aiResponse && (selectedAIModel === 'conversational' || selectedAIModel === 'emotional')) {
-        speakText(data.aiResponse.content);
+      if (data.aiMessage && (selectedAIModel === 'conversational' || selectedAIModel === 'emotional')) {
+        speakText(data.aiMessage.content);
       }
     },
     onError: (error) => {
+      console.error('Message send error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -181,8 +191,12 @@ export default function ChatMobile() {
         
         // Auto-send after voice input
         setTimeout(() => {
-          handleSubmit(new Event('submit') as any);
-        }, 100);
+          const form = document.querySelector('form');
+          if (form) {
+            const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+            form.dispatchEvent(submitEvent);
+          }
+        }, 200);
       };
 
       recognitionRef.current.onerror = () => {
@@ -198,7 +212,12 @@ export default function ChatMobile() {
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || sendMessageMutation.isPending) return;
+    const messageText = message.trim();
+    
+    if (!messageText || sendMessageMutation.isPending) {
+      console.log('Cannot send - empty message or already pending');
+      return;
+    }
 
     // Ensure we have a conversation
     if (!currentConversationId) {
@@ -207,10 +226,11 @@ export default function ChatMobile() {
       return;
     }
 
-    console.log('Sending message:', message, 'to conversation:', currentConversationId);
+    console.log('Sending message:', messageText, 'to conversation:', currentConversationId);
     setIsTyping(true);
+    
     sendMessageMutation.mutate({
-      message: message.trim(),
+      message: messageText,
       aiModel: selectedAIModel,
     });
   };
