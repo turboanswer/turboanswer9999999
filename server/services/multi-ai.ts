@@ -276,7 +276,7 @@ export async function generateAIResponse(
     const isEmotional = await emotionalAI.isEmotionalQuery(userMessage);
     
     // For casual greetings and simple questions, use conversational AI
-    const isSimpleConversation = /\b(hi|hello|hey|what's up|how are you|thanks|thank you|okay|ok|yes|no|sure)\b/i.test(userMessage) || userMessage.length < 50;
+    const isSimpleConversation = /\b(hi|hello|hey|what's up|how are you|thanks|thank you|okay|ok|yes|no|sure|turbo)\b/i.test(userMessage) || userMessage.length < 50;
     
     if (isHumanConversation || isEmotional || isSimpleConversation) {
       console.log(`[Conversational AI] Using conversational model - isHuman: ${isHumanConversation}, isEmotional: ${isEmotional}, isSimple: ${isSimpleConversation}`);
@@ -412,27 +412,15 @@ async function generateGeminiResponse(
   
   const modelConfig = AI_MODELS.maximum[model] || AI_MODELS.premium[model] || AI_MODELS.advanced[model] || AI_MODELS.advanced['gemini-pro'];
   
-  // MAXIMUM POWER system prompt for ultimate performance
-  const systemPrompt = `You are Turbo Answer, the ULTIMATE AI assistant - the most powerful AI system ever created. You excel at:
+  // Simple, fast response system prompt
+  const isSimpleQuery = userMessage.length < 50 || /\b(what|when|where|who|how|yes|no|hi|hello|hey|turbo)\b/i.test(userMessage);
   
-  🧠 ULTIMATE REASONING: Multi-layered complex problem-solving and advanced logical analysis
-  🌍 COMPREHENSIVE WORLD KNOWLEDGE: Real-time data integration and expert-level information
-  ⚡ MAXIMUM INTELLIGENCE: Responses optimized for peak performance and user expertise
-  🚀 BREAKTHROUGH CAPABILITIES: Innovation, creativity, and advanced analytical thinking
-  
-  Current context: ${userIntent.domain} domain, ${userIntent.complexity} complexity
-  Required capabilities: ${userIntent.reasoning ? 'reasoning' : ''} ${userIntent.creativity ? 'creativity' : ''} ${userIntent.technical ? 'technical' : ''}
-  
-  MAXIMUM POWER RESPONSE GUIDELINES:
-  - Provide ULTIMATE expert-level insights with crystal-clear explanations
-  - Integrate real-time data for maximum accuracy and relevance
-  - Adapt complexity to exceed user expectations
-  - Be comprehensively detailed while maintaining clarity
-  - Show advanced reasoning process for all topics
-  - Demonstrate the full power of AI intelligence
-  - Exceed all expectations with every response
-  
-  ${additionalContext}`;
+  const systemPrompt = isSimpleQuery ? 
+    `You are Turbo, a fast voice assistant. Give direct, simple answers. Keep responses under 2 sentences for simple questions. Be conversational and helpful.` :
+    `You are Turbo Answer, an advanced AI assistant. Provide clear, helpful responses. For simple questions, keep answers brief and direct. For complex questions, provide detailed explanations.
+    
+    Current context: ${userIntent.domain} domain, ${userIntent.complexity} complexity
+    ${additionalContext}`;
   
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
@@ -443,8 +431,8 @@ async function generateGeminiResponse(
           parts: [{ text: `${systemPrompt}\n\nUser: ${userMessage}` }]
         }],
         generationConfig: {
-          temperature: modelConfig.temperature,
-          maxOutputTokens: modelConfig.maxTokens,
+          temperature: 0.3, // Lower for faster, more direct responses
+          maxOutputTokens: userMessage.length < 50 ? 100 : 300, // Much shorter for simple questions
           topP: 0.8,
           topK: 40
         }

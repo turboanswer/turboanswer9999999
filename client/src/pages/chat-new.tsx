@@ -13,8 +13,10 @@ export default function Chat() {
   const [selectedAIModel, setSelectedAIModel] = useState('auto');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const { toast } = useToast();
+  const [isWakeWordListening, setIsWakeWordListening] = useState(true);
   const recognitionRef = useRef<any>(null);
+  const wakeWordRef = useRef<any>(null);
+  const { toast } = useToast();
 
   // Fetch conversations
   const { data: conversations = [] } = useQuery({
@@ -115,41 +117,134 @@ export default function Chat() {
     }
   };
 
-  // Speech recognition
+  // Initialize wake word detection
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
-
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setMessageContent(transcript);
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onerror = () => {
-        setIsListening(false);
-      };
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      console.log('🎤 Speech recognition not supported');
+      return;
     }
-  }, []);
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    // Wake word detection
+    const startWakeWordDetection = () => {
+      if (wakeWordRef.current || isListening) return;
+      
+      const wakeRecognition = new SpeechRecognition();
+      wakeRecognition.continuous = true;
+      wakeRecognition.interimResults = false;
+      wakeRecognition.lang = 'en-US';
+      
+      wakeRecognition.onresult = (event: any) => {
+        const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+        console.log('🎤 Wake word detection:', transcript);
+        
+        if (transcript.includes('hey turbo') || transcript.includes('turbo')) {
+          console.log('🎤 Wake word detected! Starting voice input...');
+          wakeRecognition.stop();
+          setIsWakeWordListening(false);
+          toggleListening();
+        }
+      };
+      
+      wakeRecognition.onerror = (event: any) => {
+        console.log('🎤 Wake word error:', event.error);
+        wakeWordRef.current = null;
+        // Restart wake word detection after error
+        if (isWakeWordListening) {
+          setTimeout(startWakeWordDetection, 1000);
+        }
+      };
+      
+      wakeRecognition.onend = () => {
+        wakeWordRef.current = null;
+        if (isWakeWordListening && !isListening) {
+          // Restart wake word detection
+          setTimeout(startWakeWordDetection, 500);
+        }
+      };
+      
+      wakeWordRef.current = wakeRecognition;
+      try {
+        wakeRecognition.start();
+        console.log('🎤 Wake word detection started - say "Hey Turbo"');
+      } catch (error) {
+        console.log('🎤 Failed to start wake word detection:', error);
+        wakeWordRef.current = null;
+      }
+    };
+    
+    if (isWakeWordListening && !isListening) {
+      startWakeWordDetection();
+    }
+    
+    return () => {
+      if (wakeWordRef.current) {
+        wakeWordRef.current.stop();
+        wakeWordRef.current = null;
+      }
+    };
+  }, [isWakeWordListening, isListening]);
 
   const toggleListening = () => {
-    if (!recognitionRef.current) return;
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      console.log('🎤 Speech recognition not supported');
+      return;
+    }
 
-    if (isListening) {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
-    } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      setIsWakeWordListening(true); // Resume wake word detection
+      return;
     }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => {
+      console.log('🎤 Voice recognition started');
+      setIsListening(true);
+      setIsWakeWordListening(false); // Stop wake word detection during input
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0])
+        .map((result: any) => result.transcript)
+        .join('');
+
+      console.log('🎤 Transcript:', transcript);
+      setMessageContent(transcript);
+      
+      // Auto-send if final result
+      if (event.results[event.results.length - 1].isFinal) {
+        setTimeout(() => {
+          if (transcript.trim()) {
+            sendMessage();
+          }
+        }, 1000);
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.log('🎤 Speech recognition error:', event.error);
+      setIsListening(false);
+      setIsWakeWordListening(true); // Resume wake word detection on error
+    };
+
+    recognition.onend = () => {
+      console.log('🎤 Voice recognition ended');
+      setIsListening(false);
+      setIsWakeWordListening(true); // Resume wake word detection when done
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
   };
 
   const speakResponse = (text: string) => {
@@ -257,14 +352,29 @@ export default function Chat() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Center Content */}
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div className="max-w-2xl w-full">
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="max-w-6xl w-full">
             {/* Welcome Message */}
             {messages.length === 0 && (
               <div className="text-center mb-8">
-                <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-8 animate-pulse">
-                  What can I help with?
+                <h2 className="text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent mb-12">
+                  Hey! I'm Turbo, your voice assistant
                 </h2>
+                <p className="text-xl text-gray-300 mb-8">
+                  {isWakeWordListening ? (
+                    <span className="flex items-center justify-center space-x-2">
+                      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                      <span>Listening for "Hey Turbo"...</span>
+                    </span>
+                  ) : isListening ? (
+                    <span className="flex items-center justify-center space-x-2">
+                      <span className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></span>
+                      <span>Listening to your voice...</span>
+                    </span>
+                  ) : (
+                    "Say 'Hey Turbo' or click the mic to start talking"
+                  )}
+                </p>
                 <div className="w-32 h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 mx-auto rounded-full opacity-60"></div>
               </div>
             )}
@@ -314,11 +424,11 @@ export default function Chat() {
         </div>
 
         {/* Input Area */}
-        <div className="shrink-0 p-4 border-t border-purple-500/30 bg-gradient-to-t from-purple-900/50 via-black/30 to-transparent backdrop-blur-sm">
-          <div className="max-w-2xl mx-auto">
-            <div className="flex items-center space-x-3 bg-gradient-to-r from-gray-800/80 to-gray-700/80 backdrop-blur-sm border border-purple-500/20 rounded-full px-4 py-3 shadow-xl shadow-purple-500/10">
-              <label className="p-2 text-gray-400 hover:text-purple-400 transition-all duration-300 cursor-pointer hover:scale-110">
-                <FileText className="w-5 h-5" />
+        <div className="shrink-0 p-6 border-t border-purple-500/30 bg-gradient-to-t from-purple-900/50 via-black/30 to-transparent backdrop-blur-sm">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center space-x-4 bg-gradient-to-r from-gray-800/80 to-gray-700/80 backdrop-blur-sm border border-purple-500/20 rounded-full px-6 py-4 shadow-xl shadow-purple-500/10">
+              <label className="p-3 text-gray-400 hover:text-purple-400 transition-all duration-300 cursor-pointer hover:scale-110">
+                <FileText className="w-6 h-6" />
                 <input
                   type="file"
                   className="hidden"
@@ -336,34 +446,34 @@ export default function Chat() {
                     sendMessage();
                   }
                 }}
-                placeholder="Ask anything"
-                className="flex-1 bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none"
+                placeholder="Say 'Hey Turbo' or type your message..."
+                className="flex-1 bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none text-lg"
                 rows={1}
-                style={{ minHeight: '24px', maxHeight: '120px' }}
+                style={{ minHeight: '32px', maxHeight: '120px' }}
               />
               
               <button
                 onClick={toggleListening}
-                className={`p-2 rounded-lg transition-all duration-300 ${
+                className={`p-3 rounded-lg transition-all duration-300 ${
                   isListening 
-                    ? 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400 text-white shadow-lg shadow-red-500/25' 
+                    ? 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400 text-white shadow-lg shadow-red-500/25 scale-110' 
                     : 'text-gray-400 hover:text-cyan-400 hover:scale-110'
                 }`}
-                title={isListening ? 'Stop listening' : 'Start voice input'}
+                title={isListening ? 'Stop listening' : 'Hey Turbo - Voice Assistant'}
               >
-                <Mic className="w-5 h-5" />
+                <Mic className="w-7 h-7" />
               </button>
               
               <button
                 onClick={sendMessage}
                 disabled={!messageContent.trim() || isTyping}
-                className={`p-2 rounded-lg transition-all duration-300 ${
+                className={`p-3 rounded-lg transition-all duration-300 ${
                   messageContent.trim() && !isTyping
                     ? 'text-cyan-400 hover:text-cyan-300 hover:scale-110 hover:bg-cyan-500/10'
                     : 'text-gray-600'
                 }`}
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-6 h-6" />
               </button>
             </div>
             
