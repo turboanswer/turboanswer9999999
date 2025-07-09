@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Bot, User, Mic, MicOff, Volume2, FileText, X, Brain, Settings } from "lucide-react";
+import { Send, Bot, User, Mic, MicOff, Volume2, FileText, X, Brain, Settings, LogOut } from "lucide-react";
 import { Link } from "wouter";
 import { TurboLogo } from "@/components/TurboLogo";
 import { useToast } from "@/hooks/use-toast";
