@@ -23,7 +23,7 @@ export default function ChatMobile() {
   const [isTyping, setIsTyping] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState('auto');
   const [isListening, setIsListening] = useState(false);
-  const [isWakeWordListening, setIsWakeWordListening] = useState(false); // Disable by default to avoid console spam
+  const [isWakeWordListening, setIsWakeWordListening] = useState(false); // Removed wake word feature
   const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef<any>(null);
   const wakeWordRef = useRef<any>(null);
@@ -115,91 +115,7 @@ export default function ChatMobile() {
     }
   }, [conversations.length]);
 
-  // Wake word detection setup - simplified and stable
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    let isActive = true;
-    
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window && isWakeWordListening) {
-      const startWakeWordDetection = () => {
-        if (!isActive) return;
-        
-        try {
-          if (wakeWordRef.current) {
-            wakeWordRef.current.stop();
-            wakeWordRef.current = null;
-          }
-          
-          const SpeechRecognition = (window as any).webkitSpeechRecognition;
-          wakeWordRef.current = new SpeechRecognition();
-          wakeWordRef.current.continuous = true;
-          wakeWordRef.current.interimResults = true;
-          wakeWordRef.current.lang = 'en-US';
-          wakeWordRef.current.maxAlternatives = 3;
-
-          wakeWordRef.current.onresult = (event: any) => {
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              const transcript = event.results[i][0].transcript.toLowerCase().trim();
-              
-              if (transcript.includes('hey turbo') || transcript.includes('turbo') || transcript.includes('hey') || transcript.includes('hello')) {
-                console.log('🎤 Wake word detected! Starting voice input...');
-                if (wakeWordRef.current) {
-                  wakeWordRef.current.stop();
-                  wakeWordRef.current = null;
-                }
-                // Stop any existing recognition before starting new one
-                if (recognitionRef.current && isListening) {
-                  recognitionRef.current.stop();
-                  setIsListening(false);
-                }
-                setTimeout(() => {
-                  if (isActive && !isListening) {
-                    startListening();
-                  }
-                }, 500);
-                return;
-              }
-            }
-          };
-
-          wakeWordRef.current.onerror = (event: any) => {
-            if (event.error === 'not-allowed') {
-              console.log('🎤 Microphone permission denied - wake word disabled');
-              setIsWakeWordListening(false);
-              return;
-            }
-            // Ignore aborted errors during development
-            if (event.error !== 'aborted') {
-              console.log('🎤 Wake word error:', event.error);
-            }
-          };
-
-          wakeWordRef.current.onend = () => {
-            if (isActive && isWakeWordListening) {
-              timeoutId = setTimeout(startWakeWordDetection, 2000);
-            }
-          };
-
-          wakeWordRef.current.start();
-        } catch (error) {
-          console.log('🎤 Wake word setup error:', error);
-          setIsWakeWordListening(false);
-        }
-      };
-
-      // Start after small delay
-      timeoutId = setTimeout(startWakeWordDetection, 1000);
-
-      return () => {
-        isActive = false;
-        if (timeoutId) clearTimeout(timeoutId);
-        if (wakeWordRef.current) {
-          wakeWordRef.current.stop();
-          wakeWordRef.current = null;
-        }
-      };
-    }
-  }, [isWakeWordListening]);
+  // Wake word detection removed for better performance
 
   // Voice recognition setup
   useEffect(() => {
@@ -311,7 +227,22 @@ export default function ChatMobile() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] animate-spin" style={{animationDuration: '20s'}}>
+          <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
+        </div>
+        <div className="absolute top-[-30%] right-[-30%] w-[150%] h-[150%] animate-spin" style={{animationDuration: '15s', animationDirection: 'reverse'}}>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-purple-500/15 to-pink-500/15 rounded-full blur-2xl transform -translate-x-1/2 -translate-y-1/2"></div>
+        </div>
+        <div className="absolute bottom-[-40%] left-[-40%] w-[180%] h-[180%] animate-spin" style={{animationDuration: '25s'}}>
+          <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
+        </div>
+      </div>
+      
+      {/* Content with backdrop */}
+      <div className="relative z-10 flex flex-col min-h-screen backdrop-blur-sm bg-black/50">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-800">
         <div className="flex items-center space-x-3">
@@ -320,26 +251,11 @@ export default function ChatMobile() {
           </div>
           <div>
             <h1 className="text-lg font-semibold">Turbo</h1>
-            {isWakeWordListening && (
-              <p className="text-xs text-green-400">🎤 Say "Hey Turbo" to activate</p>
-            )}
-            {!isWakeWordListening && (
-              <p className="text-xs text-gray-500">Wake word disabled</p>
-            )}
+            <p className="text-xs text-blue-400">AI Assistant</p>
           </div>
         </div>
         
         <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setIsWakeWordListening(!isWakeWordListening)}
-            className={`px-2 py-1 text-xs rounded-lg border ${
-              isWakeWordListening 
-                ? 'bg-green-600 border-green-500' 
-                : 'bg-gray-800 border-gray-700'
-            }`}
-          >
-            {isWakeWordListening ? '🎤 ON' : '🎤 OFF'}
-          </button>
           
           <select
             value={selectedAIModel}
@@ -384,7 +300,7 @@ export default function ChatMobile() {
                   <span className="text-sm">🎤</span>
                 </div>
                 <h3 className="text-sm font-semibold mb-1">Voice Commands</h3>
-                <p className="text-xs text-gray-400">Say "Hey Turbo" to activate</p>
+                <p className="text-xs text-gray-400">Click microphone to speak</p>
               </div>
               
               <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
@@ -417,20 +333,16 @@ export default function ChatMobile() {
               <h3 className="text-sm font-semibold mb-2 text-blue-400">Quick Start</h3>
               <div className="space-y-2 text-xs text-gray-300">
                 <p>• Type a message or tap the microphone to start</p>
-                <p>• Enable wake word detection with the 🎤 button</p>
-                <p>• Try asking about weather, time zones, or general questions</p>
+                <p>• Ask about weather, time zones, or general questions</p>
+                <p>• Choose from multiple AI models for different needs</p>
               </div>
             </div>
             
             {/* Status Indicator */}
-            {isWakeWordListening ? (
-              <div className="flex items-center justify-center space-x-2 text-green-400">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm">Say "Hey Turbo" to activate voice</span>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Wake word detection disabled</p>
-            )}
+            <div className="flex items-center justify-center space-x-2 text-blue-400">
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+              <span className="text-sm">Ready for your questions</span>
+            </div>
           </div>
         ) : (
           messages.map((msg) => (
@@ -479,6 +391,7 @@ export default function ChatMobile() {
         
         <div ref={messagesEndRef} />
       </div>
+      </div>
 
       {/* Input Area */}
       <div className="p-4 border-t border-gray-800">
@@ -516,6 +429,7 @@ export default function ChatMobile() {
           Turbo AI can make mistakes, so double-check it
         </p>
       </div>
+    </div>
     </div>
   );
 }
