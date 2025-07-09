@@ -49,10 +49,20 @@ Preferred communication style: Simple, everyday language.
 - **404 Page**: Error handling for unknown routes
 
 ### OpenAI Integration
-- Uses GPT-4o model (latest as of May 2024)
+- Uses GPT-4.1 model (latest flagship model with 21.4% improvement over GPT-4o)
 - Conversation history context for coherent responses
 - Error handling and fallback messages
-- Configurable temperature and token limits
+- Configurable temperature and increased token limits (1500 tokens)
+- Enhanced system prompt for deeper expertise across multiple fields
+
+### Voice Command Features
+- **Speech Recognition**: Web Speech API integration for voice input
+- **Text-to-Speech**: Automatic AI response playback with voice synthesis
+- **Interactive Controls**: Microphone button in header and input area
+- **Visual Feedback**: Recording indicators and real-time status updates
+- **Hover Actions**: Click-to-speak buttons on AI messages
+- **Browser Support**: Works in Chrome, Safari, and other Webkit-based browsers
+- **Error Handling**: Graceful fallbacks for unsupported browsers and permission issues
 
 ## Data Flow
 

@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, History, Send, Bot, User } from "lucide-react";
+import { Settings, History, Send, Bot, User, Mic, MicOff, Volume2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Conversation, Message } from "@shared/schema";
 
@@ -12,8 +12,12 @@ export default function Chat() {
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [messageContent, setMessageContent] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isRecognitionSupported, setIsRecognitionSupported] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -57,12 +61,20 @@ export default function Chat() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ 
         queryKey: ["/api/conversations", currentConversationId, "messages"] 
       });
       setMessageContent("");
       setIsTyping(false);
+      
+      // Automatically speak the AI response if available
+      if (data.aiMessage && data.aiMessage.content && 'speechSynthesis' in window) {
+        // Small delay to allow UI to update first
+        setTimeout(() => {
+          speakResponse(data.aiMessage.content);
+        }, 500);
+      }
     },
     onError: (error: any) => {
       setIsTyping(false);
@@ -96,6 +108,75 @@ export default function Chat() {
     }
   }, [messageContent]);
 
+  // Initialize speech recognition
+  useEffect(() => {
+    const initializeSpeechRecognition = () => {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
+        setIsRecognitionSupported(true);
+        
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        recognition.onstart = () => {
+          setIsListening(true);
+        };
+        
+        recognition.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          
+          if (finalTranscript) {
+            setMessageContent(finalTranscript.trim());
+          } else if (interimTranscript) {
+            setMessageContent(interimTranscript.trim());
+          }
+        };
+        
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+          
+          if (event.error === 'not-allowed') {
+            toast({
+              title: "Microphone Access Denied",
+              description: "Please allow microphone access to use voice commands",
+              variant: "destructive",
+            });
+          } else if (event.error === 'no-speech') {
+            toast({
+              title: "No Speech Detected",
+              description: "Please try speaking again",
+              variant: "destructive",
+            });
+          }
+        };
+        
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+        
+        recognitionRef.current = recognition;
+      } else {
+        setIsRecognitionSupported(false);
+      }
+    };
+    
+    initializeSpeechRecognition();
+  }, [toast]);
+
   const handleSendMessage = async () => {
     if (!messageContent.trim() || sendMessageMutation.isPending) return;
 
@@ -107,6 +188,63 @@ export default function Chat() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const startListening = () => {
+    if (recognitionRef.current && !isListening) {
+      try {
+        recognitionRef.current.start();
+      } catch (error) {
+        console.error('Failed to start speech recognition:', error);
+        toast({
+          title: "Voice Command Error",
+          description: "Unable to start voice recognition. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+    }
+  };
+
+  const speakResponse = (text: string) => {
+    if ('speechSynthesis' in window) {
+      // Stop any ongoing speech
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 0.8;
+      
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      
+      // Try to use a more natural voice
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find(voice => 
+        voice.lang.includes('en') && 
+        (voice.name.includes('Natural') || voice.name.includes('Enhanced') || voice.name.includes('Premium'))
+      ) || voices.find(voice => voice.lang.includes('en'));
+      
+      if (englishVoice) {
+        utterance.voice = englishVoice;
+      }
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const toggleSpeech = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
     }
   };
 
@@ -140,6 +278,26 @@ export default function Chat() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            {isRecognitionSupported && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`p-2 ${isListening ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-gray-600'}`}
+                onClick={isListening ? stopListening : startListening}
+                title={isListening ? "Stop listening" : "Start voice command"}
+              >
+                {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className={`p-2 ${isSpeaking ? 'text-brand-500 hover:text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
+              onClick={toggleSpeech}
+              title={isSpeaking ? "Stop speaking" : "Text-to-speech available"}
+            >
+              <Volume2 className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="sm" className="p-2 text-gray-400 hover:text-gray-600">
               <Settings className="h-4 w-4" />
             </Button>
@@ -180,7 +338,7 @@ export default function Chat() {
               )}
               
               <div className={`flex-1 ${message.role === 'user' ? 'max-w-xs sm:max-w-md' : ''}`}>
-                <Card className={`px-4 py-3 shadow-sm ${
+                <Card className={`px-4 py-3 shadow-sm relative group ${
                   message.role === 'user' 
                     ? 'bg-brand-500 text-white rounded-2xl rounded-tr-md' 
                     : 'bg-white rounded-2xl rounded-tl-md border border-gray-100'
@@ -188,6 +346,17 @@ export default function Chat() {
                   <p className={`leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
                     {message.content}
                   </p>
+                  {message.role === 'assistant' && 'speechSynthesis' in window && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-brand-500"
+                      onClick={() => speakResponse(message.content)}
+                      title="Read aloud"
+                    >
+                      <Volume2 className="h-3 w-3" />
+                    </Button>
+                  )}
                 </Card>
                 <div className={`text-xs text-gray-500 mt-2 ${message.role === 'user' ? 'mr-1 text-right' : 'ml-1'}`}>
                   {formatTimestamp(message.timestamp)}
@@ -237,10 +406,24 @@ export default function Chat() {
                 value={messageContent}
                 onChange={(e) => setMessageContent(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask me anything..."
-                className="w-full px-4 py-3 pr-12 text-gray-800 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-2xl resize-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 min-h-[48px]"
+                placeholder={isListening ? "Listening..." : "Ask me anything or click the mic to speak..."}
+                className={`w-full px-4 py-3 pr-20 text-gray-800 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-2xl resize-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 min-h-[48px] ${isListening ? 'ring-2 ring-red-300 border-red-300' : ''}`}
                 rows={1}
               />
+              {isRecognitionSupported && (
+                <Button
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={sendMessageMutation.isPending}
+                  className={`absolute right-11 bottom-2 w-8 h-8 rounded-full flex items-center justify-center focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-0 ${
+                    isListening 
+                      ? 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500' 
+                      : 'bg-gray-300 text-gray-600 hover:bg-gray-400 focus:ring-gray-500'
+                  }`}
+                  title={isListening ? "Stop listening" : "Start voice input"}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              )}
               <Button
                 onClick={handleSendMessage}
                 disabled={!messageContent.trim() || sendMessageMutation.isPending}
@@ -255,8 +438,11 @@ export default function Chat() {
         {/* Input Helper Text */}
         <div className="flex items-center justify-between mt-2 px-1">
           <div className="flex items-center space-x-4 text-xs text-gray-500">
-            <span><span className="mr-1">ℹ️</span>Press Enter to send</span>
-            <span><span className="mr-1">🛡️</span>Secure & Private</span>
+            <span>Press Enter to send</span>
+            {isRecognitionSupported && (
+              <span>{isListening ? 'Listening for voice...' : 'Voice commands available'}</span>
+            )}
+            <span>Secure & Private</span>
           </div>
           <div className="text-xs text-gray-400">
             {messageContent.length}/2000
