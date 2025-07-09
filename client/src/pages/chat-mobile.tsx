@@ -450,6 +450,28 @@ export default function ChatMobile() {
 
       {/* Input Area */}
       <div className="p-4 border-t border-gray-800">
+        {/* Debug Test Buttons */}
+        <div className="mb-4 flex space-x-2">
+          <button
+            onClick={() => {
+              console.log('🧪 Test button 1 clicked!');
+              alert('Test button 1 works!');
+            }}
+            className="px-3 py-1 bg-green-600 rounded text-xs"
+          >
+            Test 1
+          </button>
+          <button
+            onClick={() => {
+              console.log('🧪 Test button 2 clicked!');
+              alert('Test button 2 works!');
+            }}
+            className="px-3 py-1 bg-yellow-600 rounded text-xs"
+          >
+            Test 2
+          </button>
+        </div>
+        
         <form onSubmit={handleSubmit} className="flex items-center space-x-3">
           <button
             type="button"
@@ -461,10 +483,10 @@ export default function ChatMobile() {
                 startListening();
               }
             }}
-            className={`p-3 rounded-full transition-all ${
+            className={`p-3 rounded-full ${
               isListening 
-                ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
-                : 'bg-gray-800 hover:bg-gray-700'
+                ? 'bg-red-600' 
+                : 'bg-gray-800'
             }`}
           >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -486,7 +508,7 @@ export default function ChatMobile() {
           <button
             type="submit"
             disabled={!message.trim() || sendMessageMutation.isPending || isTyping}
-            className="p-3 bg-blue-600 disabled:bg-gray-700 rounded-full hover:bg-blue-700 transition-colors"
+            className="p-3 bg-blue-600 disabled:bg-gray-700 rounded-full"
             onClick={() => console.log('📤 Send button clicked, message:', message.trim())}
           >
             <Send className="w-5 h-5" />
