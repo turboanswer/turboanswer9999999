@@ -325,8 +325,14 @@ export default function ChatMobile() {
           </select>
           
           <button
-            onClick={newConversation}
-            className="p-2 bg-gray-800 rounded-lg"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('➕ New conversation button clicked');
+              newConversation();
+            }}
+            className="p-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700"
+            style={{ pointerEvents: 'auto' }}
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -418,8 +424,14 @@ export default function ChatMobile() {
                       <span className="text-xs font-bold">T</span>
                     </div>
                     <button
-                      onClick={() => speakText(msg.content)}
-                      className="p-1 hover:bg-gray-700 rounded"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🔊 Speak button clicked for message:', msg.id);
+                        speakText(msg.content);
+                      }}
+                      className="p-1 hover:bg-gray-700 rounded cursor-pointer"
+                      style={{ pointerEvents: 'auto' }}
                     >
                       <Volume2 className="w-3 h-3" />
                     </button>
@@ -450,32 +462,12 @@ export default function ChatMobile() {
 
       {/* Input Area */}
       <div className="p-4 border-t border-gray-800">
-        {/* Debug Test Buttons */}
-        <div className="mb-4 flex space-x-2">
-          <button
-            onClick={() => {
-              console.log('🧪 Test button 1 clicked!');
-              alert('Test button 1 works!');
-            }}
-            className="px-3 py-1 bg-green-600 rounded text-xs"
-          >
-            Test 1
-          </button>
-          <button
-            onClick={() => {
-              console.log('🧪 Test button 2 clicked!');
-              alert('Test button 2 works!');
-            }}
-            className="px-3 py-1 bg-yellow-600 rounded text-xs"
-          >
-            Test 2
-          </button>
-        </div>
-        
         <form onSubmit={handleSubmit} className="flex items-center space-x-3">
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               console.log('🎤 Microphone button clicked, isListening:', isListening);
               if (isListening) {
                 stopListening();
@@ -483,11 +475,12 @@ export default function ChatMobile() {
                 startListening();
               }
             }}
-            className={`p-3 rounded-full ${
+            className={`p-3 rounded-full cursor-pointer ${
               isListening 
-                ? 'bg-red-600' 
-                : 'bg-gray-800'
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-gray-800 hover:bg-gray-700'
             }`}
+            style={{ pointerEvents: 'auto' }}
           >
             {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
@@ -503,13 +496,17 @@ export default function ChatMobile() {
             onBlur={() => console.log('📝 Input blurred')}
             placeholder={isListening ? "Listening..." : "Message Turbo"}
             className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{ pointerEvents: 'auto' }}
           />
           
           <button
             type="submit"
             disabled={!message.trim() || sendMessageMutation.isPending || isTyping}
-            className="p-3 bg-blue-600 disabled:bg-gray-700 rounded-full"
-            onClick={() => console.log('📤 Send button clicked, message:', message.trim())}
+            className="p-3 bg-blue-600 disabled:bg-gray-700 rounded-full cursor-pointer"
+            onClick={(e) => {
+              console.log('📤 Send button clicked, message:', message.trim());
+            }}
+            style={{ pointerEvents: 'auto' }}
           >
             <Send className="w-5 h-5" />
           </button>
