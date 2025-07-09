@@ -45,7 +45,7 @@ Voice preference: Voice assistant called "Turbo" with optional wake word detecti
 ## Key Components
 
 ### AI Models Available
-- **Auto-Select**: Intelligent routing to best available model
+- **Auto-Select**: Intelligent routing to best available model (default selection)
 - **Conversational AI**: Specialized for natural human conversations with personality matching
 - **Emotional AI**: Deep emotional intelligence with empathetic responses
 - **Claude 3 Opus**: Advanced reasoning and creative tasks

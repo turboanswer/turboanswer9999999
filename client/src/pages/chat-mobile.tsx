@@ -21,7 +21,7 @@ export default function ChatMobile() {
   const [message, setMessage] = useState('');
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [selectedAIModel, setSelectedAIModel] = useState('conversational');
+  const [selectedAIModel, setSelectedAIModel] = useState('auto');
   const [isListening, setIsListening] = useState(false);
   const [isWakeWordListening, setIsWakeWordListening] = useState(false); // Enable Hey Turbo
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -295,9 +295,9 @@ export default function ChatMobile() {
             onChange={(e) => setSelectedAIModel(e.target.value)}
             className="px-3 py-1 text-xs bg-gray-800 border border-gray-700 rounded-lg"
           >
+            <option value="auto">Auto</option>
             <option value="conversational">Conversational</option>
             <option value="emotional">Emotional</option>
-            <option value="auto">Auto</option>
             <option value="claude-3-opus">Claude Opus</option>
             <option value="gpt-4">GPT-4</option>
           </select>
