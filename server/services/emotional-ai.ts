@@ -230,6 +230,11 @@ Remember: You're not just answering questions - you're having a genuine human co
   }
 
   async isEmotionalQuery(message: string): Promise<boolean> {
+    // Exclude weather/location/technical queries first
+    if (/\b(weather|temperature|rain|snow|sunny|cloudy|forecast|climate|location|time|timezone|address|where is|what time)\b/i.test(message)) {
+      return false;
+    }
+    
     const emotionalIndicators = [
       // Feeling expressions
       /\b(feel|feeling|felt|emotions?|mood)\b/i,

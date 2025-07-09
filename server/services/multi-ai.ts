@@ -218,6 +218,45 @@ export async function generateAIResponse(
       );
     }
     
+    // Check for weather queries first (before emotional analysis)
+    if (isWeatherQuery(userMessage)) {
+      console.log(`[Weather] Detected weather query`);
+      const location = extractLocation(userMessage);
+      if (location) {
+        try {
+          const weatherData = await getWeatherData(location);
+          return formatWeatherReport(weatherData);
+        } catch (error) {
+          console.error("Weather API error:", error);
+          return `I'm sorry, I couldn't get weather information for "${location}" right now. Please try again later.`;
+        }
+      } else {
+        return "I'd be happy to help with weather information! Please specify a location, like 'weather in New York' or 'what's the weather like in London?'";
+      }
+    }
+
+    // Check for location queries
+    if (isLocationQuery(userMessage)) {
+      console.log(`[Location] Detected location query`);
+      const location = extractLocation(userMessage);
+      if (location) {
+        try {
+          const locationData = await getLocationInfo(location);
+          const timeData = await getWorldTimeInfo(location);
+          return formatLocationReport(locationData, timeData);
+        } catch (error) {
+          console.error("Location API error:", error);
+          return `I'm sorry, I couldn't get location information for "${location}" right now. Please try again later.`;
+        }
+      }
+    }
+
+    // Check for time zone queries
+    if (isTimeZoneQuery(userMessage)) {
+      console.log(`[Time Zone] Detected time zone query`);
+      return getTimeZoneInfo();
+    }
+
     // Auto-detect conversation type for auto-select - prioritize conversational AI
     const isHumanConversation = await conversationalAI.isHumanConversation(userMessage);
     const isEmotional = await emotionalAI.isEmotionalQuery(userMessage);
