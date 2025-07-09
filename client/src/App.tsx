@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StartupScreen } from "@/components/StartupScreen";
-import Chat from "@/pages/chat-clean";
+import Chat from "@/pages/chat-mobile";
 import Subscribe from "@/pages/subscribe";
 import EnhancedSubscribe from "@/pages/enhanced-subscribe";
 import NotFound from "@/pages/not-found";

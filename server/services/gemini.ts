@@ -58,10 +58,10 @@ Assistant: Please provide a helpful, accurate response.`;
       model,
       contents: fullPrompt,
       config: {
-        temperature: 0.5, // Lower for faster, more direct responses
-        maxOutputTokens: userMessage.length < 50 ? 50 : 100, // Very short for speed
+        temperature: 0.7, // Balanced for natural responses
+        maxOutputTokens: userMessage.length < 30 ? 100 : 200, // Longer for better conversations
         topP: 0.8,
-        topK: 20
+        topK: 30
       }
     });
 

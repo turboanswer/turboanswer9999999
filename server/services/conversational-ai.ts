@@ -75,8 +75,8 @@ export class ConversationalAI {
         model: "gemini-2.5-flash", // Use faster model for quicker responses
         config: {
           systemInstruction: conversationalPrompt,
-          temperature: 0.5, // Lower for faster responses
-          maxOutputTokens: 50, // Very short for instant responses
+          temperature: 0.8, // Higher for more natural conversation
+          maxOutputTokens: 150, // Longer for better conversations
         },
         contents: [
           ...contextHistory,

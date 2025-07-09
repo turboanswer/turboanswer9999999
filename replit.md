@@ -12,7 +12,7 @@ Layout preference: Bigger layout showing all options in one screen for better ac
 Stability preference: App must be completely stable with NO moving elements, animations, or transitions. Settings must always be visible.
 Intelligence preference: AI should give simple, clear, direct answers without complex explanations. For simple questions, keep responses short and conversational.
 Interface priority: Ensure settings buttons are always accessible and never blocked by app movement.
-Performance priority: AI responses must be fast - streamlined AI processing with working Gemini service. NO LAG ALLOWED.
+Performance priority: AI responses must be fast - streamlined AI processing with working Gemini service. NO LAG ALLOWED. Maximum performance optimization with conversational AI for live human conversations.
 Power preference: Enhanced logo, loading screen, and maximum power branding throughout the interface.
 Voice preference: Voice assistant called "Turbo" with optional wake word detection (disabled by default for performance).
 
@@ -115,17 +115,17 @@ Voice preference: Voice assistant called "Turbo" with optional wake word detecti
 - ANTHROPIC_API_KEY for Claude models (optional)
 - WEATHER_API_KEY or OPENWEATHER_API_KEY for weather data (free tier available)
 
-### Clean Modern Interface Design
-- **Professional Clean Design**: Completely redesigned from scratch with modern, minimal interface
-- **Instant Loading**: No startup screen for faster access
-- **Sidebar Navigation**: Clean conversation history sidebar with intuitive navigation
-- **Header Controls**: All settings visible in header - New Chat, AI Model selector, Settings
+### ChatGPT-Style Mobile Interface Design
+- **Black Background**: Pure black (#000000) interface matching ChatGPT mobile design
+- **Mobile-First**: Optimized for mobile devices with touch-friendly controls
+- **Instant Loading**: No startup screen for faster access  
+- **Simple Layout**: Single-column chat interface with header and input area
 - **Zero Movement**: ALL animations and transitions disabled globally via CSS for complete stability
-- **Fixed Layout**: Stable three-column layout with header, sidebar, and main chat area
-- **Accessible Controls**: All features always visible and accessible without expanding panels
-- **Performance First**: Simplified UI elements focused on speed and functionality
-- **Modern Typography**: Clean Inter font with proper spacing and readability
-- **Color Scheme**: Professional slate color palette with blue accents for actions
+- **Hey Turbo Wake Word**: Advanced voice activation with "Hey Turbo" detection
+- **Live Conversations**: Optimized for natural, human-like conversations with AI
+- **Performance Maximum**: Ultra-fast responses with conversational and emotional AI models
+- **Voice Features**: Speech recognition, auto-send, and text-to-speech integration
+- **Modern Typography**: Clean Inter font with white text on black background
 
 ### Voice Command Features
 - **Speech Recognition**: Web Speech API integration for voice input
