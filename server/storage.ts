@@ -7,6 +7,7 @@ export interface IStorage {
   
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getConversation(id: number): Promise<Conversation | undefined>;
+  updateConversation(id: number, updates: Partial<Conversation>): Promise<Conversation | undefined>;
   getConversations(): Promise<Conversation[]>;
   
   createMessage(message: InsertMessage): Promise<Message>;
@@ -62,6 +63,15 @@ export class MemStorage implements IStorage {
 
   async getConversation(id: number): Promise<Conversation | undefined> {
     return this.conversations.get(id);
+  }
+
+  async updateConversation(id: number, updates: Partial<Conversation>): Promise<Conversation | undefined> {
+    const conversation = this.conversations.get(id);
+    if (!conversation) return undefined;
+    
+    const updatedConversation = { ...conversation, ...updates };
+    this.conversations.set(id, updatedConversation);
+    return updatedConversation;
   }
 
   async getConversations(): Promise<Conversation[]> {

@@ -96,14 +96,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // If thread fails, create a new one
           const newThreadId = await createThread();
           // Update conversation with new thread
-          conversation.threadId = newThreadId;
+          await storage.updateConversation(conversationId, { threadId: newThreadId });
           // Retry with new thread
           aiResponseContent = await sendMessageToAssistant(newThreadId, content);
         }
       } else {
         // Create thread if it doesn't exist
         const threadId = await createThread();
-        conversation.threadId = threadId;
+        await storage.updateConversation(conversationId, { threadId });
         aiResponseContent = await sendMessageToAssistant(threadId, content);
       }
 
