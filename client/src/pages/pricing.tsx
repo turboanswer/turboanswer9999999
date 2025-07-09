@@ -483,7 +483,7 @@ export default function Pricing() {
             <div style={{ marginBottom: '12px' }}>
               <input
                 type="text"
-                placeholder="Enter promo code (e.g. LIFETIME_FREE)"
+                placeholder="Enter promo code"
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
                 style={{
@@ -534,17 +534,7 @@ export default function Pricing() {
               </button>
             </div>
             
-            {/* Hint for available codes */}
-            <div style={{
-              marginTop: '12px',
-              padding: '8px',
-              backgroundColor: '#1e1b4b',
-              borderRadius: '4px',
-              fontSize: '12px',
-              color: '#a855f7'
-            }}>
-              💡 Try: LIFETIME_FREE, FOUNDER_ACCESS, or PREMIUM_YEAR
-            </div>
+
           </div>
         )}
       </div>
