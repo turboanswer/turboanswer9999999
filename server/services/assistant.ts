@@ -58,6 +58,7 @@ export async function sendMessageToAssistant(
   threadId: string, 
   message: string
 ): Promise<string> {
+  console.log("sendMessageToAssistant called with:", { threadId, messageLength: message.length });
   try {
     // Ensure we have an assistant
     const asstId = await getAssistantId();
@@ -73,14 +74,20 @@ export async function sendMessageToAssistant(
       assistant_id: asstId
     });
     
+    console.log("Created run:", { threadId, runId: run.id, runObject: run });
+    
     // Poll for completion
-    let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+    const runId = run.id;
+    console.log("Retrieving run status:", { threadId, runId });
+    
+    // Poll for completion - correct API call signature
+    let runStatus = await openai.beta.threads.runs.retrieve(runId, { thread_id: threadId });
     let attempts = 0;
     const maxAttempts = 60; // 60 seconds timeout
     
     while (runStatus.status !== 'completed' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-      runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      runStatus = await openai.beta.threads.runs.retrieve(runId, { thread_id: threadId });
       attempts++;
       
       if (runStatus.status === 'failed' || runStatus.status === 'cancelled' || runStatus.status === 'expired') {
