@@ -23,7 +23,7 @@ export default function ChatMobile() {
   const [isTyping, setIsTyping] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState('auto');
   const [isListening, setIsListening] = useState(false);
-  const [isWakeWordListening, setIsWakeWordListening] = useState(true); // Enable Hey Turbo
+  const [isWakeWordListening, setIsWakeWordListening] = useState(false); // Disable by default to avoid console spam
   const [isSpeaking, setIsSpeaking] = useState(false);
   const recognitionRef = useRef<any>(null);
   const wakeWordRef = useRef<any>(null);
@@ -115,12 +115,15 @@ export default function ChatMobile() {
     }
   }, [conversations.length]);
 
-  // Wake word detection setup - optimized and working
+  // Wake word detection setup - simplified and stable
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
+    let isActive = true;
     
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window && isWakeWordListening) {
       const startWakeWordDetection = () => {
+        if (!isActive) return;
+        
         try {
           if (wakeWordRef.current) {
             wakeWordRef.current.stop();
@@ -139,39 +142,48 @@ export default function ChatMobile() {
               
               if (transcript.includes('hey turbo') || transcript.includes('turbo')) {
                 console.log('🎤 "Hey Turbo" detected! Starting voice input...');
-                wakeWordRef.current?.stop();
-                setTimeout(() => startListening(), 100);
-                break;
+                if (wakeWordRef.current) {
+                  wakeWordRef.current.stop();
+                  wakeWordRef.current = null;
+                }
+                setTimeout(() => {
+                  if (isActive) startListening();
+                }, 200);
+                return;
               }
             }
           };
 
           wakeWordRef.current.onerror = (event: any) => {
-            console.log('🎤 Wake word error:', event.error);
             if (event.error === 'not-allowed') {
               console.log('🎤 Microphone permission denied - wake word disabled');
               setIsWakeWordListening(false);
+              return;
+            }
+            // Ignore aborted errors during development
+            if (event.error !== 'aborted') {
+              console.log('🎤 Wake word error:', event.error);
             }
           };
 
           wakeWordRef.current.onend = () => {
-            if (isWakeWordListening) {
-              timeoutId = setTimeout(startWakeWordDetection, 1500);
+            if (isActive && isWakeWordListening) {
+              timeoutId = setTimeout(startWakeWordDetection, 2000);
             }
           };
 
           wakeWordRef.current.start();
-          console.log('🎤 Wake word detection started');
         } catch (error) {
           console.log('🎤 Wake word setup error:', error);
           setIsWakeWordListening(false);
         }
       };
 
-      // Add small delay before starting
-      timeoutId = setTimeout(startWakeWordDetection, 500);
+      // Start after small delay
+      timeoutId = setTimeout(startWakeWordDetection, 1000);
 
       return () => {
+        isActive = false;
         if (timeoutId) clearTimeout(timeoutId);
         if (wakeWordRef.current) {
           wakeWordRef.current.stop();
@@ -338,7 +350,7 @@ export default function ChatMobile() {
             </div>
             <h2 className="text-xl font-bold mb-2">Hi! I'm Turbo</h2>
             <p className="text-gray-400 mb-4">Your AI assistant for live conversations</p>
-            <p className="text-sm text-green-400">Say "Hey Turbo" to start talking</p>
+            <p className="text-sm text-blue-400">Click the microphone button to enable "Hey Turbo" wake word</p>
           </div>
         ) : (
           messages.map((msg) => (
