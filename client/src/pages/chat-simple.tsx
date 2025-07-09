@@ -37,23 +37,24 @@ export default function ChatSimple() {
 
   // Create conversation mutation
   const createConversationMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/conversations', {}),
+    mutationFn: () => apiRequest('POST', '/api/conversations', { title: 'New Conversation' }),
     onSuccess: (data) => {
       console.log('Conversation created successfully:', data);
-      setCurrentConversationId(data.id);
+      const conversationId = data?.id || (conversations.length + 1); // Fallback to next ID
+      setCurrentConversationId(conversationId);
       queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
       
       // If there's a pending message, send it now
       const pendingMessage = message.trim();
       if (pendingMessage) {
         setTimeout(() => {
-          console.log('Auto-sending pending message:', pendingMessage);
+          console.log('Auto-sending pending message to conversation:', conversationId);
           setIsTyping(true);
           sendMessageMutation.mutate({
             message: pendingMessage,
             aiModel: 'auto',
           });
-        }, 100);
+        }, 200);
       }
     },
     onError: (error) => {
@@ -108,6 +109,7 @@ export default function ChatSimple() {
     console.log('Creating new conversation');
     setCurrentConversationId(null);
     setMessage('');
+    setIsTyping(false);
     createConversationMutation.mutate();
   };
 
