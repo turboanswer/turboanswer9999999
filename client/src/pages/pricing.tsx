@@ -272,7 +272,7 @@ function SubscribeForm({ plan }: { plan: PricingPlan }) {
             <div style={{ marginBottom: '12px' }}>
               <input
                 type="text"
-                placeholder="Enter promo code (e.g. LIFETIME_FREE)"
+                placeholder="Enter promo code"
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
                 style={{
@@ -304,18 +304,7 @@ function SubscribeForm({ plan }: { plan: PricingPlan }) {
             >
               {isProcessing ? 'Applying...' : 'Apply Promo Code'}
             </button>
-            
-            {/* Hint for available codes */}
-            <div style={{
-              marginTop: '8px',
-              padding: '8px',
-              backgroundColor: '#1e1b4b',
-              borderRadius: '4px',
-              fontSize: '11px',
-              color: '#a855f7'
-            }}>
-              💡 Try: LIFETIME_FREE, FOUNDER_ACCESS, or PREMIUM_YEAR
-            </div>
+
           </div>
         )}
       </div>
