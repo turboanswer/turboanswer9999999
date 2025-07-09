@@ -7,9 +7,8 @@ interface StartupScreenProps {
 
 export function StartupScreen({ onComplete }: StartupScreenProps) {
   useEffect(() => {
-    // Quick startup without animations
-    const timer = setTimeout(onComplete, 1000);
-    return () => clearTimeout(timer);
+    // Instant startup - no delay or animations
+    onComplete();
   }, [onComplete]);
 
   return (

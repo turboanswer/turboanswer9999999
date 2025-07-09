@@ -267,8 +267,8 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-screen max-w-5xl mx-auto bg-black shadow-2xl">
-      {/* Header */}
-      <header className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 sm:px-6">
+      {/* Header - Fixed position to prevent movement */}
+      <header className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 sm:px-6 relative z-40 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <TurboLogo size={40} />
@@ -308,18 +308,28 @@ export default function Chat() {
             >
               <Volume2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="p-2 text-zinc-400 hover:text-zinc-300">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-2 text-zinc-400 hover:text-zinc-300 relative z-50"
+              title="Settings"
+            >
               <Settings className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="p-2 text-zinc-400 hover:text-zinc-300">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-2 text-zinc-400 hover:text-zinc-300 relative z-50"
+              title="History"
+            >
               <History className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-zinc-900">
+      {/* Messages - Stable container */}
+      <div className="flex-1 overflow-y-auto bg-zinc-900 relative z-10">
         <div className="px-4 py-6 sm:px-6">
           {messages.length === 0 && !isTyping && (
             <div className="flex items-start space-x-3 mb-8">
@@ -329,7 +339,7 @@ export default function Chat() {
               <div className="flex-1">
                 <Card className="bg-zinc-800 rounded-2xl rounded-tl-md px-4 py-3 shadow-xl border border-zinc-700">
                   <p className="text-zinc-100 leading-relaxed">
-                    Hello! I'm your advanced AI assistant powered by OpenAI's Assistant API. I have deep knowledge across all fields and can help with coding, analysis, research, and complex problem-solving. What would you like to explore today?
+                    Hi! I'm Turbo Answer, your AI assistant. I give simple, clear answers to any question. What can I help you with?
                   </p>
                 </Card>
                 <div className="text-xs text-zinc-500 mt-2 ml-1">
@@ -360,7 +370,7 @@ export default function Chat() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-purple-400"
+                      className="absolute top-2 right-2 w-6 h-6 p-0 text-zinc-400 hover:text-purple-400"
                       onClick={() => speakResponse(message.content)}
                       title="Read aloud"
                     >
@@ -391,9 +401,9 @@ export default function Chat() {
                 <Card className="bg-zinc-800 rounded-2xl rounded-tl-md px-4 py-3 shadow-xl border border-zinc-700">
                   <div className="flex items-center space-x-2">
                     <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                      <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                      <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                      <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
                     </div>
                     <span className="text-zinc-400 text-sm">AI is processing...</span>
                   </div>
@@ -406,8 +416,8 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Input */}
-      <div className="bg-zinc-950 border-t border-zinc-800 px-4 py-4 sm:px-6">
+      {/* Input - Fixed position */}
+      <div className="bg-zinc-950 border-t border-zinc-800 px-4 py-4 sm:px-6 relative z-40 shrink-0">
         <div className="flex items-end space-x-3">
           <div className="flex-1">
             <div className="relative">
@@ -417,14 +427,14 @@ export default function Chat() {
                 onChange={(e) => setMessageContent(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={isListening ? "Listening..." : "Ask me anything or click the mic to speak..."}
-                className={`w-full px-4 py-3 pr-20 text-zinc-100 placeholder-zinc-500 bg-zinc-900 border border-zinc-700 rounded-2xl resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 min-h-[48px] ${isListening ? 'ring-2 ring-red-400 border-red-400' : ''}`}
+                className={`w-full px-4 py-3 pr-20 text-zinc-100 placeholder-zinc-500 bg-zinc-900 border border-zinc-700 rounded-2xl resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent min-h-[48px] ${isListening ? 'ring-2 ring-red-400 border-red-400' : ''}`}
                 rows={1}
               />
               {isRecognitionSupported && (
                 <Button
                   onClick={isListening ? stopListening : startListening}
                   disabled={sendMessageMutation.isPending}
-                  className={`absolute right-11 bottom-2 w-8 h-8 rounded-full flex items-center justify-center focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-0 ${
+                  className={`absolute right-11 bottom-2 w-8 h-8 rounded-full flex items-center justify-center focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed p-0 ${
                     isListening 
                       ? 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500' 
                       : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 focus:ring-zinc-500'
@@ -437,7 +447,7 @@ export default function Chat() {
               <Button
                 onClick={handleSendMessage}
                 disabled={!messageContent.trim() || sendMessageMutation.isPending}
-                className="absolute right-2 bottom-2 w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center hover:bg-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-zinc-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-0"
+                className="absolute right-2 bottom-2 w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center hover:bg-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed p-0"
               >
                 <Send className="h-4 w-4" />
               </Button>

@@ -8,8 +8,9 @@ Turbo Answer is a sophisticated AI assistant application built with React (TypeS
 
 Preferred communication style: Simple, everyday language.
 Design preference: Sleek black theme with modern UI aesthetics.
-Stability preference: App should be stable without moving elements or animations.
-Intelligence preference: AI should be exceptionally smart with advanced reasoning capabilities.
+Stability preference: App must be completely stable with NO moving elements, animations, or transitions. Settings must always be visible.
+Intelligence preference: AI should give simple, clear, direct answers without complex explanations.
+Interface priority: Ensure settings buttons are always accessible and never blocked by app movement.
 
 ## System Architecture
 
@@ -59,14 +60,13 @@ Intelligence preference: AI should be exceptionally smart with advanced reasonin
 - **Pro Tier ($3.99/month)**: Gemini 2.5 Pro + GPT-4o + Claude 4.0 Sonnet for advanced capabilities
 - **Premium Tier ($9.99/month)**: GPT-4 Turbo + Claude 3 Opus + Gemini Ultra for peak performance
 
-#### Advanced Intelligence Features
-- **Context Analysis**: Analyzes user intent, complexity level, and domain automatically
-- **Smart Model Selection**: Routes queries to optimal AI model based on task requirements
-- **Enhanced Reasoning**: Superior problem-solving with step-by-step analysis and critical thinking
-- **Multi-Perspective Responses**: Offers multiple solution paths and comprehensive analysis
-- **Adaptive Communication**: Adjusts complexity based on user expertise level
-- **Intelligent Fallbacks**: Automatic switching between models for reliability
-- **Conversation Continuity**: Maintains context and builds on previous discussions
+#### Simple and Direct AI Features
+- **Direct Answers**: AI gives simple, clear responses without complex explanations
+- **Everyday Language**: Avoids technical jargon, uses simple terms
+- **Short Responses**: Keeps answers brief and to the point
+- **Question-First**: Answers the question directly first, then adds details if needed
+- **Friendly Tone**: Professional but approachable communication style
+- **Context Awareness**: Maintains conversation history for relevant follow-ups
 
 #### Comprehensive Knowledge Coverage
 - **Technical Mastery**: Expert-level programming, system design, and debugging
@@ -79,11 +79,14 @@ Intelligence preference: AI should be exceptionally smart with advanced reasonin
 - OPENAI_API_KEY for OpenAI GPT models  
 - ANTHROPIC_API_KEY for Claude models
 
-### Stable UI and Professional Branding
+### Completely Stable UI and Professional Branding
 - **Professional Logo**: Static TurboLogo with gradient design and AI indicators
-- **Quick Startup**: Minimal 1-second loading screen without distracting animations
-- **Stable Interface**: No moving elements or animations that could distract users
-- **Consistent Branding**: Professional purple/pink gradient theme throughout
+- **Instant Startup**: No loading screen delays - immediate app access
+- **Zero Movement**: ALL animations and transitions disabled globally via CSS
+- **Fixed Elements**: Header and input areas have fixed positioning with z-index priority
+- **Accessible Settings**: Settings buttons have z-index 50 to remain always clickable
+- **Stable Layout**: shrink-0 classes prevent layout shifts during content changes
+- **No Transitions**: CSS rules disable all animation-duration and transition-duration globally
 
 ### Voice Command Features
 - **Speech Recognition**: Web Speech API integration for voice input

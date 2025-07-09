@@ -63,6 +63,17 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
     background-color: black;
+    /* Disable all animations and transitions for stability */
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Disable all animations and movements globally */
+  *, *::before, *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
   }
 }
 
