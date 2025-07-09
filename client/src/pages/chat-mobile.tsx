@@ -135,13 +135,14 @@ export default function ChatMobile() {
           wakeWordRef.current.continuous = true;
           wakeWordRef.current.interimResults = true;
           wakeWordRef.current.lang = 'en-US';
+          wakeWordRef.current.maxAlternatives = 3;
 
           wakeWordRef.current.onresult = (event: any) => {
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const transcript = event.results[i][0].transcript.toLowerCase().trim();
               
-              if (transcript.includes('hey turbo') || transcript.includes('turbo')) {
-                console.log('🎤 "Hey Turbo" detected! Starting voice input...');
+              if (transcript.includes('hey turbo') || transcript.includes('turbo') || transcript.includes('hey') || transcript.includes('hello')) {
+                console.log('🎤 Wake word detected! Starting voice input...');
                 if (wakeWordRef.current) {
                   wakeWordRef.current.stop();
                   wakeWordRef.current = null;
@@ -364,13 +365,72 @@ export default function ChatMobile() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-xl font-bold">T</span>
+          <div className="text-center py-8 px-6">
+            {/* Main Logo */}
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <span className="text-2xl font-bold text-white">T</span>
             </div>
-            <h2 className="text-xl font-bold mb-2">Hi! I'm Turbo</h2>
-            <p className="text-gray-400 mb-4">Your AI assistant for live conversations</p>
-            <p className="text-sm text-blue-400">Click the microphone button to enable "Hey Turbo" wake word</p>
+            
+            {/* Welcome Message */}
+            <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              Welcome to Turbo
+            </h1>
+            <p className="text-gray-400 mb-6 text-lg">Your AI assistant for live conversations</p>
+            
+            {/* Features Grid */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm">🎤</span>
+                </div>
+                <h3 className="text-sm font-semibold mb-1">Voice Commands</h3>
+                <p className="text-xs text-gray-400">Say "Hey Turbo" to activate</p>
+              </div>
+              
+              <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm">🤖</span>
+                </div>
+                <h3 className="text-sm font-semibold mb-1">Smart AI</h3>
+                <p className="text-xs text-gray-400">Multiple AI models available</p>
+              </div>
+              
+              <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm">🌍</span>
+                </div>
+                <h3 className="text-sm font-semibold mb-1">Weather & Location</h3>
+                <p className="text-xs text-gray-400">Global weather data</p>
+              </div>
+              
+              <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
+                <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm">💬</span>
+                </div>
+                <h3 className="text-sm font-semibold mb-1">Live Chat</h3>
+                <p className="text-xs text-gray-400">Natural conversations</p>
+              </div>
+            </div>
+            
+            {/* Quick Start */}
+            <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 mb-4">
+              <h3 className="text-sm font-semibold mb-2 text-blue-400">Quick Start</h3>
+              <div className="space-y-2 text-xs text-gray-300">
+                <p>• Type a message or tap the microphone to start</p>
+                <p>• Enable wake word detection with the 🎤 button</p>
+                <p>• Try asking about weather, time zones, or general questions</p>
+              </div>
+            </div>
+            
+            {/* Status Indicator */}
+            {isWakeWordListening ? (
+              <div className="flex items-center justify-center space-x-2 text-green-400">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm">Say "Hey Turbo" to activate voice</span>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Wake word detection disabled</p>
+            )}
           </div>
         ) : (
           messages.map((msg) => (
