@@ -83,6 +83,48 @@ function SubscribeForm({ plan }: { plan: PricingPlan }) {
   const elements = useElements();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [showPromoInput, setShowPromoInput] = useState(false);
+
+  const handlePromoApply = async () => {
+    if (!promoCode.trim()) return;
+    
+    setIsProcessing(true);
+    try {
+      // First ensure demo user exists
+      const demoUserResponse = await apiRequest('POST', '/api/create-demo-user', {});
+      const demoUser = demoUserResponse.user;
+      
+      const result = await apiRequest('POST', '/api/apply-promo', {
+        userId: demoUser.id,
+        promoCode: promoCode.toUpperCase()
+      });
+
+      if (result.success) {
+        setPromoApplied(true);
+        toast({
+          title: "Promo Code Applied!",
+          description: result.message,
+        });
+        
+        // If lifetime access, redirect to chat
+        if (result.user.subscriptionStatus === 'lifetime') {
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Invalid Code",
+        description: error.message || "This promo code is not valid",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,27 +177,168 @@ function SubscribeForm({ plan }: { plan: PricingPlan }) {
     }
   };
 
+  if (promoApplied) {
+    return (
+      <div style={{
+        textAlign: 'center',
+        padding: '32px',
+        backgroundColor: '#0f172a',
+        borderRadius: '8px',
+        border: '1px solid #10b981'
+      }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          backgroundColor: '#10b981',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 16px'
+        }}>
+          ✓
+        </div>
+        <h3 style={{ color: '#10b981', marginBottom: '8px' }}>
+          Promo Code Applied!
+        </h3>
+        <p style={{ color: '#9ca3af', marginBottom: '16px' }}>
+          You now have lifetime premium access
+        </p>
+        <button
+          onClick={() => window.location.href = '/'}
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+        >
+          Start Using Turbo AI
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
-      <div style={{
-        padding: '16px',
-        backgroundColor: '#1a1a1a',
-        borderRadius: '8px',
-        marginBottom: '16px'
-      }}>
-        <CardElement
-          options={{
-            style: {
-              base: {
-                fontSize: '16px',
-                color: '#ffffff',
-                '::placeholder': {
-                  color: '#9ca3af',
+      {/* Promo Code Section */}
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '12px'
+        }}>
+          <span style={{ fontSize: '14px', color: '#9ca3af' }}>
+            Have a promo code?
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowPromoInput(!showPromoInput)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#60a5fa',
+              fontSize: '14px',
+              cursor: 'pointer',
+              textDecoration: 'underline'
+            }}
+          >
+            {showPromoInput ? 'Hide' : 'Apply Code'}
+          </button>
+        </div>
+
+        {showPromoInput && (
+          <div style={{
+            padding: '16px',
+            backgroundColor: '#1a1a1a',
+            borderRadius: '8px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ marginBottom: '12px' }}>
+              <input
+                type="text"
+                placeholder="Enter promo code (e.g. LIFETIME_FREE)"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#111111',
+                  border: '1px solid #333333',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handlePromoApply}
+              disabled={!promoCode.trim() || isProcessing}
+              style={{
+                width: '100%',
+                padding: '10px',
+                backgroundColor: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                cursor: (!promoCode.trim() || isProcessing) ? 'not-allowed' : 'pointer',
+                opacity: (!promoCode.trim() || isProcessing) ? 0.5 : 1
+              }}
+            >
+              {isProcessing ? 'Applying...' : 'Apply Promo Code'}
+            </button>
+            
+            {/* Hint for available codes */}
+            <div style={{
+              marginTop: '8px',
+              padding: '8px',
+              backgroundColor: '#1e1b4b',
+              borderRadius: '4px',
+              fontSize: '11px',
+              color: '#a855f7'
+            }}>
+              💡 Try: LIFETIME_FREE, FOUNDER_ACCESS, or PREMIUM_YEAR
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Payment Section */}
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{
+          display: 'block',
+          fontSize: '14px',
+          color: '#9ca3af',
+          marginBottom: '8px'
+        }}>
+          Payment Details
+        </label>
+        <div style={{
+          padding: '16px',
+          backgroundColor: '#1a1a1a',
+          borderRadius: '8px'
+        }}>
+          <CardElement
+            options={{
+              style: {
+                base: {
+                  fontSize: '16px',
+                  color: '#ffffff',
+                  '::placeholder': {
+                    color: '#9ca3af',
+                  },
                 },
               },
-            },
-          }}
-        />
+            }}
+          />
+        </div>
       </div>
       
       <button
