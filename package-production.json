@@ -1,0 +1,35 @@
+{
+  "name": "turbo-answer-production",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Turbo Answer - Advanced AI Assistant Production Build",
+  "main": "index.js",
+  "scripts": {
+    "start": "NODE_ENV=production node index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.37.0",
+    "@google/genai": "^1.8.0",
+    "@neondatabase/serverless": "^0.10.4",
+    "connect-pg-simple": "^10.0.0",
+    "drizzle-orm": "^0.39.1",
+    "drizzle-zod": "^0.7.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "memorystore": "^1.6.7",
+    "nanoid": "^5.1.5",
+    "openai": "^5.8.3",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "stripe": "^18.3.0",
+    "ws": "^8.18.0",
+    "zod": "^3.24.2",
+    "zod-validation-error": "^3.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["ai", "assistant", "chat", "react", "typescript", "gemini", "openai", "anthropic"],
+  "author": "Your Name",
+  "license": "MIT"
+}
