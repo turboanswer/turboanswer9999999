@@ -32,6 +32,8 @@ export default function ChatMobile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Debug logging will be added after mutations are defined
+
   // Fetch conversations
   const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ['/api/conversations'],
@@ -451,7 +453,14 @@ export default function ChatMobile() {
         <form onSubmit={handleSubmit} className="flex items-center space-x-3">
           <button
             type="button"
-            onClick={isListening ? stopListening : startListening}
+            onClick={() => {
+              console.log('🎤 Microphone button clicked, isListening:', isListening);
+              if (isListening) {
+                stopListening();
+              } else {
+                startListening();
+              }
+            }}
             className={`p-3 rounded-full transition-all ${
               isListening 
                 ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
@@ -464,7 +473,12 @@ export default function ChatMobile() {
           <input
             type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => {
+              console.log('📝 Input changed:', e.target.value);
+              setMessage(e.target.value);
+            }}
+            onFocus={() => console.log('📝 Input focused')}
+            onBlur={() => console.log('📝 Input blurred')}
             placeholder={isListening ? "Listening..." : "Message Turbo"}
             className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -473,6 +487,7 @@ export default function ChatMobile() {
             type="submit"
             disabled={!message.trim() || sendMessageMutation.isPending || isTyping}
             className="p-3 bg-blue-600 disabled:bg-gray-700 rounded-full hover:bg-blue-700 transition-colors"
+            onClick={() => console.log('📤 Send button clicked, message:', message.trim())}
           >
             <Send className="w-5 h-5" />
           </button>
