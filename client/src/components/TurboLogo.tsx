@@ -43,34 +43,11 @@ export function TurboLogo({ size = 64, className = "" }: TurboLogoProps) {
           strokeWidth="1.5"
         />
         
-        {/* Orbiting dots representing AI processing */}
-        <circle cx="70" cy="70" r="3" fill="url(#logoGradient)" opacity="0.8">
-          <animateTransform
-            attributeName="transform"
-            type="rotate"
-            values="0 100 100;360 100 100"
-            dur="8s"
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle cx="130" cy="70" r="3" fill="url(#logoGradient)" opacity="0.6">
-          <animateTransform
-            attributeName="transform"
-            type="rotate"
-            values="120 100 100;480 100 100"
-            dur="8s"
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle cx="130" cy="130" r="3" fill="url(#logoGradient)" opacity="0.8">
-          <animateTransform
-            attributeName="transform"
-            type="rotate"
-            values="240 100 100;600 100 100"
-            dur="8s"
-            repeatCount="indefinite"
-          />
-        </circle>
+        {/* Static dots representing AI processing */}
+        <circle cx="70" cy="70" r="3" fill="url(#logoGradient)" opacity="0.8" />
+        <circle cx="130" cy="70" r="3" fill="url(#logoGradient)" opacity="0.6" />
+        <circle cx="130" cy="130" r="3" fill="url(#logoGradient)" opacity="0.8" />
+        <circle cx="70" cy="130" r="3" fill="url(#logoGradient)" opacity="0.6" />
         
         {/* Text elements */}
         <text 
