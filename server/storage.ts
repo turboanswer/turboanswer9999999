@@ -3,10 +3,12 @@ import { users, conversations, messages, type User, type InsertUser, type Conver
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateStripeCustomerId(userId: number, stripeCustomerId: string): Promise<User>;
   updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   updateUserSubscription(userId: number, subscriptionStatus: string, subscriptionTier: string): Promise<User>;
+  validateUserCredentials(username: string, password: string): Promise<User | null>;
   
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getConversation(id: number): Promise<Conversation | undefined>;
@@ -43,6 +45,18 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(
       (user) => user.username === username,
     );
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(
+      (user) => user.email === email,
+    );
+  }
+
+  async validateUserCredentials(username: string, password: string): Promise<User | null> {
+    return Array.from(this.users.values()).find(
+      (user) => (user.username === username || user.email === username) && user.password === password,
+    ) || null;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {

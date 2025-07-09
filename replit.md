@@ -44,6 +44,8 @@ Performance priority: AI responses must be fast - removed top-right icons and st
 - **Messages**: Individual messages with conversation references, content, role (user/assistant), and timestamps
 
 ### API Endpoints
+- `POST /api/register` - Create new user account with username, email, and password
+- `POST /api/login` - Authenticate user with username/email and password
 - `GET /api/conversations` - Retrieve all conversations
 - `POST /api/conversations` - Create new conversation
 - `GET /api/conversations/:id` - Get specific conversation
@@ -57,7 +59,9 @@ Performance priority: AI responses must be fast - removed top-right icons and st
 - `POST /api/get-or-create-subscription` - Create Stripe subscription for Pro plan
 
 ### Frontend Pages
-- **Chat Page** (`/`): Main chat interface with conversation management and document upload
+- **Chat Page** (`/`): Main chat interface with conversation management, document upload, and user authentication
+- **Register Page** (`/register`): User account creation with username, email, and password
+- **Login Page** (`/login`): User authentication with username/email and password
 - **Subscribe Page** (`/subscribe`): Stripe-powered subscription upgrade to Pro plan
 - **404 Page**: Error handling for unknown routes
 

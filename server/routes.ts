@@ -30,6 +30,58 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // User authentication routes
+  app.post('/api/register', async (req, res) => {
+    try {
+      const { username, email, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+
+      if (email) {
+        const existingEmail = await storage.getUserByEmail(email);
+        if (existingEmail) {
+          return res.status(400).json({ error: 'Email already exists' });
+        }
+      }
+
+      const user = await storage.createUser({ username, email, password });
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ success: true, user: userWithoutPassword });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ error: 'Failed to create account' });
+    }
+  });
+
+  app.post('/api/login', async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required' });
+      }
+
+      const user = await storage.validateUserCredentials(username, password);
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ success: true, user: userWithoutPassword });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
   // Create a new conversation
   app.post("/api/conversations", async (req, res) => {
     try {

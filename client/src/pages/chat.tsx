@@ -22,11 +22,33 @@ export default function Chat() {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState("auto");
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Check for user authentication
+  useEffect(() => {
+    const userData = localStorage.getItem('turbo_user');
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (e) {
+        localStorage.removeItem('turbo_user');
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('turbo_user');
+    setUser(null);
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out",
+    });
+  };
 
   // Get or create conversation
   const { data: conversations } = useQuery<Conversation[]>({
@@ -294,6 +316,34 @@ export default function Chat() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            {/* User Authentication */}
+            {user ? (
+              <div className="flex items-center gap-2 mr-2">
+                <span className="text-sm text-zinc-400">Welcome, {user.username}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="p-2 text-zinc-400 hover:text-red-400"
+                >
+                  <LogOut size={16} />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mr-2">
+                <Link href="/login">
+                  <Button variant="ghost" size="sm" className="text-purple-400 hover:text-purple-300">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/register">
+                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
+                    Create Account
+                  </Button>
+                </Link>
+              </div>
+            )}
+            
             <Button
               onClick={() => setShowDocumentUpload(!showDocumentUpload)}
               variant="outline"
