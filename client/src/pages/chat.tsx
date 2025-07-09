@@ -273,8 +273,8 @@ export default function Chat() {
               <Bot className="text-white text-lg" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-white">AI Assistant Pro</h1>
-              <p className="text-sm text-zinc-400">Powered by OpenAI Assistant API</p>
+              <h1 className="text-xl font-semibold text-white">Turbo Answer</h1>
+              <p className="text-sm text-zinc-400">Powered by Google Gemini AI</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">

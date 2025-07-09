@@ -1,8 +1,8 @@
-# Chat Application with Local AI Assistant
+# Turbo Answer - Advanced AI Assistant
 
 ## Overview
 
-This is a full-stack chat application built with React (TypeScript) frontend and Express.js backend, featuring AI-powered conversations using a local pattern-matching assistant. The application supports multiple conversations with message history and real-time chat functionality without external API dependencies.
+Turbo Answer is a sophisticated AI assistant application built with React (TypeScript) frontend and Express.js backend, featuring Google Gemini-powered conversations. The application provides comprehensive knowledge across technical programming, science, and general domains with voice command support and a sleek modern interface.
 
 ## User Preferences
 
