@@ -264,17 +264,17 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-4xl mx-auto bg-white shadow-lg">
+    <div className="flex flex-col h-screen max-w-5xl mx-auto bg-black shadow-2xl">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sm:px-6">
+      <header className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 sm:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-brand-500 to-violet-500 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/20">
               <Bot className="text-white text-lg" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">AI Knowledge Assistant</h1>
-              <p className="text-sm text-gray-500">Always ready to help</p>
+              <h1 className="text-xl font-semibold text-white">AI Assistant Pro</h1>
+              <p className="text-sm text-zinc-400">Powered by OpenAI Assistant API</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -282,7 +282,7 @@ export default function Chat() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className={`p-2 ${isListening ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-2 ${isListening ? 'text-red-400 hover:text-red-300' : 'text-zinc-400 hover:text-zinc-300'}`}
                 onClick={isListening ? stopListening : startListening}
                 title={isListening ? "Stop listening" : "Start voice command"}
               >
@@ -292,16 +292,16 @@ export default function Chat() {
             <Button 
               variant="ghost" 
               size="sm" 
-              className={`p-2 ${isSpeaking ? 'text-brand-500 hover:text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
+              className={`p-2 ${isSpeaking ? 'text-purple-400 hover:text-purple-300' : 'text-zinc-400 hover:text-zinc-300'}`}
               onClick={toggleSpeech}
               title={isSpeaking ? "Stop speaking" : "Text-to-speech available"}
             >
               <Volume2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="p-2 text-gray-400 hover:text-gray-600">
+            <Button variant="ghost" size="sm" className="p-2 text-zinc-400 hover:text-zinc-300">
               <Settings className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="p-2 text-gray-400 hover:text-gray-600">
+            <Button variant="ghost" size="sm" className="p-2 text-zinc-400 hover:text-zinc-300">
               <History className="h-4 w-4" />
             </Button>
           </div>
@@ -309,20 +309,20 @@ export default function Chat() {
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
+      <div className="flex-1 overflow-y-auto bg-zinc-900">
         <div className="px-4 py-6 sm:px-6">
           {messages.length === 0 && !isTyping && (
             <div className="flex items-start space-x-3 mb-8">
-              <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-violet-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
                 <Bot className="text-white text-sm" />
               </div>
               <div className="flex-1">
-                <Card className="bg-white rounded-2xl rounded-tl-md px-4 py-3 shadow-sm border border-gray-100">
-                  <p className="text-gray-800 leading-relaxed">
-                    Hello! I'm your AI knowledge assistant. I have access to a vast amount of information and I'm here to help you with questions, explanations, research, problem-solving, and much more. What would you like to know today?
+                <Card className="bg-zinc-800 rounded-2xl rounded-tl-md px-4 py-3 shadow-xl border border-zinc-700">
+                  <p className="text-zinc-100 leading-relaxed">
+                    Hello! I'm your advanced AI assistant powered by OpenAI's Assistant API. I have deep knowledge across all fields and can help with coding, analysis, research, and complex problem-solving. What would you like to explore today?
                   </p>
                 </Card>
-                <div className="text-xs text-gray-500 mt-2 ml-1">
+                <div className="text-xs text-zinc-500 mt-2 ml-1">
                   Just now
                 </div>
               </div>
@@ -332,25 +332,25 @@ export default function Chat() {
           {messages.map((message) => (
             <div key={message.id} className={`flex items-start space-x-3 mb-6 ${message.role === 'user' ? 'justify-end' : ''}`}>
               {message.role === 'assistant' && (
-                <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-violet-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
                   <Bot className="text-white text-sm" />
                 </div>
               )}
               
               <div className={`flex-1 ${message.role === 'user' ? 'max-w-xs sm:max-w-md' : ''}`}>
-                <Card className={`px-4 py-3 shadow-sm relative group ${
+                <Card className={`px-4 py-3 shadow-xl relative group ${
                   message.role === 'user' 
-                    ? 'bg-brand-500 text-white rounded-2xl rounded-tr-md' 
-                    : 'bg-white rounded-2xl rounded-tl-md border border-gray-100'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white rounded-2xl rounded-tr-md' 
+                    : 'bg-zinc-800 rounded-2xl rounded-tl-md border border-zinc-700'
                 }`}>
-                  <p className={`leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-gray-800'}`}>
+                  <p className={`leading-relaxed ${message.role === 'user' ? 'text-white' : 'text-zinc-100'}`}>
                     {message.content}
                   </p>
                   {message.role === 'assistant' && 'speechSynthesis' in window && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-brand-500"
+                      className="absolute top-2 right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-purple-400"
                       onClick={() => speakResponse(message.content)}
                       title="Read aloud"
                     >
@@ -358,14 +358,14 @@ export default function Chat() {
                     </Button>
                   )}
                 </Card>
-                <div className={`text-xs text-gray-500 mt-2 ${message.role === 'user' ? 'mr-1 text-right' : 'ml-1'}`}>
+                <div className={`text-xs text-zinc-500 mt-2 ${message.role === 'user' ? 'mr-1 text-right' : 'ml-1'}`}>
                   {formatTimestamp(message.timestamp)}
                 </div>
               </div>
 
               {message.role === 'user' && (
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="text-gray-600 text-sm" />
+                <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center flex-shrink-0">
+                  <User className="text-zinc-300 text-sm" />
                 </div>
               )}
             </div>
@@ -374,18 +374,18 @@ export default function Chat() {
           {/* Typing Indicator */}
           {isTyping && (
             <div className="flex items-start space-x-3 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-violet-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/30">
                 <Bot className="text-white text-sm" />
               </div>
               <div className="flex-1">
-                <Card className="bg-white rounded-2xl rounded-tl-md px-4 py-3 shadow-sm border border-gray-100">
+                <Card className="bg-zinc-800 rounded-2xl rounded-tl-md px-4 py-3 shadow-xl border border-zinc-700">
                   <div className="flex items-center space-x-2">
                     <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
                     </div>
-                    <span className="text-gray-500 text-sm">AI is thinking...</span>
+                    <span className="text-zinc-400 text-sm">AI is processing...</span>
                   </div>
                 </Card>
               </div>
@@ -397,7 +397,7 @@ export default function Chat() {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t border-gray-200 px-4 py-4 sm:px-6">
+      <div className="bg-zinc-950 border-t border-zinc-800 px-4 py-4 sm:px-6">
         <div className="flex items-end space-x-3">
           <div className="flex-1">
             <div className="relative">
@@ -407,17 +407,17 @@ export default function Chat() {
                 onChange={(e) => setMessageContent(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={isListening ? "Listening..." : "Ask me anything or click the mic to speak..."}
-                className={`w-full px-4 py-3 pr-20 text-gray-800 placeholder-gray-500 bg-gray-50 border border-gray-200 rounded-2xl resize-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200 min-h-[48px] ${isListening ? 'ring-2 ring-red-300 border-red-300' : ''}`}
+                className={`w-full px-4 py-3 pr-20 text-zinc-100 placeholder-zinc-500 bg-zinc-900 border border-zinc-700 rounded-2xl resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 min-h-[48px] ${isListening ? 'ring-2 ring-red-400 border-red-400' : ''}`}
                 rows={1}
               />
               {isRecognitionSupported && (
                 <Button
                   onClick={isListening ? stopListening : startListening}
                   disabled={sendMessageMutation.isPending}
-                  className={`absolute right-11 bottom-2 w-8 h-8 rounded-full flex items-center justify-center focus:ring-2 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-0 ${
+                  className={`absolute right-11 bottom-2 w-8 h-8 rounded-full flex items-center justify-center focus:ring-2 focus:ring-offset-2 focus:ring-offset-zinc-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-0 ${
                     isListening 
                       ? 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500' 
-                      : 'bg-gray-300 text-gray-600 hover:bg-gray-400 focus:ring-gray-500'
+                      : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 focus:ring-zinc-500'
                   }`}
                   title={isListening ? "Stop listening" : "Start voice input"}
                 >
@@ -427,7 +427,7 @@ export default function Chat() {
               <Button
                 onClick={handleSendMessage}
                 disabled={!messageContent.trim() || sendMessageMutation.isPending}
-                className="absolute right-2 bottom-2 w-8 h-8 bg-brand-500 text-white rounded-full flex items-center justify-center hover:bg-brand-600 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-0"
+                className="absolute right-2 bottom-2 w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center hover:bg-purple-600 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-zinc-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed p-0"
               >
                 <Send className="h-4 w-4" />
               </Button>

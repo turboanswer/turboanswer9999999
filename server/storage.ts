@@ -53,6 +53,7 @@ export class MemStorage implements IStorage {
     const conversation: Conversation = {
       id,
       title: insertConversation.title || "New Conversation",
+      threadId: insertConversation.threadId || null,
       createdAt: new Date(),
     };
     this.conversations.set(id, conversation);

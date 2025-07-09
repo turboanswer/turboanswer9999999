@@ -2,14 +2,24 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
-import { generateAIResponse } from "./services/openai";
+import { createThread, sendMessageToAssistant, initializeAssistant } from "./services/assistant";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize assistant on startup
+  initializeAssistant().catch(console.error);
+  
   // Create a new conversation
   app.post("/api/conversations", async (req, res) => {
     try {
       const validatedData = insertConversationSchema.parse(req.body);
-      const conversation = await storage.createConversation(validatedData);
+      
+      // Create a new thread for this conversation
+      const threadId = await createThread();
+      
+      const conversation = await storage.createConversation({
+        ...validatedData,
+        threadId
+      });
       res.json(conversation);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -74,17 +84,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: "user"
       });
 
-      // Get conversation history for context
-      const existingMessages = await storage.getMessagesByConversation(conversationId);
-      const conversationHistory = existingMessages
-        .filter(msg => msg.id !== userMessage.id) // Exclude the message we just added
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }));
-
-      // Generate AI response
-      const aiResponseContent = await generateAIResponse(content, conversationHistory);
+      // Use Assistant API if thread exists
+      let aiResponseContent: string;
+      
+      if (conversation.threadId) {
+        try {
+          // Send message to Assistant API
+          aiResponseContent = await sendMessageToAssistant(conversation.threadId, content);
+        } catch (error: any) {
+          console.error("Assistant API error, creating new thread:", error);
+          // If thread fails, create a new one
+          const newThreadId = await createThread();
+          // Update conversation with new thread
+          conversation.threadId = newThreadId;
+          // Retry with new thread
+          aiResponseContent = await sendMessageToAssistant(newThreadId, content);
+        }
+      } else {
+        // Create thread if it doesn't exist
+        const threadId = await createThread();
+        conversation.threadId = threadId;
+        aiResponseContent = await sendMessageToAssistant(threadId, content);
+      }
 
       // Create AI message
       const aiMessage = await storage.createMessage({

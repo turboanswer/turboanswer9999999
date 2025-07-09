@@ -3,32 +3,33 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(60, 4.8%, 95.9%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
-  --accent: hsl(60, 4.8%, 95.9%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
+  /* Sleek black theme */
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 95%);
+  --muted: hsl(0, 0%, 8%);
+  --muted-foreground: hsl(0, 0%, 60%);
+  --popover: hsl(0, 0%, 5%);
+  --popover-foreground: hsl(0, 0%, 95%);
+  --card: hsl(0, 0%, 5%);
+  --card-foreground: hsl(0, 0%, 95%);
+  --border: hsl(0, 0%, 15%);
+  --input: hsl(0, 0%, 8%);
+  --primary: hsl(270, 100%, 65%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(0, 0%, 10%);
+  --secondary-foreground: hsl(0, 0%, 95%);
+  --accent: hsl(270, 100%, 65%);
+  --accent-foreground: hsl(0, 0%, 100%);
   --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
-  --radius: 0.5rem;
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(270, 100%, 65%);
+  --radius: 0.75rem;
   
-  /* Brand colors to match design */
-  --brand-50: hsl(238, 100%, 97%);
-  --brand-500: hsl(239, 84%, 67%);
-  --brand-600: hsl(243, 75%, 59%);
-  --brand-700: hsl(244, 58%, 51%);
+  /* Brand colors - purple accent */
+  --brand-50: hsl(270, 100%, 96%);
+  --brand-500: hsl(270, 100%, 65%);
+  --brand-600: hsl(270, 100%, 60%);
+  --brand-700: hsl(270, 100%, 55%);
 }
 
 .dark {
@@ -61,6 +62,7 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    background-color: black;
   }
 }
 

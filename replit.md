@@ -7,6 +7,7 @@ This is a full-stack chat application built with React (TypeScript) frontend and
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+Design preference: Sleek black theme with modern UI aesthetics.
 
 ## System Architecture
 
@@ -22,6 +23,7 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: Express.js with TypeScript
 - **Runtime**: Node.js with ES modules
 - **API Style**: RESTful API endpoints
+- **AI Integration**: OpenAI Assistant API with dedicated service layer
 - **Middleware**: Express JSON parsing, custom logging middleware
 
 ### Database Strategy
@@ -48,12 +50,14 @@ Preferred communication style: Simple, everyday language.
 - **Chat Page** (`/`): Main chat interface with conversation management
 - **404 Page**: Error handling for unknown routes
 
-### OpenAI Integration
-- Uses GPT-4.1 model (latest flagship model with 21.4% improvement over GPT-4o)
-- Conversation history context for coherent responses
-- Error handling and fallback messages
-- Configurable temperature and increased token limits (1500 tokens)
-- Enhanced system prompt for deeper expertise across multiple fields
+### OpenAI Assistant API Integration
+- Uses OpenAI Assistant API with thread management for persistent conversations
+- GPT-4 Turbo Preview model with advanced capabilities
+- Tools enabled: Code Interpreter and File Search
+- Thread-based conversation management with automatic session persistence
+- Real-time streaming responses with typing indicators
+- Automatic retry logic and error handling
+- Enhanced system prompt for comprehensive knowledge assistance
 
 ### Voice Command Features
 - **Speech Recognition**: Web Speech API integration for voice input
