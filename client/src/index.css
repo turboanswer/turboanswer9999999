@@ -13,6 +13,20 @@
   transition: none !important;
 }
 
+/* Ensure buttons are clickable */
+button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+input {
+  pointer-events: auto !important;
+}
+
+form {
+  pointer-events: auto !important;
+}
+
 /* ChatGPT-style mobile design */
 :root {
   --black: #000000;

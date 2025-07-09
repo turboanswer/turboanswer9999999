@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StartupScreen } from "@/components/StartupScreen";
 import Chat from "@/pages/chat-mobile";
+import TestSimple from "@/pages/test-simple";
 import Subscribe from "@/pages/subscribe";
 import EnhancedSubscribe from "@/pages/enhanced-subscribe";
 import NotFound from "@/pages/not-found";
@@ -16,6 +17,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Chat} />
+      <Route path="/test" component={TestSimple} />
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
       <Route path="/subscribe" component={Subscribe} />
