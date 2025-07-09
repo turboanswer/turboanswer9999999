@@ -10,7 +10,7 @@ Preferred communication style: Simple, everyday language.
 Design preference: Sleek black theme with modern UI aesthetics and maximum power styling.
 Layout preference: Bigger layout showing all options in one screen for better accessibility.
 Stability preference: App must be completely stable with NO moving elements, animations, or transitions. Settings must always be visible.
-Intelligence preference: AI should give simple, clear, direct answers without complex explanations.
+Intelligence preference: AI should give simple, clear, direct answers without complex explanations. For simple questions, keep responses short and conversational.
 Interface priority: Ensure settings buttons are always accessible and never blocked by app movement.
 Performance priority: AI responses must be fast - streamlined AI processing with working Gemini service.
 Power preference: Enhanced logo, loading screen, and maximum power branding throughout the interface.

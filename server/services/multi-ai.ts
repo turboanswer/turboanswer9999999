@@ -218,12 +218,15 @@ export async function generateAIResponse(
       );
     }
     
-    // Auto-detect conversation type for auto-select
+    // Auto-detect conversation type for auto-select - prioritize conversational AI
     const isHumanConversation = await conversationalAI.isHumanConversation(userMessage);
     const isEmotional = await emotionalAI.isEmotionalQuery(userMessage);
     
-    if (isHumanConversation || isEmotional) {
-      console.log(`[Conversational AI] Auto-detected human conversation - isHuman: ${isHumanConversation}, isEmotional: ${isEmotional}`);
+    // For casual greetings and simple questions, use conversational AI
+    const isSimpleConversation = /\b(hi|hello|hey|what's up|how are you|thanks|thank you|okay|ok|yes|no|sure)\b/i.test(userMessage) || userMessage.length < 50;
+    
+    if (isHumanConversation || isEmotional || isSimpleConversation) {
+      console.log(`[Conversational AI] Using conversational model - isHuman: ${isHumanConversation}, isEmotional: ${isEmotional}, isSimple: ${isSimpleConversation}`);
       
       // Use conversational AI for human-like interactions
       return await conversationalAI.generateConversationalResponse(

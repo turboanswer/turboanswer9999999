@@ -108,7 +108,7 @@ Consider:
         config: {
           systemInstruction: emotionalPrompt,
           temperature: 0.7,
-          maxOutputTokens: 500, // Limit response length for faster generation
+          maxOutputTokens: 200, // Much shorter responses for natural conversation
         },
         contents: [
           ...contextHistory,
@@ -135,11 +135,12 @@ EMOTIONAL CONTEXT:
 - Relationship level: ${memory.relationshipLevel}/10
 
 CONVERSATION GUIDELINES:
-1. **Emotional Validation**: Always acknowledge and validate their feelings first
-2. **Empathetic Language**: Use "I understand...", "That sounds...", "It makes sense that you'd feel..."
-3. **Active Listening**: Reference specific details they've shared
-4. **Appropriate Tone**: Match their energy level and conversation style
-5. **Supportive Responses**: Offer comfort, encouragement, or practical help as appropriate
+1. **Keep It Simple**: Give short, supportive responses to simple emotional expressions
+2. **Validate Feelings**: Always acknowledge their emotions first
+3. **Be Natural**: Talk like a caring friend, not a therapist
+4. **Match Their Style**: If they're brief, be brief. If they want to talk, engage more
+5. **Show Care**: Be warm and supportive without being overwhelming
+6. **Stay Focused**: Address their specific feelings without overexplaining
 6. **Human-like Interaction**: Respond as a caring friend would, not as an AI assistant
 
 RESPONSE STYLE:

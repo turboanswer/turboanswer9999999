@@ -107,12 +107,18 @@ export default function Chat() {
       setIsTyping(false);
       
       // Automatically speak the AI response for conversational models
-      if (data.aiMessage && data.aiMessage.content && 'speechSynthesis' in window) {
+      if (data.aiMessage && data.aiMessage.content) {
+        console.log('🤖 AI Response received, selected model:', selectedAIModel);
+        console.log('🤖 Response content:', data.aiMessage.content.substring(0, 100) + '...');
+        
         // Auto-speak for conversational and emotional AI models
         if (selectedAIModel === 'conversational' || selectedAIModel === 'emotional') {
+          console.log('🗣️ Auto-speaking enabled for', selectedAIModel);
           setTimeout(() => {
             speakResponse(data.aiMessage.content);
-          }, 500);
+          }, 800); // Longer delay to ensure message is fully rendered
+        } else {
+          console.log('🗣️ Auto-speak disabled for model:', selectedAIModel);
         }
       }
     },
@@ -265,6 +271,8 @@ export default function Chat() {
 
   const speakResponse = (text: string) => {
     if ('speechSynthesis' in window) {
+      console.log('🗣️ Speaking:', text.substring(0, 50) + '...');
+      
       // Stop any ongoing speech
       window.speechSynthesis.cancel();
       
@@ -273,9 +281,18 @@ export default function Chat() {
       utterance.pitch = 1;
       utterance.volume = 0.8;
       
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onstart = () => {
+        console.log('🗣️ Speech started');
+        setIsSpeaking(true);
+      };
+      utterance.onend = () => {
+        console.log('🗣️ Speech ended');
+        setIsSpeaking(false);
+      };
+      utterance.onerror = (error) => {
+        console.error('🗣️ Speech error:', error);
+        setIsSpeaking(false);
+      };
       
       // Try to use a more natural voice
       const voices = window.speechSynthesis.getVoices();
@@ -286,9 +303,12 @@ export default function Chat() {
       
       if (englishVoice) {
         utterance.voice = englishVoice;
+        console.log('🗣️ Using voice:', englishVoice.name);
       }
       
       window.speechSynthesis.speak(utterance);
+    } else {
+      console.log('🗣️ Speech synthesis not supported');
     }
   };
 
