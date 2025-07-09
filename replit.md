@@ -2,7 +2,7 @@
 
 ## Overview
 
-Turbo Answer is a sophisticated AI assistant application built with React (TypeScript) frontend and Express.js backend, featuring Google Gemini-powered conversations. The application provides comprehensive knowledge across technical programming, science, and general domains with voice command support and a sleek modern interface.
+Turbo Answer is a sophisticated AI assistant application built with React (TypeScript) frontend and Express.js backend, featuring Google Gemini-powered conversations. The application provides comprehensive knowledge across technical programming, science, and general domains with voice command support and a sleek modern interface. Now includes mobile app capability with Capacitor for Android APK generation.
 
 ## User Preferences
 
@@ -99,6 +99,9 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **vite**: Fast development server and build tool
 - **drizzle-kit**: Database schema management
 - **esbuild**: Server-side bundling for production
+- **@capacitor/core**: Native mobile app wrapper
+- **@capacitor/cli**: Mobile build tools
+- **@capacitor/android**: Android platform support
 
 ## Deployment Strategy
 
@@ -112,6 +115,12 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **Backend**: esbuild bundles server code to `dist/index.js`
 - **Database**: Environment variable `DATABASE_URL` for PostgreSQL connection
 - **Gemini AI**: Environment variable `GEMINI_API_KEY` for Google AI API access
+
+### Mobile Deployment
+- **Android APK**: Capacitor wraps React app for native Android deployment
+- **Build Process**: `vite build` → `npx cap sync` → `gradlew assembleDebug`
+- **Platform Support**: Android with HTTPS scheme and splash screen configuration
+- **Distribution**: APK generation ready for Google Play Store publishing
 
 ### Environment Configuration
 - Development uses in-memory storage for rapid prototyping
