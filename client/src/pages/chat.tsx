@@ -94,7 +94,8 @@ export default function Chat() {
     mutationFn: async (content: string) => {
       if (!currentConversationId) throw new Error("No conversation selected");
       const response = await apiRequest("POST", `/api/conversations/${currentConversationId}/messages`, {
-        content
+        content,
+        selectedModel: selectedAIModel
       });
       return response.json();
     },
@@ -105,12 +106,14 @@ export default function Chat() {
       setMessageContent("");
       setIsTyping(false);
       
-      // Automatically speak the AI response if available
+      // Automatically speak the AI response for conversational models
       if (data.aiMessage && data.aiMessage.content && 'speechSynthesis' in window) {
-        // Small delay to allow UI to update first
-        setTimeout(() => {
-          speakResponse(data.aiMessage.content);
-        }, 500);
+        // Auto-speak for conversational and emotional AI models
+        if (selectedAIModel === 'conversational' || selectedAIModel === 'emotional') {
+          setTimeout(() => {
+            speakResponse(data.aiMessage.content);
+          }, 500);
+        }
       }
     },
     onError: (error: any) => {

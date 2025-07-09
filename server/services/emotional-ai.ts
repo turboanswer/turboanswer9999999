@@ -104,9 +104,11 @@ Consider:
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
+        model: "gemini-2.5-flash", // Use faster model for quicker responses
         config: {
           systemInstruction: emotionalPrompt,
+          temperature: 0.7,
+          maxOutputTokens: 500, // Limit response length for faster generation
         },
         contents: [
           ...contextHistory,

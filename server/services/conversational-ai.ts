@@ -72,10 +72,11 @@ export class ConversationalAI {
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
+        model: "gemini-2.5-flash", // Use faster model for quicker responses
         config: {
           systemInstruction: conversationalPrompt,
-          temperature: 0.8, // More creative and natural
+          temperature: 0.7, // Slightly more controlled for faster generation
+          maxOutputTokens: 500, // Limit response length for faster generation
         },
         contents: [
           ...contextHistory,

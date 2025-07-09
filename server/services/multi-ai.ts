@@ -196,12 +196,34 @@ export async function generateAIResponse(
   userId?: string
 ): Promise<string> {
   try {
-    // Check if this is a human conversation first
+    // Force conversational AI for selected model
+    if (selectedModel === 'conversational') {
+      console.log(`[Conversational AI] Using conversational model by user selection`);
+      return await conversationalAI.generateConversationalResponse(
+        userMessage,
+        conversationHistory,
+        userId
+      );
+    }
+    
+    // Force emotional AI for selected model
+    if (selectedModel === 'emotional') {
+      console.log(`[Emotional AI] Using emotional model by user selection`);
+      const emotionalContext = await emotionalAI.analyzeEmotionalState(userMessage, userId);
+      return await emotionalAI.generateEmpatheticResponse(
+        userMessage,
+        emotionalContext,
+        conversationHistory,
+        userId
+      );
+    }
+    
+    // Auto-detect conversation type for auto-select
     const isHumanConversation = await conversationalAI.isHumanConversation(userMessage);
     const isEmotional = await emotionalAI.isEmotionalQuery(userMessage);
     
     if (isHumanConversation || isEmotional) {
-      console.log(`[Conversational AI] Detected human conversation - isHuman: ${isHumanConversation}, isEmotional: ${isEmotional}`);
+      console.log(`[Conversational AI] Auto-detected human conversation - isHuman: ${isHumanConversation}, isEmotional: ${isEmotional}`);
       
       // Use conversational AI for human-like interactions
       return await conversationalAI.generateConversationalResponse(

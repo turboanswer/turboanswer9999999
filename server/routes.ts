@@ -166,7 +166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content,
         conversationHistory,
         "free", // subscription tier
-        undefined, // let AI choose model
+        req.body.selectedModel, // pass selected model
         userId
       );
 
