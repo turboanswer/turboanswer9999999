@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Settings, History, Send, Bot, User, Mic, MicOff, Volume2, Crown } from "lucide-react";
 import { Link } from "wouter";
+import { TurboLogo } from "@/components/TurboLogo";
 import { useToast } from "@/hooks/use-toast";
 import type { Conversation, Message } from "@shared/schema";
 
@@ -270,16 +271,14 @@ export default function Chat() {
       <header className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 sm:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg shadow-purple-500/20">
-              <Bot className="text-white text-lg" />
-            </div>
+            <TurboLogo size={40} />
             <div>
               <h1 className="text-xl font-semibold text-white">Turbo Answer</h1>
-              <p className="text-sm text-zinc-400">Powered by Google Gemini AI</p>
+              <p className="text-sm text-zinc-400">Multi-Model AI Assistant</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Link href="/subscribe">
+            <Link href="/pricing">
               <Button 
                 variant="outline" 
                 size="sm" 

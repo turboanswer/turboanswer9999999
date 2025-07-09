@@ -10,7 +10,8 @@ export const users = pgTable("users", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("free"), // 'free', 'active', 'canceled', 'past_due'
-  subscriptionTier: text("subscription_tier").default("free"), // 'free', 'pro'
+  subscriptionTier: text("subscription_tier").default("free"), // 'free', 'pro', 'premium'
+  preferredModel: text("preferred_model"),
 });
 
 export const conversations = pgTable("conversations", {

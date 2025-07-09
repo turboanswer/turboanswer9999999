@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import Stripe from "stripe";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
-import { generateAIResponse } from "./services/gemini";
+import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -113,7 +113,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stripe subscription route for Pro plan
+  // Enhanced subscription endpoint with multiple tiers
+  app.post('/api/create-subscription', async (req, res) => {
+    try {
+      const { planId, priceId } = req.body;
+      
+      // For demo purposes, create a demo user
+      let user = await storage.getUser(1);
+      if (!user) {
+        user = await storage.createUser({
+          username: "demo_user",
+          password: "demo_password",
+          email: "demo@turboAnswer.com"
+        });
+      }
+
+      // Define subscription prices
+      const subscriptionPrices = {
+        'price_pro_monthly': {
+          amount: 399, // $3.99
+          tier: 'pro'
+        },
+        'price_premium_monthly': {
+          amount: 999, // $9.99  
+          tier: 'premium'
+        }
+      };
+
+      const priceConfig = subscriptionPrices[priceId as keyof typeof subscriptionPrices];
+      if (!priceConfig) {
+        return res.status(400).json({ error: 'Invalid price ID' });
+      }
+
+      // Create Stripe customer if doesn't exist
+      let stripeCustomerId = user.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || "demo@turboAnswer.com",
+          name: user.username,
+        });
+        stripeCustomerId = customer.id;
+        await storage.updateStripeCustomerId(user.id, stripeCustomerId);
+      }
+
+      // Create subscription
+      const subscription = await stripe.subscriptions.create({
+        customer: stripeCustomerId,
+        items: [{
+          price_data: {
+            currency: 'usd',
+            product: `prod_turbo_answer_${planId}`,
+            unit_amount: priceConfig.amount,
+            recurring: {
+              interval: 'month'
+            }
+          }
+        }],
+        payment_behavior: 'default_incomplete',
+        expand: ['latest_invoice.payment_intent'],
+      });
+
+      // Update user subscription info
+      await storage.updateUserStripeInfo(user.id, stripeCustomerId, subscription.id);
+      await storage.updateUserSubscription(user.id, 'active', priceConfig.tier);
+
+      const invoice = subscription.latest_invoice;
+      const paymentIntent = invoice && typeof invoice === 'object' ? (invoice as any).payment_intent : null;
+      const clientSecret = paymentIntent && typeof paymentIntent === 'object' ? paymentIntent.client_secret : null;
+
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: clientSecret,
+      });
+
+    } catch (error: any) {
+      console.error('Enhanced subscription error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get available AI models for user's subscription tier
+  app.get('/api/models', async (req, res) => {
+    try {
+      // For demo, assume free tier - in real app get from authenticated user
+      const subscriptionTier = "free";
+      const availableModels = getAvailableModels(subscriptionTier);
+      res.json({ models: availableModels, currentTier: subscriptionTier });
+    } catch (error: any) {
+      console.error('Models endpoint error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Legacy Pro plan endpoint
   app.post('/api/get-or-create-subscription', async (req, res) => {
     try {
       // For demo purposes, create a demo user
