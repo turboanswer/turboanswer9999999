@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import Stripe from "stripe";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
-import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
+import { generateCustomAIResponse } from "./services/custom-ai";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -90,10 +90,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: msg.content
       }));
 
-      // For demo purposes, assume user ID 1 (in real app, get from session/auth)
-      // Generate AI response with subscription tier (default to free for demo)
-      const subscriptionTier = "free"; // Will be replaced with actual user subscription tier
-      const aiResponseContent = await generateAIResponse(content, conversationHistory, subscriptionTier);
+      // Generate AI response using custom AI
+      const aiResponseContent = await generateCustomAIResponse(content, conversationHistory);
 
       // Create AI message
       const aiMessage = await storage.createMessage({

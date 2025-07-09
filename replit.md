@@ -56,10 +56,11 @@ Performance priority: AI responses must be fast - removed top-right icons and st
 - **Subscribe Page** (`/subscribe`): Stripe-powered subscription upgrade to Pro plan
 - **404 Page**: Error handling for unknown routes
 
-### Enhanced Multi-Model AI Integration
-- **Free Tier**: Google Gemini 2.5 Flash + OpenAI GPT-4o Mini for standard AI responses
-- **Pro Tier ($3.99/month)**: Gemini 2.5 Pro + GPT-4o + Claude 4.0 Sonnet for advanced capabilities
-- **Premium Tier ($9.99/month)**: GPT-4 Turbo + Claude 3 Opus + Gemini Ultra for peak performance
+### Custom AI Integration
+- **Simplified System**: Single custom AI service integration instead of multi-model complexity
+- **Your AI Service**: Configure any OpenAI-compatible API or custom endpoint
+- **Fast Responses**: Optimized for speed with 500 token limit and minimal context
+- **Fallback Support**: Automatic error handling with graceful degradation
 
 #### Simple and Direct AI Features
 - **Direct Answers**: AI gives simple, clear responses without complex explanations
