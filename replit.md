@@ -50,8 +50,8 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **Chat Page** (`/`): Main chat interface with conversation management
 - **404 Page**: Error handling for unknown routes
 
-### Professional AI Assistant Integration
-- Advanced pattern-matching AI with sophisticated domain expertise
+### Google Gemini AI Integration
+- Google Gemini 2.5 Flash model for advanced AI responses
 - Comprehensive knowledge across multiple disciplines: technology, science, humanities, social sciences
 - Universal question handling: can answer virtually any topic with intelligent responses
 - Technical coverage: JavaScript/React, Python, databases, algorithms, debugging, testing, security, deployment
@@ -61,7 +61,7 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - Contextual conversation awareness using message history
 - Professional-grade responses with detailed explanations and best practices
 - Career guidance and technical interview preparation
-- No external API dependencies or costs
+- Requires GEMINI_API_KEY environment variable for Google AI API access
 
 ### Voice Command Features
 - **Speech Recognition**: Web Speech API integration for voice input
@@ -85,7 +85,7 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **@tanstack/react-query**: Server state management
 - **@radix-ui/react-***: Accessible UI primitives
 - **drizzle-orm**: Database ORM and query builder
-- **openai**: Official OpenAI SDK
+- **@google/genai**: Official Google Gemini AI SDK
 - **tailwindcss**: Utility-first CSS framework
 
 ### Development Tools
@@ -105,12 +105,12 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **Frontend**: Vite builds optimized static assets to `dist/public`
 - **Backend**: esbuild bundles server code to `dist/index.js`
 - **Database**: Environment variable `DATABASE_URL` for PostgreSQL connection
-- **OpenAI**: Environment variable `OPENAI_API_KEY` for API access
+- **Gemini AI**: Environment variable `GEMINI_API_KEY` for Google AI API access
 
 ### Environment Configuration
 - Development uses in-memory storage for rapid prototyping
 - Production requires PostgreSQL database provisioning
-- OpenAI API key configuration for AI functionality
+- Google Gemini API key configuration for AI functionality
 - Replit-specific optimizations for cloud deployment
 
 ## Architecture Decisions
@@ -130,7 +130,7 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **Benefits**: Accessible components, customizable with Tailwind, TypeScript support
 - **Trade-off**: Larger bundle size for comprehensive component set
 
-### OpenAI Model Selection
-- **Decision**: GPT-4o (latest model as of May 2024)
-- **Rationale**: Best performance and latest capabilities
-- **Configuration**: Fixed model choice unless explicitly requested to change
+### AI Model Selection
+- **Decision**: Google Gemini 2.5 Flash (latest Gemini model)
+- **Rationale**: Advanced multimodal capabilities and comprehensive knowledge base
+- **Configuration**: Gemini API integration with contextual conversation awareness
