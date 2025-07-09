@@ -1,8 +1,8 @@
-# Chat Application with OpenAI Integration
+# Chat Application with Local AI Assistant
 
 ## Overview
 
-This is a full-stack chat application built with React (TypeScript) frontend and Express.js backend, featuring AI-powered conversations using OpenAI's GPT-4o model. The application supports multiple conversations with message history and real-time chat functionality.
+This is a full-stack chat application built with React (TypeScript) frontend and Express.js backend, featuring AI-powered conversations using a local pattern-matching assistant. The application supports multiple conversations with message history and real-time chat functionality without external API dependencies.
 
 ## User Preferences
 
@@ -36,7 +36,7 @@ Design preference: Sleek black theme with modern UI aesthetics.
 
 ### Database Schema
 - **Users**: Basic user management with username/password
-- **Conversations**: Chat sessions with titles and timestamps
+- **Conversations**: Chat sessions with titles and timestamps (removed thread ID dependency)
 - **Messages**: Individual messages with conversation references, content, role (user/assistant), and timestamps
 
 ### API Endpoints
@@ -50,14 +50,13 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **Chat Page** (`/`): Main chat interface with conversation management
 - **404 Page**: Error handling for unknown routes
 
-### OpenAI Assistant API Integration
-- Uses OpenAI Assistant API with thread management for persistent conversations
-- GPT-4 Turbo Preview model with advanced capabilities
-- Tools enabled: Code Interpreter and File Search
-- Thread-based conversation management with automatic session persistence
-- Real-time streaming responses with typing indicators
-- Automatic retry logic and error handling
-- Enhanced system prompt for comprehensive knowledge assistance
+### Simple AI Assistant Integration
+- Uses local rule-based AI responses instead of external API services
+- Pattern-matching responses for common topics (JavaScript, Python, programming)
+- Built-in conversation context awareness
+- No external API dependencies or costs
+- Instant responses with simulated processing delay
+- Educational responses covering programming concepts and general help
 
 ### Voice Command Features
 - **Speech Recognition**: Web Speech API integration for voice input
@@ -71,7 +70,7 @@ Design preference: Sleek black theme with modern UI aesthetics.
 ## Data Flow
 
 1. **Conversation Creation**: User creates new conversation → API stores conversation → Frontend updates conversation list
-2. **Message Flow**: User sends message → API stores user message → OpenAI generates response → API stores AI response → Frontend displays both messages
+2. **Message Flow**: User sends message → API stores user message → Local AI generates response → API stores AI response → Frontend displays both messages
 3. **State Management**: React Query handles caching, synchronization, and optimistic updates
 
 ## External Dependencies

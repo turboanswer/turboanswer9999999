@@ -11,7 +11,6 @@ export const users = pgTable("users", {
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   title: text("title").default("New Conversation"),
-  threadId: text("thread_id"), // OpenAI Assistant thread ID
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -30,7 +29,6 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export const insertConversationSchema = createInsertSchema(conversations).pick({
   title: true,
-  threadId: true,
 });
 
 export const insertMessageSchema = createInsertSchema(messages).pick({
