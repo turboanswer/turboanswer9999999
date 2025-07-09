@@ -4,7 +4,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, History, Send, Bot, User, Mic, MicOff, Volume2 } from "lucide-react";
+import { Settings, History, Send, Bot, User, Mic, MicOff, Volume2, Crown } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Conversation, Message } from "@shared/schema";
 
@@ -278,6 +279,16 @@ export default function Chat() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <Link href="/subscribe">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-none"
+              >
+                <Crown className="h-4 w-4 mr-1" />
+                Upgrade to Pro
+              </Button>
+            </Link>
             {isRecognitionSupported && (
               <Button 
                 variant="ghost" 

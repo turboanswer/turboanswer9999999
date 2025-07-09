@@ -1,8 +1,16 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import Stripe from "stripe";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import { generateAIResponse } from "./services/gemini";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-06-30.basil",
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new conversation
@@ -82,8 +90,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: msg.content
       }));
 
-      // Generate AI response
-      const aiResponseContent = await generateAIResponse(content, conversationHistory);
+      // For demo purposes, assume user ID 1 (in real app, get from session/auth)
+      // Generate AI response with subscription tier (default to free for demo)
+      const subscriptionTier = "free"; // Will be replaced with actual user subscription tier
+      const aiResponseContent = await generateAIResponse(content, conversationHistory, subscriptionTier);
 
       // Create AI message
       const aiMessage = await storage.createMessage({
@@ -100,6 +110,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error in message route:", error);
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Stripe subscription route for Pro plan
+  app.post('/api/get-or-create-subscription', async (req, res) => {
+    try {
+      // For demo purposes, create a demo user
+      // In real app, this would use authenticated user
+      let user = await storage.getUser(1);
+      if (!user) {
+        user = await storage.createUser({
+          username: "demo_user",
+          password: "demo_password",
+          email: "demo@turboAnswer.com"
+        });
+      }
+
+      // Check if user already has an active subscription
+      if (user.stripeSubscriptionId) {
+        const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, {
+          expand: ['latest_invoice.payment_intent']
+        });
+        
+        const invoice = subscription.latest_invoice;
+        if (invoice && typeof invoice === 'object') {
+          const paymentIntent = (invoice as any).payment_intent;
+          if (paymentIntent) {
+            const clientSecret = typeof paymentIntent === 'string' 
+              ? (await stripe.paymentIntents.retrieve(paymentIntent)).client_secret
+              : paymentIntent.client_secret;
+              
+            res.json({
+              subscriptionId: subscription.id,
+              clientSecret: clientSecret,
+            });
+            return;
+          }
+        }
+      }
+
+      // Create Stripe customer if doesn't exist
+      let stripeCustomerId = user.stripeCustomerId;
+      if (!stripeCustomerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || "demo@turboAnswer.com",
+          name: user.username,
+        });
+        stripeCustomerId = customer.id;
+        await storage.updateStripeCustomerId(user.id, stripeCustomerId);
+      }
+
+      // Create subscription for $3.99/month
+      const subscription = await stripe.subscriptions.create({
+        customer: stripeCustomerId,
+        items: [{
+          price_data: {
+            currency: 'usd',
+            product: 'prod_turbo_answer_pro',
+            unit_amount: 399, // $3.99 in cents
+            recurring: {
+              interval: 'month'
+            }
+          }
+        }],
+        payment_behavior: 'default_incomplete',
+        expand: ['latest_invoice.payment_intent'],
+      });
+
+      // Update user with subscription info
+      await storage.updateUserStripeInfo(user.id, stripeCustomerId, subscription.id);
+
+      const invoice = subscription.latest_invoice;
+      const paymentIntent = invoice && typeof invoice === 'object' ? (invoice as any).payment_intent : null;
+      const clientSecret = paymentIntent && typeof paymentIntent === 'object' ? paymentIntent.client_secret : null;
+
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: clientSecret,
+      });
+    } catch (error: any) {
+      console.error('Subscription error:', error);
+      return res.status(400).json({ error: { message: error.message } });
     }
   });
 

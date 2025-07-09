@@ -35,7 +35,7 @@ Design preference: Sleek black theme with modern UI aesthetics.
 ## Key Components
 
 ### Database Schema
-- **Users**: Basic user management with username/password
+- **Users**: User management with subscription support (username, password, email, Stripe customer/subscription IDs, subscription status/tier)
 - **Conversations**: Chat sessions with titles and timestamps (removed thread ID dependency)
 - **Messages**: Individual messages with conversation references, content, role (user/assistant), and timestamps
 
@@ -45,13 +45,16 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - `GET /api/conversations/:id` - Get specific conversation
 - `GET /api/conversations/:id/messages` - Get messages for conversation
 - `POST /api/conversations/:id/messages` - Send message and get AI response
+- `POST /api/get-or-create-subscription` - Create Stripe subscription for Pro plan
 
 ### Frontend Pages
 - **Chat Page** (`/`): Main chat interface with conversation management
+- **Subscribe Page** (`/subscribe`): Stripe-powered subscription upgrade to Pro plan
 - **404 Page**: Error handling for unknown routes
 
 ### Google Gemini AI Integration
-- Google Gemini 2.5 Flash model for advanced AI responses
+- **Free Tier**: Google Gemini 2.5 Flash model for standard AI responses
+- **Pro Tier ($3.99/month)**: Google Gemini 2.5 Pro model for advanced AI capabilities
 - Comprehensive knowledge across multiple disciplines: technology, science, humanities, social sciences
 - Universal question handling: can answer virtually any topic with intelligent responses
 - Technical coverage: JavaScript/React, Python, databases, algorithms, debugging, testing, security, deployment
@@ -86,6 +89,9 @@ Design preference: Sleek black theme with modern UI aesthetics.
 - **@radix-ui/react-***: Accessible UI primitives
 - **drizzle-orm**: Database ORM and query builder
 - **@google/genai**: Official Google Gemini AI SDK
+- **stripe**: Stripe payment processing SDK
+- **@stripe/react-stripe-js**: React Stripe.js integration
+- **@stripe/stripe-js**: Stripe.js client library
 - **tailwindcss**: Utility-first CSS framework
 
 ### Development Tools

@@ -4,6 +4,9 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateStripeCustomerId(userId: number, stripeCustomerId: string): Promise<User>;
+  updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
+  updateUserSubscription(userId: number, subscriptionStatus: string, subscriptionTier: string): Promise<User>;
   
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getConversation(id: number): Promise<Conversation | undefined>;
@@ -44,7 +47,16 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      username: insertUser.username,
+      password: insertUser.password,
+      email: insertUser.email || null,
+      id,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      subscriptionStatus: "free",
+      subscriptionTier: "free"
+    };
     this.users.set(id, user);
     return user;
   }
@@ -102,6 +114,39 @@ export class MemStorage implements IStorage {
     return Array.from(this.messages.values()).sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
+  }
+
+  async updateStripeCustomerId(userId: number, stripeCustomerId: string): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { ...user, stripeCustomerId };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { 
+      ...user, 
+      stripeCustomerId, 
+      stripeSubscriptionId,
+      subscriptionStatus: "active",
+      subscriptionTier: "pro"
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserSubscription(userId: number, subscriptionStatus: string, subscriptionTier: string): Promise<User> {
+    const user = this.users.get(userId);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { ...user, subscriptionStatus, subscriptionTier };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
 }
 

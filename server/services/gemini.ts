@@ -8,7 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 // This API key is from Gemini Developer API Key, not vertex AI API Key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-export async function generateAIResponse(userMessage: string, conversationHistory: Array<{role: string, content: string}> = []): Promise<string> {
+export async function generateAIResponse(userMessage: string, conversationHistory: Array<{role: string, content: string}> = [], subscriptionTier: string = "free"): Promise<string> {
   try {
     // Prepare conversation context for Gemini
     const messages = conversationHistory.slice(-10); // Keep last 10 messages for context
@@ -59,9 +59,12 @@ Always provide accurate, helpful information while maintaining a professional to
 ${contextPrompt}User: ${userMessage}
 Assistant: Please provide a helpful, accurate response.`;
 
+    // Choose model based on subscription tier
+    const model = subscriptionTier === "pro" ? "gemini-2.5-pro" : "gemini-2.5-flash";
+    
     // Call Gemini API
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model,
       contents: fullPrompt,
     });
 
