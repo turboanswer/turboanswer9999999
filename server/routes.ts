@@ -471,6 +471,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create demo user for promo codes
+  app.post("/api/create-demo-user", async (req, res) => {
+    try {
+      // Check if demo user already exists
+      let user = await storage.getUserByUsername("demo_user");
+      
+      if (!user) {
+        user = await storage.createUser({
+          username: "demo_user",
+          password: "demo_password",
+          email: "demo@turboai.com"
+        });
+      }
+
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ success: true, user: userWithoutPassword });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create demo user: " + error.message });
+    }
+  });
+
+  // Promo code application route
+  app.post("/api/apply-promo", async (req, res) => {
+    try {
+      const { userId, promoCode } = req.body;
+      
+      if (!userId || !promoCode) {
+        return res.status(400).json({ message: "User ID and promo code are required" });
+      }
+
+      const result = await storage.applyPromoCode(userId, promoCode);
+      
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          message: result.message, 
+          user: result.user 
+        });
+      } else {
+        res.status(400).json({ 
+          success: false, 
+          message: result.message 
+        });
+      }
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false, 
+        message: "Error applying promo code: " + error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

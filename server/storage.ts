@@ -1,4 +1,6 @@
 import { users, conversations, messages, type User, type InsertUser, type Conversation, type InsertConversation, type Message, type InsertMessage } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -9,6 +11,7 @@ export interface IStorage {
   updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User>;
   updateUserSubscription(userId: number, subscriptionStatus: string, subscriptionTier: string): Promise<User>;
   validateUserCredentials(username: string, password: string): Promise<User | null>;
+  applyPromoCode(userId: number, promoCode: string): Promise<{ success: boolean; message: string; user?: User }>;
   
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getConversation(id: number): Promise<Conversation | undefined>;
@@ -20,148 +23,175 @@ export interface IStorage {
   getMessages(): Promise<Message[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private conversations: Map<number, Conversation>;
-  private messages: Map<number, Message>;
-  private currentUserId: number;
-  private currentConversationId: number;
-  private currentMessageId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.conversations = new Map();
-    this.messages = new Map();
-    this.currentUserId = 1;
-    this.currentConversationId = 1;
-    this.currentMessageId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
+    if (!email) return undefined;
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async validateUserCredentials(username: string, password: string): Promise<User | null> {
-    return Array.from(this.users.values()).find(
-      (user) => (user.username === username || user.email === username) && user.password === password,
-    ) || null;
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    if (user && user.password === password) {
+      return user;
+    }
+    return null;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { 
-      username: insertUser.username,
-      password: insertUser.password,
-      email: insertUser.email || null,
-      id,
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      subscriptionStatus: "free",
-      subscriptionTier: "free"
-    };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values({
+        username: insertUser.username,
+        password: insertUser.password,
+        email: insertUser.email || null,
+      })
+      .returning();
     return user;
   }
 
   async createConversation(insertConversation: InsertConversation): Promise<Conversation> {
-    const id = this.currentConversationId++;
-    const conversation: Conversation = {
-      id,
-      title: insertConversation.title || "New Conversation",
-      createdAt: new Date(),
-    };
-    this.conversations.set(id, conversation);
+    const [conversation] = await db
+      .insert(conversations)
+      .values({
+        title: insertConversation.title || "New Conversation",
+      })
+      .returning();
     return conversation;
   }
 
   async getConversation(id: number): Promise<Conversation | undefined> {
-    return this.conversations.get(id);
+    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
+    return conversation || undefined;
   }
 
   async updateConversation(id: number, updates: Partial<Conversation>): Promise<Conversation | undefined> {
-    const conversation = this.conversations.get(id);
-    if (!conversation) return undefined;
-    
-    const updatedConversation = { ...conversation, ...updates };
-    this.conversations.set(id, updatedConversation);
-    return updatedConversation;
+    const [conversation] = await db
+      .update(conversations)
+      .set(updates)
+      .where(eq(conversations.id, id))
+      .returning();
+    return conversation || undefined;
   }
 
   async getConversations(): Promise<Conversation[]> {
-    return Array.from(this.conversations.values()).sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    return await db.select().from(conversations).orderBy(conversations.createdAt);
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const id = this.currentMessageId++;
-    const message: Message = {
-      id,
-      conversationId: insertMessage.conversationId,
-      content: insertMessage.content,
-      role: insertMessage.role,
-      timestamp: new Date(),
-    };
-    this.messages.set(id, message);
+    const [message] = await db
+      .insert(messages)
+      .values({
+        conversationId: insertMessage.conversationId,
+        content: insertMessage.content,
+        role: insertMessage.role,
+      })
+      .returning();
     return message;
   }
 
   async getMessagesByConversation(conversationId: number): Promise<Message[]> {
-    return Array.from(this.messages.values())
-      .filter(message => message.conversationId === conversationId)
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return await db
+      .select()
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(messages.timestamp);
   }
 
   async getMessages(): Promise<Message[]> {
-    return Array.from(this.messages.values()).sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+    return await db.select().from(messages).orderBy(messages.timestamp);
   }
 
   async updateStripeCustomerId(userId: number, stripeCustomerId: string): Promise<User> {
-    const user = this.users.get(userId);
+    const [user] = await db
+      .update(users)
+      .set({ stripeCustomerId })
+      .where(eq(users.id, userId))
+      .returning();
     if (!user) throw new Error("User not found");
-    
-    const updatedUser = { ...user, stripeCustomerId };
-    this.users.set(userId, updatedUser);
-    return updatedUser;
+    return user;
   }
 
   async updateUserStripeInfo(userId: number, stripeCustomerId: string, stripeSubscriptionId: string): Promise<User> {
-    const user = this.users.get(userId);
+    const [user] = await db
+      .update(users)
+      .set({
+        stripeCustomerId,
+        stripeSubscriptionId,
+        subscriptionStatus: "active",
+        subscriptionTier: "pro"
+      })
+      .where(eq(users.id, userId))
+      .returning();
     if (!user) throw new Error("User not found");
-    
-    const updatedUser = { 
-      ...user, 
-      stripeCustomerId, 
-      stripeSubscriptionId,
-      subscriptionStatus: "active",
-      subscriptionTier: "pro"
-    };
-    this.users.set(userId, updatedUser);
-    return updatedUser;
+    return user;
   }
 
   async updateUserSubscription(userId: number, subscriptionStatus: string, subscriptionTier: string): Promise<User> {
-    const user = this.users.get(userId);
+    const [user] = await db
+      .update(users)
+      .set({ subscriptionStatus, subscriptionTier })
+      .where(eq(users.id, userId))
+      .returning();
     if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async applyPromoCode(userId: number, promoCode: string): Promise<{ success: boolean; message: string; user?: User }> {
+    // Define available promo codes
+    const promoCodes = {
+      'LIFETIME_FREE': {
+        subscriptionStatus: 'lifetime',
+        subscriptionTier: 'pro',
+        message: 'Congratulations! You now have lifetime premium access!'
+      },
+      'PREMIUM_YEAR': {
+        subscriptionStatus: 'active',
+        subscriptionTier: 'pro', 
+        message: 'You now have 1 year of premium access!'
+      },
+      'FOUNDER_ACCESS': {
+        subscriptionStatus: 'lifetime',
+        subscriptionTier: 'pro',
+        message: 'Welcome, founder! You have lifetime premium access!'
+      }
+    };
+
+    const promo = promoCodes[promoCode as keyof typeof promoCodes];
     
-    const updatedUser = { ...user, subscriptionStatus, subscriptionTier };
-    this.users.set(userId, updatedUser);
-    return updatedUser;
+    if (!promo) {
+      return { success: false, message: 'Invalid promo code' };
+    }
+
+    try {
+      const [user] = await db
+        .update(users)
+        .set({
+          subscriptionStatus: promo.subscriptionStatus,
+          subscriptionTier: promo.subscriptionTier
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      if (!user) {
+        return { success: false, message: 'User not found' };
+      }
+
+      return { success: true, message: promo.message, user };
+    } catch (error) {
+      return { success: false, message: 'Failed to apply promo code' };
+    }
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

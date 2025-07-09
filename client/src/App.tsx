@@ -12,6 +12,7 @@ import EnhancedSubscribe from "@/pages/enhanced-subscribe";
 import NotFound from "@/pages/not-found";
 import Register from "@/pages/register";
 import Login from "@/pages/login";
+import Pricing from "@/pages/pricing";
 
 function Router() {
   return (
@@ -21,7 +22,7 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/login" component={Login} />
       <Route path="/subscribe" component={Subscribe} />
-      <Route path="/pricing" component={EnhancedSubscribe} />
+      <Route path="/pricing" component={Pricing} />
       <Route component={NotFound} />
     </Switch>
   );
