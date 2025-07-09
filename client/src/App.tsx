@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { StartupScreen } from "@/components/StartupScreen";
-import Chat from "@/pages/chat-new";
+import Chat from "@/pages/chat-clean";
 import Subscribe from "@/pages/subscribe";
 import EnhancedSubscribe from "@/pages/enhanced-subscribe";
 import NotFound from "@/pages/not-found";
@@ -26,7 +26,7 @@ function Router() {
 }
 
 function App() {
-  const [showStartup, setShowStartup] = useState(true);
+  const [showStartup, setShowStartup] = useState(false); // Skip startup screen for faster loading
 
   return (
     <QueryClientProvider client={queryClient}>

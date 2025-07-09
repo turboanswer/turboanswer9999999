@@ -13,6 +13,45 @@
   transition: none !important;
 }
 
+/* Clean modern styling */
+:root {
+  --slate-900: #0f172a;
+  --slate-800: #1e293b;
+  --slate-700: #334155;
+  --slate-600: #475569;
+  --slate-500: #64748b;
+  --slate-400: #94a3b8;
+  --slate-300: #cbd5e1;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --purple-600: #9333ea;
+  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #9333ea 100%);
+}
+
+body {
+  background-color: var(--slate-900);
+  color: white;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--slate-800);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--slate-600);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--slate-500);
+}
+
 :root {
   /* Sleek black theme */
   --background: hsl(0, 0%, 0%);
