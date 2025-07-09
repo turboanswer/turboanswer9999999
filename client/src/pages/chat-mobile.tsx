@@ -155,7 +155,7 @@ export default function ChatMobile() {
                   if (isActive && !isListening) {
                     startListening();
                   }
-                }, 300);
+                }, 500);
                 return;
               }
             }
@@ -209,13 +209,14 @@ export default function ChatMobile() {
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.maxAlternatives = 1;
 
       recognitionRef.current.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setMessage(transcript);
         setIsListening(false);
         
-        // Auto-send after voice input
+        // Auto-send after voice input with longer delay
         setTimeout(() => {
           if (currentConversationId && transcript.trim()) {
             setIsTyping(true);
@@ -224,7 +225,7 @@ export default function ChatMobile() {
               aiModel: selectedAIModel,
             });
           }
-        }, 200);
+        }, 800);
       };
 
       recognitionRef.current.onerror = () => {
