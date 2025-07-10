@@ -13,6 +13,7 @@ import { DocumentUpload } from "@/components/DocumentUpload";
 import CameraCapture from "@/components/CameraCapture";
 import LanguageSelector from "@/components/LanguageSelector";
 import ContinuousConversation from "@/components/ContinuousConversation";
+import LiveCameraFeed from "@/components/LiveCameraFeed";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Conversation, Message } from "@shared/schema";
 
@@ -25,6 +26,7 @@ export default function Chat() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showLiveCamera, setShowLiveCamera] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState("auto");
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const [voiceEnabled, setVoiceEnabled] = useState(false);
@@ -418,6 +420,15 @@ export default function Chat() {
     speakResponse(text);
   };
 
+  // Live camera analysis result handler
+  const handleLiveCameraAnalysis = (analysis: string) => {
+    // Add the analysis result as a message in the current conversation
+    if (currentConversationId && analysis) {
+      const analysisMessage = `📹 **Live Camera**: ${analysis}`;
+      sendMessageMutation.mutate(analysisMessage);
+    }
+  };
+
   const formatTimestamp = (timestamp: string | Date) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -512,7 +523,19 @@ export default function Chat() {
                   <Camera className="h-4 w-4 mr-2" />
                   Camera
                 </Button>
-                {(showDocumentUpload || showCamera) && (
+                <Button
+                  onClick={() => setShowLiveCamera(!showLiveCamera)}
+                  variant={showLiveCamera ? "default" : "outline"}
+                  size="sm"
+                  className={showLiveCamera ? 
+                    "bg-red-600 hover:bg-red-700 text-white" : 
+                    "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+                  }
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Live Feed
+                </Button>
+                {(showDocumentUpload || showCamera || showLiveCamera) && (
                   <div className="text-xs text-purple-300">• Active</div>
                 )}
               </div>
@@ -608,6 +631,31 @@ export default function Chat() {
           <CameraCapture 
             onCapture={handleCameraCapture}
             onAnalysis={handleImageAnalysis}
+          />
+        </div>
+      )}
+
+      {/* Live Camera Feed Panel */}
+      {showLiveCamera && (
+        <div className="bg-gradient-to-r from-red-950 to-red-900 border-b border-red-800 px-4 py-4 sm:px-6 relative z-30">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-white flex items-center">
+              <Camera className="h-5 w-5 mr-2 text-red-400" />
+              Live Camera Feed - Real-time AI Analysis
+            </h3>
+            <Button
+              onClick={() => setShowLiveCamera(false)}
+              variant="ghost"
+              size="sm"
+              className="text-red-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <LiveCameraFeed 
+            language={currentLanguage}
+            onAnalysisResult={handleLiveCameraAnalysis}
+            voiceEnabled={voiceEnabled}
           />
         </div>
       )}

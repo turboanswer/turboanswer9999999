@@ -162,6 +162,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Live camera analysis endpoint
+  app.post("/api/analyze-live-camera", async (req, res) => {
+    try {
+      const { imageData, question, language, context } = req.body;
+      
+      if (!imageData) {
+        return res.status(400).json({ message: "Image data is required" });
+      }
+      
+      // Import live camera service
+      const { analyzeLiveCamera } = await import('./services/live-camera.js');
+      
+      const result = await analyzeLiveCamera({
+        imageData,
+        question: question || "What do you see?",
+        language: language || "en",
+        context
+      });
+      
+      res.json(result);
+      
+    } catch (error: any) {
+      console.error("Live camera analysis error:", error);
+      res.status(500).json({ 
+        message: error.message || "Failed to analyze live camera feed"
+      });
+    }
+  });
+
   // Language detection endpoint
   app.post("/api/detect-language", async (req, res) => {
     try {
