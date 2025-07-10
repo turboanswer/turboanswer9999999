@@ -222,20 +222,20 @@ export async function generateAIResponse(
       const shortContext = conversationHistory.slice(-1); // Only last message
       const contextText = shortContext.map(m => `${m.role}: ${m.content}`).join('\n');
       
-      const speedPrompt = `You are Turbo, a friendly AI assistant. Keep responses very short and conversational.
+      const speedPrompt = `You are Turbo, a helpful AI assistant. Provide clear, helpful responses.
 
 ${contextText ? `Context: ${contextText}\n` : ''}User: ${userMessage}
-Response (under 30 words):`;
+Assistant:`;
 
       try {
         const response = await ai.models.generateContent({
           model: "gemini-2.0-flash-exp", // Fastest model
           contents: speedPrompt,
           config: {
-            temperature: 0.1, // Even lower for maximum speed
-            maxOutputTokens: 25, // Ultra-short for sub-300ms responses
-            topP: 0.5,
-            topK: 8
+            temperature: 0.3, // Better balance for quality
+            maxOutputTokens: 150, // More reasonable length
+            topP: 0.8,
+            topK: 40
           }
         });
 
@@ -259,10 +259,10 @@ Response (under 30 words):`;
     }
     
     // Check for weather queries first - ENHANCED GLOBAL WEATHER
-    if (isWeatherQuery(userMessage)) {
+    if (isWeatherQuery(userMessage) && !userMessage.match(/\b(time to|best time|when to|how to)\b/i)) {
       console.log(`[Weather] Detected weather query`);
       const location = extractLocation(userMessage);
-      if (location) {
+      if (location && location.length > 2) {
         try {
           const weatherData = await getWeatherData(location);
           const locationData = await getLocationInfo(location);
@@ -287,13 +287,11 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
           console.error("Weather API error:", error);
           return `I'd love to get the weather for ${location}, but I'm having trouble accessing weather data right now. Please check if you have a weather API key configured!`;
         }
-      } else {
-        return "🌍 I can get weather for any location worldwide! Try: 'weather in Tokyo', 'what's the weather in Paris', or 'weather Sydney Australia'";
       }
     }
 
-    // Check for location queries - ENHANCED GLOBAL TRACKING
-    if (isLocationQuery(userMessage)) {
+    // Check for location queries - ENHANCED GLOBAL TRACKING (only for real location queries)
+    if (isLocationQuery(userMessage) && !isTimeZoneQuery(userMessage) && !userMessage.match(/\b(time to|best time|when to|how to)\b/i)) {
       console.log(`[Location] Detected location query`);
       const location = extractLocation(userMessage);
       if (location) {
@@ -364,22 +362,25 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
         return getTimeZoneInfo();
       }
     }
-
-    // Auto-detect conversation type for auto-select - SPEED OPTIMIZED
-    const isSimpleConversation = /\b(hi|hello|hey|what's up|how are you|thanks|thank you|okay|ok|yes|no|sure|turbo)\b/i.test(userMessage) || userMessage.length < 50;
     
-    if (isSimpleConversation) {
+    // Skip ultra-fast mode for questions that need proper AI responses
+    const needsProperAI = userMessage.includes('?') || userMessage.match(/\b(what|when|where|why|how|explain|tell me|help)\b/i);
+    
+    // Auto-detect conversation type for auto-select - SPEED OPTIMIZED
+    const isSimpleConversation = /\b(hi|hello|hey|what's up|how are you|thanks|thank you|okay|ok|yes|no|sure|turbo)\b/i.test(userMessage) && !needsProperAI;
+    
+    if (isSimpleConversation && userMessage.length < 30) {
       console.log(`[Speed AI] Using ultra-fast mode for simple conversation`);
       
       // Ultra-fast direct response for simple messages
       const quickResponse = await ai.models.generateContent({
         model: "gemini-2.0-flash-exp",
-        contents: `User: ${userMessage}\nTurbo (very brief):`,
+        contents: `User: ${userMessage}\nTurbo (brief friendly response):`,
         config: {
-          temperature: 0.1,
-          maxOutputTokens: 20,
-          topP: 0.5,
-          topK: 6
+          temperature: 0.2,
+          maxOutputTokens: 40,
+          topP: 0.8,
+          topK: 20
         }
       });
       

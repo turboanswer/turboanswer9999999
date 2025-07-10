@@ -427,25 +427,61 @@ export function isWeatherQuery(message: string): boolean {
 
 // Check if a message is asking for location/time information
 export function isLocationQuery(message: string): boolean {
-  const locationKeywords = ['time', 'timezone', 'where is', 'location', 'country', 'city', 'place'];
-  const messageWords = message.toLowerCase();
+  const msg = message.toLowerCase();
   
-  return locationKeywords.some(keyword => messageWords.includes(keyword));
+  // Skip questions about "time to do something"
+  if (msg.match(/\b(time to|best time|when to|how to|what's the best|good time|better time)\b/i)) {
+    return false;
+  }
+  
+  // Only match specific location query patterns
+  const locationPatterns = [
+    /\b(where is|location of|coordinates of|country of|city of)\b/i,
+    /\b(time in|timezone in|what time is it in)\b/i,
+    /\b(current time in|local time in)\b/i
+  ];
+  
+  return locationPatterns.some(pattern => pattern.test(msg));
 }
 
 // Extract location from user message
 export function extractLocation(message: string): string | null {
-  // Simple location extraction - looks for "in [location]" or "weather [location]"
+  const msg = message.toLowerCase();
+  
+  // Skip if it's clearly not a location query
+  if (msg.match(/\b(time to|best time|when to|how to|what's the best|good time|better time)\b/i)) {
+    return null;
+  }
+  
+  // Skip common timezone abbreviations that aren't places when at end of message
+  if (msg.match(/\b(est|pst|cst|mst|utc|gmt|edt|pdt|cdt|mdt)\b(\s*\?*\s*)$/i)) {
+    return null;
+  }
+  
+  // Enhanced location patterns - more specific
   const patterns = [
-    /(?:weather|temperature|time|in)\s+(?:in\s+)?([a-zA-Z\s,]+?)(?:\?|$|\.)/i,
-    /(?:what's|how's|current)\s+(?:the\s+)?(?:weather|time)\s+(?:in\s+)?([a-zA-Z\s,]+?)(?:\?|$|\.)/i,
-    /([a-zA-Z\s,]+)\s+(?:weather|time|temperature)/i
+    /(?:weather|temperature|forecast|climate)\s+(?:in|at|for|of)\s+([a-zA-Z\s,]{3,30})/i,
+    /(?:time)\s+(?:in|at|for|of)\s+([a-zA-Z\s,]{3,30})/i,
+    /(?:in|at|for|of)\s+([a-zA-Z\s,]{3,30})(?:\s+weather|\s+temperature|\s+forecast|\s+climate)/i,
+    /([a-zA-Z\s,]{3,30})\s+(?:weather|temperature|forecast|climate)$/i
   ];
   
   for (const pattern of patterns) {
     const match = message.match(pattern);
     if (match && match[1]) {
-      return match[1].trim();
+      let location = match[1].trim();
+      
+      // Clean up the location
+      location = location
+        .replace(/\b(weather|temperature|forecast|climate|time|the|a|an|is|are|in|at|for|of|to|from)\b/gi, '')
+        .replace(/[?.,!]/g, '')
+        .trim();
+      
+      // Validate location (must be reasonable length and not action words)
+      if (location.length >= 3 && location.length <= 50 && /[a-zA-Z]/.test(location) && 
+          !location.match(/\b(grill|cook|eat|sleep|work|study|exercise|run|walk|talk|play|watch|read|best|good|better|perfect|ideal)\b/i)) {
+        return location;
+      }
     }
   }
   
@@ -453,14 +489,21 @@ export function extractLocation(message: string): string | null {
 }
 
 export function isTimeZoneQuery(message: string): boolean {
+  const msg = message.toLowerCase();
+  
+  // Direct timezone abbreviation queries
+  if (msg.match(/\b(what time.*est|what time.*pst|what time.*cst|what time.*mst|time.*est|time.*pst|time.*cst|time.*mst)\b/i)) {
+    return true;
+  }
+  
   const timeZoneKeywords = [
-    'timezone', 'time zone', 'utc', 'gmt', 'est', 'pst', 'cst', 'mst',
+    'timezone', 'time zone', 'utc', 'gmt',
     'different time zones', 'world time', 'international time',
     'time difference', 'offset', 'daylight saving', 'time zones'
   ];
   
   return timeZoneKeywords.some(keyword => 
-    message.toLowerCase().includes(keyword)
+    msg.includes(keyword)
   );
 }
 
