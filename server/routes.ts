@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import path from "path";
 import Stripe from "stripe";
 import multer from "multer";
 import { storage } from "./storage";
@@ -914,5 +915,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  // Widget API endpoints for business integration
+  app.post('/api/widget/conversation', async (req, res) => {
+    try {
+      const { domain, userAgent } = req.body;
+      
+      // Create anonymous conversation for widget users
+      const conversation = await storage.createConversation({
+        title: `Widget Chat - ${domain}`,
+        userId: null // Anonymous widget user
+      });
+      
+      res.json({ 
+        conversationId: conversation.id,
+        status: 'success'
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        error: 'Failed to create conversation',
+        message: error.message 
+      });
+    }
+  });
+
+  app.post('/api/widget/message', async (req, res) => {
+    try {
+      const { message, conversationId, domain } = req.body;
+      
+      if (!message || !conversationId) {
+        return res.status(400).json({ error: 'Message and conversationId required' });
+      }
+      
+      // Store user message
+      await storage.createMessage({
+        conversationId,
+        content: message,
+        role: 'user'
+      });
+      
+      // Generate AI response optimized for business use
+      const businessPrompt = `You are a helpful business AI assistant embedded in a website widget. 
+      The user is visiting: ${domain}
+      
+      Provide helpful, professional, and concise responses. Be friendly but business-appropriate.
+      If asked about products/services, be helpful but suggest contacting the business directly for specific details.
+      
+      User message: ${message}`;
+      
+      const aiResponse = await generateAIResponse(businessPrompt, [], 'free', 'gemini-pro');
+      
+      // Store AI response
+      await storage.createMessage({
+        conversationId,
+        content: aiResponse,
+        role: 'assistant'
+      });
+      
+      res.json({ 
+        response: aiResponse,
+        conversationId,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        error: 'Failed to process message',
+        message: error.message 
+      });
+    }
+  });
+
+  // Serve widget files
+  app.get('/widget/turbo-widget.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(path.join(__dirname, '../widget/turbo-widget.js'));
+  });
+
+  app.get('/widget/integration-guide', (req, res) => {
+    res.sendFile(path.join(__dirname, '../widget/integration-guide.html'));
+  });
+
   return httpServer;
 }

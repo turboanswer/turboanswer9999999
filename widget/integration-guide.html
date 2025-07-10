@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turbo Answer AI Widget - Integration Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 0;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border-radius: 12px;
+        }
+        .integration-step {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+        .demo-section {
+            background: #fff;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 30px 0;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .feature-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .config-table th,
+        .config-table td {
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            text-align: left;
+        }
+        .config-table th {
+            background: #f9fafb;
+            font-weight: 600;
+        }
+        .button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 500;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Turbo Answer AI Widget</h1>
+        <p>Embed powerful AI assistance into any website in minutes</p>
+    </div>
+
+    <div class="integration-step">
+        <h2>🎯 Quick Integration (2 Minutes)</h2>
+        <p>Add this single line of code to your website:</p>
+        
+        <div class="code-block">
+&lt;script src="https://turbo-answer-ai.uc.r.appspot.com/widget/turbo-widget.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+TurboWidget.init({
+    apiKey: 'your-api-key-here',
+    primaryColor: '#3b82f6',
+    position: 'bottom-right'
+});
+&lt;/script&gt;
+        </div>
+        
+        <p>That's it! Your AI assistant is now live on your website.</p>
+    </div>
+
+    <div class="demo-section">
+        <h2>🎨 Live Demo</h2>
+        <p>Click the blue chat button in the bottom-right corner to see the widget in action!</p>
+        <button class="button" onclick="TurboWidget.open()">Open Widget Demo</button>
+    </div>
+
+    <div class="integration-step">
+        <h2>⚙️ Configuration Options</h2>
+        
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>Option</th>
+                    <th>Type</th>
+                    <th>Default</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>apiKey</code></td>
+                    <td>string</td>
+                    <td>null</td>
+                    <td>Your Turbo Answer API key for authenticated access</td>
+                </tr>
+                <tr>
+                    <td><code>primaryColor</code></td>
+                    <td>string</td>
+                    <td>#3b82f6</td>
+                    <td>Widget color to match your brand</td>
+                </tr>
+                <tr>
+                    <td><code>position</code></td>
+                    <td>string</td>
+                    <td>bottom-right</td>
+                    <td>Widget position: bottom-right, bottom-left, top-right, top-left</td>
+                </tr>
+                <tr>
+                    <td><code>theme</code></td>
+                    <td>string</td>
+                    <td>auto</td>
+                    <td>Color theme: light, dark, auto</td>
+                </tr>
+                <tr>
+                    <td><code>size</code></td>
+                    <td>string</td>
+                    <td>medium</td>
+                    <td>Widget size: small, medium, large</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="integration-step">
+        <h2>🔧 Advanced Configuration</h2>
+        
+        <div class="code-block">
+&lt;script&gt;
+TurboWidget.init({
+    apiKey: 'your-api-key-here',
+    primaryColor: '#ff6b35',        // Your brand color
+    position: 'bottom-left',        // Widget position
+    theme: 'dark',                  // Dark theme
+    size: 'large',                  // Larger widget
+    
+    // Custom welcome message
+    welcomeMessage: 'Hi! How can I help with your business today?',
+    
+    // Analytics tracking
+    onMessage: function(message, response) {
+        // Track user interactions
+        gtag('event', 'ai_chat', {
+            'message_length': message.length,
+            'response_time': response.time
+        });
+    }
+});
+&lt;/script&gt;
+        </div>
+    </div>
+
+    <div class="feature-grid">
+        <div class="feature-card">
+            <h3>🤖 AI-Powered Responses</h3>
+            <p>Multiple AI models including GPT-4, Claude, and Gemini for intelligent responses across all business domains.</p>
+        </div>
+        
+        <div class="feature-card">
+            <h3>🎨 Brand Customization</h3>
+            <p>Match your brand colors, position the widget anywhere, and customize the appearance to fit your website.</p>
+        </div>
+        
+        <div class="feature-card">
+            <h3>📱 Mobile Responsive</h3>
+            <p>Works perfectly on mobile, tablet, and desktop. Automatic responsive design for all screen sizes.</p>
+        </div>
+        
+        <div class="feature-card">
+            <h3>🔒 Enterprise Security</h3>
+            <p>Secure API authentication, GDPR compliant, and enterprise-grade data protection.</p>
+        </div>
+        
+        <div class="feature-card">
+            <h3>📊 Analytics Ready</h3>
+            <p>Built-in hooks for Google Analytics, custom tracking, and user behavior analysis.</p>
+        </div>
+        
+        <div class="feature-card">
+            <h3>⚡ Lightning Fast</h3>
+            <p>Sub-300ms response times, CDN delivery, and optimized for high-traffic websites.</p>
+        </div>
+    </div>
+
+    <div class="integration-step">
+        <h2>🌐 Website Examples</h2>
+        
+        <h3>E-commerce Store</h3>
+        <div class="code-block">
+&lt;script&gt;
+TurboWidget.init({
+    apiKey: 'your-api-key',
+    primaryColor: '#10b981',
+    welcomeMessage: 'Hi! Need help finding the perfect product?',
+    position: 'bottom-right'
+});
+&lt;/script&gt;
+        </div>
+        
+        <h3>SaaS Platform</h3>
+        <div class="code-block">
+&lt;script&gt;
+TurboWidget.init({
+    apiKey: 'your-api-key',
+    primaryColor: '#8b5cf6',
+    welcomeMessage: 'Welcome! How can I help you get started?',
+    position: 'bottom-left',
+    size: 'large'
+});
+&lt;/script&gt;
+        </div>
+        
+        <h3>Professional Services</h3>
+        <div class="code-block">
+&lt;script&gt;
+TurboWidget.init({
+    apiKey: 'your-api-key',
+    primaryColor: '#1f2937',
+    welcomeMessage: 'Hello! I can help answer your questions about our services.',
+    theme: 'dark'
+});
+&lt;/script&gt;
+        </div>
+    </div>
+
+    <div class="integration-step">
+        <h2>📈 API Integration</h2>
+        <p>For advanced features, you can integrate with our REST API:</p>
+        
+        <div class="code-block">
+// Send message programmatically
+TurboWidget.sendMessage('Tell me about your pricing');
+
+// Open widget automatically
+TurboWidget.open();
+
+// Close widget
+TurboWidget.close();
+
+// Listen for events
+TurboWidget.on('message', function(data) {
+    console.log('User sent:', data.message);
+    console.log('AI replied:', data.response);
+});
+        </div>
+    </div>
+
+    <div class="integration-step">
+        <h2>🎯 Business Use Cases</h2>
+        
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>Customer Support</h4>
+                <p>24/7 instant responses to common questions, troubleshooting, and support ticket creation.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h4>Sales Assistant</h4>
+                <p>Product recommendations, pricing information, and lead qualification.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h4>Technical Documentation</h4>
+                <p>Interactive help with complex technical topics, API documentation, and tutorials.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h4>Educational Content</h4>
+                <p>Answer questions about courses, provide learning assistance, and guide users through content.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="integration-step">
+        <h2>🚀 Get Started</h2>
+        <p>Ready to add AI assistance to your website?</p>
+        
+        <ol>
+            <li><strong>Get your API key:</strong> Contact us for your business API key</li>
+            <li><strong>Add the script:</strong> Copy the integration code to your website</li>
+            <li><strong>Customize:</strong> Match your brand colors and preferences</li>
+            <li><strong>Go live:</strong> Your AI assistant is ready to help customers!</li>
+        </ol>
+        
+        <a href="mailto:turboanswer@hotmail.com?subject=Widget API Key Request" class="button">
+            Request API Key
+        </a>
+        
+        <a href="#" class="button" onclick="TurboWidget.open(); return false;">
+            Try Demo
+        </a>
+    </div>
+
+    <!-- Include the widget for demonstration -->
+    <script src="./turbo-widget.js"></script>
+    <script>
+        TurboWidget.init({
+            primaryColor: '#3b82f6',
+            position: 'bottom-right',
+            welcomeMessage: 'Hi! This is a demo of the Turbo Answer AI widget. Ask me anything!'
+        });
+    </script>
+</body>
+</html>
