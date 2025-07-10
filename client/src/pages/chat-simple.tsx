@@ -239,25 +239,7 @@ export default function ChatSimple() {
             </button>
           </Link>
           
-          <button
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            style={{
-              padding: '8px',
-              backgroundColor: '#dc2626',
-              border: 'none',
-              borderRadius: '8px',
-              color: 'white',
-              cursor: logoutMutation.isPending ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: logoutMutation.isPending ? 0.6 : 1
-            }}
-            title={logoutMutation.isPending ? 'Logging out...' : 'Logout'}
-          >
-            <LogOut size={16} />
-          </button>
+
           
           <button
             onClick={() => {
@@ -277,6 +259,36 @@ export default function ChatSimple() {
             <Plus size={16} />
           </button>
         </div>
+      </div>
+
+      {/* Logout Button - Bottom Right */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        zIndex: 1000
+      }}>
+        <button
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
+          style={{
+            padding: '12px',
+            backgroundColor: '#dc2626',
+            border: 'none',
+            borderRadius: '50%',
+            color: 'white',
+            cursor: logoutMutation.isPending ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: logoutMutation.isPending ? 0.6 : 1,
+            boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+            transition: 'all 0.2s ease'
+          }}
+          title={logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+        >
+          <LogOut size={20} />
+        </button>
       </div>
 
       {/* Messages */}

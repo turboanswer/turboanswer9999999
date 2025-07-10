@@ -263,7 +263,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 
 ## Recent Changes: Latest modifications with dates
 
-### July 10, 2025 - AAB Conversion Complete + Home Screen & AI Settings + Privacy Policy + 5-Day Lifetime Trial
+### July 10, 2025 - AAB Conversion Complete + Home Screen & AI Settings + Privacy Policy + 5-Day Lifetime Trial + Logout Functionality + Standalone Privacy Website
 - ✅ Full Android App Bundle (AAB) conversion completed
 - ✅ Production React build optimized (351KB)
 - ✅ Capacitor Android project synced with AAB configuration
@@ -283,3 +283,8 @@ Subscription preference: Lifetime free premium access through promo code system 
 - ✅ Added trial button with instant activation (no credit card required)
 - ✅ Trial includes all Lifetime Pro features: unlimited messages, premium AI models, priority support
 - ✅ Backend trial tracking with `/api/start-trial` endpoint and proper user subscription management
+- ✅ Added logout functionality with `/api/logout` endpoint and proper session management
+- ✅ Moved logout buttons to bottom-right corner as floating circular buttons on both chat and home pages
+- ✅ Created standalone privacy policy website (`privacy-policy-website.html`) with full URL deployment guide
+- ✅ Comprehensive privacy policy website includes SEO optimization, responsive design, and legal compliance
+- ✅ Deployment guide covers GitHub Pages, Netlify, Vercel, and custom domain options for privacy policy hosting

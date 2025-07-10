@@ -156,15 +156,14 @@ export default function Home() {
         </div>
 
         {/* Logout Button */}
-        <div className="fixed top-4 right-4">
+        <div className="fixed bottom-4 right-4">
           <Button
             onClick={() => logoutMutation.mutate()}
             disabled={logoutMutation.isPending}
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 text-white rounded-full p-4"
             size="sm"
           >
-            <LogOut className="h-4 w-4 mr-2" />
-            {logoutMutation.isPending ? 'Logging out...' : 'Logout'}
+            <LogOut className="h-5 w-5" />
           </Button>
         </div>
       </div>
