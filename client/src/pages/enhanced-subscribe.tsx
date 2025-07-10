@@ -34,8 +34,8 @@ const SUBSCRIPTION_PLANS = {
     ]
   },
   pro: {
-    name: "Pro",
-    price: "$3.99",
+    name: "Pro Monthly",
+    price: "$9.99",
     period: "/month",
     description: "Advanced AI models and premium features",
     icon: Crown,
@@ -51,20 +51,20 @@ const SUBSCRIPTION_PLANS = {
       "Model selection"
     ]
   },
-  premium: {
-    name: "Premium",
-    price: "$9.99", 
-    period: "/month",
-    description: "Ultimate AI experience with cutting-edge models",
+  yearly: {
+    name: "Pro Yearly",
+    price: "$149.99", 
+    period: "/year",
+    description: "Best value - save 25% with annual billing",
     icon: Star,
-    color: "from-yellow-500 to-orange-500",
+    color: "from-green-500 to-blue-500",
     features: [
-      "OpenAI GPT-4 Turbo",
-      "Anthropic Claude 3 Opus",
-      "Google Gemini Ultra",
-      "Unlimited everything",
+      "Everything in Pro Monthly",
+      "Save $69.89 per year",
+      "Annual billing convenience",
+      "Priority support",
+      "No monthly payment hassles",
       "Advanced analytics",
-      "24/7 priority support",
       "Early access to new models",
       "Custom AI training"
     ]

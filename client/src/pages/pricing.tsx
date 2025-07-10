@@ -42,7 +42,7 @@ const plans: PricingPlan[] = [
   {
     id: 'monthly',
     name: 'Pro Monthly',
-    price: '$6.99',
+    price: '$9.99',
     period: 'per month',
     description: 'Perfect for regular users who want full access',
     features: [
@@ -56,7 +56,7 @@ const plans: PricingPlan[] = [
       'Document analysis'
     ],
     popular: true,
-    priceId: 'price_monthly_699' // This should be set in Stripe dashboard
+    priceId: 'price_monthly_999' // This should be set in Stripe dashboard
   },
   {
     id: 'trial',
@@ -72,27 +72,45 @@ const plans: PricingPlan[] = [
       'Advanced voice features',
       'Early access to new AI models',
       'No credit card required',
-      'Upgrade to Lifetime Pro after trial ($159.99)'
+      'Upgrade to Pro after trial (from $9.99/month)'
     ],
     popular: true
   },
   {
+    id: 'yearly',
+    name: 'Pro Yearly',
+    price: '$149.99',
+    period: 'per year',
+    description: 'Best value - save over 25% with annual billing',
+    features: [
+      'Everything in Pro Monthly',
+      'Save $69.89 per year vs monthly',
+      'Annual billing convenience',
+      'Priority support',
+      'No monthly payment hassles',
+      'Future feature updates included',
+      'Advanced customization options',
+      'API access (coming soon)'
+    ],
+    priceId: 'price_yearly_14999' // This should be set in Stripe dashboard
+  },
+  {
     id: 'lifetime',
     name: 'Lifetime Pro',
-    price: '$159.99',
+    price: '$299.99',
     period: 'one-time',
-    description: 'Best value for power users - pay once, use forever',
+    description: 'Ultimate value - pay once, use forever',
     features: [
       'Everything in Pro Monthly',
       'Lifetime access to all features',
-      'No recurring payments',
+      'No recurring payments ever',
       'Future feature updates included',
       'Premium priority support',
       'Early access to new AI models',
       'Advanced customization options',
       'API access (coming soon)'
     ],
-    priceId: 'price_lifetime_15999' // This should be set in Stripe dashboard
+    priceId: 'price_lifetime_29999' // This should be set in Stripe dashboard
   }
 ];
 
@@ -168,7 +186,7 @@ function SubscribeForm({ plan }: { plan: PricingPlan }) {
       const response = await apiRequest('POST', '/api/create-payment-intent', {
         planId: plan.id,
         priceId: plan.priceId,
-        amount: plan.id === 'monthly' ? 699 : 15999 // Amount in cents
+        amount: plan.id === 'monthly' ? 999 : plan.id === 'yearly' ? 14999 : 29999 // Amount in cents
       });
 
       const { clientSecret } = response;
