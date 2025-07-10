@@ -1,4 +1,4 @@
-import { users, conversations, messages, type User, type InsertUser, type Conversation, type InsertConversation, type Message, type InsertMessage } from "@shared/schema";
+import { users, conversations, messages, auditLogs, type User, type InsertUser, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -20,6 +20,16 @@ export interface IStorage {
   flagUser(userId: number, reason: string): Promise<User>;
   unflagUser(userId: number): Promise<User>;
   validateEmployeeCredentials(username: string, password: string): Promise<User | null>;
+  
+  // Suspension management methods
+  suspendUser(userId: number, reason: string, employeeId: number, employeeUsername: string): Promise<User>;
+  unsuspendUser(userId: number, employeeId: number, employeeUsername: string): Promise<User>;
+  
+  // Audit log methods
+  createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(limit?: number): Promise<AuditLog[]>;
+  getAuditLogsByUser(userId: number): Promise<AuditLog[]>;
+  getAuditLogsByEmployee(employeeId: number): Promise<AuditLog[]>;
   
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getConversation(id: number): Promise<Conversation | undefined>;
@@ -218,6 +228,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");
+
+    // Create audit log entry for ban action
+    await this.createAuditLog({
+      employeeId: 1, // Demo employee ID
+      employeeUsername: 'admin', // Demo employee username
+      action: 'ban',
+      targetUserId: userId,
+      targetUsername: user.username,
+      reason,
+      details: `User banned for: ${reason}`
+    });
+
     return user;
   }
 
@@ -231,6 +253,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");
+
+    // Create audit log entry for unban action
+    await this.createAuditLog({
+      employeeId: 1, // Demo employee ID
+      employeeUsername: 'admin', // Demo employee username
+      action: 'unban',
+      targetUserId: userId,
+      targetUsername: user.username,
+      details: `User unbanned by admin`
+    });
+
     return user;
   }
 
@@ -244,6 +277,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");
+
+    // Create audit log entry for flag action
+    await this.createAuditLog({
+      employeeId: 1, // Demo employee ID
+      employeeUsername: 'admin', // Demo employee username
+      action: 'flag',
+      targetUserId: userId,
+      targetUsername: user.username,
+      reason,
+      details: `User flagged for: ${reason}`
+    });
+
     return user;
   }
 
@@ -257,6 +302,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");
+
+    // Create audit log entry for unflag action
+    await this.createAuditLog({
+      employeeId: 1, // Demo employee ID
+      employeeUsername: 'admin', // Demo employee username
+      action: 'unflag',
+      targetUserId: userId,
+      targetUsername: user.username,
+      details: `User unflagged by admin`
+    });
+
     return user;
   }
 
@@ -266,6 +322,93 @@ export class DatabaseStorage implements IStorage {
       return user;
     }
     return null;
+  }
+
+  // Suspension management methods implementation
+  async suspendUser(userId: number, reason: string, employeeId: number, employeeUsername: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        isSuspended: true, 
+        suspensionReason: reason,
+        suspendedAt: new Date(),
+        suspendedBy: employeeUsername
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+
+    // Create audit log entry
+    await this.createAuditLog({
+      employeeId,
+      employeeUsername,
+      action: 'suspend',
+      targetUserId: userId,
+      targetUsername: user.username,
+      reason,
+      details: `User suspended by ${employeeUsername}`
+    });
+
+    return user;
+  }
+
+  async unsuspendUser(userId: number, employeeId: number, employeeUsername: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        isSuspended: false, 
+        suspensionReason: null,
+        suspendedAt: null,
+        suspendedBy: null
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+
+    // Create audit log entry
+    await this.createAuditLog({
+      employeeId,
+      employeeUsername,
+      action: 'unsuspend',
+      targetUserId: userId,
+      targetUsername: user.username,
+      details: `User unsuspended by ${employeeUsername}`
+    });
+
+    return user;
+  }
+
+  // Audit log methods implementation
+  async createAuditLog(insertAuditLog: InsertAuditLog): Promise<AuditLog> {
+    const [auditLog] = await db
+      .insert(auditLogs)
+      .values(insertAuditLog)
+      .returning();
+    return auditLog;
+  }
+
+  async getAuditLogs(limit: number = 100): Promise<AuditLog[]> {
+    return await db
+      .select()
+      .from(auditLogs)
+      .orderBy(auditLogs.timestamp)
+      .limit(limit);
+  }
+
+  async getAuditLogsByUser(userId: number): Promise<AuditLog[]> {
+    return await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.targetUserId, userId))
+      .orderBy(auditLogs.timestamp);
+  }
+
+  async getAuditLogsByEmployee(employeeId: number): Promise<AuditLog[]> {
+    return await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.employeeId, employeeId))
+      .orderBy(auditLogs.timestamp);
   }
 }
 

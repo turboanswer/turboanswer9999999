@@ -56,9 +56,10 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Gemini Pro**: Multimodal capabilities and research
 
 ### Database Schema
-- **Users**: User management with subscription support (username, password, email, Stripe customer/subscription IDs, subscription status/tier, preferred AI model)
+- **Users**: User management with subscription support (username, password, email, Stripe customer/subscription IDs, subscription status/tier, preferred AI model, employee flags, ban/flag/suspension status with reasons and timestamps)
 - **Conversations**: Chat sessions with titles and timestamps (removed thread ID dependency)
 - **Messages**: Individual messages with conversation references, content, role (user/assistant), and timestamps
+- **Audit Logs**: Comprehensive tracking of all employee actions (suspend, unsuspend, ban, unban, flag, unflag) with detailed context, timestamps, IP addresses, and employee attribution
 
 ### Promo Code System
 - **LIFETIME_FREE**: Grants permanent premium access with no recurring charges
@@ -91,6 +92,11 @@ Subscription preference: Lifetime free premium access through promo code system 
 - `POST /api/employee/users/:id/unban` - Remove user ban (employee only)
 - `POST /api/employee/users/:id/flag` - Flag user with reason (employee only)
 - `POST /api/employee/users/:id/unflag` - Remove user flag (employee only)
+- `POST /api/employee/users/:id/suspend` - Suspend user with reason and audit trail (employee only)
+- `POST /api/employee/users/:id/unsuspend` - Remove user suspension with audit trail (employee only)
+- `GET /api/employee/audit-logs` - Get comprehensive audit trail of all employee actions
+- `GET /api/employee/users/:id/audit-logs` - Get audit history for specific user
+- `GET /api/employee/employees/:id/audit-logs` - Get audit history for specific employee
 
 ### Frontend Pages
 - **Chat Page** (`/`): Main chat interface with conversation management, document upload, and user authentication

@@ -17,6 +17,10 @@ export const users = pgTable("users", {
   isFlagged: boolean("is_flagged").default(false), // User flag status
   flagReason: text("flag_reason"), // Reason for flagging
   banReason: text("ban_reason"), // Reason for banning
+  isSuspended: boolean("is_suspended").default(false), // User suspension status
+  suspensionReason: text("suspension_reason"), // Reason for suspension
+  suspendedAt: timestamp("suspended_at"), // When user was suspended
+  suspendedBy: text("suspended_by"), // Employee who suspended the user
   createdAt: timestamp("created_at").defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
 });
@@ -57,3 +61,33 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+
+// Audit Log table for tracking employee actions
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").references(() => users.id).notNull(),
+  employeeUsername: text("employee_username").notNull(),
+  action: text("action").notNull(), // 'suspend', 'unsuspend', 'ban', 'unban', 'flag', 'unflag'
+  targetUserId: integer("target_user_id").references(() => users.id).notNull(),
+  targetUsername: text("target_username").notNull(),
+  reason: text("reason"),
+  details: text("details"), // Additional context or notes
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+});
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).pick({
+  employeeId: true,
+  employeeUsername: true,
+  action: true,
+  targetUserId: true,
+  targetUsername: true,
+  reason: true,
+  details: true,
+  ipAddress: true,
+  userAgent: true,
+});
+
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;

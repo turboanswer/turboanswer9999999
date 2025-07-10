@@ -525,6 +525,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Suspend user (Employee only)
+  app.post('/api/employee/users/:id/suspend', async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { reason, employeeId, employeeUsername } = req.body;
+      
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({ message: 'Suspension reason is required' });
+      }
+
+      if (!employeeId || !employeeUsername) {
+        return res.status(400).json({ message: 'Employee information is required' });
+      }
+      
+      const user = await storage.suspendUser(userId, reason.trim(), employeeId, employeeUsername);
+      res.json({ 
+        message: 'User suspended successfully', 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          isSuspended: user.isSuspended,
+          suspensionReason: user.suspensionReason,
+          suspendedBy: user.suspendedBy
+        }
+      });
+    } catch (error: any) {
+      console.error('Suspend user error:', error);
+      res.status(500).json({ message: error.message || 'Failed to suspend user' });
+    }
+  });
+
+  // Unsuspend user (Employee only)
+  app.post('/api/employee/users/:id/unsuspend', async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const { employeeId, employeeUsername } = req.body;
+
+      if (!employeeId || !employeeUsername) {
+        return res.status(400).json({ message: 'Employee information is required' });
+      }
+      
+      const user = await storage.unsuspendUser(userId, employeeId, employeeUsername);
+      res.json({ 
+        message: 'User unsuspended successfully', 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          isSuspended: user.isSuspended
+        }
+      });
+    } catch (error: any) {
+      console.error('Unsuspend user error:', error);
+      res.status(500).json({ message: error.message || 'Failed to unsuspend user' });
+    }
+  });
+
+  // Get audit logs (Employee only)
+  app.get('/api/employee/audit-logs', async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const auditLogs = await storage.getAuditLogs(limit);
+      res.json(auditLogs);
+    } catch (error: any) {
+      console.error('Get audit logs error:', error);
+      res.status(500).json({ message: 'Failed to fetch audit logs' });
+    }
+  });
+
+  // Get audit logs for specific user (Employee only)
+  app.get('/api/employee/users/:id/audit-logs', async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      const auditLogs = await storage.getAuditLogsByUser(userId);
+      res.json(auditLogs);
+    } catch (error: any) {
+      console.error('Get user audit logs error:', error);
+      res.status(500).json({ message: 'Failed to fetch user audit logs' });
+    }
+  });
+
+  // Get audit logs for specific employee (Employee only)
+  app.get('/api/employee/employees/:id/audit-logs', async (req, res) => {
+    try {
+      const employeeId = parseInt(req.params.id);
+      const auditLogs = await storage.getAuditLogsByEmployee(employeeId);
+      res.json(auditLogs);
+    } catch (error: any) {
+      console.error('Get employee audit logs error:', error);
+      res.status(500).json({ message: 'Failed to fetch employee audit logs' });
+    }
+  });
+
   // File upload and document analysis
   app.post("/api/analyze-document", upload.single('document'), async (req, res) => {
     try {
