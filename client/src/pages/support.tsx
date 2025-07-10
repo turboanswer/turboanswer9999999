@@ -271,8 +271,10 @@ export default function Support() {
               <p style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '12px' }}>
                 Review our comprehensive privacy policy and terms of use
               </p>
-              <Link
-                to="/privacy-policy"
+              <a 
+                href="https://turboanswer.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
                 style={{
                   display: 'inline-block',
                   padding: '8px 16px',
@@ -282,12 +284,31 @@ export default function Support() {
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontWeight: '600',
-                  transition: 'background-color 0.2s'
+                  transition: 'background-color 0.2s',
+                  marginRight: '8px'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
               >
-                📋 View Privacy Policy
+                📋 Privacy Policy (turboanswer.com)
+              </a>
+              <Link
+                to="/privacy-policy"
+                style={{
+                  display: 'inline-block',
+                  padding: '6px 12px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4b5563'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6b7280'}
+              >
+                Local Version
               </Link>
             </div>
           </div>
