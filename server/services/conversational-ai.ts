@@ -1,7 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { emotionalAI } from './emotional-ai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 interface ConversationPersonality {
   style: 'friendly' | 'professional' | 'casual' | 'enthusiastic' | 'supportive';
@@ -71,21 +71,23 @@ export class ConversationalAI {
     const contextHistory = this.buildConversationContext(conversationHistory, userProfile);
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-exp", // Maximum speed model
-        config: {
-          systemInstruction: conversationalPrompt,
-          temperature: 0.3, // Lower for faster responses
-          maxOutputTokens: 60, // Much shorter for speed
-        },
-        contents: [
-          ...contextHistory.slice(-2), // Only last 2 messages for speed
-          `User message: "${userMessage}"`,
-          `Keep response under 50 words and conversational`
-        ].join("\n\n")
+      const model = ai.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction: conversationalPrompt,
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 60,
+        }
       });
 
-      const aiResponse = response.text || this.getFallbackResponse(userProfile, emotionalContext);
+      const contextString = [
+        ...contextHistory.slice(-2),
+        `User message: "${userMessage}"`,
+        `Keep response under 50 words and conversational`
+      ].join("\n\n");
+
+      const response = await model.generateContent(contextString);
+      const aiResponse = response.response.text() || this.getFallbackResponse(userProfile, emotionalContext);
       
       // Update conversation history
       userProfile.conversationHistory.push({

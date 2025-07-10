@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // DON'T DELETE THIS COMMENT
 // Follow these instructions when using this blueprint:
@@ -6,7 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 //   - do not change this unless explicitly requested by the user
 
 // This API key is from Gemini Developer API Key, not vertex AI API Key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function generateAIResponse(userMessage: string, conversationHistory: Array<{role: string, content: string}> = [], subscriptionTier: string = "free"): Promise<string> {
   try {
@@ -69,10 +69,9 @@ Assistant: Please provide a helpful, accurate response.`;
     const model = "gemini-2.0-flash-exp"; // Most advanced and fastest model
     
     // TURBO SPEED SETTINGS: Optimized for maximum performance
-    const response = await ai.models.generateContent({
+    const modelInstance = ai.getGenerativeModel({ 
       model,
-      contents: fullPrompt,
-      config: {
+      generationConfig: {
         temperature: 0.2, // Optimized for speed and accuracy
         maxOutputTokens: userMessage.length < 15 ? 75 : userMessage.length < 50 ? 150 : 300, // Dynamic response length
         topP: 0.8, // Higher for better quality
@@ -81,7 +80,9 @@ Assistant: Please provide a helpful, accurate response.`;
       }
     });
 
-    const responseText = response.text || "I apologize, but I'm having trouble generating a response right now. Please try asking your question again.";
+    const result = await modelInstance.generateContent(fullPrompt);
+    const response = await result.response;
+    const responseText = response.text() || "I apologize, but I'm having trouble generating a response right now. Please try asking your question again.";
     
     return responseText;
     

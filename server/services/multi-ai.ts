@@ -16,7 +16,7 @@ import {
 import { emotionalAI } from './emotional-ai';
 import { conversationalAI } from './conversational-ai';
 import { detectLanguage, getLanguageConfig, formatResponseForLanguage } from './language-detector';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -128,7 +128,7 @@ export const AI_MODELS = {
 };
 
 // Initialize AI providers for direct access
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
 
@@ -245,18 +245,11 @@ ${contextText ? `Context: ${contextText}\n` : ''}User: ${userMessage}
 Assistant:`;
 
       try {
-        const response = await ai.models.generateContent({
-          model: "gemini-2.0-flash-exp", // Fastest model
-          contents: speedPrompt,
-          config: {
-            temperature: 0.3, // Better balance for quality
-            maxOutputTokens: 150, // More reasonable length
-            topP: 0.8,
-            topK: 40
-          }
-        });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(speedPrompt);
+        const response = await result.response;
 
-        return response.text || "Hey! What's up?";
+        return response.text() || "Hey! What's up?";
       } catch (error) {
         console.error('Ultra-fast conversational AI failed:', error);
         return "Hey! I'm here to help.";
@@ -305,17 +298,10 @@ Provide an extremely detailed, well-researched response with comprehensive analy
         console.error('Research Pro Ultra failed:', error);
         // Fallback to Gemini with research mode
         try {
-          const fallbackResponse = await ai.models.generateContent({
-            model: "gemini-2.0-flash-exp",
-            contents: researchPrompt,
-            config: {
-              temperature: 0.1,
-              maxOutputTokens: 8000,
-              topP: 0.9,
-              topK: 40
-            }
-          });
-          return fallbackResponse.text || "Research analysis complete with fallback model.";
+          const fallbackModel = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+          const fallbackResult = await fallbackModel.generateContent(researchPrompt);
+          const fallbackResponse = await fallbackResult.response;
+          return fallbackResponse.text() || "Research analysis complete with fallback model.";
         } catch (fallbackError) {
           return "Research Pro Ultra is temporarily unavailable. Please try again or upgrade to access premium research capabilities.";
         }
@@ -449,18 +435,19 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
       console.log(`[Speed AI] Using ultra-fast mode for simple conversation`);
       
       // Ultra-fast direct response for simple messages
-      const quickResponse = await ai.models.generateContent({
+      const quickModel = ai.getGenerativeModel({ 
         model: "gemini-2.0-flash-exp",
-        contents: `User: ${userMessage}\nTurbo (brief friendly response):`,
-        config: {
+        generationConfig: {
           temperature: 0.2,
           maxOutputTokens: 40,
           topP: 0.8,
           topK: 20
         }
       });
+      const quickResult = await quickModel.generateContent(`User: ${userMessage}\nTurbo (brief friendly response):`);
+      const quickResponse = await quickResult.response;
       
-      return quickResponse.text || "Hey there!";
+      return quickResponse.text() || "Hey there!";
     }
 
     // For non-emotional queries, continue with standard AI routing

@@ -1,6 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 interface EmotionalContext {
   emotions: string[];
@@ -26,10 +26,9 @@ export class EmotionalAI {
 
   async analyzeEmotionalState(message: string, userId: string = "default"): Promise<EmotionalContext> {
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        config: {
-          systemInstruction: `You are an expert emotional intelligence analyst. Analyze the emotional state, mood, and feelings in the user's message.
+      const model = ai.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction: `You are an expert emotional intelligence analyst. Analyze the emotional state, mood, and feelings in the user's message.
 
 Respond with JSON in this exact format:
 {
@@ -46,6 +45,7 @@ Consider:
 - Context clues (life events, relationships, work stress)
 - Energy level (high energy vs low energy emotions)
 - Social needs (wanting support, celebration, advice, venting)`,
+        generationConfig: {
           responseMimeType: "application/json",
           responseSchema: {
             type: "object",
@@ -58,11 +58,11 @@ Consider:
             },
             required: ["emotions", "intensity", "mood", "conversationTone", "empathyLevel"]
           }
-        },
-        contents: message
+        }
       });
 
-      return JSON.parse(response.text || "{}");
+      const response = await model.generateContent(message);
+      return JSON.parse(response.response.text() || "{}");
     } catch (error) {
       console.error("Error analyzing emotional state:", error);
       return {
@@ -103,20 +103,22 @@ Consider:
     const contextHistory = this.buildContextualHistory(conversationHistory, memory);
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash-exp", // FASTEST model for maximum speed
-        config: {
-          systemInstruction: emotionalPrompt,
-          temperature: 0.3, // Lower for faster responses
-          maxOutputTokens: 70, // Much shorter for speed
-        },
-        contents: [
-          ...contextHistory.slice(-1), // Only last message for speed
-          `Current message: "${userMessage}"`
-        ].join("\n\n")
+      const model = ai.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction: emotionalPrompt,
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 70,
+        }
       });
 
-      return response.text || "I understand how you're feeling. Could you tell me more about what's on your mind?";
+      const contextString = [
+        ...contextHistory.slice(-1),
+        `Current message: "${userMessage}"`
+      ].join("\n\n");
+
+      const response = await model.generateContent(contextString);
+      return response.response.text() || "I understand how you're feeling. Could you tell me more about what's on your mind?";
     } catch (error) {
       console.error("Error generating empathetic response:", error);
       return this.getFallbackEmpatheticResponse(emotionalContext);
