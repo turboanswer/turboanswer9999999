@@ -20,6 +20,7 @@ import EmployeeLogin from "@/pages/employee-login";
 import EmployeeDashboard from "@/pages/employee-dashboard";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Business from "@/pages/business";
+import Integration from "@/pages/integration";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/employee/dashboard" component={EmployeeDashboard} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/business" component={Business} />
+      <Route path="/integration" component={Integration} />
       <Route component={NotFound} />
     </Switch>
   );
