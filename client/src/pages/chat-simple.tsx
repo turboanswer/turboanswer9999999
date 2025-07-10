@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { Send, Mic, Plus, HelpCircle, DollarSign } from 'lucide-react';
+import { Send, Mic, Plus, HelpCircle, DollarSign, Home, Settings, Zap } from 'lucide-react';
 import { Link } from 'wouter';
+import { Button } from '@/components/ui/button';
 
 interface Message {
   id: number;
@@ -21,7 +22,16 @@ export default function ChatSimple() {
   const [message, setMessage] = useState('');
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [isTyping, setIsTyping] = useState(false);
+  const [selectedAIModel, setSelectedAIModel] = useState('auto');
   const queryClient = useQueryClient();
+
+  // Load AI model preference
+  useEffect(() => {
+    const savedModel = localStorage.getItem('preferredAIModel');
+    if (savedModel) {
+      setSelectedAIModel(savedModel);
+    }
+  }, []);
 
   console.log('ChatSimple rendered, currentConversationId:', currentConversationId);
 
@@ -53,7 +63,7 @@ export default function ChatSimple() {
           setIsTyping(true);
           sendMessageMutation.mutate({
             message: pendingMessage,
-            aiModel: 'auto',
+            aiModel: selectedAIModel,
           });
         }, 200);
       }
@@ -102,7 +112,7 @@ export default function ChatSimple() {
     setIsTyping(true);
     sendMessageMutation.mutate({
       message: message.trim(),
-      aiModel: 'auto',
+      aiModel: selectedAIModel,
     });
   };
 
@@ -149,6 +159,44 @@ export default function ChatSimple() {
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Link href="/home">
+            <button
+              style={{
+                padding: '8px',
+                backgroundColor: '#1a1a1a',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Home"
+            >
+              <Home size={16} />
+            </button>
+          </Link>
+
+          <Link href="/ai-settings">
+            <button
+              style={{
+                padding: '8px',
+                backgroundColor: '#1a1a1a',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="AI Settings"
+            >
+              <Settings size={16} />
+            </button>
+          </Link>
+          
           <Link href="/pricing">
             <button
               style={{
@@ -165,25 +213,6 @@ export default function ChatSimple() {
               title="Pricing"
             >
               <DollarSign size={16} />
-            </button>
-          </Link>
-          
-          <Link href="/support">
-            <button
-              style={{
-                padding: '8px',
-                backgroundColor: '#1a1a1a',
-                border: 'none',
-                borderRadius: '8px',
-                color: 'white',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Support"
-            >
-              <HelpCircle size={16} />
             </button>
           </Link>
           
