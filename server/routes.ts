@@ -617,6 +617,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Enhanced super admin endpoints for chat history tracking
+  app.get('/api/super-admin/all-conversations', async (req, res) => {
+    try {
+      // Check if user has super admin privileges
+      const { username } = req.query;
+      if (username !== 'tiagotschantret') {
+        return res.status(403).json({ message: 'Access denied. Super admin privileges required.' });
+      }
+
+      const user = await storage.getUserByUsername(username as string);
+      if (!user || !user.canViewAllChats || user.employeeRole !== 'super_admin') {
+        return res.status(403).json({ message: 'Insufficient privileges' });
+      }
+
+      const allConversations = await storage.getAllConversationsWithMessages();
+      res.json({
+        total: allConversations.length,
+        conversations: allConversations
+      });
+    } catch (error: any) {
+      console.error('Get all conversations error:', error);
+      res.status(500).json({ message: 'Failed to fetch conversations' });
+    }
+  });
+
+  app.get('/api/super-admin/search-conversations', async (req, res) => {
+    try {
+      const { username, search } = req.query;
+      if (username !== 'tiagotschantret') {
+        return res.status(403).json({ message: 'Access denied. Super admin privileges required.' });
+      }
+
+      const user = await storage.getUserByUsername(username as string);
+      if (!user || !user.canViewAllChats || user.employeeRole !== 'super_admin') {
+        return res.status(403).json({ message: 'Insufficient privileges' });
+      }
+
+      if (!search || typeof search !== 'string') {
+        return res.status(400).json({ message: 'Search term is required' });
+      }
+
+      const searchResults = await storage.searchConversationsByContent(search);
+      res.json({
+        searchTerm: search,
+        total: searchResults.length,
+        results: searchResults
+      });
+    } catch (error: any) {
+      console.error('Search conversations error:', error);
+      res.status(500).json({ message: 'Failed to search conversations' });
+    }
+  });
+
+  app.get('/api/super-admin/user/:id/conversations', async (req, res) => {
+    try {
+      const { username } = req.query;
+      if (username !== 'tiagotschantret') {
+        return res.status(403).json({ message: 'Access denied. Super admin privileges required.' });
+      }
+
+      const user = await storage.getUserByUsername(username as string);
+      if (!user || !user.canViewAllChats || user.employeeRole !== 'super_admin') {
+        return res.status(403).json({ message: 'Insufficient privileges' });
+      }
+
+      const userId = parseInt(req.params.id);
+      const userConversations = await storage.getUserConversationsWithMessages(userId);
+      const targetUser = await storage.getUser(userId);
+      
+      res.json({
+        user: targetUser ? { id: targetUser.id, username: targetUser.username, email: targetUser.email } : null,
+        total: userConversations.length,
+        conversations: userConversations
+      });
+    } catch (error: any) {
+      console.error('Get user conversations error:', error);
+      res.status(500).json({ message: 'Failed to fetch user conversations' });
+    }
+  });
+
   // File upload and document analysis
   app.post("/api/analyze-document", upload.single('document'), async (req, res) => {
     try {

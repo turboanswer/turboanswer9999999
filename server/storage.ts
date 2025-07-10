@@ -39,6 +39,11 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   getMessagesByConversation(conversationId: number): Promise<Message[]>;
   getMessages(): Promise<Message[]>;
+  
+  // Enhanced chat history tracking methods
+  getAllConversationsWithMessages(): Promise<Array<{conversation: Conversation, messages: Message[]}>>;
+  getUserConversationsWithMessages(userId: number): Promise<Array<{conversation: Conversation, messages: Message[]}>>;
+  searchConversationsByContent(searchTerm: string): Promise<Array<{conversation: Conversation, messages: Message[], matches: number}>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -409,6 +414,46 @@ export class DatabaseStorage implements IStorage {
       .from(auditLogs)
       .where(eq(auditLogs.employeeId, employeeId))
       .orderBy(auditLogs.timestamp);
+  }
+
+  // Enhanced chat history tracking methods implementation
+  async getAllConversationsWithMessages(): Promise<Array<{conversation: Conversation, messages: Message[]}>> {
+    const allConversations = await db.select().from(conversations).orderBy(conversations.createdAt);
+    const result = [];
+    
+    for (const conversation of allConversations) {
+      const conversationMessages = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.conversationId, conversation.id))
+        .orderBy(messages.timestamp);
+      result.push({ conversation, messages: conversationMessages });
+    }
+    
+    return result;
+  }
+
+  async getUserConversationsWithMessages(userId: number): Promise<Array<{conversation: Conversation, messages: Message[]}>> {
+    // Note: In the current schema, conversations are not linked to users
+    // This method returns all conversations for now, but in production you'd want user-specific conversations
+    return await this.getAllConversationsWithMessages();
+  }
+
+  async searchConversationsByContent(searchTerm: string): Promise<Array<{conversation: Conversation, messages: Message[], matches: number}>> {
+    const allConversations = await this.getAllConversationsWithMessages();
+    const results = [];
+    
+    for (const { conversation, messages } of allConversations) {
+      const matches = messages.filter(msg => 
+        msg.content.toLowerCase().includes(searchTerm.toLowerCase())
+      ).length;
+      
+      if (matches > 0) {
+        results.push({ conversation, messages, matches });
+      }
+    }
+    
+    return results.sort((a, b) => b.matches - a.matches);
   }
 }
 

@@ -13,6 +13,9 @@ export const users = pgTable("users", {
   subscriptionTier: text("subscription_tier").default("free"), // 'free', 'pro', 'premium'
   preferredModel: text("preferred_model").default("gemini-2.0-flash-exp"), // Default to maximum performance model
   isEmployee: boolean("is_employee").default(false), // Employee access flag
+  employeeRole: text("employee_role").default("basic"), // 'basic', 'admin', 'super_admin'
+  canViewAllChats: boolean("can_view_all_chats").default(false), // Permission to view all user chat histories
+  canBanUsers: boolean("can_ban_users").default(false), // Permission to ban/unban users
   isBanned: boolean("is_banned").default(false), // User ban status
   isFlagged: boolean("is_flagged").default(false), // User flag status
   flagReason: text("flag_reason"), // Reason for flagging
