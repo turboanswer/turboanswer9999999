@@ -1,4 +1,5 @@
 import { Mail, Phone, MessageCircle, Clock, HelpCircle } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Support() {
   return (
