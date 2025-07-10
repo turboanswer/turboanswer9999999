@@ -21,6 +21,7 @@ import EmployeeDashboard from "@/pages/employee-dashboard";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Business from "@/pages/business";
 import Integration from "@/pages/integration";
+import Simple from "@/pages/simple";
 
 function Router() {
   return (
@@ -40,6 +41,7 @@ function Router() {
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/business" component={Business} />
       <Route path="/integration" component={Integration} />
+      <Route path="/simple" component={Simple} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -11,10 +11,10 @@
     const WIDGET_CONFIG = {
         apiBase: 'https://turbo-answer-ai.uc.r.appspot.com',
         version: '2.0.0',
-        theme: 'auto', // 'light', 'dark', 'auto'
-        position: 'bottom-right', // 'bottom-right', 'bottom-left', 'top-right', 'top-left'
+        theme: 'light',
+        position: 'bottom-right',
         primaryColor: '#3b82f6',
-        size: 'medium' // 'small', 'medium', 'large'
+        size: 'medium'
     };
 
     // Widget state
@@ -71,8 +71,8 @@
                         align-items: center;
                     ">
                         <div>
-                            <div style="font-weight: 600; font-size: 16px;">Turbo AI Assistant</div>
-                            <div style="font-size: 12px; opacity: 0.9;">Ask me anything!</div>
+                            <div style="font-weight: 600; font-size: 16px;">AI Assistant</div>
+                            <div style="font-size: 12px; opacity: 0.9;">How can I help?</div>
                         </div>
                         <button id="turbo-widget-close" style="
                             background: none;
@@ -100,7 +100,7 @@
                             max-width: 85%;
                             align-self: flex-start;
                         ">
-                            Hi! I'm your AI assistant. How can I help you today?
+                            Hi! How can I help you?
                         </div>
                     </div>
 
