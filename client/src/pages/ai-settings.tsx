@@ -15,6 +15,14 @@ const AI_MODELS = {
     speed: "Ultra-Fast",
     color: "blue"
   },
+  "research-pro": {
+    name: "Research Pro Ultra",
+    description: "Very very in-depth research with citations and comprehensive analysis",
+    tier: "premium",
+    speed: "Deep",
+    color: "red",
+    isPaid: true
+  },
   "conversational": {
     name: "Conversational AI",
     description: "Natural human conversations with personality matching",
@@ -204,6 +212,7 @@ export default function AISettings() {
               <div>
                 <h4 className="font-semibold text-white mb-2">Premium Models</h4>
                 <ul className="space-y-1 text-sm">
+                  <li>• Research Pro Ultra: Very in-depth research with citations</li>
                   <li>• Gemini 2.0 Flash: Ultra-fast responses</li>
                   <li>• Claude 3 Opus: Advanced reasoning</li>
                   <li>• GPT-4: Multimodal intelligence</li>

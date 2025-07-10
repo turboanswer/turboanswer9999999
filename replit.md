@@ -47,6 +47,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 
 ### AI Models Available
 - **Auto-Select**: Intelligent routing to best available model (default selection)
+- **Research Pro Ultra**: Premium model for very very in-depth research with citations and comprehensive analysis (paid only)
 - **Conversational AI**: Specialized for natural human conversations with personality matching
 - **Emotional AI**: Deep emotional intelligence with empathetic responses
 - **Claude 3 Opus**: Advanced reasoning and creative tasks

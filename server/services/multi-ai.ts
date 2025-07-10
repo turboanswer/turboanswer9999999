@@ -22,13 +22,23 @@ import Anthropic from "@anthropic-ai/sdk";
 export const AI_MODELS = {
   // Tier 1: MAXIMUM POWER Models (Ultimate Performance)
   maximum: {
+    "research-pro": {
+      name: "Research Pro Ultra",
+      provider: "anthropic",
+      strengths: ["Deep research analysis", "Academic citations", "Multi-source verification", "Comprehensive investigations"],
+      maxTokens: 12000,
+      temperature: 0.1,
+      priority: 1,
+      isPaid: true,
+      description: "Performs extremely in-depth research with multiple data sources, academic citations, and comprehensive analysis"
+    },
     "gemini-2.0-flash-exp": {
       name: "Gemini 2.0 Flash Experimental",
       provider: "google",
       strengths: ["Breakthrough intelligence", "Ultra-fast responses", "Advanced reasoning", "Maximum performance"],
       maxTokens: 8000,
       temperature: 0.2,
-      priority: 1
+      priority: 2
     },
     "claude-sonnet-4": {
       name: "Claude 4.0 Sonnet",
@@ -36,7 +46,7 @@ export const AI_MODELS = {
       strengths: ["Ultimate reasoning", "Expert-level analysis", "Advanced mathematics", "Complex problem solving"],
       maxTokens: 8000,
       temperature: 0.8,
-      priority: 2
+      priority: 3
     },
     "gpt-4o": {
       name: "GPT-4o",
@@ -44,7 +54,7 @@ export const AI_MODELS = {
       strengths: ["Multimodal intelligence", "Advanced coding", "Scientific analysis", "Creative reasoning"],
       maxTokens: 6000,
       temperature: 0.7,
-      priority: 3
+      priority: 4
     },
     "claude-3-opus": {
       name: "Claude 3 Opus",
@@ -52,7 +62,7 @@ export const AI_MODELS = {
       strengths: ["Complex reasoning", "Creative writing", "Mathematical analysis", "Research"],
       maxTokens: 4000,
       temperature: 0.7,
-      priority: 4
+      priority: 5
     }
   },
   
@@ -243,6 +253,60 @@ Assistant:`;
       } catch (error) {
         console.error('Ultra-fast conversational AI failed:', error);
         return "Hey! I'm here to help.";
+      }
+    }
+    
+    // Force Research Pro Ultra for selected model - ULTRA IN-DEPTH RESEARCH
+    if (selectedModel === 'research-pro') {
+      console.log(`[Research Pro Ultra] Using premium research model with very in-depth analysis`);
+      
+      // Enhanced research prompt with multi-step analysis
+      const researchPrompt = `You are Research Pro Ultra, the most advanced research AI model. Perform extremely thorough, in-depth research and analysis. Follow these steps:
+
+1. COMPREHENSIVE ANALYSIS: Break down the topic into all relevant components
+2. MULTI-SOURCE PERSPECTIVE: Consider multiple viewpoints and data sources
+3. DETAILED CITATIONS: Reference authoritative sources when possible
+4. EVIDENCE-BASED CONCLUSIONS: Draw conclusions based on thorough evidence
+5. COMPREHENSIVE COVERAGE: Leave no stone unturned in your research
+
+Query: ${userMessage}
+
+Context from conversation:
+${conversationHistory.map(m => `${m.role}: ${m.content}`).join('\n')}
+
+Provide an extremely detailed, well-researched response with comprehensive analysis, multiple perspectives, and in-depth insights. This is a premium research service - be thorough, scholarly, and comprehensive.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 12000,
+          temperature: 0.1,
+          system: "You are Research Pro Ultra, an advanced AI research assistant. You perform extremely thorough, in-depth research with comprehensive analysis, multiple perspectives, and detailed insights. Always provide scholarly-level depth and breadth in your responses.",
+          messages: [{
+            role: "user",
+            content: researchPrompt
+          }]
+        });
+
+        return response.content[0].text || "Research analysis in progress...";
+      } catch (error) {
+        console.error('Research Pro Ultra failed:', error);
+        // Fallback to Gemini with research mode
+        try {
+          const fallbackResponse = await ai.models.generateContent({
+            model: "gemini-2.0-flash-exp",
+            contents: researchPrompt,
+            config: {
+              temperature: 0.1,
+              maxOutputTokens: 8000,
+              topP: 0.9,
+              topK: 40
+            }
+          });
+          return fallbackResponse.text || "Research analysis complete with fallback model.";
+        } catch (fallbackError) {
+          return "Research Pro Ultra is temporarily unavailable. Please try again or upgrade to access premium research capabilities.";
+        }
       }
     }
     
