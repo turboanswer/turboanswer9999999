@@ -143,6 +143,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Visual AI analysis endpoint
+  app.post("/api/analyze-image", async (req, res) => {
+    try {
+      const { imageData, query } = req.body;
+      
+      if (!imageData) {
+        return res.status(400).json({ message: "Image data is required" });
+      }
+
+      const { analyzeImage } = await import("./services/visual-ai");
+      const analysis = await analyzeImage(imageData, query);
+      
+      res.json(analysis);
+    } catch (error: any) {
+      console.error("Image analysis error:", error);
+      res.status(500).json({ message: error.message || "Failed to analyze image" });
+    }
+  });
+
+  // Language detection endpoint
+  app.post("/api/detect-language", async (req, res) => {
+    try {
+      const { text } = req.body;
+      
+      if (!text) {
+        return res.status(400).json({ message: "Text is required" });
+      }
+
+      const { detectLanguage, getLanguageConfig } = await import("./services/language-detector");
+      const languageCode = detectLanguage(text);
+      const languageConfig = getLanguageConfig(languageCode);
+      
+      res.json({ 
+        language: languageCode, 
+        config: languageConfig 
+      });
+    } catch (error: any) {
+      console.error("Language detection error:", error);
+      res.status(500).json({ message: "Failed to detect language" });
+    }
+  });
+
+  // Get available languages
+  app.get("/api/languages", async (req, res) => {
+    try {
+      const { getAvailableLanguages } = await import("./services/language-detector");
+      const languages = getAvailableLanguages();
+      res.json(languages);
+    } catch (error: any) {
+      console.error("Get languages error:", error);
+      res.status(500).json({ message: "Failed to get available languages" });
+    }
+  });
+
   // Send a message and get AI response
   app.post("/api/conversations/:id/messages", async (req, res) => {
     try {
@@ -181,7 +235,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversationHistory,
         "premium", // Use premium tier for maximum performance
         req.body.selectedModel || "auto-select", // Intelligent model selection
-        userId
+        userId,
+        req.body.language || "en" // Support multi-language responses
       );
 
       // Create AI message

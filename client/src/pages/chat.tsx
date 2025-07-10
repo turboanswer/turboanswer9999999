@@ -4,12 +4,15 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Bot, User, Mic, MicOff, Volume2, FileText, X, Brain, Settings, LogOut } from "lucide-react";
+import { Send, Bot, User, Mic, MicOff, Volume2, FileText, X, Brain, Settings, LogOut, Camera, Globe } from "lucide-react";
 import { Link } from "wouter";
 import { TurboLogo } from "@/components/TurboLogo";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentUpload } from "@/components/DocumentUpload";
+import CameraCapture from "@/components/CameraCapture";
+import LanguageSelector from "@/components/LanguageSelector";
+import ContinuousConversation from "@/components/ContinuousConversation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Conversation, Message } from "@shared/schema";
 
@@ -21,7 +24,12 @@ export default function Chat() {
   const [isRecognitionSupported, setIsRecognitionSupported] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState("auto");
+  const [currentLanguage, setCurrentLanguage] = useState("en");
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
+  const [continuousMode, setContinuousMode] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -38,6 +46,24 @@ export default function Chat() {
         setUser(JSON.parse(userData));
       } catch (e) {
         localStorage.removeItem('turbo_user');
+      }
+    }
+    
+    // Load saved language preference
+    const savedLanguage = localStorage.getItem('turbo_language');
+    if (savedLanguage) {
+      setCurrentLanguage(savedLanguage);
+    }
+    
+    // Load voice settings
+    const voiceSettings = localStorage.getItem('turbo_voice_settings');
+    if (voiceSettings) {
+      try {
+        const settings = JSON.parse(voiceSettings);
+        setVoiceEnabled(settings.voiceEnabled || false);
+        setWakeWordEnabled(settings.wakeWordEnabled || false);
+      } catch (e) {
+        console.error('Failed to load voice settings:', e);
       }
     }
     
@@ -95,7 +121,8 @@ export default function Chat() {
       if (!currentConversationId) throw new Error("No conversation selected");
       const response = await apiRequest("POST", `/api/conversations/${currentConversationId}/messages`, {
         content,
-        selectedModel: selectedAIModel
+        selectedModel: selectedAIModel,
+        language: currentLanguage // Include language support
       });
       return response.json();
     },
@@ -328,6 +355,69 @@ export default function Chat() {
     }
   };
 
+  // Language change handler
+  const handleLanguageChange = (languageCode: string) => {
+    setCurrentLanguage(languageCode);
+    localStorage.setItem('turbo_language', languageCode);
+    toast({
+      title: "Language Changed",
+      description: `Switched to ${languageCode.toUpperCase()}`,
+    });
+  };
+
+  // Voice settings handlers
+  const handleToggleVoice = (enabled: boolean) => {
+    setVoiceEnabled(enabled);
+    const settings = { voiceEnabled: enabled, wakeWordEnabled };
+    localStorage.setItem('turbo_voice_settings', JSON.stringify(settings));
+  };
+
+  const handleToggleWakeWord = (enabled: boolean) => {
+    setWakeWordEnabled(enabled);
+    const settings = { voiceEnabled, wakeWordEnabled: enabled };
+    localStorage.setItem('turbo_voice_settings', JSON.stringify(settings));
+  };
+
+  // Camera analysis handlers
+  const handleCameraCapture = (imageData: string) => {
+    console.log('Camera captured image');
+  };
+
+  const handleImageAnalysis = async (imageData: string) => {
+    try {
+      const response = await apiRequest("POST", "/api/analyze-image", {
+        imageData,
+        query: "What do you see in this image?"
+      });
+      const analysis = await response.json();
+      
+      if (analysis.description) {
+        // Send the analysis as a message
+        sendMessageMutation.mutate(`📸 **Camera Analysis**: ${analysis.description}`);
+      }
+    } catch (error) {
+      console.error('Image analysis error:', error);
+      toast({
+        title: "Camera Analysis Failed",
+        description: "Unable to analyze the image. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Speech input handler for continuous conversation
+  const handleSpeechInput = (text: string) => {
+    setMessageContent(text);
+    if (text.trim()) {
+      handleSendMessage();
+    }
+  };
+
+  // Speech output handler
+  const handleSpeechOutput = (text: string) => {
+    speakResponse(text);
+  };
+
   const formatTimestamp = (timestamp: string | Date) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -396,7 +486,7 @@ export default function Chat() {
           {/* Second Row: AI Controls Always Visible */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {/* Document Upload Section */}
+              {/* Document Upload & Camera Section */}
               <div className="flex items-center space-x-2">
                 <Button
                   onClick={() => setShowDocumentUpload(!showDocumentUpload)}
@@ -410,9 +500,42 @@ export default function Chat() {
                   <FileText className="h-4 w-4 mr-2" />
                   Upload Doc
                 </Button>
-                {showDocumentUpload && (
+                <Button
+                  onClick={() => setShowCamera(!showCamera)}
+                  variant={showCamera ? "default" : "outline"}
+                  size="sm"
+                  className={showCamera ? 
+                    "bg-purple-600 hover:bg-purple-700 text-white" : 
+                    "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+                  }
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Camera
+                </Button>
+                {(showDocumentUpload || showCamera) && (
                   <div className="text-xs text-purple-300">• Active</div>
                 )}
+              </div>
+
+              {/* Language & Voice Controls */}
+              <div className="flex items-center space-x-2">
+                <LanguageSelector 
+                  currentLanguage={currentLanguage} 
+                  onLanguageChange={handleLanguageChange} 
+                />
+                <Button
+                  onClick={() => setContinuousMode(!continuousMode)}
+                  variant={continuousMode ? "default" : "outline"}
+                  size="sm"
+                  className={continuousMode ? 
+                    "bg-green-600 hover:bg-green-700 text-white" : 
+                    "bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700"
+                  }
+                  title="Continuous conversation mode"
+                >
+                  <Globe className="h-4 w-4 mr-2" />
+                  Live Chat
+                </Button>
               </div>
 
               {/* AI Model Selection */}
@@ -464,6 +587,60 @@ export default function Chat() {
           <DocumentUpload 
             conversationId={currentConversationId} 
             onAnalysisComplete={handleDocumentAnalysis}
+          />
+        </div>
+      )}
+
+      {/* Camera Panel */}
+      {showCamera && (
+        <div className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 sm:px-6 relative z-30">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-white">Camera Analysis</h3>
+            <Button
+              onClick={() => setShowCamera(false)}
+              variant="ghost"
+              size="sm"
+              className="text-zinc-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <CameraCapture 
+            onCapture={handleCameraCapture}
+            onAnalysis={handleImageAnalysis}
+          />
+        </div>
+      )}
+
+      {/* Continuous Conversation Panel */}
+      {continuousMode && (
+        <div className="bg-gradient-to-r from-green-950 to-green-900 border-b border-green-800 px-4 py-4 sm:px-6 relative z-30">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-white flex items-center">
+              <Globe className="h-5 w-5 mr-2 text-green-400" />
+              Live Conversation Mode - Speak naturally!
+            </h3>
+            <Button
+              onClick={() => setContinuousMode(false)}
+              variant="ghost"
+              size="sm"
+              className="text-green-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <ContinuousConversation
+            onSpeechInput={handleSpeechInput}
+            onSpeechOutput={handleSpeechOutput}
+            isListening={isListening}
+            isSpeaking={isSpeaking}
+            language={currentLanguage}
+            onToggleListening={() => setIsListening(!isListening)}
+            onToggleSpeaking={() => setIsSpeaking(!isSpeaking)}
+            onToggleWakeWord={handleToggleWakeWord}
+            wakeWordEnabled={wakeWordEnabled}
+            voiceEnabled={voiceEnabled}
+            onToggleVoice={handleToggleVoice}
           />
         </div>
       )}

@@ -15,6 +15,7 @@ import {
 } from "./weather-location";
 import { emotionalAI } from './emotional-ai';
 import { conversationalAI } from './conversational-ai';
+import { detectLanguage, getLanguageConfig, formatResponseForLanguage } from './language-detector';
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -221,7 +222,8 @@ export async function generateAIResponse(
   conversationHistory: Array<{role: string, content: string}> = [],
   subscriptionTier: string = "free",
   selectedModel?: string,
-  userId?: string
+  userId?: string,
+  userLanguage: string = "en"
 ): Promise<string> {
   try {
     // Force conversational AI for selected model - MAXIMUM SPEED MODE
@@ -232,7 +234,12 @@ export async function generateAIResponse(
       const shortContext = conversationHistory.slice(-1); // Only last message
       const contextText = shortContext.map(m => `${m.role}: ${m.content}`).join('\n');
       
+      // Language-aware prompt
+      const languageInstruction = userLanguage !== "en" ? 
+        `Important: Respond in ${userLanguage.toUpperCase()} language. The user is communicating in ${userLanguage}.` : "";
+      
       const speedPrompt = `You are Turbo, a helpful AI assistant. Provide clear, helpful responses.
+${languageInstruction}
 
 ${contextText ? `Context: ${contextText}\n` : ''}User: ${userMessage}
 Assistant:`;
@@ -260,8 +267,13 @@ Assistant:`;
     if (selectedModel === 'research-pro') {
       console.log(`[Research Pro Ultra] Using premium research model with very in-depth analysis`);
       
+      // Language-aware research prompt
+      const languageInstruction = userLanguage !== "en" ? 
+        `Important: Respond in ${userLanguage.toUpperCase()} language. The user is communicating in ${userLanguage}.` : "";
+      
       // Enhanced research prompt with multi-step analysis
       const researchPrompt = `You are Research Pro Ultra, the most advanced research AI model. Perform extremely thorough, in-depth research and analysis. Follow these steps:
+${languageInstruction}
 
 1. COMPREHENSIVE ANALYSIS: Break down the topic into all relevant components
 2. MULTI-SOURCE PERSPECTIVE: Consider multiple viewpoints and data sources
@@ -537,8 +549,7 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
     
     // FORCE GEMINI for maximum power with available API key
     if (hasGemini) {
-      const { generateAIResponse: generateGeminiAI } = await import('./gemini.js');
-      return await generateGeminiAI(enhancedMessage, conversationHistory, subscriptionTier);
+      return await generateGeminiResponse(enhancedMessage, conversationHistory, finalModel, intent, additionalContext, userLanguage);
     } else if (hasAnthropic && (finalModel.includes('claude') || finalModel.includes('sonnet'))) {
       return await generateAnthropicResponse(enhancedMessage, conversationHistory, finalModel, intent, additionalContext);
     } else if (hasOpenAI && finalModel === 'gpt-3.5-turbo') {
@@ -565,7 +576,8 @@ async function generateGeminiResponse(
   context: Array<{role: string, content: string}>,
   model: string,
   userIntent: any,
-  additionalContext: string
+  additionalContext: string,
+  userLanguage: string = "en"
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -574,12 +586,16 @@ async function generateGeminiResponse(
   
   const modelConfig = AI_MODELS.maximum[model] || AI_MODELS.premium[model] || AI_MODELS.advanced[model] || AI_MODELS.advanced['gemini-pro'];
   
-  // Simple, fast response system prompt
+  // Simple, fast response system prompt with language support
   const isSimpleQuery = userMessage.length < 50 || /\b(what|when|where|who|how|yes|no|hi|hello|hey|turbo)\b/i.test(userMessage);
+  const languageInstruction = userLanguage !== "en" ? 
+    `CRITICAL: Respond in ${userLanguage.toUpperCase()} language. The user is communicating in ${userLanguage}. ALL responses must be in ${userLanguage}.` : "";
   
   const systemPrompt = isSimpleQuery ? 
-    `You are Turbo, a fast voice assistant. Give direct, simple answers. Keep responses under 2 sentences for simple questions. Be conversational and helpful.` :
+    `You are Turbo, a fast voice assistant. Give direct, simple answers. Keep responses under 2 sentences for simple questions. Be conversational and helpful.
+    ${languageInstruction}` :
     `You are Turbo Answer, an advanced AI assistant. Provide clear, helpful responses. For simple questions, keep answers brief and direct. For complex questions, provide detailed explanations.
+    ${languageInstruction}
     
     Current context: ${userIntent.domain} domain, ${userIntent.complexity} complexity
     ${additionalContext}`;
