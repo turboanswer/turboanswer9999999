@@ -197,7 +197,7 @@ export function VoiceInterface({
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = selectedLanguage;
-    recognition.maxAlternatives = 3;
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
       console.log('🎤 Speech recognition started');
@@ -227,8 +227,8 @@ export function VoiceInterface({
         onMessage(finalTranscript.trim());
         setCurrentTranscript('');
         
-        // Auto-stop listening after receiving message (except in continuous mode)
-        if (recognitionRef.current && !isWakeWordActive && !isContinuousMode) {
+        // In continuous mode, keep listening
+        if (!isContinuousMode && recognitionRef.current && !isWakeWordActive) {
           recognitionRef.current.stop();
         }
       }
@@ -363,21 +363,32 @@ export function VoiceInterface({
       voice.lang.startsWith(langPrefix) || voice.lang.startsWith(language)
     );
     
-    // Try to find gender-specific voice
-    const genderKeywords = VOICE_GENDER_KEYWORDS[gender];
-    const genderVoice = languageVoices.find(voice => {
+    // For male voices, prioritize natural and enhanced voices
+    const maleKeywords = ['male', 'man', 'david', 'alex', 'daniel', 'mark', 'tom', 'james', 'matthew', 'christopher', 'natural', 'enhanced'];
+    
+    // Try to find natural/enhanced male voice first
+    const naturalMaleVoice = languageVoices.find(voice => {
       const voiceName = voice.name.toLowerCase();
-      return genderKeywords.some(keyword => voiceName.includes(keyword));
+      return (voiceName.includes('natural') || voiceName.includes('enhanced')) && 
+             maleKeywords.some(keyword => voiceName.includes(keyword));
     });
     
-    if (genderVoice) return genderVoice;
+    if (naturalMaleVoice) return naturalMaleVoice;
+    
+    // Try any male voice
+    const maleVoice = languageVoices.find(voice => {
+      const voiceName = voice.name.toLowerCase();
+      return maleKeywords.some(keyword => voiceName.includes(keyword));
+    });
+    
+    if (maleVoice) return maleVoice;
     
     // Fallback: prefer enhanced/premium voices
     const enhancedVoice = languageVoices.find(voice => 
       voice.name.includes('Enhanced') || 
       voice.name.includes('Premium') || 
       voice.name.includes('Neural') ||
-      voice.name.includes('High Quality')
+      voice.name.includes('Natural')
     );
     
     if (enhancedVoice) return enhancedVoice;
@@ -394,19 +405,18 @@ export function VoiceInterface({
     speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const personality = VOICE_PERSONALITIES[voiceGender][selectedLanguage] || 
-                       VOICE_PERSONALITIES[voiceGender].default;
     
+    // Use male voice settings like ChatGPT
     utterance.lang = selectedLanguage;
-    utterance.rate = personality.rate;
-    utterance.pitch = personality.pitch;
-    utterance.volume = personality.volume;
+    utterance.rate = 1.0; // Normal speed
+    utterance.pitch = 0.9; // Slightly lower pitch for male voice
+    utterance.volume = 1.0;
 
-    // Find the best voice for gender and language
-    const bestVoice = findBestVoice(voiceGender, selectedLanguage);
+    // Find the best male voice for language
+    const bestVoice = findBestVoice('male', selectedLanguage);
     if (bestVoice) {
       utterance.voice = bestVoice;
-      console.log(`🔊 Using ${voiceGender} voice: ${bestVoice.name} (${bestVoice.lang})`);
+      console.log(`🔊 Using male voice: ${bestVoice.name} (${bestVoice.lang})`);
     }
 
     utterance.onstart = () => {
@@ -784,15 +794,14 @@ export const useSpeakText = (selectedLanguage: string = 'en-US', voiceGender: 'm
     speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const personality = VOICE_PERSONALITIES[voiceGender][selectedLanguage] || 
-                       VOICE_PERSONALITIES[voiceGender].default;
     
+    // Use male voice settings like ChatGPT
     utterance.lang = selectedLanguage;
-    utterance.rate = personality.rate;
-    utterance.pitch = personality.pitch;
-    utterance.volume = personality.volume;
+    utterance.rate = 1.0; // Normal speed
+    utterance.pitch = 0.9; // Slightly lower pitch for male voice
+    utterance.volume = 1.0;
 
-    const bestVoice = findBestVoice(voiceGender, selectedLanguage);
+    const bestVoice = findBestVoice('male', selectedLanguage);
     if (bestVoice) {
       utterance.voice = bestVoice;
     }
