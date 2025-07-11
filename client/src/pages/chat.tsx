@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Bot, User, Mic, MicOff, Volume2, FileText, X, Brain, Settings, LogOut, Camera, Globe } from "lucide-react";
 import { Link } from "wouter";
-import { TurboLogo } from "@/components/TurboLogo";
+// Logo integrated directly in component
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useToast } from "@/hooks/use-toast";
 import { DocumentUpload } from "@/components/DocumentUpload";
@@ -457,10 +457,17 @@ export default function Chat() {
           {/* Top Row: Logo and User Controls */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <TurboLogo size={60} />
+              <div className="relative">
+                <img 
+                  src="/src/assets/turboanswer-logo.png" 
+                  alt="TURBOANSWER AI Robot" 
+                  className="w-16 h-16 object-contain animate-pulse hover:animate-bounce transition-all duration-300"
+                />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+              </div>
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-wide">TURBO ANSWER</h1>
-                <p className="text-sm text-purple-300 font-medium">Maximum Power AI System</p>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent tracking-wide">TURBOANSWER</h1>
+                <p className="text-sm text-cyan-400 font-medium">NEVER STOP INNOVATING</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">

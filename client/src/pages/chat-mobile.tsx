@@ -301,12 +301,17 @@ export default function ChatMobile() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-800">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-sm font-bold">T</span>
+          <div className="relative">
+            <img 
+              src="/src/assets/turboanswer-logo.png" 
+              alt="TURBOANSWER AI Robot" 
+              className="w-10 h-10 object-contain animate-pulse hover:animate-bounce transition-all duration-300"
+            />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
           </div>
           <div>
-            <h1 className="text-lg font-semibold">Turbo</h1>
-            <p className="text-xs text-blue-400">AI Assistant</p>
+            <h1 className="text-lg font-semibold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">TURBOANSWER</h1>
+            <p className="text-xs text-cyan-400 font-medium">NEVER STOP INNOVATING</p>
           </div>
         </div>
         
@@ -366,16 +371,21 @@ export default function ChatMobile() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center py-8 px-6">
-            {/* Main Logo */}
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <span className="text-2xl font-bold text-white">T</span>
+            {/* Main TURBOANSWER Robot Logo */}
+            <div className="relative mx-auto mb-6">
+              <img 
+                src="/src/assets/turboanswer-logo.png" 
+                alt="TURBOANSWER AI Robot" 
+                className="w-24 h-24 object-contain animate-pulse hover:animate-bounce transition-all duration-300 mx-auto"
+              />
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-green-400 rounded-full animate-ping"></div>
             </div>
             
             {/* Welcome Message */}
-            <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Welcome to Turbo
+            <h1 className="text-2xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+              Welcome to TURBOANSWER
             </h1>
-            <p className="text-gray-400 mb-6 text-lg">Your AI assistant for live conversations</p>
+            <p className="text-gray-400 mb-6 text-lg">NEVER STOP INNOVATING</p>
             
             {/* Features Grid */}
             <div className="grid grid-cols-2 gap-4 mb-6">

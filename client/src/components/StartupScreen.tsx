@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TurboLogo } from "./TurboLogo";
+// Logo integrated directly in component
 
 interface StartupScreenProps {
   onComplete: () => void;
@@ -17,15 +17,22 @@ export function StartupScreen({ onComplete }: StartupScreenProps) {
       
       <div className="relative z-10 text-center">
         <div className="mb-8">
-          <TurboLogo size={120} />
+          <div className="relative">
+            <img 
+              src="/src/assets/turboanswer-logo.png" 
+              alt="TURBOANSWER AI Robot" 
+              className="w-32 h-32 object-contain animate-pulse hover:animate-bounce transition-all duration-300 mx-auto"
+            />
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full animate-ping"></div>
+          </div>
         </div>
 
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 tracking-wide">
-            TURBO ANSWER
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent mb-2 tracking-wide">
+            TURBOANSWER
           </h1>
-          <p className="text-purple-300 text-lg font-light">
-            Advanced AI Assistant
+          <p className="text-cyan-400 text-lg font-medium">
+            NEVER STOP INNOVATING
           </p>
         </div>
 

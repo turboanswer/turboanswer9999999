@@ -265,11 +265,16 @@ export default function ChatClean() {
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {messages.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Zap className="w-8 h-8 text-white" />
+                <div className="relative mx-auto mb-4">
+                  <img 
+                    src="/src/assets/turboanswer-logo.png" 
+                    alt="TURBOANSWER AI Robot" 
+                    className="w-20 h-20 object-contain animate-pulse hover:animate-bounce transition-all duration-300 mx-auto"
+                  />
+                  <div className="absolute -top-2 -right-2 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
                 </div>
-                <h2 className="text-2xl font-bold mb-2">Welcome to Turbo Answer</h2>
-                <p className="text-slate-400 mb-6">Your Maximum Power AI Assistant</p>
+                <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Welcome to TURBOANSWER</h2>
+                <p className="text-cyan-400 mb-6 font-medium">NEVER STOP INNOVATING</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
                   <div className="p-4 bg-slate-800 rounded-lg">
                     <h3 className="font-semibold mb-2">Voice Commands</h3>

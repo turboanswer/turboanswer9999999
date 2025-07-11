@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { TurboLogo } from "@/components/TurboLogo";
+// Logo integrated directly in component
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Login() {
@@ -61,11 +61,18 @@ export default function Login() {
       <Card className="w-full max-w-md bg-gray-900 border-gray-800">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <TurboLogo size={48} />
+            <div className="relative">
+              <img 
+                src="/src/assets/turboanswer-logo.png" 
+                alt="TURBOANSWER AI Robot" 
+                className="w-12 h-12 object-contain animate-pulse hover:animate-bounce transition-all duration-300"
+              />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+            </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-white">Welcome Back</CardTitle>
-          <CardDescription className="text-gray-400">
-            Sign in to access the world's most powerful AI assistant
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Welcome Back to TURBOANSWER</CardTitle>
+          <CardDescription className="text-cyan-400 font-medium">
+            NEVER STOP INNOVATING
           </CardDescription>
         </CardHeader>
         <CardContent>
