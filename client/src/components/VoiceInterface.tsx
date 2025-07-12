@@ -713,12 +713,21 @@ export function VoiceInterface({
             {isWakeWordActive && (
               <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4">
                 <h4 className="text-base font-medium text-white mb-2">Hands-Free Mode Active:</h4>
-                <p className="text-sm text-gray-300 leading-relaxed mb-2">
+                <p className="text-sm text-gray-300 leading-relaxed mb-3">
                   Say "Hey Turbo", "Hi Turbo", or "Turbo" to activate voice input hands-free. Wake words work in multiple languages!
                 </p>
-                <p className="text-xs text-yellow-300">
+                <p className="text-xs text-yellow-300 mb-3">
                   ⏱️ Auto-deactivates after 7 seconds of silence
                 </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleWakeWord}
+                  className="w-full border-red-600 bg-red-900/50 hover:bg-red-800 text-red-200 text-sm"
+                >
+                  <MicOff className="w-4 h-4 mr-2" />
+                  Turn Off Hands-Free Mode
+                </Button>
               </div>
             )}
 

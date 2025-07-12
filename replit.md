@@ -336,7 +336,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - ✅ Integrated alternative services into multi-AI routing for zero-dependency operation
 - ✅ Enhanced error handling with graceful fallbacks when OpenAI API is unavailable
 
-### July 12, 2025 - Voice Interface UI Update + Widget Integration System
+### July 12, 2025 - Voice Interface UI Update + Widget Integration System + Auto-Deactivate Hands-Free Mode
 - ✅ **Voice Settings Panel Redesigned**: Clean black interface matching ChatGPT style
 - ✅ Created modern voice controls bar with continuous mode button
 - ✅ Updated toggle switches to purple theme (data-[state=checked]:bg-purple-600)
@@ -351,6 +351,13 @@ Subscription preference: Lifetime free premium access through promo code system 
 - ✅ **Performance Fixes**: AI voice auto-speak enabled by default
 - ✅ Fixed continuous conversation mode restart timing (500ms)
 - ✅ Reduced AI token limits for faster responses (300 tokens)
+- ✅ **Auto-Deactivate Hands-Free Mode**: Implemented 7-second silence timer for hands-free mode
+- ✅ Added automatic deactivation after 7 seconds of no speech activity
+- ✅ Timer resets when any speech is detected (maintains active listening)
+- ✅ Added manual "Turn Off Hands-Free Mode" button for immediate deactivation
+- ✅ Visual indicator shows auto-deactivate status in hands-free mode info box
+- ✅ Proper cleanup of all timers and listeners when mode is turned off
+- ✅ Completely removed all continuous conversation mode references and fixed runtime errors
 
 ### July 11, 2025 - MEGA FUSION AI: 10+ Combined Models System + Continuous Conversation Mode
 - ✅ **MEGA FUSION AI**: Revolutionary multi-model system combining 10+ AI providers
