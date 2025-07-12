@@ -425,8 +425,9 @@ export function VoiceInterface({
 
   // Speak text with gender and language-specific voice
   const speakText = useCallback((text: string) => {
-    if (!autoSpeak || !voiceEnabled) {
-      console.log('🔇 Speech disabled:', { autoSpeak, voiceEnabled });
+    // Auto-speak if either auto-speak is enabled OR hands-free mode is active
+    if ((!autoSpeak && !isWakeWordActive) || !voiceEnabled) {
+      console.log('🔇 Speech disabled:', { autoSpeak, voiceEnabled, isWakeWordActive });
       return;
     }
 
@@ -484,7 +485,7 @@ export function VoiceInterface({
 
     speechSynthesisRef.current = utterance;
     speechSynthesis.speak(utterance);
-  }, [autoSpeak, voiceEnabled, selectedLanguage, voiceGender, findBestVoice]);
+  }, [autoSpeak, voiceEnabled, selectedLanguage, voiceGender, findBestVoice, isWakeWordActive]);
 
   // Toggle wake word detection
   const toggleWakeWord = useCallback(() => {
@@ -713,8 +714,11 @@ export function VoiceInterface({
             {isWakeWordActive && (
               <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4">
                 <h4 className="text-base font-medium text-white mb-2">Hands-Free Mode Active:</h4>
-                <p className="text-sm text-gray-300 leading-relaxed mb-3">
+                <p className="text-sm text-gray-300 leading-relaxed mb-2">
                   Say "Hey Turbo", "Hi Turbo", or "Turbo" to activate voice input hands-free. Wake words work in multiple languages!
+                </p>
+                <p className="text-xs text-green-300 mb-2">
+                  🔊 AI voice responses automatically enabled
                 </p>
                 <p className="text-xs text-yellow-300 mb-3">
                   ⏱️ Auto-deactivates after 7 seconds of silence
