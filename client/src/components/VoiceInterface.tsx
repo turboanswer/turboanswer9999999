@@ -549,102 +549,40 @@ export function VoiceInterface({
 
   return (
     <div className="space-y-4">
-      {/* Voice Controls */}
-      <div className="flex items-center space-x-4 bg-gray-900/50 rounded-lg p-4 border border-gray-700">
-        {/* Main Voice Button */}
-        <div className="relative">
-          <Button
-            onClick={isListening ? stopListening : startListening}
-            disabled={!voiceEnabled || isProcessing || isContinuousMode}
-            className={`w-12 h-12 rounded-full transition-all duration-300 ${
-              isListening 
-                ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
-                : 'bg-blue-600 hover:bg-blue-700'
-            } ${isContinuousMode ? 'opacity-50' : ''}`}
-          >
-            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </Button>
-          
-          {isListening && (
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-400 rounded-full animate-ping"></div>
-          )}
-        </div>
-
-        {/* Continuous Conversation Button */}
-        <div className="relative">
+      {/* Voice Controls Bar */}
+      <div className="flex items-center justify-between bg-black rounded-lg p-3 border border-gray-800">
+        {/* Left side - Continuous Mode Button */}
+        <div className="flex items-center space-x-3">
           <Button
             onClick={toggleContinuousMode}
-            disabled={!voiceEnabled || isProcessing}
-            className={`w-12 h-12 rounded-full transition-all duration-300 ${
+            disabled={!voiceEnabled}
+            className={`px-4 py-2 rounded-md transition-all ${
               isContinuousMode 
-                ? 'bg-green-600 hover:bg-green-700 animate-pulse' 
-                : 'bg-purple-600 hover:bg-purple-700'
+                ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
             }`}
-            title={isContinuousMode ? 'Stop Continuous Mode' : 'Start Continuous Conversation'}
           >
-            {isContinuousMode ? <Square className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+            {isContinuousMode ? 'Continuous' : 'Continuous'}
           </Button>
-          
-          {isContinuousMode && (
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
-          )}
         </div>
 
-        {/* Voice Status */}
-        <div className="flex-1 space-y-1">
+        {/* Center - Voice Info */}
+        <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <Badge variant={isListening ? 'destructive' : 'secondary'}>
-              {isListening ? 'Listening...' : 'Ready'}
-            </Badge>
-            
-            {isWakeWordActive && (
-              <Badge variant="outline" className="border-cyan-400 text-cyan-400">
-                Wake Word Active
-              </Badge>
-            )}
-
-            {isContinuousMode && (
-              <Badge variant="outline" className="border-green-400 text-green-400 animate-pulse">
-                Continuous Mode
-              </Badge>
-            )}
-            
-            {isSpeaking && (
-              <Badge variant="outline" className="border-orange-400 text-orange-400">
-                Speaking
-              </Badge>
-            )}
+            <UserCheck className="w-4 h-4 text-gray-400" />
+            <span className="text-white">Male Voice</span>
           </div>
           
-          {currentTranscript && (
-            <div className="text-sm text-gray-300 bg-gray-800 rounded px-2 py-1">
-              "{currentTranscript}"
-              {confidence > 0 && (
-                <span className="text-xs text-gray-500 ml-2">
-                  ({Math.round(confidence * 100)}% confident)
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Voice Gender - Only Male */}
-        <div className="flex items-center space-x-2">
-          <UserCheck className="w-4 h-4 text-blue-400" />
-          <span className="text-blue-400">Male Voice</span>
-        </div>
-
-        {/* Language Selector - Only visible in continuous mode */}
-        {isContinuousMode && (
+          {/* Language Selector */}
           <div className="flex items-center space-x-2">
-            <span className="text-2xl">{currentLanguage?.flag}</span>
+            <span className="text-xl">{currentLanguage?.flag}</span>
             <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-40 bg-gray-800 border-gray-600">
+              <SelectTrigger className="w-40 bg-transparent border-0 text-white hover:bg-gray-800">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="max-h-96 bg-gray-800 border-gray-600">
+              <SelectContent className="max-h-96 bg-gray-900 border-gray-700">
                 {WORLD_LANGUAGES.map((lang) => (
-                  <SelectItem key={lang.code} value={lang.code} className="text-white hover:bg-gray-700">
+                  <SelectItem key={lang.code} value={lang.code} className="text-white hover:bg-gray-800">
                     <div className="flex items-center space-x-2">
                       <span>{lang.flag}</span>
                       <span>{lang.name}</span>
@@ -654,94 +592,128 @@ export function VoiceInterface({
               </SelectContent>
             </Select>
           </div>
-        )}
+        </div>
 
-        {/* Settings Button */}
+        {/* Right side - Settings */}
         <Button
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon"
           onClick={() => setShowSettings(!showSettings)}
-          className="border-gray-600 hover:bg-gray-700"
+          className="text-gray-400 hover:text-white hover:bg-gray-800"
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-5 h-5" />
         </Button>
       </div>
 
+      {/* Voice Status - Shows below controls when active */}
+      {(isListening || isSpeaking || currentTranscript) && (
+        <div className="bg-gray-900/50 rounded-lg p-3 border border-gray-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              {isListening && (
+                <Badge variant="default" className="bg-red-600 animate-pulse">
+                  <Mic className="w-3 h-3 mr-1" />
+                  Listening...
+                </Badge>
+              )}
+              
+              {isSpeaking && (
+                <Badge variant="default" className="bg-orange-600">
+                  <Volume2 className="w-3 h-3 mr-1" />
+                  Speaking
+                </Badge>
+              )}
+            </div>
+            
+            {currentTranscript && (
+              <div className="text-sm text-gray-300">
+                "{currentTranscript}"
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Voice Settings Panel */}
       {showSettings && (
-        <Card className="bg-gray-900/50 border-gray-700">
-          <CardHeader>
-            <CardTitle className="text-lg text-white">Voice Settings</CardTitle>
+        <Card className="bg-black border-gray-800">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl text-white">Voice Settings</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="voice-enabled" className="text-white">Voice Input</Label>
+          <CardContent className="space-y-6">
+            {/* Toggle Settings */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-2">
+                <Label htmlFor="voice-enabled" className="text-white text-base font-normal">Voice Input</Label>
                 <Switch
                   id="voice-enabled"
                   checked={voiceEnabled}
                   onCheckedChange={setVoiceEnabled}
+                  className="data-[state=checked]:bg-purple-600"
                 />
               </div>
               
-              <div className="flex items-center justify-between">
-                <Label htmlFor="auto-speak" className="text-white">Auto-Speak Responses</Label>
+              <div className="flex items-center justify-between p-2">
+                <Label htmlFor="auto-speak" className="text-white text-base font-normal">Auto-Speak Responses</Label>
                 <Switch
                   id="auto-speak"
                   checked={autoSpeak}
                   onCheckedChange={setAutoSpeak}
+                  className="data-[state=checked]:bg-purple-600"
                 />
               </div>
               
-              <div className="flex items-center justify-between">
-                <Label htmlFor="wake-word" className="text-white">Hands-Free Mode</Label>
+              <div className="flex items-center justify-between p-2">
+                <Label htmlFor="wake-word" className="text-white text-base font-normal">Hands-Free Mode</Label>
                 <Switch
                   id="wake-word"
                   checked={isWakeWordActive}
                   onCheckedChange={toggleWakeWord}
+                  className="data-[state=checked]:bg-purple-600"
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="continuous-mode" className="text-white">Continuous Conversation</Label>
+              <div className="flex items-center justify-between p-2">
+                <Label htmlFor="continuous-mode" className="text-white text-base font-normal">Continuous Conversation</Label>
                 <Switch
                   id="continuous-mode"
                   checked={isContinuousMode}
                   onCheckedChange={toggleContinuousMode}
+                  className="data-[state=checked]:bg-purple-600"
                 />
               </div>
-              
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => speechSynthesis.cancel()}
-                  disabled={!isSpeaking}
-                  className="border-gray-600 hover:bg-gray-700"
-                >
-                  <VolumeX className="w-4 h-4 mr-2" />
-                  Stop Speech
-                </Button>
-              </div>
+            </div>
+
+            {/* Stop Speech Button */}
+            <div className="pt-2">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => speechSynthesis.cancel()}
+                disabled={!isSpeaking}
+                className="w-full border-gray-700 bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-50"
+              >
+                <VolumeX className="w-4 h-4 mr-2" />
+                Stop Speech
+              </Button>
             </div>
             
             {/* Wake Word Instructions */}
             {isWakeWordActive && (
-              <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3">
-                <h4 className="text-sm font-semibold text-blue-300 mb-2">Wake Words:</h4>
-                <p className="text-xs text-blue-200">
-                  Say "Hey Turbo", "Hi Turbo", or "Turbo" to activate voice input hands-free.
-                  Wake words work in multiple languages!
+              <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4">
+                <h4 className="text-base font-medium text-white mb-2">Wake Words:</h4>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Say "Hey Turbo", "Hi Turbo", or "Turbo" to activate voice input hands-free. Wake words work in multiple languages!
                 </p>
               </div>
             )}
 
             {/* Continuous Mode Instructions */}
             {isContinuousMode && (
-              <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
-                <h4 className="text-sm font-semibold text-green-300 mb-2">Continuous Conversation Active:</h4>
-                <p className="text-xs text-green-200">
-                  Nonstop conversation mode enabled! AI will automatically listen for your next message after each response.
+              <div className="bg-green-900/30 border border-green-800 rounded-lg p-4">
+                <h4 className="text-base font-medium text-white mb-2">Continuous Conversation Active:</h4>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Nonstop conversation mode enabled! AI will automatically listen for your next message after each response. 
                   Click the square button or toggle off to end the conversation.
                 </p>
               </div>
