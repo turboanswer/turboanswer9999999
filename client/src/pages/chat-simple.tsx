@@ -30,6 +30,11 @@ export default function ChatSimple() {
 
   // Use the voice function
   const speakText = useSpeakText(selectedLanguage, voiceGender);
+  
+  // Debug voice function
+  useEffect(() => {
+    console.log('Voice function initialized:', typeof speakText);
+  }, [speakText]);
 
   // Load AI model preference
   useEffect(() => {
@@ -97,7 +102,12 @@ export default function ChatSimple() {
       
       // Auto-speak AI response
       if (data.aiMessage && data.aiMessage.content) {
-        speakText(data.aiMessage.content);
+        console.log('🔊 Attempting to speak AI response:', data.aiMessage.content.substring(0, 50) + '...');
+        try {
+          speakText(data.aiMessage.content);
+        } catch (error) {
+          console.error('❌ Speech synthesis error:', error);
+        }
       }
     },
     onError: (error) => {

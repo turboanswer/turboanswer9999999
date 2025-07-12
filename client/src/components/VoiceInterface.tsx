@@ -253,11 +253,11 @@ export function VoiceInterface({
       }
       
       // Restart if continuous mode is active and not processing
-      if (isContinuousMode && voiceEnabled && !isSpeaking) {
+      if (isContinuousMode && voiceEnabled && !isSpeaking && !isProcessing) {
         setTimeout(() => {
           console.log('🔄 Restarting continuous listening...');
           startListening();
-        }, 500); // Faster restart in continuous mode
+        }, 1000); // Give time for AI to respond first
       }
     };
 
@@ -449,7 +449,7 @@ export function VoiceInterface({
         setTimeout(() => {
           console.log('🔄 Restarting listening after AI response');
           startListening();
-        }, 500); // Faster restart for better responsiveness
+        }, 1000); // Give time for speech to fully complete
       }
     };
 
@@ -485,7 +485,9 @@ export function VoiceInterface({
       console.log('🔄 Continuous conversation mode activated');
       // Start listening immediately when continuous mode is enabled
       if (!isListening && voiceEnabled) {
-        startListening();
+        setTimeout(() => {
+          startListening();
+        }, 100);
       }
     } else {
       console.log('⏹️ Continuous conversation mode deactivated');
@@ -562,7 +564,7 @@ export function VoiceInterface({
                 : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
             }`}
           >
-            {isContinuousMode ? 'Continuous' : 'Continuous'}
+            {isContinuousMode ? '■ Stop' : '▶ Continuous'}
           </Button>
         </div>
 
