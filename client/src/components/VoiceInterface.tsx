@@ -172,7 +172,7 @@ export function VoiceInterface({
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isWakeWordActive, setIsWakeWordActive] = useState(false);
-  const [isContinuousMode, setIsContinuousMode] = useState(false);
+  // Removed continuous mode feature as requested
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [autoSpeak, setAutoSpeak] = useState(true); // Enable AI voice by default
   const [showSettings, setShowSettings] = useState(false);
@@ -252,19 +252,11 @@ export function VoiceInterface({
         }, 1000);
       }
       
-      // Restart if continuous mode is active and not processing
-      if (isContinuousMode && voiceEnabled && !isSpeaking && !isProcessing) {
-        setTimeout(() => {
-          console.log('🔄 Restarting continuous listening...');
-          if (voiceEnabled && !isListening) {
-            startListening();
-          }
-        }, 1500); // Give more time for AI to respond and speak
-      }
+      // Removed continuous mode restart logic
     };
 
     return recognition;
-  }, [selectedLanguage, onMessage, isWakeWordActive, voiceEnabled, isContinuousMode, isProcessing]);
+  }, [selectedLanguage, onMessage, isWakeWordActive, voiceEnabled, isProcessing]);
 
   // Initialize wake word detection
   const initializeWakeWordDetection = useCallback(() => {
@@ -402,8 +394,13 @@ export function VoiceInterface({
 
   // Speak text with gender and language-specific voice
   const speakText = useCallback((text: string) => {
-    if (!autoSpeak || !voiceEnabled || !('speechSynthesis' in window)) {
-      console.log('🔇 Speech disabled:', { autoSpeak, voiceEnabled, hasSynthesis: 'speechSynthesis' in window });
+    if (!autoSpeak || !voiceEnabled) {
+      console.log('🔇 Speech disabled:', { autoSpeak, voiceEnabled });
+      return;
+    }
+
+    if (!('speechSynthesis' in window)) {
+      console.log('❌ speechSynthesis not supported in this browser');
       return;
     }
 
@@ -446,15 +443,7 @@ export function VoiceInterface({
       setIsSpeaking(false);
       console.log('🔊 Speech ended');
       
-      // Restart listening in continuous mode after AI finishes speaking
-      if (isContinuousMode && voiceEnabled && !isListening) {
-        setTimeout(() => {
-          console.log('🔄 Restarting listening after AI response');
-          if (voiceEnabled && !isListening) {
-            startListening();
-          }
-        }, 1500); // Give more time for speech to fully complete
-      }
+      // Removed continuous mode restart logic
     };
 
     utterance.onerror = (event) => {
@@ -464,7 +453,7 @@ export function VoiceInterface({
 
     speechSynthesisRef.current = utterance;
     speechSynthesis.speak(utterance);
-  }, [autoSpeak, voiceEnabled, selectedLanguage, voiceGender, findBestVoice, isContinuousMode, isListening, startListening]);
+  }, [autoSpeak, voiceEnabled, selectedLanguage, voiceGender, findBestVoice]);
 
   // Toggle wake word detection
   const toggleWakeWord = useCallback(() => {
@@ -480,27 +469,7 @@ export function VoiceInterface({
     }
   }, [isWakeWordActive, startWakeWordListening]);
 
-  // Toggle continuous conversation mode
-  const toggleContinuousMode = useCallback(() => {
-    const newState = !isContinuousMode;
-    setIsContinuousMode(newState);
-
-    if (newState) {
-      console.log('🔄 Continuous conversation mode activated');
-      // Start listening immediately when continuous mode is enabled
-      if (!isListening && voiceEnabled) {
-        setTimeout(() => {
-          startListening();
-        }, 100);
-      }
-    } else {
-      console.log('⏹️ Continuous conversation mode deactivated');
-      // Stop listening when continuous mode is disabled
-      if (isListening) {
-        stopListening();
-      }
-    }
-  }, [isContinuousMode, isListening, voiceEnabled, startListening, stopListening]);
+  // Removed continuous mode feature as requested
 
   // Language change handler
   const handleLanguageChange = useCallback((language: string) => {
@@ -557,19 +526,9 @@ export function VoiceInterface({
     <div className="space-y-4">
       {/* Voice Controls Bar */}
       <div className="flex items-center justify-between bg-black rounded-lg p-3 border border-gray-800">
-        {/* Left side - Continuous Mode Button */}
+        {/* Left side - Removed continuous mode button */}
         <div className="flex items-center space-x-3">
-          <Button
-            onClick={toggleContinuousMode}
-            disabled={!voiceEnabled}
-            className={`px-4 py-2 rounded-md transition-all ${
-              isContinuousMode 
-                ? 'bg-purple-600 hover:bg-purple-700 text-white' 
-                : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
-            }`}
-          >
-            {isContinuousMode ? '■ Stop' : '▶ Continuous'}
-          </Button>
+          {/* Continuous mode feature removed as requested */}
         </div>
 
         {/* Center - Voice Info */}
@@ -709,7 +668,11 @@ export function VoiceInterface({
                 size="lg"
                 onClick={() => {
                   console.log('🔊 Testing voice...');
-                  speakText('Hello, this is a voice test. Can you hear me?');
+                  if ('speechSynthesis' in window) {
+                    speakText('Hello, this is a voice test. Can you hear me?');
+                  } else {
+                    console.log('❌ Speech synthesis not supported');
+                  }
                 }}
                 className="w-full border-blue-700 bg-blue-900 hover:bg-blue-800 text-white"
               >
@@ -728,16 +691,7 @@ export function VoiceInterface({
               </div>
             )}
 
-            {/* Continuous Mode Instructions */}
-            {isContinuousMode && (
-              <div className="bg-green-900/30 border border-green-800 rounded-lg p-4">
-                <h4 className="text-base font-medium text-white mb-2">Continuous Conversation Active:</h4>
-                <p className="text-sm text-gray-300 leading-relaxed">
-                  Nonstop conversation mode enabled! AI will automatically listen for your next message after each response. 
-                  Click the square button or toggle off to end the conversation.
-                </p>
-              </div>
-            )}
+            {/* Continuous Mode Instructions - Removed as requested */}
             
             {/* Voice Info */}
             <div className="bg-gray-800/50 rounded-lg p-3">
