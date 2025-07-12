@@ -236,6 +236,256 @@ export const AI_MODELS = {
       maxTokens: 6000,
       temperature: 0.3,
       priority: 13
+    },
+    "data-scientist": {
+      name: "Data Scientist Pro",
+      provider: "anthropic",
+      strengths: ["Advanced analytics", "Machine learning", "Statistical modeling", "Data visualization"],
+      maxTokens: 15000,
+      temperature: 0.2,
+      priority: 16,
+      isPaid: true,
+      description: "Expert data science assistant for advanced analytics, machine learning implementation, and statistical analysis"
+    },
+    "cybersecurity-expert": {
+      name: "Cybersecurity Expert",
+      provider: "openai",
+      strengths: ["Threat intelligence", "Security analysis", "Defense strategies", "Risk assessment"],
+      maxTokens: 12000,
+      temperature: 0.1,
+      priority: 17,
+      isPaid: true,
+      description: "Professional cybersecurity intelligence for threat analysis, security auditing, and defense strategy development"
+    },
+    "ux-designer": {
+      name: "UX Designer Pro",
+      provider: "google",
+      strengths: ["User experience", "Interface design", "Design systems", "Usability testing"],
+      maxTokens: 10000,
+      temperature: 0.5,
+      priority: 18,
+      isPaid: true,
+      description: "Expert UX/UI design assistant for user experience optimization, interface design, and design system development"
+    },
+    "project-manager": {
+      name: "Project Manager AI",
+      provider: "anthropic",
+      strengths: ["Agile coordination", "Team management", "Project delivery", "Risk management"],
+      maxTokens: 8000,
+      temperature: 0.3,
+      priority: 19,
+      isPaid: true,
+      description: "Professional project management assistant for Agile coordination, team leadership, and project delivery optimization"
+    },
+    "content-creator": {
+      name: "Content Creator Pro",
+      provider: "openai",
+      strengths: ["Strategic storytelling", "Multimedia content", "Audience engagement", "Brand voice"],
+      maxTokens: 12000,
+      temperature: 0.7,
+      priority: 20,
+      isPaid: true,
+      description: "Advanced content creation specialist for strategic storytelling, multimedia production, and audience engagement"
+    },
+    "ai-ethics-advisor": {
+      name: "AI Ethics Advisor",
+      provider: "anthropic",
+      strengths: ["Responsible AI", "Ethical guidelines", "Technology governance", "Bias detection"],
+      maxTokens: 10000,
+      temperature: 0.2,
+      priority: 21,
+      isPaid: true,
+      description: "Expert AI ethics consultant for responsible AI development, ethical technology governance, and bias mitigation"
+    },
+    "devops-engineer": {
+      name: "DevOps Engineer Pro",
+      provider: "google",
+      strengths: ["Infrastructure automation", "CI/CD", "Deployment strategies", "System optimization"],
+      maxTokens: 15000,
+      temperature: 0.2,
+      priority: 22,
+      isPaid: true,
+      description: "Professional DevOps specialist for infrastructure automation, continuous deployment, and system optimization"
+    },
+    "sales-expert": {
+      name: "Sales Expert AI",
+      provider: "openai",
+      strengths: ["Revenue optimization", "Customer acquisition", "Sales strategy", "Negotiation tactics"],
+      maxTokens: 9000,
+      temperature: 0.4,
+      priority: 23,
+      isPaid: true,
+      description: "Expert sales intelligence for revenue optimization, customer acquisition strategies, and sales process enhancement"
+    },
+    "hr-specialist": {
+      name: "HR Specialist Pro",
+      provider: "anthropic",
+      strengths: ["Talent management", "Organizational development", "HR strategy", "Employee engagement"],
+      maxTokens: 10000,
+      temperature: 0.3,
+      priority: 24,
+      isPaid: true,
+      description: "Professional HR consultant for talent management, organizational development, and strategic human resources"
+    },
+    "supply-chain": {
+      name: "Supply Chain Expert",
+      provider: "google",
+      strengths: ["Logistics optimization", "Operations efficiency", "Supply management", "Cost reduction"],
+      maxTokens: 12000,
+      temperature: 0.25,
+      priority: 25,
+      isPaid: true,
+      description: "Expert supply chain optimization for logistics efficiency, operations management, and cost optimization"
+    },
+    "environmental-scientist": {
+      name: "Environmental Scientist",
+      provider: "anthropic",
+      strengths: ["Sustainability analysis", "Environmental impact", "Green technology", "Climate solutions"],
+      maxTokens: 15000,
+      temperature: 0.3,
+      priority: 26,
+      isPaid: true,
+      description: "Professional environmental analysis for sustainability assessment, environmental impact studies, and green technology solutions"
+    },
+    "quality-assurance": {
+      name: "Quality Assurance Pro",
+      provider: "openai",
+      strengths: ["Testing excellence", "Quality management", "Defect prevention", "Process improvement"],
+      maxTokens: 10000,
+      temperature: 0.2,
+      priority: 27,
+      isPaid: true,
+      description: "Expert quality assurance for testing excellence, quality management systems, and continuous improvement processes"
+    },
+    "product-manager": {
+      name: "Product Manager Pro",
+      provider: "google",
+      strengths: ["Product strategy", "Roadmap planning", "User experience", "Market analysis"],
+      maxTokens: 12000,
+      temperature: 0.35,
+      priority: 28,
+      isPaid: true,
+      description: "Professional product management for strategy development, roadmap planning, and user experience optimization"
+    },
+    "blockchain-expert": {
+      name: "Blockchain Expert",
+      provider: "anthropic",
+      strengths: ["Cryptocurrency", "Decentralized finance", "Blockchain technology", "Smart contracts"],
+      maxTokens: 10000,
+      temperature: 0.3,
+      priority: 29,
+      isPaid: true,
+      description: "Expert blockchain consultant for cryptocurrency analysis, DeFi strategies, and blockchain technology implementation"
+    },
+    "education-specialist": {
+      name: "Education Specialist",
+      provider: "openai",
+      strengths: ["Learning design", "Curriculum development", "Educational technology", "Student assessment"],
+      maxTokens: 12000,
+      temperature: 0.4,
+      priority: 30,
+      isPaid: true,
+      description: "Professional education consultant for learning design, curriculum development, and educational technology integration"
+    },
+    "psychology-expert": {
+      name: "Psychology Expert",
+      provider: "anthropic",
+      strengths: ["Behavioral analysis", "Mental health insights", "Psychological research", "Cognitive science"],
+      maxTokens: 15000,
+      temperature: 0.3,
+      priority: 31,
+      isPaid: true,
+      description: "Expert psychological analysis for behavioral insights, mental health research, and cognitive science applications"
+    },
+    "architecture-expert": {
+      name: "Architecture Expert",
+      provider: "google",
+      strengths: ["Building design", "Structural engineering", "Architectural planning", "Construction technology"],
+      maxTokens: 12000,
+      temperature: 0.4,
+      priority: 32,
+      isPaid: true,
+      description: "Professional architectural consultant for building design, structural engineering, and construction technology solutions"
+    },
+    "gaming-expert": {
+      name: "Gaming Expert",
+      provider: "openai",
+      strengths: ["Game design", "Interactive entertainment", "Gaming industry", "Player experience"],
+      maxTokens: 10000,
+      temperature: 0.6,
+      priority: 33,
+      isPaid: true,
+      description: "Expert gaming consultant for game design, interactive entertainment development, and gaming industry analysis"
+    },
+    "fitness-coach": {
+      name: "Fitness Coach Pro",
+      provider: "anthropic",
+      strengths: ["Health optimization", "Fitness training", "Wellness coaching", "Nutrition guidance"],
+      maxTokens: 8000,
+      temperature: 0.4,
+      priority: 34,
+      isPaid: true,
+      description: "Professional fitness and wellness coach for health optimization, training programs, and lifestyle improvement"
+    },
+    "travel-expert": {
+      name: "Travel Expert",
+      provider: "google",
+      strengths: ["Travel planning", "Destination insights", "Tourism optimization", "Cultural guidance"],
+      maxTokens: 9000,
+      temperature: 0.5,
+      priority: 35,
+      isPaid: true,
+      description: "Expert travel consultant for destination planning, tourism optimization, and cultural travel experiences"
+    },
+    "social-media": {
+      name: "Social Media Expert",
+      provider: "openai",
+      strengths: ["Social strategy", "Content virality", "Community building", "Brand engagement"],
+      maxTokens: 8000,
+      temperature: 0.6,
+      priority: 36,
+      isPaid: true,
+      description: "Expert social media strategist for viral content creation, community building, and brand engagement optimization"
+    },
+    "real-estate": {
+      name: "Real Estate Expert",
+      provider: "anthropic",
+      strengths: ["Property analysis", "Market trends", "Investment strategies", "Valuation methods"],
+      maxTokens: 10000,
+      temperature: 0.3,
+      priority: 37,
+      isPaid: true,
+      description: "Professional real estate consultant for property analysis, market research, and investment strategy development"
+    },
+    "agriculture": {
+      name: "Agriculture Expert",
+      provider: "google",
+      strengths: ["Crop optimization", "Sustainable farming", "Agricultural technology", "Food security"],
+      maxTokens: 12000,
+      temperature: 0.25,
+      priority: 38,
+      isPaid: true,
+      description: "Expert agricultural consultant for crop optimization, sustainable farming practices, and agricultural technology implementation"
+    },
+    "aerospace": {
+      name: "Aerospace Expert",
+      provider: "openai",
+      strengths: ["Space technology", "Aviation engineering", "Aerospace design", "Flight systems"],
+      maxTokens: 15000,
+      temperature: 0.2,
+      priority: 39,
+      isPaid: true,
+      description: "Professional aerospace engineering consultant for space technology, aviation systems, and aerospace design optimization"
+    },
+    "marine-biology": {
+      name: "Marine Biology Expert",
+      provider: "anthropic",
+      strengths: ["Ocean ecosystems", "Marine conservation", "Aquatic research", "Biodiversity analysis"],
+      maxTokens: 12000,
+      temperature: 0.3,
+      priority: 40,
+      isPaid: true,
+      description: "Expert marine biologist for ocean ecosystem analysis, marine conservation strategies, and aquatic research methodology"
     }
   },
   

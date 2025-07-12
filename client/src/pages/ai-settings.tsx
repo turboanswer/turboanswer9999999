@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
 const AI_MODELS = {
+  // Core Models (Free & Premium)
   "auto": {
     name: "Auto-Select",
     description: "Intelligent routing to best available model",
@@ -42,28 +43,32 @@ const AI_MODELS = {
     description: "Ultra-fast responses with breakthrough speed",
     tier: "premium",
     speed: "Lightning",
-    color: "yellow"
+    color: "yellow",
+    isPaid: true
   },
   "claude-opus": {
     name: "Claude 3 Opus",
     description: "Advanced reasoning and creative tasks",
     tier: "premium",
     speed: "Medium",
-    color: "orange"
+    color: "orange",
+    isPaid: true
   },
   "gpt-4": {
     name: "GPT-4",
     description: "Multimodal intelligence and coding expertise",
     tier: "premium",
     speed: "Medium",
-    color: "indigo"
+    color: "indigo",
+    isPaid: true
   },
   "claude-sonnet": {
     name: "Claude 3 Sonnet",
     description: "Balanced performance with detailed analysis",
     tier: "premium",
     speed: "Fast",
-    color: "teal"
+    color: "teal",
+    isPaid: true
   },
   "gpt-3.5": {
     name: "GPT-3.5 Turbo",
@@ -79,6 +84,8 @@ const AI_MODELS = {
     speed: "Medium",
     color: "red"
   },
+  
+  // Specialized Professional AI Models (Premium)
   "creative-genius": {
     name: "Creative Genius AI",
     description: "Innovative creative solutions, artistic concepts, and imaginative storytelling",
@@ -124,7 +131,7 @@ const AI_MODELS = {
     description: "Complex reasoning, logic puzzles, and systematic solution development",
     tier: "premium",
     speed: "Analytical",
-    color: "yellow",
+    color: "red",
     isPaid: true
   },
   "medical-advisor": {
@@ -132,7 +139,7 @@ const AI_MODELS = {
     description: "Health information, symptom analysis, and medical research guidance",
     tier: "premium",
     speed: "Medical",
-    color: "red",
+    color: "green",
     isPaid: true
   },
   "financial-analyst": {
@@ -140,7 +147,7 @@ const AI_MODELS = {
     description: "Investment research, market analysis, and financial planning expertise",
     tier: "premium",
     speed: "Financial",
-    color: "green",
+    color: "emerald",
     isPaid: true
   },
   "legal-consultant": {
@@ -148,12 +155,12 @@ const AI_MODELS = {
     description: "Legal research, document analysis, and regulatory compliance guidance",
     tier: "premium",
     speed: "Legal",
-    color: "gray",
+    color: "violet",
     isPaid: true
   },
   "marketing-expert": {
     name: "Marketing Expert AI",
-    description: "Advanced brand strategy, content creation, and campaign optimization",
+    description: "Brand strategy, content creation, and campaign optimization",
     tier: "premium",
     speed: "Marketing",
     color: "pink",
@@ -161,7 +168,7 @@ const AI_MODELS = {
   },
   "data-scientist": {
     name: "Data Scientist Pro",
-    description: "Advanced data analysis, machine learning, and statistical modeling",
+    description: "Advanced analytics, machine learning, and statistical modeling",
     tier: "premium",
     speed: "Analytics",
     color: "blue",
@@ -169,7 +176,7 @@ const AI_MODELS = {
   },
   "cybersecurity-expert": {
     name: "Cybersecurity Expert",
-    description: "Security analysis, threat intelligence, and cybersecurity best practices",
+    description: "Threat intelligence, security analysis, and defense strategies",
     tier: "premium",
     speed: "Security",
     color: "red",
@@ -185,26 +192,26 @@ const AI_MODELS = {
   },
   "project-manager": {
     name: "Project Manager AI",
-    description: "Agile project management, team coordination, and project delivery",
+    description: "Agile coordination, team management, and project delivery",
     tier: "premium",
     speed: "Management",
-    color: "green",
+    color: "orange",
     isPaid: true
   },
   "content-creator": {
     name: "Content Creator Pro",
-    description: "Advanced content strategy, storytelling, and audience engagement",
+    description: "Strategic storytelling, multimedia content, and audience engagement",
     tier: "premium",
     speed: "Creative",
-    color: "orange",
+    color: "indigo",
     isPaid: true
   },
-  "ai-ethics": {
+  "ai-ethics-advisor": {
     name: "AI Ethics Advisor",
-    description: "Responsible AI development, ethical technology, and AI governance",
+    description: "Responsible AI development and ethical technology governance",
     tier: "premium",
     speed: "Ethics",
-    color: "gray",
+    color: "slate",
     isPaid: true
   },
   "devops-engineer": {
@@ -212,12 +219,12 @@ const AI_MODELS = {
     description: "Infrastructure automation, CI/CD, and deployment strategies",
     tier: "premium",
     speed: "DevOps",
-    color: "cyan",
+    color: "teal",
     isPaid: true
   },
   "sales-expert": {
     name: "Sales Expert AI",
-    description: "Sales strategy, customer acquisition, and revenue optimization",
+    description: "Revenue optimization, customer acquisition, and sales strategy",
     tier: "premium",
     speed: "Sales",
     color: "green",
@@ -228,15 +235,15 @@ const AI_MODELS = {
     description: "Talent management, organizational development, and HR strategy",
     tier: "premium",
     speed: "HR",
-    color: "blue",
+    color: "amber",
     isPaid: true
   },
   "supply-chain": {
     name: "Supply Chain Expert",
-    description: "Logistics optimization, supply chain management, and operations",
+    description: "Logistics optimization, operations efficiency, and supply management",
     tier: "premium",
     speed: "Logistics",
-    color: "brown",
+    color: "yellow",
     isPaid: true
   },
   "environmental-scientist": {
@@ -247,12 +254,12 @@ const AI_MODELS = {
     color: "green",
     isPaid: true
   },
-  "qa-specialist": {
+  "quality-assurance": {
     name: "Quality Assurance Pro",
     description: "Testing excellence, quality management, and defect prevention",
     tier: "premium",
-    speed: "QA",
-    color: "yellow",
+    speed: "Quality",
+    color: "blue",
     isPaid: true
   },
   "product-manager": {
@@ -260,7 +267,7 @@ const AI_MODELS = {
     description: "Product strategy, roadmap planning, and user experience optimization",
     tier: "premium",
     speed: "Product",
-    color: "indigo",
+    color: "cyan",
     isPaid: true
   },
   "blockchain-expert": {
@@ -276,7 +283,7 @@ const AI_MODELS = {
     description: "Learning design, curriculum development, and educational technology",
     tier: "premium",
     speed: "Education",
-    color: "blue",
+    color: "violet",
     isPaid: true
   },
   "psychology-expert": {
@@ -284,7 +291,7 @@ const AI_MODELS = {
     description: "Behavioral analysis, mental health insights, and psychological research",
     tier: "premium",
     speed: "Psychology",
-    color: "purple",
+    color: "pink",
     isPaid: true
   },
   "architecture-expert": {
@@ -292,7 +299,7 @@ const AI_MODELS = {
     description: "Building design, structural engineering, and architectural planning",
     tier: "premium",
     speed: "Architecture",
-    color: "gray",
+    color: "stone",
     isPaid: true
   },
   "gaming-expert": {
@@ -300,7 +307,7 @@ const AI_MODELS = {
     description: "Game design, interactive entertainment, and gaming industry analysis",
     tier: "premium",
     speed: "Gaming",
-    color: "pink",
+    color: "purple",
     isPaid: true
   },
   "fitness-coach": {
@@ -316,153 +323,205 @@ const AI_MODELS = {
     description: "Travel planning, destination insights, and tourism optimization",
     tier: "premium",
     speed: "Travel",
-    color: "cyan",
+    color: "blue",
+    isPaid: true
+  },
+  "social-media": {
+    name: "Social Media Expert",
+    description: "Social strategy, content virality, and community building",
+    tier: "premium",
+    speed: "Social",
+    color: "pink",
+    isPaid: true
+  },
+  "real-estate": {
+    name: "Real Estate Expert",
+    description: "Property analysis, market trends, and investment strategies",
+    tier: "premium",
+    speed: "Real Estate",
+    color: "emerald",
+    isPaid: true
+  },
+  "agriculture": {
+    name: "Agriculture Expert",
+    description: "Crop optimization, sustainable farming, and agricultural technology",
+    tier: "premium",
+    speed: "Agriculture",
+    color: "green",
+    isPaid: true
+  },
+  "aerospace": {
+    name: "Aerospace Expert",
+    description: "Space technology, aviation engineering, and aerospace design",
+    tier: "premium",
+    speed: "Aerospace",
+    color: "indigo",
+    isPaid: true
+  },
+  "marine-biology": {
+    name: "Marine Biology Expert",
+    description: "Ocean ecosystems, marine conservation, and aquatic research",
+    tier: "premium",
+    speed: "Marine",
+    color: "blue",
+    isPaid: true
+  },
+  "mega-fusion": {
+    name: "Mega Fusion AI",
+    description: "Combines 10+ AI models for unprecedented intelligence and reasoning capabilities",
+    tier: "premium",
+    speed: "Maximum Power",
+    color: "gold",
     isPaid: true
   }
 };
 
 export default function AISettings() {
-  const [selectedModel, setSelectedModel] = useState("auto");
-  const [saved, setSaved] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    return localStorage.getItem('selectedAIModel') || 'auto';
+  });
 
   useEffect(() => {
-    // Load saved preference
-    const saved = localStorage.getItem("preferredAIModel");
-    if (saved) {
-      setSelectedModel(saved);
-    }
-  }, []);
+    localStorage.setItem('selectedAIModel', selectedModel);
+  }, [selectedModel]);
 
-  const handleSave = () => {
-    localStorage.setItem("preferredAIModel", selectedModel);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const freeModels = Object.entries(AI_MODELS).filter(([_, model]) => model.tier === "free");
+  const premiumModels = Object.entries(AI_MODELS).filter(([_, model]) => model.tier === "premium");
+
+  const getSpeedColor = (speed: string) => {
+    switch (speed) {
+      case "Lightning":
+      case "Ultra-Fast":
+        return "bg-green-500";
+      case "Fast":
+        return "bg-blue-500";
+      case "Medium":
+        return "bg-yellow-500";
+      case "Time-Intensive":
+        return "bg-red-500";
+      default:
+        return "bg-purple-500";
+    }
   };
 
-  const getColorClasses = (color: string) => {
-    const colors = {
-      blue: "border-blue-500 bg-blue-950",
-      green: "border-green-500 bg-green-950",
-      purple: "border-purple-500 bg-purple-950",
-      yellow: "border-yellow-500 bg-yellow-950",
-      orange: "border-orange-500 bg-orange-950",
-      indigo: "border-indigo-500 bg-indigo-950",
-      teal: "border-teal-500 bg-teal-950",
-      cyan: "border-cyan-500 bg-cyan-950",
-      red: "border-red-500 bg-red-950"
-    };
-    return colors[color as keyof typeof colors] || "border-gray-500 bg-gray-950";
+  const getTierColor = (tier: string) => {
+    return tier === "free" ? "bg-green-100 text-green-800" : "bg-purple-100 text-purple-800";
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center mb-6">
-          <Link href="/home">
-            <Button variant="ghost" size="sm" className="mr-4 text-gray-400 hover:text-white">
+    <div className="min-h-screen bg-black text-white">
+      <header className="border-b border-gray-800 bg-black/50 backdrop-blur">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
+              Back to Chat
             </Button>
           </Link>
-          <div className="flex items-center">
-            <Brain className="h-8 w-8 text-blue-500 mr-3" />
-            <h1 className="text-3xl font-bold">AI Model Settings</h1>
+          <div className="flex items-center gap-2">
+            <Brain className="h-6 w-6 text-purple-400" />
+            <h1 className="text-xl font-semibold">AI Model Settings</h1>
           </div>
         </div>
+      </header>
 
-        <p className="text-gray-400 mb-8">Choose your preferred AI model for conversations. Each model has different strengths and capabilities.</p>
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-2">Choose Your AI Assistant</h2>
+          <p className="text-gray-400">
+            Select from 40 specialized AI models designed for different tasks and expertise areas.
+          </p>
+        </div>
 
-        {/* Current Selection */}
-        {saved && (
-          <div className="mb-6 p-4 bg-green-950 border border-green-500 rounded-lg flex items-center">
-            <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-            <span className="text-green-300">Settings saved successfully!</span>
-          </div>
-        )}
-
-        {/* AI Model Selection */}
         <RadioGroup value={selectedModel} onValueChange={setSelectedModel} className="space-y-4">
-          {Object.entries(AI_MODELS).map(([key, model]) => (
-            <div key={key} className="relative">
-              <Label 
-                htmlFor={key} 
-                className={`block cursor-pointer transition-all hover:scale-[1.02] ${
-                  selectedModel === key ? getColorClasses(model.color) : "border-gray-800 bg-gray-900"
-                } border rounded-lg p-1`}
-              >
-                <Card className="bg-transparent border-none shadow-none">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <RadioGroupItem value={key} id={key} className="mr-3" />
-                        <div className="flex items-center">
-                          <Zap className={`h-5 w-5 mr-2 text-${model.color}-500`} />
-                          <CardTitle className="text-white text-lg">{model.name}</CardTitle>
-                        </div>
+          {/* Free Models Section */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-green-400" />
+              Free Models
+            </h3>
+            <div className="grid gap-4">
+              {freeModels.map(([key, model]) => (
+                <Card key={key} className="bg-gray-900 border-gray-700 hover:border-gray-600 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value={key} id={key} className="mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor={key} className="cursor-pointer">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-white">{model.name}</span>
+                            <Badge variant="secondary" className={getTierColor(model.tier)}>
+                              {model.tier}
+                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${getSpeedColor(model.speed)}`} />
+                              <span className="text-xs text-gray-400">{model.speed}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-400 leading-relaxed">
+                            {model.description}
+                          </p>
+                        </Label>
                       </div>
-                      <div className="flex gap-2">
-                        <Badge variant={model.tier === "premium" ? "default" : "secondary"}>
-                          {model.tier}
-                        </Badge>
-                        <Badge variant="outline" className="border-gray-600">
-                          {model.speed}
-                        </Badge>
-                      </div>
+                      {selectedModel === key && (
+                        <CheckCircle className="h-5 w-5 text-green-400 mt-1 flex-shrink-0" />
+                      )}
                     </div>
-                    <CardDescription className="ml-8 text-gray-300">
-                      {model.description}
-                    </CardDescription>
-                  </CardHeader>
+                  </CardContent>
                 </Card>
-              </Label>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {/* Premium Models Section */}
+          <div>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-400" />
+              Premium Models ({premiumModels.length} Specialized Experts)
+            </h3>
+            <div className="grid gap-4">
+              {premiumModels.map(([key, model]) => (
+                <Card key={key} className="bg-gray-900 border-gray-700 hover:border-purple-600 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <RadioGroupItem value={key} id={key} className="mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor={key} className="cursor-pointer">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-white">{model.name}</span>
+                            <Badge variant="secondary" className={getTierColor(model.tier)}>
+                              {model.tier}
+                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${getSpeedColor(model.speed)}`} />
+                              <span className="text-xs text-gray-400">{model.speed}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-400 leading-relaxed">
+                            {model.description}
+                          </p>
+                        </Label>
+                      </div>
+                      {selectedModel === key && (
+                        <CheckCircle className="h-5 w-5 text-purple-400 mt-1 flex-shrink-0" />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
         </RadioGroup>
 
-        {/* Actions */}
-        <div className="mt-8 flex gap-4">
-          <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-            Save Settings
-          </Button>
-          <Link href="/">
-            <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800">
-              Start Chat with {AI_MODELS[selectedModel as keyof typeof AI_MODELS]?.name}
-            </Button>
-          </Link>
+        <div className="mt-8 p-4 bg-gray-900 rounded-lg border border-gray-700">
+          <h4 className="font-medium text-white mb-2">Current Selection</h4>
+          <p className="text-gray-400">
+            {selectedModel && AI_MODELS[selectedModel as keyof typeof AI_MODELS] 
+              ? `${AI_MODELS[selectedModel as keyof typeof AI_MODELS].name} - ${AI_MODELS[selectedModel as keyof typeof AI_MODELS].description}`
+              : "No model selected"}
+          </p>
         </div>
-
-        {/* Model Information */}
-        <Card className="mt-8 bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-white">Model Capabilities</CardTitle>
-          </CardHeader>
-          <CardContent className="text-gray-300">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-semibold text-white mb-2">Free Tier Models</h4>
-                <ul className="space-y-1 text-sm">
-                  <li>• Auto-Select: Best available model</li>
-                  <li>• Conversational AI: Natural conversations</li>
-                  <li>• Emotional AI: Empathetic responses</li>
-                  <li>• GPT-3.5 Turbo: Fast general queries</li>
-                  <li>• Gemini Pro: Research and analysis</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold text-white mb-2">Premium Models</h4>
-                <ul className="space-y-1 text-sm">
-                  <li>• Research Pro Ultra: Very in-depth research with citations</li>
-                  <li>• Gemini 2.0 Flash: Ultra-fast responses</li>
-                  <li>• Claude 3 Opus: Advanced reasoning</li>
-                  <li>• GPT-4: Multimodal intelligence</li>
-                  <li>• Claude 3 Sonnet: Detailed analysis</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      </main>
     </div>
   );
 }
