@@ -78,6 +78,86 @@ const AI_MODELS = {
     tier: "free",
     speed: "Medium",
     color: "red"
+  },
+  "creative-genius": {
+    name: "Creative Genius AI",
+    description: "Innovative creative solutions, artistic concepts, and imaginative storytelling",
+    tier: "premium",
+    speed: "Creative",
+    color: "purple",
+    isPaid: true
+  },
+  "code-architect": {
+    name: "Code Architect Pro",
+    description: "Advanced programming, system architecture, and technical documentation",
+    tier: "premium",
+    speed: "Technical",
+    color: "green",
+    isPaid: true
+  },
+  "business-strategist": {
+    name: "Business Strategist AI",
+    description: "Strategic planning, market analysis, and executive decision-making",
+    tier: "premium",
+    speed: "Strategic",
+    color: "blue",
+    isPaid: true
+  },
+  "scientific-researcher": {
+    name: "Scientific Researcher",
+    description: "Advanced research methodology, data analysis, and academic writing",
+    tier: "premium",
+    speed: "Research",
+    color: "cyan",
+    isPaid: true
+  },
+  "language-master": {
+    name: "Language Master AI",
+    description: "90+ languages with cultural context and translation expertise",
+    tier: "premium",
+    speed: "Linguistic",
+    color: "orange",
+    isPaid: true
+  },
+  "problem-solver": {
+    name: "Problem Solver Pro",
+    description: "Complex reasoning, logic puzzles, and systematic solution development",
+    tier: "premium",
+    speed: "Analytical",
+    color: "yellow",
+    isPaid: true
+  },
+  "medical-advisor": {
+    name: "Medical Advisor AI",
+    description: "Health information, symptom analysis, and medical research guidance",
+    tier: "premium",
+    speed: "Medical",
+    color: "red",
+    isPaid: true
+  },
+  "financial-analyst": {
+    name: "Financial Analyst Pro",
+    description: "Investment research, market analysis, and financial planning expertise",
+    tier: "premium",
+    speed: "Financial",
+    color: "green",
+    isPaid: true
+  },
+  "legal-consultant": {
+    name: "Legal Consultant AI",
+    description: "Legal research, document analysis, and regulatory compliance guidance",
+    tier: "premium",
+    speed: "Legal",
+    color: "gray",
+    isPaid: true
+  },
+  "marketing-expert": {
+    name: "Marketing Expert AI",
+    description: "Advanced brand strategy, content creation, and campaign optimization",
+    tier: "premium",
+    speed: "Marketing",
+    color: "pink",
+    isPaid: true
   }
 };
 

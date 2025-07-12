@@ -73,6 +73,106 @@ export const AI_MODELS = {
       temperature: 0.25,
       priority: 5
     },
+    "creative-genius": {
+      name: "Creative Genius AI",
+      provider: "anthropic",
+      strengths: ["Creative writing", "Artistic concepts", "Innovative solutions", "Imaginative storytelling"],
+      maxTokens: 12000,
+      temperature: 0.8,
+      priority: 6,
+      isPaid: true,
+      description: "Specialized creative AI for artistic projects, storytelling, innovative solutions, and imaginative content generation"
+    },
+    "code-architect": {
+      name: "Code Architect Pro",
+      provider: "openai",
+      strengths: ["Advanced programming", "System architecture", "Code optimization", "Technical documentation"],
+      maxTokens: 15000,
+      temperature: 0.1,
+      priority: 7,
+      isPaid: true,
+      description: "Expert-level programming assistant for complex development projects, system design, and technical architecture"
+    },
+    "business-strategist": {
+      name: "Business Strategist AI",
+      provider: "anthropic",
+      strengths: ["Business analysis", "Market research", "Strategic planning", "Financial modeling"],
+      maxTokens: 10000,
+      temperature: 0.3,
+      priority: 8,
+      isPaid: true,
+      description: "Professional business intelligence for strategic planning, market analysis, and executive decision-making"
+    },
+    "scientific-researcher": {
+      name: "Scientific Researcher",
+      provider: "google",
+      strengths: ["Scientific method", "Data analysis", "Research papers", "Technical accuracy"],
+      maxTokens: 18000,
+      temperature: 0.2,
+      priority: 9,
+      isPaid: true,
+      description: "Advanced scientific research assistant with expertise in methodology, data analysis, and academic writing"
+    },
+    "language-master": {
+      name: "Language Master AI",
+      provider: "anthropic",
+      strengths: ["90+ languages", "Translation", "Cultural context", "Linguistic analysis"],
+      maxTokens: 8000,
+      temperature: 0.4,
+      priority: 10,
+      isPaid: true,
+      description: "Master linguist supporting 90+ world languages with cultural context, translation, and communication expertise"
+    },
+    "problem-solver": {
+      name: "Problem Solver Pro",
+      provider: "openai",
+      strengths: ["Logic puzzles", "Complex reasoning", "Step-by-step solutions", "Critical thinking"],
+      maxTokens: 12000,
+      temperature: 0.2,
+      priority: 11,
+      isPaid: true,
+      description: "Advanced problem-solving AI for complex logic, mathematical reasoning, and systematic solution development"
+    },
+    "medical-advisor": {
+      name: "Medical Advisor AI",
+      provider: "anthropic",
+      strengths: ["Medical knowledge", "Health information", "Symptom analysis", "Research summaries"],
+      maxTokens: 15000,
+      temperature: 0.1,
+      priority: 12,
+      isPaid: true,
+      description: "Professional medical information assistant for health research, symptom guidance, and medical literature analysis"
+    },
+    "financial-analyst": {
+      name: "Financial Analyst Pro",
+      provider: "openai",
+      strengths: ["Market analysis", "Investment research", "Economic trends", "Financial modeling"],
+      maxTokens: 10000,
+      temperature: 0.25,
+      priority: 13,
+      isPaid: true,
+      description: "Expert financial analysis for investment research, market trends, economic forecasting, and financial planning"
+    },
+    "legal-consultant": {
+      name: "Legal Consultant AI",
+      provider: "anthropic",
+      strengths: ["Legal research", "Document analysis", "Regulatory compliance", "Case studies"],
+      maxTokens: 20000,
+      temperature: 0.15,
+      priority: 14,
+      isPaid: true,
+      description: "Professional legal research assistant for document analysis, regulatory guidance, and legal information research"
+    },
+    "marketing-expert": {
+      name: "Marketing Expert AI",
+      provider: "google",
+      strengths: ["Brand strategy", "Content creation", "Campaign analysis", "Consumer psychology"],
+      maxTokens: 12000,
+      temperature: 0.6,
+      priority: 15,
+      isPaid: true,
+      description: "Advanced marketing intelligence for brand strategy, content creation, campaign optimization, and market psychology"
+    },
     "gemini-2.0-flash-exp": {
       name: "Gemini 2.0 Flash Experimental",
       provider: "google",
@@ -562,6 +662,442 @@ ${researchResponse}
         conversationHistory,
         userId
       );
+    }
+
+    // PREMIUM SPECIALIZED AI MODELS ROUTING
+    
+    // Creative Genius AI - Enhanced creative writing and artistic solutions
+    if (selectedModel === 'creative-genius') {
+      console.log(`[Creative Genius AI] Using specialized creative model`);
+      const creativePrompt = `You are Creative Genius AI, the most innovative and imaginative AI assistant specializing in creative solutions, artistic concepts, storytelling, and imaginative content generation.
+
+CREATIVE SPECIALIZATION:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Creative Expertise:
+- Innovative storytelling and narrative development
+- Artistic concept generation and visual descriptions
+- Creative problem-solving with out-of-the-box thinking
+- Imaginative content creation across all mediums
+- Brand creativity and unique positioning
+- Creative writing in all genres and styles
+
+Creative Process:
+1. Unleash maximum creativity and imagination
+2. Think beyond conventional boundaries
+3. Generate multiple innovative approaches
+4. Provide vivid, engaging descriptions
+5. Inspire and motivate creative thinking
+
+Query: ${userMessage}
+
+Generate the most creative, imaginative, and innovative response possible. Think outside the box and provide unique, artistic solutions with maximum creative flair.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 12000,
+          temperature: 0.8, // High creativity
+          system: "You are Creative Genius AI, specialized in creative writing, artistic concepts, innovative solutions, and imaginative storytelling. Always provide the most creative and inspiring responses.",
+          messages: [{ role: "user", content: creativePrompt }]
+        });
+        const creativeResponse = response.content[0].text || "Creative inspiration flowing...";
+        return `🎨 **CREATIVE GENIUS AI - INNOVATIVE SOLUTIONS**\n\n${creativeResponse}\n\n💡 *Generated with maximum creativity and artistic imagination*`;
+      } catch (error) {
+        console.error('Creative Genius AI failed:', error);
+        return "Creative Genius AI is currently focusing on new artistic concepts. Please try again for enhanced creative assistance.";
+      }
+    }
+
+    // Code Architect Pro - Advanced programming and system design
+    if (selectedModel === 'code-architect') {
+      console.log(`[Code Architect Pro] Using advanced programming model`);
+      const codePrompt = `You are Code Architect Pro, the most advanced programming assistant specializing in complex development projects, system architecture, code optimization, and technical documentation.
+
+PROGRAMMING EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language for explanations, but code should remain in programming language syntax.` : ""}
+
+Technical Specialization:
+- Advanced programming across all languages
+- System architecture and design patterns
+- Code optimization and performance tuning
+- Technical documentation and best practices
+- Security implementation and code review
+- Scalable system design and microservices
+
+Programming Approach:
+1. Analyze requirements thoroughly
+2. Design optimal architecture
+3. Implement clean, efficient code
+4. Provide comprehensive documentation
+5. Include testing and security considerations
+
+Query: ${userMessage}
+
+Provide expert-level programming guidance with clean code, architectural insights, and professional development practices.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 15000,
+          temperature: 0.1, // Precise for coding
+          messages: [
+            { role: "system", content: "You are Code Architect Pro, an expert programming assistant specialized in advanced development, system architecture, and technical excellence." },
+            { role: "user", content: codePrompt }
+          ]
+        });
+        const codeResponse = response.choices[0].message.content || "Code architecture in progress...";
+        return `💻 **CODE ARCHITECT PRO - ADVANCED PROGRAMMING**\n\n${codeResponse}\n\n🚀 *Expert-level code architecture and development guidance*`;
+      } catch (error) {
+        console.error('Code Architect Pro failed:', error);
+        return "Code Architect Pro is currently optimizing systems. Please try again for advanced programming assistance.";
+      }
+    }
+
+    // Business Strategist AI - Professional business intelligence
+    if (selectedModel === 'business-strategist') {
+      console.log(`[Business Strategist AI] Using strategic business model`);
+      const businessPrompt = `You are Business Strategist AI, the most advanced business intelligence assistant specializing in strategic planning, market analysis, and executive decision-making.
+
+BUSINESS INTELLIGENCE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Strategic Expertise:
+- Comprehensive business analysis and market research
+- Strategic planning and competitive positioning
+- Financial modeling and ROI analysis
+- Market expansion and growth strategies
+- Risk assessment and mitigation planning
+- Executive-level strategic recommendations
+
+Business Analysis Framework:
+1. Market and competitive landscape analysis
+2. Financial impact and ROI evaluation
+3. Strategic recommendations with implementation roadmap
+4. Risk assessment and contingency planning
+5. Performance metrics and KPI definition
+
+Query: ${userMessage}
+
+Provide executive-level business analysis with strategic insights, data-driven recommendations, and actionable business intelligence.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 10000,
+          temperature: 0.3, // Balanced for business thinking
+          system: "You are Business Strategist AI, specialized in strategic planning, market analysis, and executive business intelligence.",
+          messages: [{ role: "user", content: businessPrompt }]
+        });
+        const businessResponse = response.content[0].text || "Strategic analysis in progress...";
+        return `📊 **BUSINESS STRATEGIST AI - STRATEGIC INTELLIGENCE**\n\n${businessResponse}\n\n💼 *Professional business analysis and strategic guidance*`;
+      } catch (error) {
+        console.error('Business Strategist AI failed:', error);
+        return "Business Strategist AI is currently analyzing market conditions. Please try again for strategic business intelligence.";
+      }
+    }
+
+    // Scientific Researcher - Advanced scientific methodology and analysis
+    if (selectedModel === 'scientific-researcher') {
+      console.log(`[Scientific Researcher] Using advanced scientific research model`);
+      const scientificPrompt = `You are Scientific Researcher AI, the most advanced scientific research assistant with expertise in methodology, data analysis, and academic writing.
+
+SCIENTIFIC EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language for explanations, but maintain scientific terminology accuracy.` : ""}
+
+Research Specialization:
+- Advanced scientific methodology and experimental design
+- Statistical analysis and data interpretation
+- Peer-reviewed research standards and academic writing
+- Cross-disciplinary scientific investigation
+- Research validation and hypothesis testing
+- Technical accuracy and empirical evidence
+
+Scientific Method:
+1. Problem formulation and literature review
+2. Hypothesis development and methodology design
+3. Data analysis and statistical interpretation
+4. Results presentation with evidence-based conclusions
+5. Peer review standards and scientific rigor
+
+Query: ${userMessage}
+
+Apply rigorous scientific methodology with evidence-based analysis, technical accuracy, and research-grade standards.`;
+
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(scientificPrompt);
+        const response = await result.response;
+        const scientificResponse = response.text() || "Scientific analysis in progress...";
+        return `🔬 **SCIENTIFIC RESEARCHER - RESEARCH METHODOLOGY**\n\n${scientificResponse}\n\n🧪 *Evidence-based scientific analysis with research-grade standards*`;
+      } catch (error) {
+        console.error('Scientific Researcher failed:', error);
+        return "Scientific Researcher is currently conducting experiments. Please try again for advanced scientific analysis.";
+      }
+    }
+
+    // Language Master AI - 90+ languages with cultural context
+    if (selectedModel === 'language-master') {
+      console.log(`[Language Master AI] Using multilingual expert model`);
+      const languagePrompt = `You are Language Master AI, the most advanced linguistic assistant supporting 90+ world languages with deep cultural context and translation expertise.
+
+LINGUISTIC MASTERY:
+Automatically detect and respond in the appropriate language based on user input.
+
+Language Expertise:
+- Expert translation across 90+ world languages
+- Cultural context and nuanced communication
+- Linguistic analysis and grammar instruction
+- Regional dialects and cultural sensitivity
+- Cross-cultural communication strategies
+- Language learning and pronunciation guidance
+
+Linguistic Approach:
+1. Detect user's language preference and cultural context
+2. Provide culturally appropriate responses
+3. Explain linguistic nuances when relevant
+4. Offer translation alternatives for precision
+5. Include cultural context for proper understanding
+
+User Query: ${userMessage}
+
+Respond with linguistic expertise, cultural sensitivity, and perfect language adaptation. Detect the user's language and provide the most culturally appropriate response.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 8000,
+          temperature: 0.4, // Balanced for language nuance
+          system: "You are Language Master AI, an expert linguist supporting 90+ languages with cultural context and translation expertise.",
+          messages: [{ role: "user", content: languagePrompt }]
+        });
+        const languageResponse = response.content[0].text || "Linguistic analysis in progress...";
+        return `🌍 **LANGUAGE MASTER AI - MULTILINGUAL EXPERTISE**\n\n${languageResponse}\n\n🗣️ *Expert linguistic guidance with cultural context*`;
+      } catch (error) {
+        console.error('Language Master AI failed:', error);
+        return "Language Master AI is currently studying new dialects. Please try again for multilingual assistance.";
+      }
+    }
+
+    // Problem Solver Pro - Advanced logic and reasoning
+    if (selectedModel === 'problem-solver') {
+      console.log(`[Problem Solver Pro] Using advanced reasoning model`);
+      const problemPrompt = `You are Problem Solver Pro, the most advanced problem-solving AI specialized in complex logic, mathematical reasoning, and systematic solution development.
+
+PROBLEM-SOLVING EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Reasoning Specialization:
+- Complex logic puzzles and mathematical problems
+- Step-by-step systematic problem breakdown
+- Critical thinking and analytical reasoning
+- Multiple solution approaches and optimization
+- Pattern recognition and logical deduction
+- Strategic problem-solving methodologies
+
+Problem-Solving Framework:
+1. Problem analysis and decomposition
+2. Identify key variables and constraints
+3. Generate multiple solution approaches
+4. Evaluate and optimize solutions
+5. Provide clear step-by-step implementation
+
+Query: ${userMessage}
+
+Apply advanced reasoning and systematic problem-solving with clear step-by-step solutions and logical analysis.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 12000,
+          temperature: 0.2, // Precise for logic
+          messages: [
+            { role: "system", content: "You are Problem Solver Pro, specialized in complex reasoning, logic puzzles, and systematic solution development." },
+            { role: "user", content: problemPrompt }
+          ]
+        });
+        const problemResponse = response.choices[0].message.content || "Problem analysis in progress...";
+        return `🧩 **PROBLEM SOLVER PRO - ADVANCED REASONING**\n\n${problemResponse}\n\n🎯 *Systematic problem-solving with logical analysis*`;
+      } catch (error) {
+        console.error('Problem Solver Pro failed:', error);
+        return "Problem Solver Pro is currently analyzing complex patterns. Please try again for advanced reasoning assistance.";
+      }
+    }
+
+    // Medical Advisor AI - Professional health information
+    if (selectedModel === 'medical-advisor') {
+      console.log(`[Medical Advisor AI] Using medical information model`);
+      const medicalPrompt = `You are Medical Advisor AI, a professional medical information assistant specialized in health research, symptom guidance, and medical literature analysis.
+
+MEDICAL INFORMATION EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Medical Specialization:
+- Comprehensive medical knowledge and health information
+- Symptom analysis and differential diagnosis guidance
+- Medical research summaries and literature review
+- Treatment options and therapeutic approaches
+- Preventive medicine and health optimization
+- Medical terminology and patient education
+
+IMPORTANT DISCLAIMER: This is for educational and informational purposes only. Always consult qualified healthcare professionals for medical advice, diagnosis, or treatment.
+
+Medical Analysis Framework:
+1. Symptom analysis and pattern recognition
+2. Medical research synthesis and evidence review
+3. Treatment options and recommendations overview
+4. Preventive measures and health guidance
+5. Professional consultation recommendations
+
+Query: ${userMessage}
+
+Provide comprehensive medical information with evidence-based analysis and clear health guidance while emphasizing professional consultation.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 15000,
+          temperature: 0.1, // Very precise for medical information
+          system: "You are Medical Advisor AI, providing professional medical information for educational purposes. Always emphasize consulting healthcare professionals.",
+          messages: [{ role: "user", content: medicalPrompt }]
+        });
+        const medicalResponse = response.content[0].text || "Medical analysis in progress...";
+        return `🏥 **MEDICAL ADVISOR AI - HEALTH INFORMATION**\n\n${medicalResponse}\n\n⚕️ *Professional medical information - consult healthcare providers for medical advice*`;
+      } catch (error) {
+        console.error('Medical Advisor AI failed:', error);
+        return "Medical Advisor AI is currently reviewing medical literature. Please try again for health information assistance.";
+      }
+    }
+
+    // Financial Analyst Pro - Expert market and investment analysis
+    if (selectedModel === 'financial-analyst') {
+      console.log(`[Financial Analyst Pro] Using financial analysis model`);
+      const financialPrompt = `You are Financial Analyst Pro, an expert financial analysis assistant specialized in investment research, market trends, economic forecasting, and financial planning.
+
+FINANCIAL EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Financial Specialization:
+- Comprehensive market analysis and investment research
+- Economic trend analysis and forecasting
+- Financial modeling and valuation techniques
+- Portfolio optimization and risk management
+- Corporate financial analysis and performance metrics
+- Personal finance planning and wealth management
+
+Financial Analysis Framework:
+1. Market and economic environment analysis
+2. Financial data interpretation and modeling
+3. Investment opportunity evaluation
+4. Risk assessment and mitigation strategies
+5. Strategic financial recommendations
+
+DISCLAIMER: This is for educational and informational purposes only. Consult qualified financial advisors for investment decisions.
+
+Query: ${userMessage}
+
+Provide expert financial analysis with data-driven insights, market intelligence, and strategic financial guidance.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 10000,
+          temperature: 0.25, // Balanced for financial analysis
+          messages: [
+            { role: "system", content: "You are Financial Analyst Pro, specialized in investment research, market analysis, and financial planning with professional-grade insights." },
+            { role: "user", content: financialPrompt }
+          ]
+        });
+        const financialResponse = response.choices[0].message.content || "Financial analysis in progress...";
+        return `💰 **FINANCIAL ANALYST PRO - MARKET INTELLIGENCE**\n\n${financialResponse}\n\n📈 *Expert financial analysis and investment research*`;
+      } catch (error) {
+        console.error('Financial Analyst Pro failed:', error);
+        return "Financial Analyst Pro is currently analyzing market data. Please try again for financial intelligence assistance.";
+      }
+    }
+
+    // Legal Consultant AI - Professional legal research
+    if (selectedModel === 'legal-consultant') {
+      console.log(`[Legal Consultant AI] Using legal research model`);
+      const legalPrompt = `You are Legal Consultant AI, a professional legal research assistant specialized in document analysis, regulatory guidance, and legal information research.
+
+LEGAL RESEARCH EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language for explanations, but maintain legal terminology accuracy.` : ""}
+
+Legal Specialization:
+- Comprehensive legal research and case law analysis
+- Regulatory compliance and statutory interpretation
+- Contract analysis and document review
+- Legal precedent research and citation
+- Regulatory frameworks and compliance guidance
+- Legal terminology and procedural guidance
+
+IMPORTANT DISCLAIMER: This is for informational and educational purposes only. Always consult qualified legal professionals for legal advice and representation.
+
+Legal Research Framework:
+1. Legal issue identification and analysis
+2. Relevant law and regulation research
+3. Case precedent and citation analysis
+4. Compliance requirements and recommendations
+5. Professional legal consultation guidance
+
+Query: ${userMessage}
+
+Provide comprehensive legal research with regulatory guidance, case analysis, and professional legal information while emphasizing attorney consultation.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 20000,
+          temperature: 0.15, // Precise for legal accuracy
+          system: "You are Legal Consultant AI, providing professional legal research and information for educational purposes. Always emphasize consulting qualified attorneys.",
+          messages: [{ role: "user", content: legalPrompt }]
+        });
+        const legalResponse = response.content[0].text || "Legal research in progress...";
+        return `⚖️ **LEGAL CONSULTANT AI - LEGAL RESEARCH**\n\n${legalResponse}\n\n📚 *Professional legal information - consult qualified attorneys for legal advice*`;
+      } catch (error) {
+        console.error('Legal Consultant AI failed:', error);
+        return "Legal Consultant AI is currently reviewing legal documents. Please try again for legal research assistance.";
+      }
+    }
+
+    // Marketing Expert AI - Advanced brand strategy and campaigns
+    if (selectedModel === 'marketing-expert') {
+      console.log(`[Marketing Expert AI] Using marketing intelligence model`);
+      const marketingPrompt = `You are Marketing Expert AI, an advanced marketing intelligence assistant specialized in brand strategy, content creation, campaign optimization, and market psychology.
+
+MARKETING INTELLIGENCE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Marketing Specialization:
+- Advanced brand strategy and positioning
+- Content creation and storytelling
+- Campaign optimization and performance analysis
+- Consumer psychology and market research
+- Digital marketing and social media strategy
+- Market segmentation and targeting
+
+Marketing Strategy Framework:
+1. Market analysis and consumer insights
+2. Brand positioning and differentiation strategy
+3. Content strategy and creative development
+4. Campaign execution and optimization
+5. Performance measurement and ROI analysis
+
+Query: ${userMessage}
+
+Provide expert marketing intelligence with strategic insights, creative solutions, and data-driven campaign recommendations.`;
+
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(marketingPrompt);
+        const response = await result.response;
+        const marketingResponse = response.text() || "Marketing analysis in progress...";
+        return `📢 **MARKETING EXPERT AI - BRAND INTELLIGENCE**\n\n${marketingResponse}\n\n🎯 *Strategic marketing intelligence and campaign optimization*`;
+      } catch (error) {
+        console.error('Marketing Expert AI failed:', error);
+        return "Marketing Expert AI is currently analyzing market trends. Please try again for marketing intelligence assistance.";
+      }
     }
     
     // Check for weather queries first - ENHANCED GLOBAL WEATHER
