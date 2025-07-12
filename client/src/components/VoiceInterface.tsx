@@ -227,8 +227,8 @@ export function VoiceInterface({
         onMessage(finalTranscript.trim());
         setCurrentTranscript('');
         
-        // In continuous mode, keep listening
-        if (!isContinuousMode && recognitionRef.current && !isWakeWordActive) {
+        // Stop recognition after getting final transcript (continuous mode removed)
+        if (recognitionRef.current && !isWakeWordActive) {
           recognitionRef.current.stop();
         }
       }
@@ -660,11 +660,9 @@ export function VoiceInterface({
                 size="lg"
                 onClick={() => {
                   console.log('🔊 Testing voice...');
-                  if ('speechSynthesis' in window) {
-                    speakText('Hello, this is a voice test. Can you hear me?');
-                  } else {
-                    console.log('❌ Speech synthesis not supported');
-                  }
+                  console.log('🔊 Speech synthesis available:', 'speechSynthesis' in window);
+                  console.log('🔊 Voices available:', speechSynthesis.getVoices().length);
+                  speakText('Hello, this is a voice test. Can you hear me?');
                 }}
                 className="w-full border-blue-700 bg-blue-900 hover:bg-blue-800 text-white"
               >
