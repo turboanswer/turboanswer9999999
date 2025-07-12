@@ -15,6 +15,7 @@ import {
   getAnalysisOptions,
   SUPPORTED_FILE_TYPES 
 } from "./services/document-analysis";
+import widgetRoutes from './routes/widget-routes';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -33,6 +34,8 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register widget routes
+  app.use(widgetRoutes);
   // User authentication routes
   app.post('/api/register', async (req, res) => {
     try {

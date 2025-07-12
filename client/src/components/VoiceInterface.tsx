@@ -174,7 +174,7 @@ export function VoiceInterface({
   const [isWakeWordActive, setIsWakeWordActive] = useState(false);
   const [isContinuousMode, setIsContinuousMode] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [autoSpeak, setAutoSpeak] = useState(true);
+  const [autoSpeak, setAutoSpeak] = useState(true); // Enable AI voice by default
   const [showSettings, setShowSettings] = useState(false);
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [confidence, setConfidence] = useState(0);
@@ -253,10 +253,11 @@ export function VoiceInterface({
       }
       
       // Restart if continuous mode is active and not processing
-      if (isContinuousMode && voiceEnabled) {
+      if (isContinuousMode && voiceEnabled && !isSpeaking) {
         setTimeout(() => {
+          console.log('🔄 Restarting continuous listening...');
           startListening();
-        }, 1000); // Quick restart in continuous mode
+        }, 500); // Faster restart in continuous mode
       }
     };
 
@@ -399,10 +400,23 @@ export function VoiceInterface({
 
   // Speak text with gender and language-specific voice
   const speakText = useCallback((text: string) => {
-    if (!autoSpeak || !voiceEnabled || !('speechSynthesis' in window)) return;
+    if (!autoSpeak || !voiceEnabled || !('speechSynthesis' in window)) {
+      console.log('🔇 Speech disabled:', { autoSpeak, voiceEnabled, hasSynthesis: 'speechSynthesis' in window });
+      return;
+    }
 
     // Cancel any ongoing speech
     speechSynthesis.cancel();
+
+    // Wait for voices to load
+    const voices = speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      console.log('⏳ Waiting for voices to load...');
+      speechSynthesis.addEventListener('voiceschanged', () => {
+        speakText(text); // Retry once voices are loaded
+      }, { once: true });
+      return;
+    }
 
     const utterance = new SpeechSynthesisUtterance(text);
     
@@ -417,6 +431,8 @@ export function VoiceInterface({
     if (bestVoice) {
       utterance.voice = bestVoice;
       console.log(`🔊 Using male voice: ${bestVoice.name} (${bestVoice.lang})`);
+    } else {
+      console.log('⚠️ No suitable voice found, using default');
     }
 
     utterance.onstart = () => {
@@ -429,11 +445,11 @@ export function VoiceInterface({
       console.log('🔊 Speech ended');
       
       // Restart listening in continuous mode after AI finishes speaking
-      if (isContinuousMode && voiceEnabled) {
+      if (isContinuousMode && voiceEnabled && !isListening) {
         setTimeout(() => {
           console.log('🔄 Restarting listening after AI response');
           startListening();
-        }, 1500); // Brief pause after AI speaks
+        }, 500); // Faster restart for better responsiveness
       }
     };
 

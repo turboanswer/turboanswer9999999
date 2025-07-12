@@ -77,7 +77,7 @@ export const AI_MODELS = {
       name: "Gemini 2.0 Flash Experimental",
       provider: "google",
       strengths: ["Breakthrough intelligence", "Ultra-fast responses", "Advanced reasoning", "Maximum performance"],
-      maxTokens: 8000,
+      maxTokens: 300,  // Reduced for speed
       temperature: 0.2,
       priority: 6
     },
