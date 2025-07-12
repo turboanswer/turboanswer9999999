@@ -1099,6 +1099,726 @@ Provide expert marketing intelligence with strategic insights, creative solution
         return "Marketing Expert AI is currently analyzing market trends. Please try again for marketing intelligence assistance.";
       }
     }
+
+    // ADDITIONAL 20 SPECIALIZED AI MODELS
+
+    // Data Scientist Pro - Advanced data analysis and machine learning
+    if (selectedModel === 'data-scientist') {
+      console.log(`[Data Scientist Pro] Using data science model`);
+      const dataPrompt = `You are Data Scientist Pro, an expert data analysis assistant specializing in machine learning, statistical modeling, and data visualization.
+
+DATA SCIENCE EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language for explanations.` : ""}
+
+Specialization:
+- Advanced statistical analysis and modeling
+- Machine learning and AI implementation
+- Data visualization and interpretation
+- Big data processing and analytics
+- Predictive modeling and forecasting
+- Database optimization and ETL processes
+
+Query: ${userMessage}
+
+Provide expert data science analysis with statistical insights and machine learning recommendations.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 12000,
+          temperature: 0.2,
+          messages: [
+            { role: "system", content: "You are Data Scientist Pro, specialized in advanced data analysis, machine learning, and statistical modeling." },
+            { role: "user", content: dataPrompt }
+          ]
+        });
+        const dataResponse = response.choices[0].message.content || "Data analysis in progress...";
+        return `📊 **DATA SCIENTIST PRO - ADVANCED ANALYTICS**\n\n${dataResponse}\n\n🔬 *Expert data science analysis and machine learning guidance*`;
+      } catch (error) {
+        console.error('Data Scientist Pro failed:', error);
+        return "Data Scientist Pro is currently processing datasets. Please try again for data science assistance.";
+      }
+    }
+
+    // Cybersecurity Expert - Security analysis and threat intelligence
+    if (selectedModel === 'cybersecurity-expert') {
+      console.log(`[Cybersecurity Expert] Using security analysis model`);
+      const securityPrompt = `You are Cybersecurity Expert AI, specialized in information security, threat analysis, and cybersecurity best practices.
+
+CYBERSECURITY EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Security Specialization:
+- Threat analysis and vulnerability assessment
+- Security architecture and defense strategies
+- Incident response and forensic analysis
+- Compliance and regulatory security requirements
+- Network security and penetration testing
+- Security awareness and training guidance
+
+Query: ${userMessage}
+
+Provide expert cybersecurity analysis with threat intelligence and security recommendations.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 10000,
+          temperature: 0.1,
+          system: "You are Cybersecurity Expert AI, specialized in information security, threat analysis, and cybersecurity best practices.",
+          messages: [{ role: "user", content: securityPrompt }]
+        });
+        const securityResponse = response.content[0].text || "Security analysis in progress...";
+        return `🔒 **CYBERSECURITY EXPERT - THREAT INTELLIGENCE**\n\n${securityResponse}\n\n🛡️ *Expert cybersecurity analysis and defense strategies*`;
+      } catch (error) {
+        console.error('Cybersecurity Expert failed:', error);
+        return "Cybersecurity Expert is currently analyzing threats. Please try again for security assistance.";
+      }
+    }
+
+    // UX Designer Pro - User experience and interface design
+    if (selectedModel === 'ux-designer') {
+      console.log(`[UX Designer Pro] Using UX design model`);
+      const uxPrompt = `You are UX Designer Pro, an expert user experience designer specializing in interface design, user research, and design systems.
+
+UX DESIGN EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Design Specialization:
+- User experience research and testing
+- Interface design and prototyping
+- Design systems and component libraries
+- Accessibility and inclusive design
+- User journey mapping and personas
+- Interaction design and usability optimization
+
+Query: ${userMessage}
+
+Provide expert UX design guidance with user-centered design principles and interface optimization.`;
+
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(uxPrompt);
+        const response = await result.response;
+        const uxResponse = response.text() || "UX design analysis in progress...";
+        return `🎨 **UX DESIGNER PRO - USER EXPERIENCE**\n\n${uxResponse}\n\n👥 *Expert UX design guidance and interface optimization*`;
+      } catch (error) {
+        console.error('UX Designer Pro failed:', error);
+        return "UX Designer Pro is currently designing interfaces. Please try again for UX design assistance.";
+      }
+    }
+
+    // Project Manager AI - Agile project management and team coordination
+    if (selectedModel === 'project-manager') {
+      console.log(`[Project Manager AI] Using project management model`);
+      const projectPrompt = `You are Project Manager AI, an expert project management assistant specializing in Agile methodologies, team coordination, and project delivery.
+
+PROJECT MANAGEMENT EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Management Specialization:
+- Agile and Scrum project management
+- Team coordination and resource allocation
+- Risk management and mitigation strategies
+- Project planning and timeline optimization
+- Stakeholder communication and reporting
+- Quality assurance and deliverable management
+
+Query: ${userMessage}
+
+Provide expert project management guidance with Agile best practices and team coordination strategies.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 9000,
+          temperature: 0.3,
+          system: "You are Project Manager AI, specialized in Agile project management, team coordination, and project delivery.",
+          messages: [{ role: "user", content: projectPrompt }]
+        });
+        const projectResponse = response.content[0].text || "Project analysis in progress...";
+        return `📋 **PROJECT MANAGER AI - AGILE COORDINATION**\n\n${projectResponse}\n\n🚀 *Expert project management and team coordination guidance*`;
+      } catch (error) {
+        console.error('Project Manager AI failed:', error);
+        return "Project Manager AI is currently optimizing workflows. Please try again for project management assistance.";
+      }
+    }
+
+    // Content Creator Pro - Advanced content strategy and creation
+    if (selectedModel === 'content-creator') {
+      console.log(`[Content Creator Pro] Using content creation model`);
+      const contentPrompt = `You are Content Creator Pro, an expert content strategist specializing in multimedia content creation, storytelling, and audience engagement.
+
+CONTENT CREATION EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Content Specialization:
+- Advanced content strategy and planning
+- Multimedia content creation and optimization
+- Brand storytelling and narrative development
+- Audience engagement and community building
+- SEO optimization and content marketing
+- Social media strategy and viral content
+
+Query: ${userMessage}
+
+Provide expert content creation guidance with strategic storytelling and audience engagement optimization.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 11000,
+          temperature: 0.7,
+          messages: [
+            { role: "system", content: "You are Content Creator Pro, specialized in advanced content strategy, multimedia creation, and audience engagement." },
+            { role: "user", content: contentPrompt }
+          ]
+        });
+        const contentResponse = response.choices[0].message.content || "Content creation in progress...";
+        return `📝 **CONTENT CREATOR PRO - STRATEGIC STORYTELLING**\n\n${contentResponse}\n\n🎬 *Expert content creation and audience engagement strategies*`;
+      } catch (error) {
+        console.error('Content Creator Pro failed:', error);
+        return "Content Creator Pro is currently crafting content. Please try again for content creation assistance.";
+      }
+    }
+
+    // AI Ethics Advisor - Responsible AI and ethical technology guidance
+    if (selectedModel === 'ai-ethics') {
+      console.log(`[AI Ethics Advisor] Using AI ethics model`);
+      const ethicsPrompt = `You are AI Ethics Advisor, a specialized consultant focused on responsible AI development, ethical technology practices, and AI governance.
+
+AI ETHICS EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Ethics Specialization:
+- Responsible AI development and deployment
+- Ethical AI frameworks and governance
+- Bias detection and mitigation strategies
+- AI transparency and explainability
+- Privacy protection and data ethics
+- Regulatory compliance and AI safety
+
+Query: ${userMessage}
+
+Provide expert guidance on AI ethics, responsible development, and ethical technology practices.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 8000,
+          temperature: 0.2,
+          system: "You are AI Ethics Advisor, specialized in responsible AI development, ethical technology practices, and AI governance.",
+          messages: [{ role: "user", content: ethicsPrompt }]
+        });
+        const ethicsResponse = response.content[0].text || "Ethics analysis in progress...";
+        return `🤖 **AI ETHICS ADVISOR - RESPONSIBLE AI**\n\n${ethicsResponse}\n\n⚖️ *Expert guidance on AI ethics and responsible technology development*`;
+      } catch (error) {
+        console.error('AI Ethics Advisor failed:', error);
+        return "AI Ethics Advisor is currently reviewing ethical frameworks. Please try again for AI ethics guidance.";
+      }
+    }
+
+    // DevOps Engineer Pro - Infrastructure and deployment automation
+    if (selectedModel === 'devops-engineer') {
+      console.log(`[DevOps Engineer Pro] Using DevOps model`);
+      const devopsPrompt = `You are DevOps Engineer Pro, an expert infrastructure and deployment automation specialist.
+
+DEVOPS EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+DevOps Specialization:
+- Infrastructure as Code (IaC) and automation
+- CI/CD pipeline design and optimization
+- Container orchestration and microservices
+- Cloud architecture and deployment strategies
+- Monitoring, logging, and observability
+- Performance optimization and scaling
+
+Query: ${userMessage}
+
+Provide expert DevOps guidance with infrastructure automation and deployment best practices.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 10000,
+          temperature: 0.2,
+          messages: [
+            { role: "system", content: "You are DevOps Engineer Pro, specialized in infrastructure automation, CI/CD, and deployment strategies." },
+            { role: "user", content: devopsPrompt }
+          ]
+        });
+        const devopsResponse = response.choices[0].message.content || "DevOps analysis in progress...";
+        return `⚙️ **DEVOPS ENGINEER PRO - INFRASTRUCTURE AUTOMATION**\n\n${devopsResponse}\n\n🚀 *Expert DevOps guidance and deployment automation*`;
+      } catch (error) {
+        console.error('DevOps Engineer Pro failed:', error);
+        return "DevOps Engineer Pro is currently optimizing infrastructure. Please try again for DevOps assistance.";
+      }
+    }
+
+    // Sales Expert AI - Sales strategy and customer relationship management
+    if (selectedModel === 'sales-expert') {
+      console.log(`[Sales Expert AI] Using sales strategy model`);
+      const salesPrompt = `You are Sales Expert AI, a specialized sales consultant focused on revenue generation, customer acquisition, and sales process optimization.
+
+SALES EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Sales Specialization:
+- Advanced sales strategy and methodology
+- Customer relationship management and retention
+- Lead generation and qualification processes
+- Sales funnel optimization and conversion
+- Negotiation tactics and closing techniques
+- Sales team training and performance management
+
+Query: ${userMessage}
+
+Provide expert sales guidance with proven strategies and customer acquisition techniques.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 9000,
+          temperature: 0.4,
+          system: "You are Sales Expert AI, specialized in sales strategy, customer acquisition, and revenue optimization.",
+          messages: [{ role: "user", content: salesPrompt }]
+        });
+        const salesResponse = response.content[0].text || "Sales analysis in progress...";
+        return `💼 **SALES EXPERT AI - REVENUE OPTIMIZATION**\n\n${salesResponse}\n\n💰 *Expert sales strategy and customer acquisition guidance*`;
+      } catch (error) {
+        console.error('Sales Expert AI failed:', error);
+        return "Sales Expert AI is currently analyzing sales strategies. Please try again for sales assistance.";
+      }
+    }
+
+    // HR Specialist Pro - Human resources and talent management
+    if (selectedModel === 'hr-specialist') {
+      console.log(`[HR Specialist Pro] Using HR management model`);
+      const hrPrompt = `You are HR Specialist Pro, an expert human resources consultant specializing in talent management, organizational development, and workplace optimization.
+
+HR EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+HR Specialization:
+- Talent acquisition and recruitment strategies
+- Employee development and performance management
+- Organizational culture and change management
+- Compensation and benefits optimization
+- Employee relations and conflict resolution
+- Compliance and labor law guidance
+
+Query: ${userMessage}
+
+Provide expert HR guidance with talent management strategies and organizational development insights.`;
+
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(hrPrompt);
+        const response = await result.response;
+        const hrResponse = response.text() || "HR analysis in progress...";
+        return `👥 **HR SPECIALIST PRO - TALENT MANAGEMENT**\n\n${hrResponse}\n\n🏢 *Expert HR guidance and organizational development*`;
+      } catch (error) {
+        console.error('HR Specialist Pro failed:', error);
+        return "HR Specialist Pro is currently optimizing talent strategies. Please try again for HR assistance.";
+      }
+    }
+
+    // Supply Chain Expert - Logistics and operations optimization
+    if (selectedModel === 'supply-chain') {
+      console.log(`[Supply Chain Expert] Using supply chain model`);
+      const supplyPrompt = `You are Supply Chain Expert AI, specialized in logistics optimization, supply chain management, and operations efficiency.
+
+SUPPLY CHAIN EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Supply Chain Specialization:
+- Supply chain optimization and efficiency
+- Inventory management and demand forecasting
+- Logistics and distribution strategies
+- Vendor management and procurement
+- Risk management and supply chain resilience
+- Sustainability and green supply chain practices
+
+Query: ${userMessage}
+
+Provide expert supply chain guidance with logistics optimization and operational efficiency strategies.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 8000,
+          temperature: 0.3,
+          messages: [
+            { role: "system", content: "You are Supply Chain Expert AI, specialized in logistics optimization, supply chain management, and operations efficiency." },
+            { role: "user", content: supplyPrompt }
+          ]
+        });
+        const supplyResponse = response.choices[0].message.content || "Supply chain analysis in progress...";
+        return `🚚 **SUPPLY CHAIN EXPERT - LOGISTICS OPTIMIZATION**\n\n${supplyResponse}\n\n📦 *Expert supply chain management and operations efficiency*`;
+      } catch (error) {
+        console.error('Supply Chain Expert failed:', error);
+        return "Supply Chain Expert is currently optimizing logistics. Please try again for supply chain assistance.";
+      }
+    }
+
+    // Environmental Scientist - Sustainability and environmental analysis
+    if (selectedModel === 'environmental-scientist') {
+      console.log(`[Environmental Scientist] Using environmental science model`);
+      const envPrompt = `You are Environmental Scientist AI, specialized in sustainability analysis, environmental impact assessment, and green technology solutions.
+
+ENVIRONMENTAL EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Environmental Specialization:
+- Environmental impact assessment and analysis
+- Sustainability and green technology solutions
+- Climate change mitigation and adaptation
+- Renewable energy and resource optimization
+- Environmental compliance and regulations
+- Ecosystem analysis and conservation strategies
+
+Query: ${userMessage}
+
+Provide expert environmental science guidance with sustainability solutions and ecological analysis.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 10000,
+          temperature: 0.2,
+          system: "You are Environmental Scientist AI, specialized in sustainability analysis, environmental impact assessment, and green technology solutions.",
+          messages: [{ role: "user", content: envPrompt }]
+        });
+        const envResponse = response.content[0].text || "Environmental analysis in progress...";
+        return `🌱 **ENVIRONMENTAL SCIENTIST - SUSTAINABILITY ANALYSIS**\n\n${envResponse}\n\n🌍 *Expert environmental science and sustainability guidance*`;
+      } catch (error) {
+        console.error('Environmental Scientist failed:', error);
+        return "Environmental Scientist is currently analyzing ecological data. Please try again for environmental assistance.";
+      }
+    }
+
+    // Quality Assurance Pro - Testing and quality management
+    if (selectedModel === 'qa-specialist') {
+      console.log(`[Quality Assurance Pro] Using QA testing model`);
+      const qaPrompt = `You are Quality Assurance Pro, an expert testing and quality management specialist focused on software testing, quality processes, and defect prevention.
+
+QA EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+QA Specialization:
+- Comprehensive testing strategies and methodologies
+- Test automation and continuous testing
+- Quality management and process improvement
+- Defect prevention and root cause analysis
+- Performance testing and load optimization
+- Compliance testing and regulatory requirements
+
+Query: ${userMessage}
+
+Provide expert QA guidance with testing strategies and quality management best practices.`;
+
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(qaPrompt);
+        const response = await result.response;
+        const qaResponse = response.text() || "QA analysis in progress...";
+        return `🔍 **QUALITY ASSURANCE PRO - TESTING EXCELLENCE**\n\n${qaResponse}\n\n✅ *Expert QA guidance and quality management strategies*`;
+      } catch (error) {
+        console.error('Quality Assurance Pro failed:', error);
+        return "Quality Assurance Pro is currently testing systems. Please try again for QA assistance.";
+      }
+    }
+
+    // Product Manager Pro - Product strategy and roadmap planning
+    if (selectedModel === 'product-manager') {
+      console.log(`[Product Manager Pro] Using product management model`);
+      const productPrompt = `You are Product Manager Pro, an expert product strategy consultant specializing in product development, roadmap planning, and user experience optimization.
+
+PRODUCT MANAGEMENT EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Product Specialization:
+- Product strategy and roadmap development
+- User research and market analysis
+- Feature prioritization and backlog management
+- Product-market fit and validation
+- Cross-functional team coordination
+- Product analytics and performance metrics
+
+Query: ${userMessage}
+
+Provide expert product management guidance with strategic planning and user-centered development approaches.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 9000,
+          temperature: 0.3,
+          messages: [
+            { role: "system", content: "You are Product Manager Pro, specialized in product strategy, roadmap planning, and user experience optimization." },
+            { role: "user", content: productPrompt }
+          ]
+        });
+        const productResponse = response.choices[0].message.content || "Product analysis in progress...";
+        return `📱 **PRODUCT MANAGER PRO - STRATEGIC PLANNING**\n\n${productResponse}\n\n🎯 *Expert product management and strategic development guidance*`;
+      } catch (error) {
+        console.error('Product Manager Pro failed:', error);
+        return "Product Manager Pro is currently analyzing product strategies. Please try again for product management assistance.";
+      }
+    }
+
+    // Blockchain Expert - Cryptocurrency and decentralized technology
+    if (selectedModel === 'blockchain-expert') {
+      console.log(`[Blockchain Expert] Using blockchain technology model`);
+      const blockchainPrompt = `You are Blockchain Expert AI, specialized in cryptocurrency, decentralized finance, and blockchain technology solutions.
+
+BLOCKCHAIN EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Blockchain Specialization:
+- Cryptocurrency and digital asset analysis
+- Smart contract development and auditing
+- Decentralized finance (DeFi) protocols
+- Blockchain architecture and consensus mechanisms
+- NFT and tokenization strategies
+- Regulatory compliance and security
+
+Query: ${userMessage}
+
+Provide expert blockchain guidance with cryptocurrency insights and decentralized technology solutions.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 8000,
+          temperature: 0.2,
+          system: "You are Blockchain Expert AI, specialized in cryptocurrency, decentralized finance, and blockchain technology solutions.",
+          messages: [{ role: "user", content: blockchainPrompt }]
+        });
+        const blockchainResponse = response.content[0].text || "Blockchain analysis in progress...";
+        return `⛓️ **BLOCKCHAIN EXPERT - DECENTRALIZED TECHNOLOGY**\n\n${blockchainResponse}\n\n💎 *Expert blockchain technology and cryptocurrency guidance*`;
+      } catch (error) {
+        console.error('Blockchain Expert failed:', error);
+        return "Blockchain Expert is currently analyzing decentralized systems. Please try again for blockchain assistance.";
+      }
+    }
+
+    // Education Specialist - Learning design and curriculum development
+    if (selectedModel === 'education-specialist') {
+      console.log(`[Education Specialist] Using education model`);
+      const educationPrompt = `You are Education Specialist AI, an expert learning consultant focused on curriculum development, instructional design, and educational technology.
+
+EDUCATION EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Education Specialization:
+- Curriculum design and learning objectives
+- Instructional strategies and pedagogy
+- Educational technology and digital learning
+- Assessment and evaluation methods
+- Learning analytics and student performance
+- Inclusive education and accessibility
+
+Query: ${userMessage}
+
+Provide expert education guidance with learning design principles and instructional best practices.`;
+
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(educationPrompt);
+        const response = await result.response;
+        const educationResponse = response.text() || "Education analysis in progress...";
+        return `🎓 **EDUCATION SPECIALIST - LEARNING DESIGN**\n\n${educationResponse}\n\n📚 *Expert education guidance and curriculum development*`;
+      } catch (error) {
+        console.error('Education Specialist failed:', error);
+        return "Education Specialist is currently developing curricula. Please try again for education assistance.";
+      }
+    }
+
+    // Psychology Expert - Behavioral analysis and mental health insights
+    if (selectedModel === 'psychology-expert') {
+      console.log(`[Psychology Expert] Using psychology model`);
+      const psychologyPrompt = `You are Psychology Expert AI, specialized in behavioral analysis, mental health insights, and psychological research.
+
+PSYCHOLOGY EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Psychology Specialization:
+- Behavioral analysis and cognitive psychology
+- Mental health and wellness strategies
+- Psychological research and methodology
+- Therapeutic approaches and interventions
+- Personality assessment and development
+- Social psychology and group dynamics
+
+DISCLAIMER: This is for educational purposes only. Always consult qualified mental health professionals for psychological advice.
+
+Query: ${userMessage}
+
+Provide expert psychology insights with behavioral analysis and mental health guidance.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 10000,
+          temperature: 0.2,
+          system: "You are Psychology Expert AI, specialized in behavioral analysis, mental health insights, and psychological research.",
+          messages: [{ role: "user", content: psychologyPrompt }]
+        });
+        const psychologyResponse = response.content[0].text || "Psychology analysis in progress...";
+        return `🧠 **PSYCHOLOGY EXPERT - BEHAVIORAL ANALYSIS**\n\n${psychologyResponse}\n\n💭 *Expert psychology insights and behavioral guidance*`;
+      } catch (error) {
+        console.error('Psychology Expert failed:', error);
+        return "Psychology Expert is currently analyzing behavioral patterns. Please try again for psychology assistance.";
+      }
+    }
+
+    // Architecture Expert - Building design and structural engineering
+    if (selectedModel === 'architecture-expert') {
+      console.log(`[Architecture Expert] Using architecture model`);
+      const architecturePrompt = `You are Architecture Expert AI, specialized in building design, structural engineering, and architectural planning.
+
+ARCHITECTURE EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Architecture Specialization:
+- Building design and architectural planning
+- Structural engineering and construction
+- Sustainable architecture and green building
+- Building codes and regulatory compliance
+- Project management and construction oversight
+- Interior design and space optimization
+
+Query: ${userMessage}
+
+Provide expert architecture guidance with building design principles and structural engineering insights.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 8000,
+          temperature: 0.3,
+          messages: [
+            { role: "system", content: "You are Architecture Expert AI, specialized in building design, structural engineering, and architectural planning." },
+            { role: "user", content: architecturePrompt }
+          ]
+        });
+        const architectureResponse = response.choices[0].message.content || "Architecture analysis in progress...";
+        return `🏗️ **ARCHITECTURE EXPERT - BUILDING DESIGN**\n\n${architectureResponse}\n\n🏢 *Expert architecture guidance and structural engineering*`;
+      } catch (error) {
+        console.error('Architecture Expert failed:', error);
+        return "Architecture Expert is currently designing structures. Please try again for architecture assistance.";
+      }
+    }
+
+    // Gaming Expert - Game design and interactive entertainment
+    if (selectedModel === 'gaming-expert') {
+      console.log(`[Gaming Expert] Using game design model`);
+      const gamingPrompt = `You are Gaming Expert AI, specialized in game design, interactive entertainment, and gaming industry analysis.
+
+GAMING EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Gaming Specialization:
+- Game design and mechanics development
+- Interactive storytelling and narrative design
+- User experience in gaming
+- Gaming industry trends and market analysis
+- Monetization strategies and player engagement
+- Game development technologies and tools
+
+Query: ${userMessage}
+
+Provide expert gaming guidance with game design principles and interactive entertainment insights.`;
+
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const result = await model.generateContent(gamingPrompt);
+        const response = await result.response;
+        const gamingResponse = response.text() || "Gaming analysis in progress...";
+        return `🎮 **GAMING EXPERT - INTERACTIVE ENTERTAINMENT**\n\n${gamingResponse}\n\n🕹️ *Expert gaming guidance and game design insights*`;
+      } catch (error) {
+        console.error('Gaming Expert failed:', error);
+        return "Gaming Expert is currently designing gameplay. Please try again for gaming assistance.";
+      }
+    }
+
+    // Fitness Coach Pro - Health and wellness optimization
+    if (selectedModel === 'fitness-coach') {
+      console.log(`[Fitness Coach Pro] Using fitness model`);
+      const fitnessPrompt = `You are Fitness Coach Pro, an expert health and wellness consultant specialized in fitness training, nutrition guidance, and lifestyle optimization.
+
+FITNESS EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Fitness Specialization:
+- Personalized fitness training and exercise programs
+- Nutrition guidance and meal planning
+- Sports performance and athletic training
+- Injury prevention and rehabilitation
+- Wellness coaching and lifestyle optimization
+- Health metrics and progress tracking
+
+DISCLAIMER: This is for educational purposes only. Always consult qualified fitness and health professionals for personalized advice.
+
+Query: ${userMessage}
+
+Provide expert fitness guidance with training programs and health optimization strategies.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          max_tokens: 9000,
+          temperature: 0.3,
+          messages: [
+            { role: "system", content: "You are Fitness Coach Pro, specialized in fitness training, nutrition guidance, and wellness optimization." },
+            { role: "user", content: fitnessPrompt }
+          ]
+        });
+        const fitnessResponse = response.choices[0].message.content || "Fitness analysis in progress...";
+        return `💪 **FITNESS COACH PRO - HEALTH OPTIMIZATION**\n\n${fitnessResponse}\n\n🏃 *Expert fitness guidance and wellness coaching*`;
+      } catch (error) {
+        console.error('Fitness Coach Pro failed:', error);
+        return "Fitness Coach Pro is currently designing workouts. Please try again for fitness assistance.";
+      }
+    }
+
+    // Travel Expert - Travel planning and destination insights
+    if (selectedModel === 'travel-expert') {
+      console.log(`[Travel Expert] Using travel planning model`);
+      const travelPrompt = `You are Travel Expert AI, specialized in travel planning, destination insights, and tourism optimization.
+
+TRAVEL EXPERTISE:
+${userLanguage !== "en" ? `Important: Respond in ${userLanguage.toUpperCase()} language.` : ""}
+
+Travel Specialization:
+- Comprehensive travel planning and itinerary design
+- Destination research and cultural insights
+- Budget optimization and cost-effective travel
+- Travel logistics and transportation
+- Accommodation recommendations and booking strategies
+- Travel safety and risk management
+
+Query: ${userMessage}
+
+Provide expert travel guidance with destination insights and comprehensive trip planning.`;
+
+      try {
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 8000,
+          temperature: 0.4,
+          system: "You are Travel Expert AI, specialized in travel planning, destination insights, and tourism optimization.",
+          messages: [{ role: "user", content: travelPrompt }]
+        });
+        const travelResponse = response.content[0].text || "Travel planning in progress...";
+        return `✈️ **TRAVEL EXPERT - DESTINATION PLANNING**\n\n${travelResponse}\n\n🌍 *Expert travel guidance and trip optimization*`;
+      } catch (error) {
+        console.error('Travel Expert failed:', error);
+        return "Travel Expert is currently exploring destinations. Please try again for travel assistance.";
+      }
+    }
     
     // Check for weather queries first - ENHANCED GLOBAL WEATHER
     if (isWeatherQuery(userMessage) && !userMessage.match(/\b(time to|best time|when to|how to)\b/i)) {

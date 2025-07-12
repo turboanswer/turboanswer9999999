@@ -158,6 +158,166 @@ const AI_MODELS = {
     speed: "Marketing",
     color: "pink",
     isPaid: true
+  },
+  "data-scientist": {
+    name: "Data Scientist Pro",
+    description: "Advanced data analysis, machine learning, and statistical modeling",
+    tier: "premium",
+    speed: "Analytics",
+    color: "blue",
+    isPaid: true
+  },
+  "cybersecurity-expert": {
+    name: "Cybersecurity Expert",
+    description: "Security analysis, threat intelligence, and cybersecurity best practices",
+    tier: "premium",
+    speed: "Security",
+    color: "red",
+    isPaid: true
+  },
+  "ux-designer": {
+    name: "UX Designer Pro",
+    description: "User experience design, interface optimization, and design systems",
+    tier: "premium",
+    speed: "Design",
+    color: "purple",
+    isPaid: true
+  },
+  "project-manager": {
+    name: "Project Manager AI",
+    description: "Agile project management, team coordination, and project delivery",
+    tier: "premium",
+    speed: "Management",
+    color: "green",
+    isPaid: true
+  },
+  "content-creator": {
+    name: "Content Creator Pro",
+    description: "Advanced content strategy, storytelling, and audience engagement",
+    tier: "premium",
+    speed: "Creative",
+    color: "orange",
+    isPaid: true
+  },
+  "ai-ethics": {
+    name: "AI Ethics Advisor",
+    description: "Responsible AI development, ethical technology, and AI governance",
+    tier: "premium",
+    speed: "Ethics",
+    color: "gray",
+    isPaid: true
+  },
+  "devops-engineer": {
+    name: "DevOps Engineer Pro",
+    description: "Infrastructure automation, CI/CD, and deployment strategies",
+    tier: "premium",
+    speed: "DevOps",
+    color: "cyan",
+    isPaid: true
+  },
+  "sales-expert": {
+    name: "Sales Expert AI",
+    description: "Sales strategy, customer acquisition, and revenue optimization",
+    tier: "premium",
+    speed: "Sales",
+    color: "green",
+    isPaid: true
+  },
+  "hr-specialist": {
+    name: "HR Specialist Pro",
+    description: "Talent management, organizational development, and HR strategy",
+    tier: "premium",
+    speed: "HR",
+    color: "blue",
+    isPaid: true
+  },
+  "supply-chain": {
+    name: "Supply Chain Expert",
+    description: "Logistics optimization, supply chain management, and operations",
+    tier: "premium",
+    speed: "Logistics",
+    color: "brown",
+    isPaid: true
+  },
+  "environmental-scientist": {
+    name: "Environmental Scientist",
+    description: "Sustainability analysis, environmental impact, and green technology",
+    tier: "premium",
+    speed: "Environmental",
+    color: "green",
+    isPaid: true
+  },
+  "qa-specialist": {
+    name: "Quality Assurance Pro",
+    description: "Testing excellence, quality management, and defect prevention",
+    tier: "premium",
+    speed: "QA",
+    color: "yellow",
+    isPaid: true
+  },
+  "product-manager": {
+    name: "Product Manager Pro",
+    description: "Product strategy, roadmap planning, and user experience optimization",
+    tier: "premium",
+    speed: "Product",
+    color: "indigo",
+    isPaid: true
+  },
+  "blockchain-expert": {
+    name: "Blockchain Expert",
+    description: "Cryptocurrency, decentralized finance, and blockchain technology",
+    tier: "premium",
+    speed: "Blockchain",
+    color: "orange",
+    isPaid: true
+  },
+  "education-specialist": {
+    name: "Education Specialist",
+    description: "Learning design, curriculum development, and educational technology",
+    tier: "premium",
+    speed: "Education",
+    color: "blue",
+    isPaid: true
+  },
+  "psychology-expert": {
+    name: "Psychology Expert",
+    description: "Behavioral analysis, mental health insights, and psychological research",
+    tier: "premium",
+    speed: "Psychology",
+    color: "purple",
+    isPaid: true
+  },
+  "architecture-expert": {
+    name: "Architecture Expert",
+    description: "Building design, structural engineering, and architectural planning",
+    tier: "premium",
+    speed: "Architecture",
+    color: "gray",
+    isPaid: true
+  },
+  "gaming-expert": {
+    name: "Gaming Expert",
+    description: "Game design, interactive entertainment, and gaming industry analysis",
+    tier: "premium",
+    speed: "Gaming",
+    color: "pink",
+    isPaid: true
+  },
+  "fitness-coach": {
+    name: "Fitness Coach Pro",
+    description: "Health optimization, fitness training, and wellness coaching",
+    tier: "premium",
+    speed: "Fitness",
+    color: "red",
+    isPaid: true
+  },
+  "travel-expert": {
+    name: "Travel Expert",
+    description: "Travel planning, destination insights, and tourism optimization",
+    tier: "premium",
+    speed: "Travel",
+    color: "cyan",
+    isPaid: true
   }
 };
 
