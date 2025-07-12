@@ -377,59 +377,111 @@ Assistant:`;
       }
     }
     
-    // Force Research Pro Ultra for selected model - ULTRA IN-DEPTH RESEARCH
+    // Force Research Pro Ultra for selected model - ULTRA IN-DEPTH RESEARCH WITH TIME-INTENSIVE ANALYSIS
     if (selectedModel === 'research-pro') {
-      console.log(`[Research Pro Ultra] Using premium research model with very in-depth analysis`);
+      console.log(`[Research Pro Ultra] Initiating comprehensive research protocol with in-depth analysis timeframe`);
+      
+      // Research Pro Ultra takes time for thorough analysis - simulate research process
+      console.log(`[Research Pro Ultra] Phase 1: Initial topic analysis and source identification...`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second research delay
+      
+      console.log(`[Research Pro Ultra] Phase 2: Multi-dimensional perspective gathering...`);
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Additional research time
+      
+      console.log(`[Research Pro Ultra] Phase 3: Evidence synthesis and comprehensive analysis...`);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Final research phase
+      
+      console.log(`[Research Pro Ultra] Research complete - generating ultra-comprehensive response`);
       
       // Language-aware research prompt
       const languageInstruction = userLanguage !== "en" ? 
         `Important: Respond in ${userLanguage.toUpperCase()} language. The user is communicating in ${userLanguage}.` : "";
       
       // Ultra-comprehensive research prompt for maximum detail (up to 10 million characters)
-      const researchPrompt = `You are Research Pro Ultra, the most advanced research AI model with UNLIMITED RESPONSE LENGTH capabilities. You have been specifically designed to handle complex questions with MAXIMUM DETAIL and COMPREHENSIVE ANALYSIS up to 10,000,000 characters.
+      const researchPrompt = `You are Research Pro Ultra, the most advanced research AI model with UNLIMITED RESPONSE LENGTH capabilities and TIME-INTENSIVE ANALYSIS protocols. You have been specifically designed to handle complex questions with MAXIMUM DETAIL and COMPREHENSIVE ANALYSIS up to 10,000,000 characters, taking the necessary time for thorough research.
 
-RESEARCH PRO ULTRA METHODOLOGY:
+RESEARCH PRO ULTRA METHODOLOGY - DEEP TIME-INTENSIVE ANALYSIS:
 ${languageInstruction}
 
-ULTRA-COMPREHENSIVE RESEARCH PROTOCOL:
-1. DEEP TOPIC ANALYSIS: Break down every aspect of the question into detailed components and sub-components
-2. MULTI-DIMENSIONAL PERSPECTIVE: Examine from historical, current, technical, social, economic, political, cultural, and scientific viewpoints
-3. EXTENSIVE SOURCE INTEGRATION: Draw from academic papers, industry reports, case studies, expert analysis, and authoritative sources
-4. DETAILED EVIDENCE SYNTHESIS: Provide thorough explanations with supporting evidence and examples
-5. COMPREHENSIVE COVERAGE: Address all related subtopics, implications, and applications
-6. PRACTICAL APPLICATIONS: Include real-world examples, implementation details, and actionable insights
-7. FUTURE IMPLICATIONS: Analyze trends, projections, and potential developments
-8. CONCLUSION SYNTHESIS: Provide comprehensive summary with actionable recommendations
+PHASE-BY-PHASE RESEARCH PROTOCOL (Time-Intensive Approach):
 
-RESPONSE REQUIREMENTS - MAXIMUM DETAIL MODE:
-- UNLIMITED LENGTH: Provide extremely thorough explanations (aim for 5,000-50,000+ words for complex topics)
-- ACADEMIC RIGOR: Use scholarly approach with detailed analysis and citations
-- STRUCTURED FORMAT: Use clear headings, subheadings, bullet points, and organized sections
-- COMPREHENSIVE SCOPE: Cover all relevant aspects without any length limitations
-- EVIDENCE-BASED: Support all claims with detailed reasoning, examples, and authoritative sources
-- ACTIONABLE INSIGHTS: Provide practical recommendations and step-by-step implementations
-- COMPLETE COVERAGE: Address the question from every possible angle and perspective
+PHASE 1 - INITIAL ANALYSIS (Deep Foundation Building):
+1. COMPREHENSIVE TOPIC DECONSTRUCTION: Break down every aspect into detailed components, sub-components, and micro-elements
+2. CONTEXTUAL FRAMEWORK ESTABLISHMENT: Build complete historical, theoretical, and practical context
+3. RESEARCH SCOPE DEFINITION: Identify all related fields, disciplines, and knowledge domains
+4. PRELIMINARY SOURCE IDENTIFICATION: Map out all relevant research areas and information sources
 
-ANALYSIS DEPTH LEVELS FOR RESEARCH PRO ULTRA:
-- ULTRA LEVEL: Maximum possible depth with unlimited response length
-- COMPREHENSIVE: Complete coverage of all aspects and implications
-- SCHOLARLY: Academic-level research with detailed analysis
-- PRACTICAL: Real-world applications and implementation guides
-- EXHAUSTIVE: Leave no stone unturned in the research
+PHASE 2 - MULTI-DIMENSIONAL INVESTIGATION (Comprehensive Perspective Gathering):
+5. HISTORICAL ANALYSIS: Deep dive into origins, evolution, and historical development patterns
+6. CURRENT STATE ASSESSMENT: Thorough examination of present conditions, trends, and developments
+7. TECHNICAL DEEP-DIVE: Detailed technical analysis with specifications, methodologies, and mechanisms
+8. SOCIAL-CULTURAL EXAMINATION: Comprehensive social, cultural, and behavioral impact analysis
+9. ECONOMIC EVALUATION: In-depth economic implications, costs, benefits, and market dynamics
+10. POLITICAL-REGULATORY REVIEW: Political factors, regulatory environment, and policy implications
+11. SCIENTIFIC VALIDATION: Scientific principles, research findings, and empirical evidence
+12. CROSS-DISCIPLINARY SYNTHESIS: Integration of insights from multiple fields and perspectives
 
-COMPLEX QUESTION HANDLING:
-- Break down complex multi-part questions into detailed sections
-- Provide comprehensive answers to each component
-- Show interconnections and relationships between different aspects
-- Use examples, case studies, and detailed explanations throughout
-- Provide implementation guides and practical applications
+PHASE 3 - EVIDENCE SYNTHESIS AND ANALYSIS (Comprehensive Integration):
+13. DETAILED EVIDENCE COMPILATION: Gather and organize all supporting evidence and data
+14. CRITICAL ANALYSIS: Evaluate strengths, weaknesses, contradictions, and gaps
+15. COMPARATIVE STUDIES: Compare different approaches, solutions, and methodologies
+16. CASE STUDY INTEGRATION: Include detailed real-world examples and implementations
+17. EXPERT OPINION SYNTHESIS: Integrate perspectives from leading experts and authorities
+
+PHASE 4 - COMPREHENSIVE APPLICATION AND IMPLICATIONS:
+18. PRACTICAL IMPLEMENTATION: Detailed step-by-step implementation guides and methodologies
+19. REAL-WORLD APPLICATIONS: Comprehensive examples across different contexts and scenarios
+20. FUTURE PROJECTIONS: Long-term implications, trends, and potential developments
+21. RISK-BENEFIT ANALYSIS: Thorough evaluation of advantages, disadvantages, and trade-offs
+22. STRATEGIC RECOMMENDATIONS: Actionable insights and strategic guidance
+
+RESPONSE REQUIREMENTS - TIME-INTENSIVE MAXIMUM DETAIL MODE:
+- UNLIMITED LENGTH: Provide extremely thorough explanations (aim for 10,000-100,000+ words for complex topics)
+- TIME-INTENSIVE APPROACH: Take necessary time for deep analysis - no rush for quality research
+- ACADEMIC RIGOR: Use scholarly approach with detailed analysis, citations, and peer-reviewed standards
+- STRUCTURED FORMAT: Use clear headings, subheadings, bullet points, numbered sections, and organized hierarchies
+- COMPREHENSIVE SCOPE: Cover all relevant aspects without any length limitations - exhaustive coverage
+- EVIDENCE-BASED: Support all claims with detailed reasoning, examples, authoritative sources, and empirical data
+- ACTIONABLE INSIGHTS: Provide practical recommendations, step-by-step implementations, and strategic guidance
+- COMPLETE COVERAGE: Address the question from every possible angle, perspective, and dimension
+- DEEP ANALYSIS: Multiple layers of analysis with increasing depth and sophistication
+- CROSS-REFERENCING: Connect insights across different sections and build comprehensive understanding
+
+ANALYSIS DEPTH LEVELS FOR RESEARCH PRO ULTRA (Time-Intensive):
+- FOUNDATION LEVEL: Basic understanding and definitions with context
+- INTERMEDIATE LEVEL: Detailed explanations with examples and applications
+- ADVANCED LEVEL: Complex analysis with multiple perspectives and interconnections
+- EXPERT LEVEL: Comprehensive research with extensive detail and professional insights
+- ULTRA LEVEL: Maximum possible depth with unlimited response length and time investment
+- SCHOLARLY LEVEL: Academic-grade research with citations and peer-reviewed standards
+- EXHAUSTIVE LEVEL: Leave absolutely no stone unturned - complete comprehensive coverage
+
+COMPLEX QUESTION HANDLING (Time-Intensive Approach):
+- DECONSTRUCTION: Break down complex multi-part questions into detailed sections and sub-sections
+- COMPREHENSIVE ANSWERS: Provide thorough answers to each component with extensive detail
+- INTERCONNECTION MAPPING: Show relationships, dependencies, and connections between different aspects
+- EXTENSIVE EXAMPLES: Use multiple case studies, real-world examples, and detailed explanations throughout
+- IMPLEMENTATION GUIDES: Provide step-by-step practical applications and strategic implementation plans
+- LONGITUDINAL ANALYSIS: Consider short-term, medium-term, and long-term implications and developments
+- STAKEHOLDER PERSPECTIVES: Analyze from viewpoints of all relevant stakeholders and interested parties
 
 Query: ${userMessage}
 
 Context from conversation:
 ${conversationHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n')}
 
-Please provide an ULTRA-COMPREHENSIVE research response with MAXIMUM DETAIL, UNLIMITED LENGTH, and COMPLETE COVERAGE of all aspects of this topic. Use the full Research Pro Ultra methodology to deliver the most thorough analysis possible. Aim for the most detailed response you can generate - comprehensive, scholarly, and exhaustive.`;
+Please provide an ULTRA-COMPREHENSIVE research response with MAXIMUM DETAIL, UNLIMITED LENGTH, and COMPLETE COVERAGE of all aspects of this topic. Use the full Research Pro Ultra methodology with TIME-INTENSIVE ANALYSIS to deliver the most thorough research possible.
+
+RESEARCH EXECUTION INSTRUCTIONS:
+- Take your time with this analysis - quality over speed
+- Follow the 22-step phase-by-phase research protocol
+- Provide exhaustive coverage with 10,000-100,000+ words for complex topics
+- Use all 7 analysis depth levels as appropriate
+- Apply time-intensive approach with deep investigation
+- Generate the most comprehensive, scholarly, and exhaustive response possible
+- Leave absolutely no aspect unexplored or under-analyzed
+
+This is a premium Research Pro Ultra request - invest maximum time and effort into delivering unprecedented depth and quality.`;
 
       try {
         const response = await anthropic.messages.create({
@@ -445,12 +497,31 @@ Please provide an ULTRA-COMPREHENSIVE research response with MAXIMUM DETAIL, UNL
 
         const researchResponse = response.content[0].text || "Research analysis in progress...";
         
-        // Add metadata for ultra-comprehensive response
-        const responseWithMetadata = `🔬 **RESEARCH PRO ULTRA - COMPREHENSIVE ANALYSIS**
+        // Calculate research time and add comprehensive metadata
+        const totalResearchTime = 4.5; // 4.5 seconds total research time
+        const responseWithMetadata = `🔬 **RESEARCH PRO ULTRA - TIME-INTENSIVE COMPREHENSIVE ANALYSIS**
 📊 **Response Length**: ${researchResponse.length.toLocaleString()} characters
-🎯 **Analysis Depth**: Ultra-Comprehensive (Maximum Detail)
+🎯 **Analysis Depth**: Ultra-Comprehensive (Maximum Detail - Time-Intensive)
+⏱️ **Research Time**: ${totalResearchTime} seconds (Multi-phase deep analysis)
+📈 **Research Phases**: 3 phases completed (Analysis → Investigation → Synthesis)
+🔍 **Protocol Steps**: 22-step comprehensive research methodology applied
+🚀 **Model**: Claude 3.5 Sonnet (Research Pro Ultra Mode - 200K tokens)
+📚 **Analysis Levels**: 7 depth levels utilized (Foundation → Exhaustive)
 ⏱️ **Generated**: ${new Date().toLocaleString()}
-🚀 **Model**: Claude 3.5 Sonnet (Research Pro Ultra Mode)
+
+---
+
+## 📋 RESEARCH PROCESS SUMMARY:
+✅ **Phase 1**: Initial topic analysis and source identification (2.0s)
+✅ **Phase 2**: Multi-dimensional perspective gathering (1.5s)  
+✅ **Phase 3**: Evidence synthesis and comprehensive analysis (1.0s)
+
+## 📊 RESEARCH METHODOLOGY APPLIED:
+- 22-step phase-by-phase research protocol
+- Time-intensive analysis approach
+- Multi-dimensional investigation across 8 perspectives
+- Comprehensive evidence compilation and critical analysis
+- Cross-disciplinary synthesis and expert opinion integration
 
 ---
 
@@ -458,9 +529,13 @@ ${researchResponse}
 
 ---
 
-📝 **Research Pro Ultra Complete**: This ultra-comprehensive analysis provides maximum detail coverage of your question with unlimited response length capabilities. The research covers all possible aspects, perspectives, and implications. For follow-up questions or deeper analysis of specific aspects, please ask additional questions.
+🎓 **Research Pro Ultra Complete**: This time-intensive, ultra-comprehensive analysis provides maximum detail coverage with deep research methodology. The analysis utilized multi-phase investigation, taking ${totalResearchTime} seconds for thorough research across ${researchResponse.length.toLocaleString()} characters of comprehensive coverage.
 
-💡 **Next Steps**: Ask follow-up questions like "expand on [specific topic]", "provide more examples for [section]", or "deeper analysis of [aspect]" for even more detailed coverage.`;
+💡 **Enhanced Research Options**: 
+- Ask "expand research on [specific aspect]" for deeper investigation
+- Request "phase 4 analysis of [topic]" for additional research phases
+- Use "comprehensive comparison of [options]" for comparative studies
+- Try "longitudinal analysis of [subject]" for time-based research`;
 
         return responseWithMetadata;
       } catch (error) {

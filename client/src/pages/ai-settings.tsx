@@ -17,9 +17,9 @@ const AI_MODELS = {
   },
   "research-pro": {
     name: "Research Pro Ultra",
-    description: "UNLIMITED LENGTH responses up to 10M characters - ultra-comprehensive research with maximum detail",
+    description: "TIME-INTENSIVE in-depth research with 22-step methodology - unlimited length up to 10M characters",
     tier: "premium",
-    speed: "Ultra-Deep",
+    speed: "Time-Intensive",
     color: "red",
     isPaid: true
   },
