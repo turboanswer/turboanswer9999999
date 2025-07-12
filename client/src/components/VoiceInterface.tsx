@@ -256,8 +256,10 @@ export function VoiceInterface({
       if (isContinuousMode && voiceEnabled && !isSpeaking && !isProcessing) {
         setTimeout(() => {
           console.log('🔄 Restarting continuous listening...');
-          startListening();
-        }, 1000); // Give time for AI to respond first
+          if (voiceEnabled && !isListening) {
+            startListening();
+          }
+        }, 1500); // Give more time for AI to respond and speak
       }
     };
 
@@ -448,8 +450,10 @@ export function VoiceInterface({
       if (isContinuousMode && voiceEnabled && !isListening) {
         setTimeout(() => {
           console.log('🔄 Restarting listening after AI response');
-          startListening();
-        }, 1000); // Give time for speech to fully complete
+          if (voiceEnabled && !isListening) {
+            startListening();
+          }
+        }, 1500); // Give more time for speech to fully complete
       }
     };
 
@@ -687,7 +691,7 @@ export function VoiceInterface({
             </div>
 
             {/* Stop Speech Button */}
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               <Button
                 variant="outline"
                 size="lg"
@@ -697,6 +701,20 @@ export function VoiceInterface({
               >
                 <VolumeX className="w-4 h-4 mr-2" />
                 Stop Speech
+              </Button>
+              
+              {/* Test Voice Button */}
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  console.log('🔊 Testing voice...');
+                  speakText('Hello, this is a voice test. Can you hear me?');
+                }}
+                className="w-full border-blue-700 bg-blue-900 hover:bg-blue-800 text-white"
+              >
+                <Volume2 className="w-4 h-4 mr-2" />
+                Test Voice
               </Button>
             </div>
             
@@ -779,23 +797,58 @@ export const useSpeakText = (selectedLanguage: string = 'en-US', voiceGender: 'm
   }, []);
 
   return useCallback((text: string) => {
-    if (!('speechSynthesis' in window)) return;
+    console.log('🔊 useSpeakText called with:', { text: text.substring(0, 50) + '...', selectedLanguage, voiceGender });
+    
+    if (!('speechSynthesis' in window)) {
+      console.log('❌ speechSynthesis not supported');
+      return;
+    }
 
     speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Use male voice settings like ChatGPT
-    utterance.lang = selectedLanguage;
-    utterance.rate = 1.0; // Normal speed
-    utterance.pitch = 0.9; // Slightly lower pitch for male voice
-    utterance.volume = 1.0;
-
-    const bestVoice = findBestVoice('male', selectedLanguage);
-    if (bestVoice) {
-      utterance.voice = bestVoice;
+    // Wait for voices to load
+    const voices = speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      console.log('⏳ Waiting for voices to load...');
+      speechSynthesis.addEventListener('voiceschanged', () => {
+        console.log('🔊 Voices loaded, retrying speech...');
+        speechSynthesis.speak(createUtterance(text));
+      }, { once: true });
+      return;
     }
 
-    speechSynthesis.speak(utterance);
+    const createUtterance = (text: string) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Use male voice settings like ChatGPT
+      utterance.lang = selectedLanguage;
+      utterance.rate = 1.0; // Normal speed
+      utterance.pitch = voiceGender === 'male' ? 0.9 : 1.1; // Lower pitch for male
+      utterance.volume = 1.0;
+
+      const bestVoice = findBestVoice(voiceGender, selectedLanguage);
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+        console.log('🔊 Using voice:', bestVoice.name, bestVoice.lang);
+      } else {
+        console.log('⚠️ No suitable voice found');
+      }
+
+      utterance.onstart = () => {
+        console.log('🔊 Speech started');
+      };
+
+      utterance.onend = () => {
+        console.log('🔊 Speech ended');
+      };
+
+      utterance.onerror = (event) => {
+        console.error('❌ Speech error:', event.error);
+      };
+
+      return utterance;
+    };
+
+    speechSynthesis.speak(createUtterance(text));
   }, [selectedLanguage, voiceGender, findBestVoice]);
 };
