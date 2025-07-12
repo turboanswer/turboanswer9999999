@@ -15,6 +15,7 @@ import {
   getAnalysisOptions,
   SUPPORTED_FILE_TYPES 
 } from "./services/document-analysis";
+import { PhoneService } from "./services/phone-service";
 import widgetRoutes from './routes/widget-routes';
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -1163,6 +1164,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/widget/integration-guide', (req, res) => {
     res.sendFile(path.join(__dirname, '../widget/integration-guide.html'));
+  });
+
+  // Voice Call API Routes
+  app.get('/api/voice/info', (req, res) => {
+    const phoneInfo = PhoneService.getVirtualPhoneInfo();
+    res.json({
+      success: true,
+      ...phoneInfo
+    });
+  });
+
+  app.get('/api/voice/sessions', (req, res) => {
+    const activeCount = PhoneService.getActiveSessionsCount();
+    res.json({
+      success: true,
+      activeSessions: activeCount,
+      message: `${activeCount} active voice sessions`
+    });
+  });
+
+  app.get('/api/voice/session/:sessionId', (req, res) => {
+    const sessionId = req.params.sessionId;
+    const sessionInfo = PhoneService.getSessionInfo(sessionId);
+    
+    if (!sessionInfo) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      session: sessionInfo
+    });
   });
 
   return httpServer;

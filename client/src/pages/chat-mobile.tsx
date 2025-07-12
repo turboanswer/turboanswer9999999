@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Mic, MicOff, Volume2, Plus } from 'lucide-react';
+import { Send, Mic, MicOff, Volume2, Plus, Phone } from 'lucide-react';
 import { VoiceInterface, useSpeakText } from '@/components/VoiceInterface';
+import { VoiceCallInterface } from '@/components/VoiceCallInterface';
 
 interface Message {
   id: number;
@@ -27,6 +28,7 @@ export default function ChatMobile() {
   const [voiceGender, setVoiceGender] = useState<'male' | 'female'>('female');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [hasCreatedInitialConversation, setHasCreatedInitialConversation] = useState(false);
+  const [isVoiceCallOpen, setIsVoiceCallOpen] = useState(false);
   const recognitionRef = useRef<any>(null);
   const wakeWordRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -528,6 +530,21 @@ export default function ChatMobile() {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              console.log('📞 Voice call button clicked');
+              setIsVoiceCallOpen(true);
+            }}
+            className="p-3 rounded-full cursor-pointer bg-green-600 hover:bg-green-700"
+            style={{ pointerEvents: 'auto' }}
+            title="Start Voice Call"
+          >
+            <Phone className="w-5 h-5" />
+          </button>
+          
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               console.log('🎤 Microphone button clicked, isListening:', isListening);
               if (isListening) {
                 stopListening();
@@ -576,6 +593,12 @@ export default function ChatMobile() {
           Turbo AI can make mistakes, so double-check it
         </p>
       </div>
+      
+      {/* Voice Call Interface */}
+      <VoiceCallInterface
+        isOpen={isVoiceCallOpen}
+        onClose={() => setIsVoiceCallOpen(false)}
+      />
     </div>
   );
 }
