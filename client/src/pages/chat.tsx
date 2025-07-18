@@ -269,11 +269,11 @@ export default function Chat() {
           <div className="flex items-center space-x-3">
             <img 
               src={turboLogo} 
-              alt="TurboAnswer Robot" 
+              alt="Turbo Answer Robot" 
               className="w-12 h-12 object-contain"
             />
             <div>
-              <h1 className="text-xl font-bold text-white">TurboAnswer</h1>
+              <h1 className="text-xl font-bold text-white">Turbo Answer</h1>
               <p className="text-xs text-gray-400">Never Stop Innovating</p>
             </div>
           </div>
