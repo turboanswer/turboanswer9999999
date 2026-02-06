@@ -36,7 +36,16 @@ export default function CameraCapture({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [autoVoice, setAutoVoice] = useState(true);
   const [blueDetected, setBlueDetected] = useState(false);
+  const [pendingStream, setPendingStream] = useState<MediaStream | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (pendingStream && videoRef.current) {
+      videoRef.current.srcObject = pendingStream;
+      videoRef.current.play().catch(err => console.error('Video play error:', err));
+      setPendingStream(null);
+    }
+  }, [pendingStream, isActive]);
 
   useEffect(() => {
     return () => {
@@ -69,13 +78,10 @@ export default function CameraCapture({
         video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'environment' } 
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-      setIsActive(true);
       setSourceMode('camera');
       setError(null);
+      setIsActive(true);
+      setPendingStream(stream);
     } catch (err) {
       console.error('Camera access error:', err);
       setError('Camera access denied. Please allow camera access.');
@@ -93,13 +99,10 @@ export default function CameraCapture({
         stopStream();
       };
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-      setIsActive(true);
       setSourceMode('screen');
       setError(null);
+      setIsActive(true);
+      setPendingStream(stream);
       toast({ title: "Screen Sharing Active", description: "Mark items in blue to get instant AI analysis and voice answers." });
     } catch (err) {
       console.error('Screen share error:', err);
