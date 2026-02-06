@@ -44,8 +44,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Authentication Storage**: User sessions and account data
 
 ### Key Features
-- **Multi-Model AI System (MEGA FUSION AI)**: Combines 20+ AI systems (e.g., Gemini 2.0 Flash, Claude 3.5 Sonnet, GPT-4o, Llama 3.1 405B) with intelligent routing, complexity boosting, and weighted response synthesis for ultimate intelligence and speed.
-- **Emotional AI**: Advanced emotion detection and empathetic responses, maintaining conversation memory.
+- **Simplified Gemini AI System**: 3 clean models - Free (Gemini 2.5 Flash), Pro (Gemini 2.5 Pro), Research (Gemini 2.5 Pro deep mode). All powered by Google Gemini API with automatic retry and model fallback on rate limits.
 - **Voice Command Features**: Speech recognition (Web Speech API), "Turbo" assistant name, optional "Hey Turbo" wake word, auto-send, text-to-speech, and visual feedback.
 - **Comprehensive Knowledge Coverage**: Expert-level knowledge in technical, scientific, creative, business, and general domains, including real-time weather and world time zone intelligence.
 - **Subscription Management**: Promo code system for lifetime premium access and Stripe integration for subscription upgrades.

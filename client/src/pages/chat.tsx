@@ -26,7 +26,7 @@ export default function Chat() {
 
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showImageGenerator, setShowImageGenerator] = useState(false);
-  const [selectedAIModel, setSelectedAIModel] = useState("auto");
+  const [selectedAIModel, setSelectedAIModel] = useState("gemini-flash");
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const [showToolbar, setShowToolbar] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -238,10 +238,9 @@ export default function Chat() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Auto</SelectItem>
-                <SelectItem value="ultimate-fusion">Ultimate</SelectItem>
-                <SelectItem value="conversational">Fast</SelectItem>
-                <SelectItem value="research-pro">Research</SelectItem>
+                <SelectItem value="gemini-flash">Free</SelectItem>
+                <SelectItem value="gemini-pro">Pro</SelectItem>
+                <SelectItem value="gemini-pro-research">Research</SelectItem>
               </SelectContent>
             </Select>
 
@@ -381,7 +380,7 @@ export default function Chat() {
                   </p>
                   <div className="mt-2 sm:mt-3 flex items-center space-x-2 text-[10px] sm:text-xs text-zinc-400">
                     <Brain className="h-3 w-3" />
-                    <span>Model: {selectedAIModel === 'auto' ? 'Auto-Select' : selectedAIModel}</span>
+                    <span>Model: {selectedAIModel === 'gemini-flash' ? 'Free' : selectedAIModel === 'gemini-pro' ? 'Pro' : selectedAIModel === 'gemini-pro-research' ? 'Research' : selectedAIModel}</span>
                   </div>
                 </Card>
                 <div className="text-[10px] sm:text-xs text-zinc-500 mt-1.5 sm:mt-2 ml-1">Just now</div>
