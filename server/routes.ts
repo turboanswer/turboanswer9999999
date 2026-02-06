@@ -7,7 +7,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { insertConversationSchema, insertMessageSchema, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { generateAIResponse } from "./services/multi-ai";
+import { generateLocalAIResponse } from "./services/local-ai";
 import { 
   extractTextFromFile, 
   analyzeDocument, 
@@ -260,16 +260,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: msg.content
       }));
 
-      // Use MAXIMUM PERFORMANCE AI system with breakthrough intelligence
-      const { generateAIResponse } = await import('./services/multi-ai.js');
-      const userId = `user_${Math.random().toString(36).substr(2, 9)}`; // Simple user ID for context
-      const aiResponseContent = await generateAIResponse(
+      const { generateLocalAIResponse } = await import('./services/local-ai.js');
+      const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
+      const aiResponseContent = await generateLocalAIResponse(
         content,
         conversationHistory,
-        "premium", // Use premium tier for maximum performance
-        req.body.selectedModel || "auto-select", // Intelligent model selection
+        "premium",
+        req.body.selectedModel || "auto-select",
         userId,
-        req.body.language || "en" // Support multi-language responses
+        req.body.language || "en"
       );
 
       // Create AI message
@@ -1133,7 +1132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       User message: ${message}`;
       
-      const aiResponse = await generateAIResponse(businessPrompt, [], 'free', 'gemini-pro');
+      const aiResponse = await generateLocalAIResponse(businessPrompt, [], 'free', 'auto-select');
       
       // Store AI response
       await storage.createMessage({

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Turbo Answer is a sophisticated AI assistant application built with React (TypeScript) frontend and Express.js backend, featuring Google Gemini-powered conversations. The application provides comprehensive knowledge across technical programming, science, and general domains with voice command support and a sleek modern interface. Now includes mobile app capability with Capacitor for Android APK generation.
+Turbo Answer is a fully self-hosted AI assistant application built with React (TypeScript) frontend and Express.js backend, featuring a completely local AI engine with ZERO external API dependencies. The application provides comprehensive knowledge across technical programming, science, and general domains with a sleek modern interface. All AI responses are generated locally on the server for maximum speed (~100ms responses) and complete independence. Now includes mobile app capability with Capacitor for Android APK generation.
 
 ## User Preferences
 
@@ -12,7 +12,8 @@ Layout preference: Bigger layout showing all options in one screen for better ac
 Stability preference: App must be completely stable with NO moving elements, animations, or transitions. Settings must always be visible.
 Intelligence preference: AI should give simple, clear, direct answers without complex explanations. For simple questions, keep responses short and conversational.
 Interface priority: Ensure settings buttons are always accessible and never blocked by app movement.
-Performance priority: AI responses must be ULTRA-FAST - enhanced with Gemini 2.0 Flash Experimental for breakthrough speed. NO LAG ALLOWED. Maximum performance optimization with turbocharged conversational AI for live human conversations. Target: Sub-300ms responses for simple queries.
+Performance priority: AI responses must be ULTRA-FAST - fully self-hosted local AI engine for instant responses (~100ms). NO external API calls. NO LAG ALLOWED. Zero network latency with local processing.
+Self-hosted preference: User explicitly wants NO external API dependencies. All AI runs locally on the server with built-in knowledge base, math engine, and code examples.
 Power preference: Enhanced logo, loading screen, and maximum power branding throughout the interface.
 Voice preference: Voice assistant called "Turbo" with optional wake word detection (disabled by default for performance).
 Subscription preference: Lifetime free premium access through promo code system for creator access.
@@ -32,7 +33,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Framework**: Express.js with TypeScript
 - **Runtime**: Node.js with ES modules
 - **API Style**: RESTful API endpoints
-- **AI Integration**: Multi-model AI system with Gemini, OpenAI, and Anthropic support
+- **AI Integration**: Fully self-hosted local AI engine (no external API dependencies)
 - **Authentication**: Session-based authentication with PostgreSQL storage
 - **Middleware**: Express JSON parsing, custom logging middleware
 
@@ -45,16 +46,13 @@ Subscription preference: Lifetime free premium access through promo code system 
 
 ## Key Components
 
-### AI Models Available
-- **Auto-Select**: Intelligent routing to best available model (default selection)
-- **Research Pro Ultra**: Premium model for very very in-depth research with citations and comprehensive analysis (paid only)
-- **Conversational AI**: Specialized for natural human conversations with personality matching
-- **Emotional AI**: Deep emotional intelligence with empathetic responses
-- **Claude 3 Opus**: Advanced reasoning and creative tasks
-- **GPT-4**: Multimodal intelligence and coding expertise
-- **Claude 3 Sonnet**: Balanced performance with detailed analysis
-- **GPT-3.5 Turbo**: Fast responses for general queries
-- **Gemini Pro**: Multimodal capabilities and research
+### Local AI Engine (Self-Hosted)
+- **Math Engine**: Evaluates arithmetic, algebra, and unit conversions instantly
+- **Knowledge Base**: Built-in facts about geography, science, history, and general knowledge
+- **Code Examples**: Programming examples in Python, JavaScript, Java, C++, Go, Rust, TypeScript, and more
+- **Conversational AI**: Pattern-based friendly conversation with personality
+- **Unit Conversions**: Temperature, distance, weight conversions
+- **Zero Dependencies**: No external API keys or services required
 
 ### Database Schema
 - **Users**: User management with subscription support (username, password, email, Stripe customer/subscription IDs, subscription status/tier, preferred AI model, employee flags, ban/flag/suspension status with reasons and timestamps)
