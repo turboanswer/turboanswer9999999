@@ -25,7 +25,7 @@ export const users = pgTable("users", {
   stripeSubscriptionId: text("stripe_subscription_id"),
   subscriptionStatus: text("subscription_status").default("free"),
   subscriptionTier: text("subscription_tier").default("free"),
-  preferredModel: text("preferred_model").default("gemini-2.0-flash-exp"),
+  preferredModel: text("preferred_model").default("gemini-2.0-flash"),
   isEmployee: boolean("is_employee").default(false),
   employeeRole: text("employee_role").default("basic"),
   canViewAllChats: boolean("can_view_all_chats").default(false),

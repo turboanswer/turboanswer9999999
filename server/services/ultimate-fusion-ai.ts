@@ -25,7 +25,7 @@ const ALL_AI_MODELS = {
   'gemini-2.0-flash': { provider: 'google', strength: 'ultra-fast reasoning', weight: 10 },
   'gpt-4o': { provider: 'openai', strength: 'multimodal intelligence', weight: 10 },
   'claude-4-sonnet': { provider: 'anthropic', strength: 'advanced reasoning', weight: 10 },
-  'gemini-1.5-pro': { provider: 'google', strength: 'long context analysis', weight: 9 },
+  'gemini-2.5-pro': { provider: 'google', strength: 'long context analysis', weight: 9 },
   'claude-3.5-sonnet': { provider: 'anthropic', strength: 'balanced intelligence', weight: 9 },
   'gpt-4': { provider: 'openai', strength: 'general intelligence', weight: 8 },
   
@@ -148,7 +148,7 @@ async function callGeminiModel(model: string, prompt: string): Promise<string> {
   if (!gemini) return '';
   
   try {
-    const genModel = gemini.getGenerativeModel({ model: 'gemini-2.0-flash-experimental' });
+    const genModel = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await genModel.generateContent(prompt);
     return result.response.text() || '';
   } catch (error) {

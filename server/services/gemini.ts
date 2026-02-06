@@ -66,7 +66,7 @@ ${contextPrompt}User: ${userMessage}
 Assistant: Please provide a helpful, accurate response.`;
 
     // MAXIMUM PERFORMANCE: Use the fastest and most advanced Gemini model
-    const model = "gemini-2.0-flash-exp"; // Most advanced and fastest model
+    const model = "gemini-2.0-flash"; // Most advanced and fastest model
     
     // TURBO SPEED SETTINGS: Optimized for maximum performance
     const modelInstance = ai.getGenerativeModel({ 

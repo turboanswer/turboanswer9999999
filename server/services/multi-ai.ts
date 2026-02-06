@@ -184,7 +184,7 @@ export const AI_MODELS = {
       isPaid: true,
       description: "Advanced marketing intelligence for brand strategy, content creation, campaign optimization, and market psychology"
     },
-    "gemini-2.0-flash-exp": {
+    "gemini-2.0-flash": {
       name: "Gemini 2.0 Flash Experimental",
       provider: "google",
       strengths: ["Breakthrough intelligence", "Ultra-fast responses", "Advanced reasoning", "Maximum performance"],
@@ -518,7 +518,7 @@ export const AI_MODELS = {
       temperature: 0.4,
       priority: 12
     },
-    "gemini-1.5-pro": {
+    "gemini-2.5-pro": {
       name: "Gemini 1.5 Pro",
       provider: "google",
       strengths: ["Advanced multimodal", "Long context", "Research capabilities"],
@@ -653,22 +653,22 @@ function analyzeUserIntent(message: string, conversationHistory: Array<{role: st
   
   // MAXIMUM POWER Model recommendation logic - Always use best available
   let recommended_tier: 'maximum' | 'premium' | 'advanced' | 'specialized' = 'maximum';
-  let recommended_model = 'gemini-2.0-flash-exp'; // Always use the fastest, most advanced model
+  let recommended_model = 'gemini-2.0-flash'; // Always use the fastest, most advanced model
   
   // For maximum performance, always use Gemini 2.0 Flash Experimental
   // This provides the best balance of speed, intelligence, and capability
   if (complexity === 'expert' || (complexity === 'complex' && (reasoning || creativity))) {
     recommended_tier = 'maximum';
-    recommended_model = 'gemini-2.0-flash-exp'; // Maximum intelligence
+    recommended_model = 'gemini-2.0-flash'; // Maximum intelligence
   } else if (complexity === 'complex' || technical) {
     recommended_tier = 'maximum';
-    recommended_model = 'gemini-2.0-flash-exp'; // High performance for technical tasks
+    recommended_model = 'gemini-2.0-flash'; // High performance for technical tasks
   } else if (complexity === 'moderate') {
     recommended_tier = 'maximum';
-    recommended_model = 'gemini-2.0-flash-exp'; // Fast responses for moderate tasks
+    recommended_model = 'gemini-2.0-flash'; // Fast responses for moderate tasks
   } else {
     recommended_tier = 'maximum';
-    recommended_model = 'gemini-2.0-flash-exp'; // Ultra-fast for simple tasks
+    recommended_model = 'gemini-2.0-flash'; // Ultra-fast for simple tasks
   }
   
   return {
@@ -742,7 +742,7 @@ ${contextText ? `Context: ${contextText}\n` : ''}User: ${userMessage}
 Assistant:`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(speedPrompt);
         const response = await result.response;
 
@@ -918,7 +918,7 @@ ${researchResponse}
         console.error('Research Pro Ultra failed:', error);
         // Fallback to Gemini with research mode
         try {
-          const fallbackModel = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+          const fallbackModel = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
           const fallbackResult = await fallbackModel.generateContent(researchPrompt);
           const fallbackResponse = await fallbackResult.response;
           return fallbackResponse.text() || "Research analysis complete with fallback model.";
@@ -1101,7 +1101,7 @@ Query: ${userMessage}
 Apply rigorous scientific methodology with evidence-based analysis, technical accuracy, and research-grade standards.`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(scientificPrompt);
         const response = await result.response;
         const scientificResponse = response.text() || "Scientific analysis in progress...";
@@ -1365,7 +1365,7 @@ Query: ${userMessage}
 Provide expert marketing intelligence with strategic insights, creative solutions, and data-driven campaign recommendations.`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(marketingPrompt);
         const response = await result.response;
         const marketingResponse = response.text() || "Marketing analysis in progress...";
@@ -1473,7 +1473,7 @@ Query: ${userMessage}
 Provide expert UX design guidance with user-centered design principles and interface optimization.`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(uxPrompt);
         const response = await result.response;
         const uxResponse = response.text() || "UX design analysis in progress...";
@@ -1689,7 +1689,7 @@ Query: ${userMessage}
 Provide expert HR guidance with talent management strategies and organizational development insights.`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(hrPrompt);
         const response = await result.response;
         const hrResponse = response.text() || "HR analysis in progress...";
@@ -1795,7 +1795,7 @@ Query: ${userMessage}
 Provide expert QA guidance with testing strategies and quality management best practices.`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(qaPrompt);
         const response = await result.response;
         const qaResponse = response.text() || "QA analysis in progress...";
@@ -1901,7 +1901,7 @@ Query: ${userMessage}
 Provide expert education guidance with learning design principles and instructional best practices.`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(educationPrompt);
         const response = await result.response;
         const educationResponse = response.text() || "Education analysis in progress...";
@@ -2009,7 +2009,7 @@ Query: ${userMessage}
 Provide expert gaming guidance with game design principles and interactive entertainment insights.`;
 
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(gamingPrompt);
         const response = await result.response;
         const gamingResponse = response.text() || "Gaming analysis in progress...";
@@ -2224,7 +2224,7 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
       
       // Ultra-fast direct response for simple messages
       const quickModel = ai.getGenerativeModel({ 
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.0-flash",
         generationConfig: {
           temperature: 0.2,
           maxOutputTokens: 40,
@@ -2300,7 +2300,7 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
     // Priority-based model selection for maximum power (using available models)
     const modelPriority = [
       { model: 'gemini-pro', hasKey: hasGemini },
-      { model: 'gemini-1.5-pro', hasKey: hasGemini },
+      { model: 'gemini-2.5-pro', hasKey: hasGemini },
       { model: 'gpt-3.5-turbo', hasKey: hasOpenAI },
       { model: 'claude-instant', hasKey: hasAnthropic },
       { model: 'claude-3-sonnet', hasKey: hasAnthropic },
@@ -2375,7 +2375,7 @@ async function generateGeminiResponse(
     ${additionalContext}`;
   
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

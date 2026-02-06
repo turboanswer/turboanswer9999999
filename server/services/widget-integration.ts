@@ -70,7 +70,7 @@ export class WidgetService {
       // Fallback to simple Gemini response
       try {
         const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-        const model = gemini.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+        const model = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
         
         const result = await model.generateContent({
           contents: [{
