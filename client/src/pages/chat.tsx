@@ -285,7 +285,7 @@ export default function Chat() {
               <SelectContent>
                 <SelectItem value="gemini-flash">Free</SelectItem>
                 <SelectItem value="gemini-pro">Pro $6.99</SelectItem>
-                <SelectItem value="claude-research">Research $10</SelectItem>
+                <SelectItem value="claude-research">Research $15</SelectItem>
               </SelectContent>
             </Select>
 
@@ -600,22 +600,22 @@ export default function Chat() {
                 <Brain className="text-white h-7 w-7" />
               </div>
               <h2 className="text-xl font-bold text-white mb-1">Upgrade to Research</h2>
-              <p className="text-zinc-400 text-sm">Claude AI for deep research</p>
+              <p className="text-zinc-400 text-sm">Gemini 2.5 Pro for deep research</p>
             </div>
 
             <div className="text-center mb-5">
-              <span className="text-4xl font-bold text-white">$10</span>
+              <span className="text-4xl font-bold text-white">$15</span>
               <span className="text-zinc-400 text-base">/month</span>
             </div>
 
             <ul className="space-y-3 mb-6">
               <li className="flex items-center gap-3">
                 <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                <span className="text-zinc-200 text-sm">Claude AI - deep research analysis</span>
+                <span className="text-zinc-200 text-sm">Gemini 2.5 Pro - most powerful model</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                <span className="text-zinc-200 text-sm">Gemini 2.5 Pro included</span>
+                <span className="text-zinc-200 text-sm">Deep research analysis</span>
               </li>
               <li className="flex items-center gap-3">
                 <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
@@ -648,7 +648,7 @@ export default function Chat() {
               }}
             >
               <Brain className="w-4 h-4 mr-2" />
-              {checkoutLoading ? "Loading..." : "Subscribe Now - $10/mo"}
+              {checkoutLoading ? "Loading..." : "Subscribe Now - $15/mo"}
             </Button>
 
             <p className="text-center text-zinc-500 text-xs mt-3">Cancel anytime. Secure payment via Stripe.</p>
@@ -679,7 +679,7 @@ export default function Chat() {
                       </div>
                       <div>
                         <p className="text-white font-medium text-sm">Deep Research</p>
-                        <p className="text-zinc-400 text-xs mt-0.5">Select "Research $10" for deep analysis with extended responses</p>
+                        <p className="text-zinc-400 text-xs mt-0.5">Select "Research $15" for deep analysis with extended responses</p>
                       </div>
                     </div>
                   </div>

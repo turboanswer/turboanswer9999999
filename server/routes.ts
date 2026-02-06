@@ -271,9 +271,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tier = plan === 'research' ? 'research' : 'pro';
       const productName = tier === 'research' ? 'Turbo Answer Research' : 'Turbo Answer Pro';
       const productDescription = tier === 'research'
-        ? 'Claude AI powered deep research and comprehensive analysis'
+        ? 'Gemini 2.5 Pro powered deep research and comprehensive analysis'
         : 'Unlock Gemini 2.5 Pro for advanced AI assistance';
-      const priceAmount = tier === 'research' ? 1000 : 699;
+      const priceAmount = tier === 'research' ? 1500 : 699;
 
       const stripe = await getUncachableStripeClient();
 
@@ -373,7 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return 'research';
               }
             }
-            if (item?.price?.unit_amount === 1000) return 'research';
+            if (item?.price?.unit_amount === 1500 || item?.price?.unit_amount === 1000) return 'research';
           } catch (e) {}
           return 'pro';
         };
