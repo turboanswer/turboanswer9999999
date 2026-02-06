@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
-import Stripe from "stripe";
 import multer from "multer";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
@@ -15,12 +14,9 @@ import {
 } from "./services/document-analysis";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerImageRoutes } from "./replit_integrations/image";
+import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
 
 import widgetRoutes from './routes/widget-routes';
-
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-06-30.basil",
-}) : null as any as Stripe;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -251,198 +247,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced subscription endpoint with multiple tiers
-  app.post('/api/create-subscription', isAuthenticated, async (req, res) => {
+  // Get Stripe publishable key for frontend
+  app.get('/api/stripe/publishable-key', async (req, res) => {
     try {
-      const { planId, priceId } = req.body;
-      
-      const userId = (req as any).user.claims.sub;
+      const publishableKey = await getStripePublishableKey();
+      res.json({ publishableKey });
+    } catch (error: any) {
+      console.error('Stripe key error:', error);
+      res.status(500).json({ error: 'Failed to get Stripe key' });
+    }
+  });
+
+  // Create Stripe checkout session for Pro subscription
+  app.post('/api/checkout', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(401).json({ error: 'User not found' });
       }
 
-      const subscriptionPrices = {
-        'price_monthly_699': {
-          amount: 699,
-          tier: 'pro'
-        },
-        'price_yearly_6999': {
-          amount: 6999,
-          tier: 'pro'
-        }
-      };
+      const stripe = await getUncachableStripeClient();
 
-      const priceConfig = subscriptionPrices[priceId as keyof typeof subscriptionPrices];
-      if (!priceConfig) {
-        return res.status(400).json({ error: 'Invalid price ID' });
-      }
-
-      let stripeCustomerId = user.stripeCustomerId;
-      if (!stripeCustomerId) {
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
         const customer = await stripe.customers.create({
           email: user.email || undefined,
           name: user.firstName || user.email || 'User',
+          metadata: { userId },
         });
-        stripeCustomerId = customer.id;
-        await storage.updateStripeCustomerId(user.id, stripeCustomerId);
+        customerId = customer.id;
+        await storage.updateStripeCustomerId(userId, customerId);
       }
 
-      const interval = priceId.includes('yearly') ? 'year' : 'month';
-      const subscription = await stripe.subscriptions.create({
-        customer: stripeCustomerId,
-        items: [{
-          price_data: {
-            currency: 'usd',
-            product: `prod_turbo_answer_${planId}`,
-            unit_amount: priceConfig.amount,
-            recurring: {
-              interval: interval
-            }
-          }
-        }],
-        payment_behavior: 'default_incomplete',
-        expand: ['latest_invoice.payment_intent'],
+      // Find the Pro plan price from Stripe API
+      const products = await stripe.products.search({ query: "name:'Turbo Answer Pro'" });
+      if (!products.data.length) {
+        return res.status(400).json({ error: 'Pro plan not found. Please try again later.' });
+      }
+      const prices = await stripe.prices.list({ product: products.data[0].id, active: true });
+      const monthlyPrice = prices.data.find(p => p.recurring?.interval === 'month');
+      if (!monthlyPrice) {
+        return res.status(400).json({ error: 'Pro plan price not found.' });
+      }
+      const priceId = monthlyPrice.id;
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: 'subscription',
+        success_url: `${baseUrl}/chat?subscription=success`,
+        cancel_url: `${baseUrl}/chat`,
+        metadata: { userId },
       });
 
-      await storage.updateUserStripeInfo(user.id, stripeCustomerId, subscription.id);
-      await storage.updateUserSubscription(user.id, 'active', priceConfig.tier);
-
-      const invoice = subscription.latest_invoice;
-      const paymentIntent = invoice && typeof invoice === 'object' ? (invoice as any).payment_intent : null;
-      const clientSecret = paymentIntent && typeof paymentIntent === 'object' ? paymentIntent.client_secret : null;
-
-      res.json({
-        subscriptionId: subscription.id,
-        clientSecret: clientSecret,
-      });
-
+      res.json({ url: session.url });
     } catch (error: any) {
-      console.error('Enhanced subscription error:', error);
-      return res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Get available AI models for user's subscription tier
-  app.get('/api/models', async (req, res) => {
-    try {
-      const subscriptionTier = "free";
-      const availableModels = getAvailableModels(subscriptionTier);
-      res.json({ models: availableModels, currentTier: subscriptionTier });
-    } catch (error: any) {
-      console.error('Models endpoint error:', error);
+      console.error('Checkout error:', error);
       res.status(500).json({ error: error.message });
     }
   });
 
-  // 5-Day Trial Subscription endpoint
-  app.post('/api/start-trial', isAuthenticated, async (req, res) => {
+  // Check user subscription status
+  app.get('/api/subscription-status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = (req as any).user.claims.sub;
+      const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       if (!user) {
-        return res.status(401).json({ error: 'User not found' });
-      }
-
-      if (user.subscriptionTier === 'trial_used' || user.subscriptionStatus === 'trial_expired') {
-        return res.status(400).json({ error: 'Trial already used. Please upgrade to continue.' });
-      }
-
-      const trialStartDate = new Date();
-      const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + 5);
-
-      await storage.updateUserSubscription(user.id, 'trial_active', 'lifetime');
-
-      res.json({
-        success: true,
-        message: 'Free Lifetime Pro trial activated! You have 5 days of full premium access.',
-        trialEndDate: trialEndDate.toISOString(),
-        trialType: 'lifetime',
-        user: {
-          id: user.id,
-          name: user.firstName || user.email || 'User',
-          subscriptionTier: 'lifetime',
-          subscriptionStatus: 'trial'
-        }
-      });
-
-    } catch (error: any) {
-      console.error('Trial activation error:', error);
-      return res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Legacy Pro plan endpoint
-  app.post('/api/get-or-create-subscription', isAuthenticated, async (req, res) => {
-    try {
-      const userId = (req as any).user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(401).json({ error: 'User not found' });
+        return res.json({ tier: 'free', status: 'none' });
       }
 
       if (user.stripeSubscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, {
-          expand: ['latest_invoice.payment_intent']
-        });
-        
-        const invoice = subscription.latest_invoice;
-        if (invoice && typeof invoice === 'object') {
-          const paymentIntent = (invoice as any).payment_intent;
-          if (paymentIntent) {
-            const clientSecret = typeof paymentIntent === 'string' 
-              ? (await stripe.paymentIntents.retrieve(paymentIntent)).client_secret
-              : paymentIntent.client_secret;
-              
-            res.json({
-              subscriptionId: subscription.id,
-              clientSecret: clientSecret,
-            });
-            return;
+        try {
+          const stripe = await getUncachableStripeClient();
+          const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
+          if (sub.status === 'active' || sub.status === 'trialing') {
+            return res.json({ tier: 'pro', status: sub.status });
           }
+        } catch (e) {
+          // Subscription not found or invalid
         }
       }
 
-      let stripeCustomerId = user.stripeCustomerId;
-      if (!stripeCustomerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          name: user.firstName || user.email || 'User',
-        });
-        stripeCustomerId = customer.id;
-        await storage.updateStripeCustomerId(user.id, stripeCustomerId);
-      }
-
-      const subscription = await stripe.subscriptions.create({
-        customer: stripeCustomerId,
-        items: [{
-          price_data: {
-            currency: 'usd',
-            product: 'prod_turbo_answer_pro',
-            unit_amount: 699,
-            recurring: {
-              interval: 'month'
-            }
-          }
-        }],
-        payment_behavior: 'default_incomplete',
-        expand: ['latest_invoice.payment_intent'],
-      });
-
-      await storage.updateUserStripeInfo(user.id, stripeCustomerId, subscription.id);
-
-      const invoice = subscription.latest_invoice;
-      const paymentIntent = invoice && typeof invoice === 'object' ? (invoice as any).payment_intent : null;
-      const clientSecret = paymentIntent && typeof paymentIntent === 'object' ? paymentIntent.client_secret : null;
-
-      res.json({
-        subscriptionId: subscription.id,
-        clientSecret: clientSecret,
-      });
+      res.json({ tier: user.subscriptionTier || 'free', status: user.subscriptionStatus || 'none' });
     } catch (error: any) {
-      console.error('Subscription error:', error);
-      return res.status(400).json({ error: { message: error.message } });
+      console.error('Subscription status error:', error);
+      res.json({ tier: 'free', status: 'none' });
+    }
+  });
+
+  // Get available AI models for user's subscription tier
+  app.get('/api/models', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const subscriptionTier = user?.subscriptionTier || "free";
+      const availableModels = getAvailableModels(subscriptionTier);
+      res.json({ models: availableModels, currentTier: subscriptionTier });
+    } catch (error: any) {
+      console.error('Models endpoint error:', error);
+      const availableModels = getAvailableModels("free");
+      res.json({ models: availableModels, currentTier: "free" });
     }
   });
 

@@ -47,7 +47,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Simplified Gemini AI System**: 3 clean models - Free (Gemini 2.5 Flash), Pro (Gemini 2.5 Pro), Research (Gemini 2.5 Pro deep mode). All powered by Google Gemini API with automatic retry and model fallback on rate limits.
 - **Voice Command Features**: Speech recognition (Web Speech API), "Turbo" assistant name, optional "Hey Turbo" wake word, auto-send, text-to-speech, and visual feedback.
 - **Comprehensive Knowledge Coverage**: Expert-level knowledge in technical, scientific, creative, business, and general domains, including real-time weather and world time zone intelligence.
-- **Subscription Management**: Promo code system for lifetime premium access and Stripe integration for subscription upgrades.
+- **Subscription Management**: Stripe Checkout integration for Pro plan ($6.99/month). Payment popup triggers from model selector. Uses Replit Stripe connector with stripe-replit-sync for webhook handling and data sync.
 - **Employee Management API**: Endpoints for user management (ban, flag, suspend) and audit logging.
 - **AI Image & Video Generation**: Integration with OpenAI DALL-E 3 and a framework for video generation with multi-provider architecture.
 - **Embeddable AI Widget System**: A universal JavaScript widget (`turbo-answer-widget.js`) for seamless integration into any website.

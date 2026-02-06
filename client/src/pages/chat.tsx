@@ -31,6 +31,7 @@ export default function Chat() {
   const [showQR, setShowQR] = useState(false);
 
   const [showProPopup, setShowProPopup] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -517,12 +518,29 @@ export default function Chat() {
               </li>
             </ul>
 
-            <Link href="/subscribe">
-              <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-5 rounded-xl text-base">
-                <Star className="w-4 h-4 mr-2" />
-                Subscribe Now - $6.99/mo
-              </Button>
-            </Link>
+            <Button
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-5 rounded-xl text-base"
+              disabled={checkoutLoading}
+              onClick={async () => {
+                setCheckoutLoading(true);
+                try {
+                  const response = await apiRequest("POST", "/api/checkout");
+                  const data = await response.json();
+                  if (data.url) {
+                    window.location.href = data.url;
+                  } else {
+                    toast({ title: "Error", description: data.error || "Could not start checkout", variant: "destructive" });
+                  }
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message || "Checkout failed", variant: "destructive" });
+                } finally {
+                  setCheckoutLoading(false);
+                }
+              }}
+            >
+              <Star className="w-4 h-4 mr-2" />
+              {checkoutLoading ? "Loading..." : "Subscribe Now - $6.99/mo"}
+            </Button>
 
             <p className="text-center text-zinc-500 text-xs mt-3">Cancel anytime. Secure payment via Stripe.</p>
           </div>
