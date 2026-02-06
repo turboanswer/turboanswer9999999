@@ -46,6 +46,36 @@ export default function Chat() {
     }
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscription') === 'success') {
+      window.history.replaceState({}, '', '/chat');
+      const syncSubscription = async () => {
+        try {
+          const res = await apiRequest("GET", "/api/subscription-status");
+          const data = await res.json();
+          if (data.tier === 'pro') {
+            toast({ title: "Welcome to Pro!", description: "Your subscription is now active. Enjoy Pro and Research models!" });
+            queryClient.invalidateQueries({ queryKey: ["/api/models"] });
+          } else {
+            toast({ title: "Processing", description: "Your payment is being processed. Pro access will activate shortly." });
+            setTimeout(async () => {
+              const retryRes = await apiRequest("GET", "/api/subscription-status");
+              const retryData = await retryRes.json();
+              if (retryData.tier === 'pro') {
+                toast({ title: "Welcome to Pro!", description: "Your subscription is now active!" });
+                queryClient.invalidateQueries({ queryKey: ["/api/models"] });
+              }
+            }, 5000);
+          }
+        } catch (err) {
+          console.error('Subscription sync error:', err);
+        }
+      };
+      syncSubscription();
+    }
+  }, []);
+
   const { data: conversations } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations"],
   });

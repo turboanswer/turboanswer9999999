@@ -335,7 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Check user subscription status
+  // Check user subscription status - also syncs from Stripe if needed
   app.get('/api/subscription-status', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -344,15 +344,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ tier: 'free', status: 'none' });
       }
 
+      const stripe = await getUncachableStripeClient();
+
+      // If user already has a subscription ID stored, check it
       if (user.stripeSubscriptionId) {
         try {
-          const stripe = await getUncachableStripeClient();
           const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
           if (sub.status === 'active' || sub.status === 'trialing') {
+            if (user.subscriptionTier !== 'pro') {
+              await storage.updateUserSubscription(userId, sub.status, 'pro');
+            }
             return res.json({ tier: 'pro', status: sub.status });
           }
         } catch (e) {
-          // Subscription not found or invalid
+          // Subscription not found or invalid, continue to check by customer
+        }
+      }
+
+      // If user has a Stripe customer ID, check for any active subscriptions
+      if (user.stripeCustomerId) {
+        try {
+          const subscriptions = await stripe.subscriptions.list({
+            customer: user.stripeCustomerId,
+            status: 'active',
+            limit: 1,
+          });
+          if (subscriptions.data.length > 0) {
+            const activeSub = subscriptions.data[0];
+            await storage.updateUserStripeInfo(userId, user.stripeCustomerId, activeSub.id);
+            await storage.updateUserSubscription(userId, 'active', 'pro');
+            console.log(`[Stripe] Synced active subscription for user ${userId}`);
+            return res.json({ tier: 'pro', status: 'active' });
+          }
+        } catch (e) {
+          console.log('[Stripe] Error checking customer subscriptions:', e);
+        }
+      }
+
+      // No active subscription found - check completed checkout sessions as last resort
+      if (user.stripeCustomerId) {
+        try {
+          const sessions = await stripe.checkout.sessions.list({
+            customer: user.stripeCustomerId,
+            limit: 5,
+          });
+          for (const session of sessions.data) {
+            if (session.status === 'complete' && session.subscription) {
+              const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
+              const sub = await stripe.subscriptions.retrieve(subId);
+              if (sub.status === 'active' || sub.status === 'trialing') {
+                await storage.updateUserStripeInfo(userId, user.stripeCustomerId, subId);
+                await storage.updateUserSubscription(userId, sub.status, 'pro');
+                console.log(`[Stripe] Synced subscription from checkout session for user ${userId}`);
+                return res.json({ tier: 'pro', status: sub.status });
+              }
+            }
+          }
+        } catch (e) {
+          console.log('[Stripe] Error checking checkout sessions:', e);
         }
       }
 
