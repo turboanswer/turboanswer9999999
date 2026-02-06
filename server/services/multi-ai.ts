@@ -16,16 +16,16 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
     "gemini-pro": {
       name: "Gemini Pro",
       provider: "google",
-      description: "Premium model for deep analysis and complex tasks",
+      description: "Premium model for detailed responses and complex tasks",
       maxTokens: 8000,
       temperature: 0.3,
     },
   },
   research: {
     "claude-research": {
-      name: "Claude Research",
-      provider: "anthropic",
-      description: "Claude AI for deep research and comprehensive analysis",
+      name: "Gemini 2.5 Pro",
+      provider: "google",
+      description: "Most powerful model for deep research and comprehensive analysis",
       maxTokens: 16000,
       temperature: 0.1,
     },
@@ -105,7 +105,7 @@ export async function generateAIResponse(
 ${languageInstruction}
 ${additionalContext}`;
     } else if (selectedModel === 'gemini-pro') {
-      geminiModel = 'gemini-2.5-pro';
+      geminiModel = 'gemini-2.0-pro';
       maxTokens = 8000;
       temperature = 0.3;
       systemPrompt = `You are Turbo Answer, a premium AI assistant. Provide clear, detailed, high-quality responses. For simple questions, be concise. For complex topics, provide thorough explanations.
