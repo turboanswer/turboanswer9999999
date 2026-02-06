@@ -2340,6 +2340,9 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
       return "I need an AI API key to respond. Please add one of these to your environment:\n\n• OPENAI_API_KEY for GPT models\n• ANTHROPIC_API_KEY for Claude models\n• GEMINI_API_KEY for Gemini models\n\nOnce configured, I'll be able to provide intelligent responses!";
     }
     
+    if (error.message?.includes('rate limit') || error.message?.includes('quota') || error.message?.includes('Rate')) {
+      return "I'm a bit busy right now - too many requests at once. Please wait a few seconds and try again!";
+    }
     return "I'm experiencing technical difficulties. Please try again in a moment.";
   }
 }
@@ -2374,42 +2377,79 @@ async function generateGeminiResponse(
     Current context: ${userIntent.domain} domain, ${userIntent.complexity} complexity
     ${additionalContext}`;
   
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: `${systemPrompt}\n\nUser: ${userMessage}` }]
-        }],
-        generationConfig: {
-          temperature: 0.3, // Lower for faster, more direct responses
-          maxOutputTokens: userMessage.length < 50 ? 2000 : 8000, // Enough room for thinking + response
-          topP: 0.8,
-          topK: 40
+  const geminiModels = [
+    'gemini-2.0-flash',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash-lite-001',
+  ];
+
+  const requestBody = JSON.stringify({
+    contents: [{
+      parts: [{ text: `${systemPrompt}\n\nUser: ${userMessage}` }]
+    }],
+    generationConfig: {
+      temperature: 0.3,
+      maxOutputTokens: userMessage.length < 50 ? 2000 : 8000,
+      topP: 0.8,
+      topK: 40
+    }
+  });
+
+  for (const geminiModel of geminiModels) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        console.log(`[Gemini] Trying ${geminiModel} (attempt ${attempt + 1})`);
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: requestBody
+        });
+
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('retry-after');
+          const body = await response.json().catch(() => ({}));
+          const retryMatch = body.error?.message?.match(/retry in ([\d.]+)s/i);
+          let waitMs = retryAfter ? parseInt(retryAfter) * 1000 : retryMatch ? Math.ceil(parseFloat(retryMatch[1]) * 1000) : 5000;
+          waitMs += Math.random() * 1000;
+          if (attempt === 0) {
+            console.log(`[Gemini] Rate limited on ${geminiModel}, waiting ${Math.round(waitMs)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+            continue;
+          }
+          console.log(`[Gemini] ${geminiModel} still rate limited, trying next model...`);
+          break;
         }
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      console.error('[Gemini] API Error:', data.error);
-      throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`);
+
+        const data = await response.json();
+
+        if (data.error) {
+          console.error(`[Gemini] ${geminiModel} error:`, data.error.message);
+          throw new Error(`Gemini API Error: ${data.error.message || 'Unknown error'}`);
+        }
+
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!content) {
+          console.error('[Gemini] No content in response:', JSON.stringify(data).slice(0, 200));
+          throw new Error('No content received from Gemini');
+        }
+
+        return content;
+
+      } catch (error: any) {
+        if (error.message?.includes('Rate') || error.message?.includes('429') || error.message?.includes('quota')) {
+          if (attempt === 0) {
+            await new Promise(resolve => setTimeout(resolve, 5000 + Math.random() * 2000));
+            continue;
+          }
+          break;
+        }
+        console.error(`[Gemini] Error with ${geminiModel}:`, error.message);
+        throw error;
+      }
     }
-    
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) {
-      console.error('[Gemini] No content in response:', data);
-      throw new Error('No content received from Gemini');
-    }
-    
-    return content;
-    
-  } catch (error) {
-    console.error('[Gemini] Error:', error);
-    throw error;
   }
+
+  throw new Error('All Gemini models are currently rate limited. Please wait a moment and try again.');
 }
 
 // Enhanced OpenAI integration with advanced capabilities
