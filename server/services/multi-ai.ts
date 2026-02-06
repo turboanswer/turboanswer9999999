@@ -2249,8 +2249,12 @@ Coordinates: ${locationData.latitude}°, ${locationData.longitude}°`;
       try {
         const quickResult = await replitAI.models.generateContent({
           model: "gemini-2.5-flash",
-          contents: `User: ${userMessage}\nTurbo (brief friendly response):`,
-          config: { maxOutputTokens: 60, temperature: 0.2 }
+          contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+          config: { 
+            maxOutputTokens: 80, 
+            temperature: 0.7,
+            thinkingConfig: { thinkingBudget: 0 },
+          }
         });
         return quickResult.text || "Hey there!";
       } catch (geminiError) {
@@ -2465,18 +2469,17 @@ async function generateReplitGeminiResponse(
   additionalContext: string,
   userLanguage: string = "en"
 ): Promise<string> {
-  const isSimpleQuery = userMessage.length < 50 || /\b(what|when|where|who|how|yes|no|hi|hello|hey|turbo)\b/i.test(userMessage);
+  const isSimpleQuery = userMessage.length < 80 && (userIntent.complexity === 'simple' || userMessage.split(' ').length < 15);
   const languageInstruction = userLanguage !== "en" ? 
-    `CRITICAL: Respond in ${userLanguage.toUpperCase()} language.` : "";
+    `IMPORTANT: Always respond in ${userLanguage.toUpperCase()} language.` : "";
   
   const systemPrompt = isSimpleQuery ? 
-    `You are Turbo, a fast AI assistant. Give direct, simple answers. Keep responses under 2 sentences for simple questions. Be conversational and helpful. ${languageInstruction}` :
-    `You are Turbo Answer, an advanced AI assistant. Provide clear, helpful responses. For simple questions, keep answers brief. For complex questions, provide detailed explanations. ${languageInstruction}
-    Current context: ${userIntent.domain} domain, ${userIntent.complexity} complexity
-    ${additionalContext}`;
+    `You are Turbo, a knowledgeable and helpful AI assistant. Answer questions accurately and directly. For simple questions, give a clear correct answer in 1-3 sentences. Be friendly but prioritize accuracy. ${languageInstruction}` :
+    `You are Turbo Answer, an advanced AI assistant. Provide accurate, clear, and helpful responses. Give correct factual answers. For complex topics, provide thorough explanations with examples. ${languageInstruction}
+${additionalContext ? `Context: ${additionalContext}` : ''}`;
 
   try {
-    const chatHistory = context.slice(-5).map(msg => ({
+    const chatHistory = context.slice(-4).map(msg => ({
       role: msg.role === 'user' ? 'user' as const : 'model' as const,
       parts: [{ text: msg.content }]
     }));
@@ -2485,11 +2488,12 @@ async function generateReplitGeminiResponse(
       model: "gemini-2.5-flash",
       contents: [
         ...chatHistory,
-        { role: 'user' as const, parts: [{ text: `${systemPrompt}\n\nUser: ${userMessage}` }] }
+        { role: 'user' as const, parts: [{ text: `${systemPrompt}\n\n${userMessage}` }] }
       ],
       config: {
-        temperature: 0.3,
-        maxOutputTokens: isSimpleQuery ? 150 : 500,
+        temperature: isSimpleQuery ? 0.3 : 0.7,
+        maxOutputTokens: isSimpleQuery ? 200 : 1000,
+        thinkingConfig: { thinkingBudget: 0 },
       }
     });
     
