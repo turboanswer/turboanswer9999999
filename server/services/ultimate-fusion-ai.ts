@@ -22,7 +22,7 @@ const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: proces
 // All available models in the system
 const ALL_AI_MODELS = {
   // Core Intelligence Models
-  'gemini-2.0-flash': { provider: 'google', strength: 'ultra-fast reasoning', weight: 10 },
+  'gemini-2.5-flash': { provider: 'google', strength: 'ultra-fast reasoning', weight: 10 },
   'gpt-4o': { provider: 'openai', strength: 'multimodal intelligence', weight: 10 },
   'claude-4-sonnet': { provider: 'anthropic', strength: 'advanced reasoning', weight: 10 },
   'gemini-2.5-pro': { provider: 'google', strength: 'long context analysis', weight: 9 },
@@ -116,7 +116,7 @@ function selectModelsForFusion(query: string, config: UltimateFusionConfig): str
   let modelCount = Math.min(Math.ceil(complexity * 2), config.maxModels);
   
   // Always include core models for maximum intelligence
-  const selectedModels = ['gemini-2.0-flash', 'gpt-4o', 'claude-4-sonnet'];
+  const selectedModels = ['gemini-2.5-flash', 'gpt-4o', 'claude-4-sonnet'];
   
   // Add specialized models based on domain detection
   const domainModels: { [key: string]: string[] } = {
@@ -148,7 +148,7 @@ async function callGeminiModel(model: string, prompt: string): Promise<string> {
   if (!gemini) return '';
   
   try {
-    const genModel = gemini.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const genModel = gemini.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await genModel.generateContent(prompt);
     return result.response.text() || '';
   } catch (error) {

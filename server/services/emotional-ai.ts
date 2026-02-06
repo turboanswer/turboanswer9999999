@@ -27,7 +27,7 @@ export class EmotionalAI {
   async analyzeEmotionalState(message: string, userId: string = "default"): Promise<EmotionalContext> {
     try {
       const model = ai.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         systemInstruction: `You are an expert emotional intelligence analyst. Analyze the emotional state, mood, and feelings in the user's message.
 
 Respond with JSON in this exact format:
@@ -112,7 +112,7 @@ Consider:
       }
 
       const model = ai.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         systemInstruction: emotionalPrompt,
         generationConfig: {
           temperature: 0.3,

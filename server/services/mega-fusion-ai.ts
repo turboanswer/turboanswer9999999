@@ -250,7 +250,7 @@ export class MegaFusionAI {
 
     // Gemini models
     if (model.startsWith('gemini')) {
-      const geminiModel = ai.getGenerativeModel({ model: model.includes('2.0') ? 'gemini-2.0-flash' : 'gemini-2.0-flash' });
+      const geminiModel = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const result = await geminiModel.generateContent(fullPrompt);
       return {
         content: result.response.text() || "",

@@ -97,7 +97,7 @@ async function analyzeWithGemini(imageData: string, prompt: string): Promise<str
     // Remove data URL prefix
     const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
     
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
