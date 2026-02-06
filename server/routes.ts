@@ -39,21 +39,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(widgetRoutes);
 
   // Create a new conversation
-  app.post("/api/conversations", async (req, res) => {
+  app.post("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
-      const validatedData = insertConversationSchema.parse(req.body);
-      
-      const conversation = await storage.createConversation(validatedData);
+      const userId = req.user.claims.sub;
+      const conversation = await storage.createConversation({
+        title: req.body.title || "New Conversation",
+        userId,
+      });
       res.json(conversation);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
   });
 
-  // Get all conversations
-  app.get("/api/conversations", async (req, res) => {
+  // Get all conversations for authenticated user
+  app.get("/api/conversations", isAuthenticated, async (req: any, res) => {
     try {
-      const conversations = await storage.getConversations();
+      const userId = req.user.claims.sub;
+      const conversations = await storage.getConversationsByUser(userId);
       res.json(conversations);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -61,7 +64,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get conversation by ID
-  app.get("/api/conversations/:id", async (req, res) => {
+  app.get("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const conversation = await storage.getConversation(id);
@@ -75,7 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get messages for a conversation
-  app.get("/api/conversations/:id/messages", async (req, res) => {
+  app.get("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
       const conversationId = parseInt(req.params.id);
       const messages = await storage.getMessagesByConversation(conversationId);
@@ -86,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Visual AI analysis endpoint
-  app.post("/api/analyze-image", async (req, res) => {
+  app.post("/api/analyze-image", isAuthenticated, async (req: any, res) => {
     try {
       const { imageData, query } = req.body;
       
@@ -105,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Live camera analysis endpoint
-  app.post("/api/analyze-live-camera", async (req, res) => {
+  app.post("/api/analyze-live-camera", isAuthenticated, async (req: any, res) => {
     try {
       const { imageData, question, language, context } = req.body;
       
@@ -133,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Language detection endpoint
-  app.post("/api/detect-language", async (req, res) => {
+  app.post("/api/detect-language", isAuthenticated, async (req: any, res) => {
     try {
       const { text } = req.body;
       
@@ -168,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Send a message and get AI response
-  app.post("/api/conversations/:id/messages", async (req, res) => {
+  app.post("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
       const conversationId = parseInt(req.params.id);
       const { content } = req.body;
@@ -664,7 +667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // File upload and document analysis
-  app.post("/api/analyze-document", upload.single('document'), async (req, res) => {
+  app.post("/api/analyze-document", isAuthenticated, upload.single('document'), async (req: any, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -768,8 +771,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Alternative image generation endpoint (no API keys required)
-  app.post("/api/generate-image", async (req, res) => {
+  // Alternative image generation endpoint
+  app.post("/api/generate-image", isAuthenticated, async (req: any, res) => {
     try {
       const { prompt, size = "1024x1024", style = "realistic" } = req.body;
       
@@ -808,7 +811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Alternative video generation endpoint
-  app.post("/api/generate-video", async (req, res) => {
+  app.post("/api/generate-video", isAuthenticated, async (req: any, res) => {
     try {
       const { prompt, duration = 5, resolution = "1080p", style = "realistic" } = req.body;
       

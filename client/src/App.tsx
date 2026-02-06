@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { StartupScreen } from "@/components/StartupScreen";
+import { useAuth } from "@/hooks/use-auth";
+import { Loader2 } from "lucide-react";
 import Home from "@/pages/home";
 import Chat from "@/pages/chat";
 import AISettings from "@/pages/ai-settings";
@@ -12,11 +12,8 @@ import TestSimple from "@/pages/test-simple";
 import Subscribe from "@/pages/subscribe";
 import EnhancedSubscribe from "@/pages/enhanced-subscribe";
 import NotFound from "@/pages/not-found";
-import Register from "@/pages/register";
-import Login from "@/pages/login";
 import Pricing from "@/pages/pricing";
 import Support from "@/pages/support";
-import EmployeeLogin from "@/pages/employee-login";
 import EmployeeDashboard from "@/pages/employee-dashboard";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Business from "@/pages/business";
@@ -24,8 +21,9 @@ import Integration from "@/pages/integration";
 import Simple from "@/pages/simple";
 import WhereToAdd from "@/pages/where-to-add";
 import WidgetDemo from "@/pages/widget-demo";
+import LandingPage from "@/pages/landing";
 
-function Router() {
+function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/home" component={Home} />
@@ -33,12 +31,9 @@ function Router() {
       <Route path="/" component={Chat} />
       <Route path="/ai-settings" component={AISettings} />
       <Route path="/test" component={TestSimple} />
-      <Route path="/register" component={Register} />
-      <Route path="/login" component={Login} />
       <Route path="/subscribe" component={Subscribe} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/support" component={Support} />
-      <Route path="/employee/login" component={EmployeeLogin} />
       <Route path="/employee/dashboard" component={EmployeeDashboard} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/business" component={Business} />
@@ -51,18 +46,40 @@ function Router() {
   );
 }
 
-function App() {
-  const [showStartup, setShowStartup] = useState(false); // Skip startup screen for faster loading
+function UnauthenticatedRouter() {
+  return (
+    <Switch>
+      <Route path="/" component={LandingPage} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/support" component={Support} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/business" component={Business} />
+      <Route path="/widget-demo" component={WidgetDemo} />
+      <Route component={LandingPage} />
+    </Switch>
+  );
+}
 
+function AppContent() {
+  const { isLoading, isAuthenticated } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <AuthenticatedRouter /> : <UnauthenticatedRouter />;
+}
+
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        {showStartup ? (
-          <StartupScreen onComplete={() => setShowStartup(false)} />
-        ) : (
-          <Router />
-        )}
+        <AppContent />
       </TooltipProvider>
     </QueryClientProvider>
   );

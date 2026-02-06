@@ -26,14 +26,14 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **State Management**: TanStack React Query for server state management
 - **Routing**: Wouter for client-side routing
 - **Form Handling**: React Hook Form with Zod validation
-- **Authentication**: Local authentication with session management
+- **Authentication**: Replit Auth (OpenID Connect) with session management
 
 ### Backend Architecture
 - **Framework**: Express.js with TypeScript
 - **Runtime**: Node.js with ES modules
 - **API Style**: RESTful API endpoints
 - **AI Integration**: Multi-model AI system with Gemini, OpenAI, and Anthropic support
-- **Authentication**: Session-based authentication with PostgreSQL storage
+- **Authentication**: Replit Auth (OpenID Connect via Passport.js) with PostgreSQL session storage
 - **Middleware**: Express JSON parsing, custom logging middleware
 
 ### Database Strategy
