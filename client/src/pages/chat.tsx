@@ -3,32 +3,30 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Send, Bot, User, Plus, MessageSquare, Trash2, 
-  Menu, X, Camera, FileText, ChevronDown, Sparkles,
-  Code, Calculator, BookOpen, Palette, Crown, Settings, LogOut
+import {
+  Send, Bot, User, FileText, X, Settings, LogOut, Camera,
+  Globe, Zap, Crown, Calculator, Code, BookOpen, Palette, Sparkles
 } from "lucide-react";
 import { Link } from "wouter";
+import turboLogo from "@assets/file_00000000d40c61f9a186294bbf2c842a_1752427622475.png";
 import { useToast } from "@/hooks/use-toast";
+import { DocumentUpload } from "@/components/DocumentUpload";
+import CameraCapture from "@/components/CameraCapture";
+import LanguageSelector from "@/components/LanguageSelector";
+import LiveCameraFeed from "@/components/LiveCameraFeed";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Conversation, Message } from "@shared/schema";
-
-const AI_SERVERS = [
-  { id: "auto", name: "Auto", icon: Sparkles, desc: "Smart routing", color: "text-blue-400" },
-  { id: "math", name: "Math", icon: Calculator, desc: "Calculations & formulas", color: "text-green-400" },
-  { id: "code", name: "Code", icon: Code, desc: "Programming help", color: "text-yellow-400" },
-  { id: "knowledge", name: "Knowledge", icon: BookOpen, desc: "Facts & research", color: "text-purple-400" },
-  { id: "creative", name: "Creative", icon: Palette, desc: "Writing & ideas", color: "text-pink-400" },
-];
 
 export default function Chat() {
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [messageContent, setMessageContent] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [selectedServer, setSelectedServer] = useState("auto");
-  const [showServerPicker, setShowServerPicker] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showLiveCamera, setShowLiveCamera] = useState(false);
+  const [selectedServer, setSelectedServer] = useState("auto");
+  const [currentLanguage, setCurrentLanguage] = useState("en");
+  const [user, setUser] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
@@ -39,7 +37,20 @@ export default function Chat() {
     if (userData) {
       try { setUser(JSON.parse(userData)); } catch (e) { localStorage.removeItem('turbo_user'); }
     }
+    const savedLang = localStorage.getItem('turbo_language');
+    if (savedLang) setCurrentLanguage(savedLang);
   }, []);
+
+  const handleLanguageChange = (lang: string) => {
+    setCurrentLanguage(lang);
+    localStorage.setItem('turbo_language', lang);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('turbo_user');
+    setUser(null);
+    toast({ title: "Logged Out", description: "You have been successfully logged out" });
+  };
 
   const { data: conversations = [] } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations"],
@@ -52,28 +63,12 @@ export default function Chat() {
 
   const createConversationMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/conversations", { title: "New chat" });
+      const response = await apiRequest("POST", "/api/conversations", { title: "New Conversation" });
       return response.json();
     },
     onSuccess: (conversation: Conversation) => {
       setCurrentConversationId(conversation.id);
       queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-    },
-  });
-
-  const deleteConversationMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/conversations/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-      if (conversations.length > 1) {
-        const remaining = conversations.filter(c => c.id !== currentConversationId);
-        setCurrentConversationId(remaining[0]?.id || null);
-      } else {
-        setCurrentConversationId(null);
-        createConversationMutation.mutate();
-      }
     },
   });
 
@@ -112,7 +107,7 @@ export default function Chat() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 128) + 'px';
     }
   }, [messageContent]);
 
@@ -128,18 +123,6 @@ export default function Chat() {
       handleSendMessage();
     }
   };
-
-  const handleNewChat = () => {
-    createConversationMutation.mutate();
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('turbo_user');
-    setUser(null);
-    toast({ title: "Logged Out", description: "You have been logged out" });
-  };
-
-  const currentServer = AI_SERVERS.find(s => s.id === selectedServer) || AI_SERVERS[0];
 
   const renderMarkdown = (text: string) => {
     const parts = text.split(/(```[\s\S]*?```)/g);
@@ -163,376 +146,285 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex h-screen bg-[#171717] text-white">
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} flex-shrink-0 bg-[#0d0d0d] flex flex-col overflow-hidden`}
-        style={{ transition: 'none' }}>
-        <div className="p-3 flex flex-col h-full">
-          {/* New Chat Button */}
-          <Button
-            onClick={handleNewChat}
-            className="w-full mb-3 bg-[#212121] hover:bg-[#2a2a2a] text-white border border-gray-700 rounded-lg h-10 flex items-center justify-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            New chat
-          </Button>
-
-          {/* Conversation List */}
-          <div className="flex-1 overflow-y-auto space-y-1">
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-sm ${
-                  conv.id === currentConversationId 
-                    ? 'bg-[#212121] text-white' 
-                    : 'text-gray-400 hover:bg-[#1a1a1a] hover:text-white'
-                }`}
-                onClick={() => setCurrentConversationId(conv.id)}
-              >
-                <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate flex-1">{conv.title || "New chat"}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteConversationMutation.mutate(conv.id); }}
-                  className="hidden group-hover:block text-gray-500 hover:text-red-400"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+    <div className="flex flex-col h-screen w-full bg-black fixed inset-0">
+      {/* Header */}
+      <header className="bg-black border-b border-gray-800 px-3 sm:px-4 py-2.5 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <img src={turboLogo} alt="Turbo Answer" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
+            <div>
+              <h1 className="text-base sm:text-xl font-bold text-white">Turbo Answer</h1>
+              <p className="text-[10px] sm:text-xs text-gray-400">Never Stop Innovating</p>
+            </div>
           </div>
 
-          {/* Bottom Actions */}
-          <div className="border-t border-gray-800 pt-3 mt-3 space-y-1">
+          <div className="flex items-center space-x-1 sm:space-x-3">
+            <div className="flex items-center space-x-1 sm:space-x-2">
+              <span className="text-xs text-gray-400 hidden sm:block">AI:</span>
+              <Select value={selectedServer} onValueChange={setSelectedServer}>
+                <SelectTrigger className="w-20 sm:w-24 h-8 bg-gray-900 border-gray-700 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto</SelectItem>
+                  <SelectItem value="math">Math</SelectItem>
+                  <SelectItem value="code">Code</SelectItem>
+                  <SelectItem value="knowledge">Knowledge</SelectItem>
+                  <SelectItem value="creative">Creative</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Link href="/pricing">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-yellow-400 hover:bg-[#1a1a1a] cursor-pointer">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-yellow-400 hover:text-yellow-300" title="Premium">
                 <Crown className="h-4 w-4" />
-                <span>Upgrade to Premium</span>
-              </div>
+              </Button>
             </Link>
+
             <Link href="/ai-settings">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-[#1a1a1a] hover:text-white cursor-pointer">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-white" title="Settings">
                 <Settings className="h-4 w-4" />
-                <span>Settings</span>
-              </div>
+              </Button>
             </Link>
+
             {user ? (
-              <div
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-[#1a1a1a] hover:text-red-400 cursor-pointer"
-              >
+              <Button onClick={handleLogout} variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-400" title="Logout">
                 <LogOut className="h-4 w-4" />
-                <span>Log out</span>
-              </div>
+              </Button>
             ) : (
               <Link href="/login">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-blue-400 hover:bg-[#1a1a1a] cursor-pointer">
-                  <User className="h-4 w-4" />
-                  <span>Sign in</span>
-                </div>
+                <Button variant="ghost" size="sm" className="text-xs sm:text-sm text-blue-400 hover:text-white px-2">
+                  Sign In
+                </Button>
               </Link>
             )}
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="h-12 border-b border-gray-800 flex items-center px-4 bg-[#171717] flex-shrink-0">
-          <Button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-gray-400 hover:text-white mr-3"
-          >
-            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </Button>
-
-          <div className="flex items-center gap-2 flex-1">
-            <h1 className="text-sm font-medium text-white">Turbo Answer</h1>
-            <span className="text-xs text-gray-500">|</span>
-            {/* Server Picker */}
-            <div className="relative">
-              <button
-                onClick={() => setShowServerPicker(!showServerPicker)}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-[#212121]"
-              >
-                <currentServer.icon className={`h-3 w-3 ${currentServer.color}`} />
-                <span>{currentServer.name}</span>
-                <ChevronDown className="h-3 w-3" />
-              </button>
-              {showServerPicker && (
-                <div className="absolute top-full left-0 mt-1 bg-[#212121] border border-gray-700 rounded-lg shadow-xl z-50 w-56 py-1">
-                  {AI_SERVERS.map((server) => (
-                    <button
-                      key={server.id}
-                      onClick={() => { setSelectedServer(server.id); setShowServerPicker(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#2a2a2a] ${
-                        server.id === selectedServer ? 'bg-[#2a2a2a]' : ''
-                      }`}
-                    >
-                      <server.icon className={`h-4 w-4 ${server.color}`} />
-                      <div>
-                        <div className="text-sm text-white">{server.name}</div>
-                        <div className="text-xs text-gray-500">{server.desc}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+      {/* Quick Action Bar */}
+      <div className="bg-gray-900/50 border-b border-gray-800 px-3 sm:px-4 py-1.5 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-1">
+            <Button
+              onClick={() => { setShowDocumentUpload(!showDocumentUpload); setShowCamera(false); setShowLiveCamera(false); }}
+              variant="ghost"
+              size="sm"
+              className={`h-8 px-2 ${showDocumentUpload ? 'text-blue-400' : 'text-gray-400'} hover:text-white`}
+              title="Upload Document"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="text-xs ml-1 hidden sm:inline">Document</span>
+            </Button>
+            <Button
+              onClick={() => { setShowCamera(!showCamera); setShowDocumentUpload(false); setShowLiveCamera(false); }}
+              variant="ghost"
+              size="sm"
+              className={`h-8 px-2 ${showCamera ? 'text-blue-400' : 'text-gray-400'} hover:text-white`}
+              title="Camera"
+            >
+              <Camera className="h-4 w-4" />
+              <span className="text-xs ml-1 hidden sm:inline">Camera</span>
+            </Button>
+            <Button
+              onClick={() => { setShowLiveCamera(!showLiveCamera); setShowDocumentUpload(false); setShowCamera(false); }}
+              variant="ghost"
+              size="sm"
+              className={`h-8 px-2 ${showLiveCamera ? 'text-red-400' : 'text-gray-400'} hover:text-white`}
+              title="Live Camera"
+            >
+              <Globe className="h-4 w-4" />
+              <span className="text-xs ml-1 hidden sm:inline">Live</span>
+            </Button>
           </div>
 
-          {/* Camera Button */}
-          <Button
-            onClick={() => setShowCamera(!showCamera)}
-            variant="ghost"
-            size="sm"
-            className={`h-8 w-8 p-0 ${showCamera ? 'text-blue-400' : 'text-gray-400'} hover:text-white`}
-            title="Camera"
-          >
-            <Camera className="h-4 w-4" />
-          </Button>
-        </header>
+          <LanguageSelector currentLanguage={currentLanguage} onLanguageChange={handleLanguageChange} />
+        </div>
+      </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-4 py-6">
-            {/* Empty State */}
-            {messages.length === 0 && !isTyping && (
-              <div className="flex flex-col items-center justify-center h-full min-h-[60vh]">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
-                  <Bot className="h-6 w-6 text-white" />
-                </div>
-                <h2 className="text-xl font-semibold text-white mb-2">How can I help you today?</h2>
-                <p className="text-sm text-gray-400 mb-8 text-center max-w-md">
-                  I'm Turbo, your self-hosted AI assistant. Ask me anything about math, coding, science, or just chat.
-                </p>
-                <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
-                  {[
-                    { text: "Solve a math problem", icon: Calculator },
-                    { text: "Write some code", icon: Code },
-                    { text: "Explain a concept", icon: BookOpen },
-                    { text: "Help me brainstorm", icon: Palette },
-                  ].map(({ text, icon: Icon }) => (
-                    <button
-                      key={text}
-                      onClick={() => { setMessageContent(text); }}
-                      className="flex items-center gap-2 p-3 bg-[#212121] hover:bg-[#2a2a2a] rounded-xl text-sm text-gray-300 text-left border border-gray-800"
-                    >
-                      <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                      <span>{text}</span>
-                    </button>
-                  ))}
-                </div>
+      {/* Document Upload Panel */}
+      {showDocumentUpload && (
+        <div className="bg-zinc-950 border-b border-zinc-800 px-3 sm:px-6 py-4 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-white flex items-center gap-2">
+              <FileText className="h-4 w-4 text-blue-400" />
+              Upload Document
+            </h3>
+            <Button onClick={() => setShowDocumentUpload(false)} variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400">
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <DocumentUpload conversationId={currentConversationId || undefined} onAnalysisComplete={(analysis: any) => {
+            if (analysis?.text) setMessageContent(analysis.text);
+            setShowDocumentUpload(false);
+          }} />
+        </div>
+      )}
+
+      {/* Camera Panel */}
+      {showCamera && (
+        <div className="bg-zinc-950 border-b border-zinc-800 px-3 sm:px-6 py-4 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-white flex items-center gap-2">
+              <Camera className="h-4 w-4 text-blue-400" />
+              Camera Capture
+            </h3>
+            <Button onClick={() => setShowCamera(false)} variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400">
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <CameraCapture
+            onCapture={(imageData: string) => {
+              setMessageContent(`[Camera Photo] Describe what you need help with`);
+              setShowCamera(false);
+            }}
+            onAnalyze={(imageData: string) => {
+              setMessageContent(`[Camera Analysis] Analyzing captured image...`);
+            }}
+            isAnalyzing={false}
+            language={currentLanguage}
+            onContinuousMode={() => {}}
+            continuousMode={false}
+          />
+        </div>
+      )}
+
+      {/* Live Camera Panel */}
+      {showLiveCamera && (
+        <div className="bg-zinc-950 border-b border-zinc-800 px-3 sm:px-6 py-4 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-white flex items-center gap-2">
+              <Globe className="h-4 w-4 text-red-400" />
+              Live Camera Feed
+            </h3>
+            <Button onClick={() => setShowLiveCamera(false)} variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400">
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <LiveCameraFeed
+            language={currentLanguage}
+            onAnalysisResult={(analysis: string) => {
+              setMessageContent(analysis);
+              setShowLiveCamera(false);
+            }}
+            voiceEnabled={false}
+          />
+        </div>
+      )}
+
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+          {/* Welcome / Empty State */}
+          {messages.length === 0 && !isTyping && (
+            <div className="flex flex-col items-center justify-center min-h-[50vh]">
+              <img src={turboLogo} alt="Turbo Answer" className="w-16 h-16 sm:w-20 sm:h-20 object-contain mb-4" />
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-1">Welcome to Turbo Answer</h2>
+              <p className="text-xs sm:text-sm text-gray-400 mb-6 text-center max-w-md">
+                Your self-hosted AI assistant. Ask me anything about math, coding, science, or just chat.
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full max-w-md">
+                {[
+                  { text: "Solve a math problem", icon: Calculator, color: "text-green-400" },
+                  { text: "Write some code", icon: Code, color: "text-yellow-400" },
+                  { text: "Explain a concept", icon: BookOpen, color: "text-purple-400" },
+                  { text: "Help me brainstorm", icon: Palette, color: "text-pink-400" },
+                ].map(({ text, icon: Icon, color }) => (
+                  <button
+                    key={text}
+                    onClick={() => setMessageContent(text)}
+                    className="flex items-center gap-2 p-3 bg-gray-900 hover:bg-gray-800 rounded-xl text-xs sm:text-sm text-gray-300 text-left border border-gray-800"
+                  >
+                    <Icon className={`h-4 w-4 ${color} flex-shrink-0`} />
+                    <span>{text}</span>
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Message List */}
-            {messages.map((message) => (
-              <div key={message.id} className={`flex gap-4 mb-6 ${message.role === 'user' ? 'justify-end' : ''}`}>
+          {/* Messages */}
+          {messages.map((message) => (
+            <div key={message.id} className="mb-4 sm:mb-6">
+              <div className={`flex gap-2 sm:gap-3 ${message.role === 'user' ? 'justify-end' : ''}`}>
                 {message.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 mt-1">
-                    <Bot className="h-4 w-4 text-white" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 mt-1">
+                    <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
                   </div>
                 )}
-                <div className={`max-w-[80%] ${message.role === 'user' ? 'order-first' : ''}`}>
-                  <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                <div className={`max-w-[85%] sm:max-w-[80%]`}>
+                  <div className={`px-3 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm leading-relaxed ${
                     message.role === 'user'
-                      ? 'bg-[#303030] text-white rounded-br-md'
-                      : 'text-gray-200'
+                      ? 'bg-blue-600 text-white rounded-br-md'
+                      : 'bg-gray-900 text-gray-200 border border-gray-800'
                   }`}>
                     {message.role === 'assistant' ? renderMarkdown(message.content) : message.content}
                   </div>
                 </div>
                 {message.role === 'user' && (
-                  <div className="w-8 h-8 rounded-full bg-[#404040] flex items-center justify-center flex-shrink-0 mt-1">
-                    <User className="h-4 w-4 text-gray-300" />
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-1">
+                    <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-300" />
                   </div>
                 )}
               </div>
-            ))}
-
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="flex gap-4 mb-6">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0 mt-1">
-                  <Bot className="h-4 w-4 text-white" />
-                </div>
-                <div className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Camera Panel */}
-        {showCamera && (
-          <div className="border-t border-gray-800 bg-[#1a1a1a] p-4">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                  <Camera className="h-4 w-4 text-blue-400" />
-                  Camera - Show me what you need help with
-                </h3>
-                <Button onClick={() => setShowCamera(false)} variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400">
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-              <CameraView onCapture={(desc: string) => {
-                setMessageContent(desc);
-                setShowCamera(false);
-              }} />
             </div>
-          </div>
-        )}
+          ))}
 
-        {/* Input Area */}
-        <div className="border-t border-gray-800 bg-[#171717] p-4">
-          <div className="max-w-3xl mx-auto">
-            <div className="relative bg-[#212121] rounded-2xl border border-gray-700 focus-within:border-gray-500">
-              <Textarea
-                ref={textareaRef}
-                value={messageContent}
-                onChange={(e) => setMessageContent(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Message Turbo..."
-                className="w-full bg-transparent border-none text-white placeholder-gray-500 resize-none px-4 pt-3 pb-10 min-h-[52px] max-h-[200px] focus:ring-0 focus:outline-none text-sm"
-                rows={1}
-              />
-              <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                <Button
-                  onClick={() => setShowCamera(!showCamera)}
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-gray-500 hover:text-white"
-                >
-                  <Camera className="h-4 w-4" />
-                </Button>
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!messageContent.trim() || sendMessageMutation.isPending}
-                  className="h-7 w-7 p-0 bg-white text-black rounded-lg hover:bg-gray-200 disabled:opacity-30 disabled:bg-gray-600 disabled:text-gray-400"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
+          {/* Typing Indicator */}
+          {isTyping && (
+            <div className="flex gap-3 mb-6">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                <Bot className="h-4 w-4 text-white" />
+              </div>
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl px-4 py-3">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                </div>
               </div>
             </div>
-            <p className="text-xs text-gray-600 text-center mt-2">
-              Turbo Answer - Self-hosted AI. Fast. Private. Yours.
-            </p>
-          </div>
+          )}
+
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Click-away for server picker */}
-      {showServerPicker && (
-        <div className="fixed inset-0 z-40" onClick={() => setShowServerPicker(false)} />
-      )}
-    </div>
-  );
-}
-
-function CameraView({ onCapture }: { onCapture: (description: string) => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [streaming, setStreaming] = useState(false);
-  const [captured, setCaptured] = useState<string | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setStreaming(true);
-      }
-    } catch (err) {
-      console.error('Camera error:', err);
-    }
-  };
-
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    setStreaming(false);
-  };
-
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0);
-      const imageData = canvas.toDataURL('image/jpeg', 0.8);
-      setCaptured(imageData);
-      stopCamera();
-    }
-  };
-
-  useEffect(() => {
-    return () => stopCamera();
-  }, []);
-
-  if (captured) {
-    return (
-      <div className="space-y-3">
-        <img src={captured} alt="Captured" className="w-full max-h-48 object-contain rounded-lg" />
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="Describe what you need help with..."
-            className="flex-1 px-3 py-2 bg-[#212121] border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                const input = e.currentTarget.value.trim();
-                if (input) onCapture(`[Camera Photo] ${input}`);
-              }
-            }}
-          />
-          <Button onClick={() => { setCaptured(null); startCamera(); }} variant="outline" size="sm" className="text-xs border-gray-700">
-            Retake
-          </Button>
-        </div>
-        <p className="text-xs text-gray-500">Describe what's in the photo and I'll help you solve it.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="bg-black rounded-lg overflow-hidden aspect-video relative">
-        <video ref={videoRef} autoPlay playsInline muted className={`w-full h-full object-cover ${streaming ? '' : 'hidden'}`} />
-        {!streaming && (
-          <div className="flex items-center justify-center h-full min-h-[200px]">
-            <Button onClick={startCamera} className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Camera className="h-4 w-4 mr-2" />
-              Open Camera
+      {/* Message Input */}
+      <div className="bg-black border-t border-gray-800 p-3 sm:p-4 shrink-0">
+        <div className="max-w-3xl mx-auto">
+          <div className="relative">
+            <Textarea
+              ref={textareaRef}
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message here..."
+              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-12 bg-gray-900 border border-gray-700 rounded-xl text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none min-h-[44px] max-h-32 text-sm"
+              rows={1}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim() || sendMessageMutation.isPending}
+              className="absolute right-2 bottom-2 h-8 w-8 p-0 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+              title="Send message"
+            >
+              <Send className="h-4 w-4" />
             </Button>
           </div>
-        )}
-      </div>
-      {streaming && (
-        <div className="flex justify-center">
-          <Button onClick={capturePhoto} className="bg-white text-black hover:bg-gray-200 rounded-full h-12 w-12 p-0">
-            <div className="w-8 h-8 border-2 border-black rounded-full" />
-          </Button>
+
+          <div className="flex items-center justify-between mt-1.5 text-[10px] sm:text-xs text-gray-500">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <span className="flex items-center space-x-1">
+                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full"></div>
+                <span>AI Ready</span>
+              </span>
+              <span className="hidden sm:inline">Press Enter to send</span>
+            </div>
+            <span>{messageContent.length}/2000</span>
+          </div>
         </div>
-      )}
-      <canvas ref={canvasRef} className="hidden" />
+      </div>
     </div>
   );
 }
