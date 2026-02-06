@@ -678,8 +678,8 @@ export default function Chat() {
                         <Brain className="w-4 h-4 text-blue-400" />
                       </div>
                       <div>
-                        <p className="text-white font-medium text-sm">Claude Research</p>
-                        <p className="text-zinc-400 text-xs mt-0.5">Select "Research $10" for deep analysis powered by Claude AI</p>
+                        <p className="text-white font-medium text-sm">Deep Research</p>
+                        <p className="text-zinc-400 text-xs mt-0.5">Select "Research $10" for deep analysis with extended responses</p>
                       </div>
                     </div>
                   </div>

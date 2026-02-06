@@ -98,20 +98,12 @@ export async function generateAIResponse(
     let temperature: number;
 
     if (selectedModel === 'claude-research') {
-      const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-      const anthropicBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
-      if (!anthropicKey) {
-        return "Claude AI is not configured. Research mode is unavailable.";
-      }
+      geminiModel = 'gemini-2.5-pro';
       maxTokens = 16000;
       temperature = 0.1;
-      systemPrompt = `You are Turbo Answer, a premium AI research assistant powered by Claude. Provide thorough, well-structured, in-depth analysis. Use clear headings, evidence-based reasoning, and comprehensive coverage.
+      systemPrompt = `You are Turbo Answer, a premium AI research assistant. Provide thorough, well-structured, in-depth analysis. Use clear headings, evidence-based reasoning, and comprehensive coverage. Go deeper than a standard response - cite reasoning, explore multiple angles, and give expert-level detail.
 ${languageInstruction}
 ${additionalContext}`;
-
-      console.log(`[AI] Model: claude-research, Tokens: ${maxTokens}`);
-      const contextMessages = conversationHistory.slice(-4).map(m => `${m.role}: ${m.content}`).join('\n');
-      return await callClaude(enhancedMessage, systemPrompt, contextMessages, maxTokens, temperature, anthropicKey, anthropicBaseUrl);
     } else if (selectedModel === 'gemini-pro') {
       geminiModel = 'gemini-2.5-pro';
       maxTokens = 8000;
@@ -298,7 +290,7 @@ export function getAvailableModels(subscriptionTier: string): Record<string, any
   }
 
   if (subscriptionTier === 'research') {
-    if (hasClaude) Object.assign(models, AI_MODELS.research);
+    if (hasGemini) Object.assign(models, AI_MODELS.research);
   }
 
   return models;
