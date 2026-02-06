@@ -17,7 +17,7 @@ export interface VisualAnalysis {
 
 export async function analyzeImage(imageData: string, userQuery?: string): Promise<VisualAnalysis> {
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
     
     // Convert base64 to proper format
     const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
@@ -76,7 +76,7 @@ Be descriptive and helpful!`;
 
 export async function analyzeImageStream(imageData: string, context: string[]): Promise<string> {
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
     
     const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
     

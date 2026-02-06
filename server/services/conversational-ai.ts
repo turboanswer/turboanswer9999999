@@ -72,7 +72,7 @@ export class ConversationalAI {
 
     try {
       const model = ai.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.0-flash",
         systemInstruction: conversationalPrompt,
         generationConfig: {
           temperature: 0.3,

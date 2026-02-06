@@ -44,7 +44,7 @@ export class MegaFusionAI {
     
     // Check available API keys and add models
     if (process.env.GEMINI_API_KEY) {
-      this.availableModels.push('gemini-2.0-flash-exp', 'gemini-2.0-flash-thinking', 'gemini-1.5-pro', 'gemini-pro');
+      this.availableModels.push('gemini-2.0-flash', 'gemini-2.0-flash-thinking', 'gemini-1.5-pro', 'gemini-pro');
     }
     if (process.env.OPENAI_API_KEY) {
       this.availableModels.push('gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo');
@@ -166,7 +166,7 @@ export class MegaFusionAI {
     const priorityOrder = [
       // Tier 1: Ultimate Power Models
       'gemini-2.0-flash-thinking',
-      'gemini-2.0-flash-exp',
+      'gemini-2.0-flash',
       'claude-3-5-sonnet-20241022',
       'gpt-4o',
       'grok-2-1212',
@@ -250,7 +250,7 @@ export class MegaFusionAI {
 
     // Gemini models
     if (model.startsWith('gemini')) {
-      const geminiModel = ai.getGenerativeModel({ model: model.includes('2.0') ? 'gemini-2.0-flash-exp' : 'gemini-1.5-flash' });
+      const geminiModel = ai.getGenerativeModel({ model: model.includes('2.0') ? 'gemini-2.0-flash' : 'gemini-1.5-flash' });
       const result = await geminiModel.generateContent(fullPrompt);
       return {
         content: result.response.text() || "",
