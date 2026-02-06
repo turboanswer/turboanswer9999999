@@ -242,8 +242,12 @@ export default function Chat() {
     return date.toLocaleDateString();
   };
 
+  const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({
+    queryKey: ["/api/subscription-status"],
+  });
+
   const handleModelChange = (value: string) => {
-    if (value === 'gemini-pro' || value === 'gemini-pro-research') {
+    if ((value === 'gemini-pro' || value === 'gemini-pro-research') && subscriptionData?.tier !== 'pro') {
       setShowProPopup(true);
     } else {
       setSelectedAIModel(value);
