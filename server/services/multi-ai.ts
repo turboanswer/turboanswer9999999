@@ -98,9 +98,10 @@ export async function generateAIResponse(
     let temperature: number;
 
     if (selectedModel === 'claude-research') {
-      const anthropicKey = process.env.ANTHROPIC_API_KEY;
+      const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+      const anthropicBaseUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
       if (!anthropicKey) {
-        return "Claude AI is not configured. Please add ANTHROPIC_API_KEY to enable Research mode.";
+        return "Claude AI is not configured. Research mode is unavailable.";
       }
       maxTokens = 16000;
       temperature = 0.1;
@@ -110,7 +111,7 @@ ${additionalContext}`;
 
       console.log(`[AI] Model: claude-research, Tokens: ${maxTokens}`);
       const contextMessages = conversationHistory.slice(-4).map(m => `${m.role}: ${m.content}`).join('\n');
-      return await callClaude(enhancedMessage, systemPrompt, contextMessages, maxTokens, temperature, anthropicKey);
+      return await callClaude(enhancedMessage, systemPrompt, contextMessages, maxTokens, temperature, anthropicKey, anthropicBaseUrl);
     } else if (selectedModel === 'gemini-pro') {
       geminiModel = 'gemini-2.5-pro';
       maxTokens = 8000;
@@ -226,7 +227,7 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
   throw new Error('All Gemini models are currently rate limited. Please wait a moment and try again.');
 }
 
-async function callClaude(userMessage: string, systemPrompt: string, contextMessages: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
+async function callClaude(userMessage: string, systemPrompt: string, contextMessages: string, maxTokens: number, temperature: number, apiKey: string, baseUrl?: string): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
 
@@ -238,7 +239,8 @@ async function callClaude(userMessage: string, systemPrompt: string, contextMess
     }
     messages.push({ role: "user", content: userMessage });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const apiUrl = baseUrl ? `${baseUrl}/v1/messages` : 'https://api.anthropic.com/v1/messages';
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -246,7 +248,7 @@ async function callClaude(userMessage: string, systemPrompt: string, contextMess
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: maxTokens,
         temperature,
         system: systemPrompt,
@@ -283,7 +285,7 @@ async function callClaude(userMessage: string, systemPrompt: string, contextMess
 
 export function getAvailableModels(subscriptionTier: string): Record<string, any> {
   const hasGemini = !!process.env.GEMINI_API_KEY;
-  const hasClaude = !!process.env.ANTHROPIC_API_KEY;
+  const hasClaude = !!(process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY);
 
   const models: Record<string, any> = {};
 
