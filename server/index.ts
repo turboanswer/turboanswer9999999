@@ -77,14 +77,14 @@ app.post(
           const session = event.data.object as any;
           const customerId = session.customer;
           const subscriptionId = session.subscription;
+          const tier = session.metadata?.tier || 'pro';
           
           if (customerId && subscriptionId) {
-            // Find user by stripeCustomerId and update subscription
             const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
             if (user) {
               await storage.updateUserStripeInfo(user.id, customerId, subscriptionId);
-              await storage.updateUserSubscription(user.id, 'active', 'pro');
-              console.log(`[Stripe] Updated user ${user.id} to pro subscription`);
+              await storage.updateUserSubscription(user.id, 'active', tier);
+              console.log(`[Stripe] Updated user ${user.id} to ${tier} subscription`);
             }
           }
         } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
@@ -94,9 +94,25 @@ app.post(
           
           const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
           if (user) {
-            const tier = (status === 'active' || status === 'trialing') ? 'pro' : 'free';
-            await storage.updateUserSubscription(user.id, status, tier);
-            console.log(`[Stripe] Updated user ${user.id} subscription status: ${status}, tier: ${tier}`);
+            if (status === 'active' || status === 'trialing') {
+              let tier = 'pro';
+              try {
+                const item = subscription.items?.data?.[0];
+                if (item?.price?.product) {
+                  const productId = typeof item.price.product === 'string' ? item.price.product : item.price.product.id;
+                  const product = await stripe.products.retrieve(productId);
+                  if (product.name?.toLowerCase().includes('research') || product.metadata?.tier === 'research') {
+                    tier = 'research';
+                  }
+                }
+                if (item?.price?.unit_amount === 1500) tier = 'research';
+              } catch (e) {}
+              await storage.updateUserSubscription(user.id, status, tier);
+              console.log(`[Stripe] Updated user ${user.id} subscription: ${status}, tier: ${tier}`);
+            } else {
+              await storage.updateUserSubscription(user.id, status, 'free');
+              console.log(`[Stripe] Updated user ${user.id} subscription cancelled: ${status}`);
+            }
           }
         }
       } catch (appError: any) {

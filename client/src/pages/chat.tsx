@@ -51,6 +51,7 @@ export default function Chat() {
     const subParam = params.get('subscription');
     if (subParam === 'pro' || subParam === 'research' || subParam === 'success') {
       window.history.replaceState({}, '', '/chat');
+      const expectedTier = (subParam === 'research') ? 'research' : 'pro';
       const syncSubscription = async () => {
         const trySync = async (): Promise<boolean> => {
           try {
@@ -67,11 +68,14 @@ export default function Chat() {
           return false;
         };
         if (await trySync()) return;
+        await new Promise(r => setTimeout(r, 2000));
+        if (await trySync()) return;
         await new Promise(r => setTimeout(r, 3000));
         if (await trySync()) return;
-        await new Promise(r => setTimeout(r, 5000));
-        if (await trySync()) return;
-        toast({ title: "Processing", description: "Your payment is being processed. Please refresh shortly." });
+        setWelcomeTier(expectedTier as 'pro' | 'research');
+        setShowWelcomePro(true);
+        queryClient.invalidateQueries({ queryKey: ["/api/models"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/subscription-status"] });
       };
       syncSubscription();
     }
