@@ -23,7 +23,37 @@ async function createProducts() {
 
   const researchProducts = await stripe.products.search({ query: "name:'Turbo Answer Research'" });
   if (researchProducts.data.length > 0) {
-    console.log('Turbo Answer Research already exists:', researchProducts.data[0].id);
+    const existingProduct = researchProducts.data[0];
+    console.log('Turbo Answer Research already exists:', existingProduct.id);
+
+    await stripe.products.update(existingProduct.id, {
+      description: 'Gemini 2.5 Pro powered deep research and comprehensive analysis',
+      metadata: { tier: 'research', features: 'gemini-2.5-pro,gemini-pro,priority-speed' },
+    });
+
+    const prices = await stripe.prices.list({ product: existingProduct.id, active: true });
+    let hasCorrectPrice = false;
+    for (const price of prices.data) {
+      if (price.unit_amount === 1500 && price.recurring?.interval === 'month') {
+        hasCorrectPrice = true;
+        console.log('Research price already correct at $15/month');
+      } else if (price.unit_amount !== 1500) {
+        await stripe.prices.update(price.id, { active: false });
+        console.log(`Deactivated old price: $${(price.unit_amount || 0) / 100}/month`);
+      }
+    }
+
+    if (!hasCorrectPrice) {
+      await stripe.prices.create({
+        product: existingProduct.id,
+        unit_amount: 1500,
+        currency: 'usd',
+        recurring: { interval: 'month' },
+      });
+      console.log('Created new Research price: $15/month');
+    }
+
+    console.log('Updated Turbo Answer Research to $15/month with Gemini 2.5 Pro');
   } else {
     const product = await stripe.products.create({
       name: 'Turbo Answer Research',
