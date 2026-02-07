@@ -348,6 +348,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Force sync subscription from Stripe after checkout redirect
+  app.post('/api/sync-subscription', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { expectedTier } = req.body || {};
+      const user = await storage.getUser(userId);
+      if (!user?.stripeCustomerId) {
+        return res.json({ tier: 'free', status: 'none' });
+      }
+
+      const stripe = await getUncachableStripeClient();
+
+      // Check latest checkout sessions for this customer
+      const sessions = await stripe.checkout.sessions.list({
+        customer: user.stripeCustomerId,
+        limit: 5,
+      });
+
+      for (const session of sessions.data) {
+        if (session.status === 'complete' && session.subscription) {
+          const tier = session.metadata?.tier || 'pro';
+          const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
+          await storage.updateUserStripeInfo(userId, user.stripeCustomerId, subId, tier);
+          console.log(`[SyncSub] Updated user ${userId} to ${tier} via checkout session ${session.id}`);
+          return res.json({ tier, status: 'active' });
+        }
+      }
+
+      // Fallback: check active subscriptions and find highest tier
+      const subscriptions = await stripe.subscriptions.list({
+        customer: user.stripeCustomerId,
+        status: 'active',
+        limit: 10,
+        expand: ['data.items.data.price'],
+      });
+
+      for (const sub of subscriptions.data) {
+        const item = sub.items?.data?.[0];
+        if (item?.price?.unit_amount === 1500) {
+          await storage.updateUserStripeInfo(userId, user.stripeCustomerId, sub.id, 'research');
+          return res.json({ tier: 'research', status: 'active' });
+        }
+      }
+
+      if (subscriptions.data.length > 0) {
+        const sub = subscriptions.data[0];
+        await storage.updateUserStripeInfo(userId, user.stripeCustomerId, sub.id, 'pro');
+        return res.json({ tier: 'pro', status: 'active' });
+      }
+
+      res.json({ tier: user.subscriptionTier || 'free', status: user.subscriptionStatus || 'none' });
+    } catch (error: any) {
+      console.error('[SyncSub] Error:', error.message);
+      res.json({ tier: 'free', status: 'none' });
+    }
+  });
+
   // Check user subscription status - checks DB first, then verifies with Stripe
   app.get('/api/subscription-status', isAuthenticated, async (req: any, res) => {
     try {
@@ -397,15 +454,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const subscriptions = await stripe.subscriptions.list({
             customer: user.stripeCustomerId,
             status: 'active',
-            limit: 5,
+            limit: 10,
             expand: ['data.items.data.price'],
           });
           if (subscriptions.data.length > 0) {
-            // Find the highest tier subscription
             let bestTier = 'pro';
-            const activeSub = subscriptions.data[0];
-            bestTier = await getTierFromSub(activeSub);
-            await storage.updateUserStripeInfo(userId, user.stripeCustomerId, activeSub.id, bestTier);
+            let bestSub = subscriptions.data[0];
+            for (const sub of subscriptions.data) {
+              const t = await getTierFromSub(sub);
+              if (t === 'research') {
+                bestTier = 'research';
+                bestSub = sub;
+                break;
+              }
+            }
+            if (bestTier === 'pro') {
+              bestTier = await getTierFromSub(bestSub);
+            }
+            await storage.updateUserStripeInfo(userId, user.stripeCustomerId, bestSub.id, bestTier);
             return res.json({ tier: bestTier, status: 'active' });
           }
         }

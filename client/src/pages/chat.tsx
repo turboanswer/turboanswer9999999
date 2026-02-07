@@ -53,9 +53,14 @@ export default function Chat() {
       window.history.replaceState({}, '', '/chat');
       const expectedTier = (subParam === 'research') ? 'research' : 'pro';
       const syncSubscription = async () => {
-        const trySync = async (): Promise<boolean> => {
+        const trySync = async (attempt: number): Promise<boolean> => {
           try {
-            const res = await apiRequest("GET", "/api/subscription-status");
+            const res = await fetch("/api/sync-subscription", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ expectedTier }),
+              credentials: "include",
+            });
             const data = await res.json();
             if (data.tier === 'pro' || data.tier === 'research') {
               queryClient.invalidateQueries({ queryKey: ["/api/models"] });
@@ -67,11 +72,11 @@ export default function Chat() {
           } catch (err) {}
           return false;
         };
-        if (await trySync()) return;
+        if (await trySync(1)) return;
         await new Promise(r => setTimeout(r, 2000));
-        if (await trySync()) return;
+        if (await trySync(2)) return;
         await new Promise(r => setTimeout(r, 3000));
-        if (await trySync()) return;
+        if (await trySync(3)) return;
         setWelcomeTier(expectedTier as 'pro' | 'research');
         setShowWelcomePro(true);
         queryClient.invalidateQueries({ queryKey: ["/api/models"] });
