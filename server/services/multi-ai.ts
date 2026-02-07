@@ -146,8 +146,10 @@ ${additionalContext}`;
 
 async function callGemini(prompt: string, preferredModel: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
   const models = preferredModel === 'gemini-2.5-pro'
-    ? ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash']
-    : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite-001'];
+    ? ['gemini-2.5-pro', 'gemini-2.5-flash']
+    : preferredModel === 'gemini-2.0-pro'
+    ? ['gemini-2.0-pro-exp-02-05', 'gemini-2.5-flash']
+    : ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
@@ -155,64 +157,45 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
   });
 
   for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        console.log(`[Gemini] Trying ${model} (attempt ${attempt + 1})`);
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30000);
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
-        );
-        clearTimeout(timeout);
+    try {
+      console.log(`[Gemini] Trying ${model}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
+      );
+      clearTimeout(timeout);
 
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('retry-after');
-          const body = await response.json().catch(() => ({}));
-          const retryMatch = body.error?.message?.match(/retry in ([\d.]+)s/i);
-          let waitMs = retryAfter ? parseInt(retryAfter) * 1000
-            : retryMatch ? Math.ceil(parseFloat(retryMatch[1]) * 1000)
-            : 5000;
-          waitMs += Math.random() * 1000;
-
-          if (attempt === 0) {
-            console.log(`[Gemini] Rate limited on ${model}, waiting ${Math.round(waitMs)}ms...`);
-            await new Promise(resolve => setTimeout(resolve, waitMs));
-            continue;
-          }
-          console.log(`[Gemini] ${model} still limited, trying next model...`);
-          break;
-        }
-
-        const data = await response.json();
-
-        if (data.error) {
-          console.error(`[Gemini] ${model} error:`, data.error.message);
-          if (data.error.code === 429) break;
-          throw new Error(data.error.message);
-        }
-
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!content) {
-          throw new Error('No content received from Gemini');
-        }
-
-        return content;
-
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.log(`[Gemini] ${model} timed out after 30s, trying next...`);
-          break;
-        }
-        if (error.message?.includes('quota') || error.message?.includes('429') || error.message?.includes('Rate')) {
-          if (attempt === 0) {
-            await new Promise(resolve => setTimeout(resolve, 5000 + Math.random() * 2000));
-            continue;
-          }
-          break;
-        }
-        throw error;
+      if (response.status === 429) {
+        console.log(`[Gemini] ${model} rate limited, trying next model...`);
+        continue;
       }
+
+      const data = await response.json();
+
+      if (data.error) {
+        console.error(`[Gemini] ${model} error:`, data.error.message);
+        if (data.error.code === 429) continue;
+        throw new Error(data.error.message);
+      }
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) {
+        throw new Error('No content received from Gemini');
+      }
+
+      return content;
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log(`[Gemini] ${model} timed out, trying next...`);
+        continue;
+      }
+      if (error.message?.includes('quota') || error.message?.includes('429') || error.message?.includes('Rate')) {
+        continue;
+      }
+      throw error;
     }
   }
 

@@ -2,76 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Disable all animations for better performance */
-* {
-  animation: none !important;
-  transition: none !important;
-}
-
-/* Simplify hover effects */
-*:hover {
-  transition: none !important;
-}
-
-/* Ensure buttons are clickable */
 button {
   pointer-events: auto !important;
   cursor: pointer !important;
 }
 
-input {
+input, textarea, form {
   pointer-events: auto !important;
 }
 
-form {
-  pointer-events: auto !important;
-}
-
-/* ChatGPT-style mobile design */
 :root {
-  --black: #000000;
-  --gray-900: #0a0a0a;
-  --gray-800: #1a1a1a;
-  --gray-700: #2a2a2a;
-  --gray-600: #3a3a3a;
-  --gray-500: #6b7280;
-  --gray-400: #9ca3af;
-  --gray-300: #d1d5db;
-  --blue-600: #2563eb;
-  --blue-700: #1d4ed8;
-  --green-400: #4ade80;
-  --red-600: #dc2626;
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(0, 0%, 5%);
+  --muted: hsl(0, 0%, 96%);
+  --muted-foreground: hsl(0, 0%, 40%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(0, 0%, 5%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(0, 0%, 5%);
+  --border: hsl(0, 0%, 90%);
+  --input: hsl(0, 0%, 96%);
+  --primary: hsl(217, 91%, 60%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(0, 0%, 96%);
+  --secondary-foreground: hsl(0, 0%, 10%);
+  --accent: hsl(217, 91%, 60%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(217, 91%, 60%);
+  --radius: 0.75rem;
 }
 
-body {
-  background-color: var(--black);
-  color: white;
-  font-family: 'Inter', system-ui, sans-serif;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--slate-800);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--slate-600);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--slate-500);
-}
-
-:root {
-  /* Sleek black theme */
+.dark {
   --background: hsl(0, 0%, 0%);
   --foreground: hsl(0, 0%, 95%);
   --muted: hsl(0, 0%, 8%);
@@ -82,135 +45,92 @@ body {
   --card-foreground: hsl(0, 0%, 95%);
   --border: hsl(0, 0%, 15%);
   --input: hsl(0, 0%, 8%);
-  --primary: hsl(270, 100%, 65%);
+  --primary: hsl(217, 91%, 60%);
   --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(0, 0%, 10%);
   --secondary-foreground: hsl(0, 0%, 95%);
-  --accent: hsl(270, 100%, 65%);
+  --accent: hsl(217, 91%, 60%);
   --accent-foreground: hsl(0, 0%, 100%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(270, 100%, 65%);
-  --radius: 0.75rem;
-  
-  /* Brand colors - purple accent */
-  --brand-50: hsl(270, 100%, 96%);
-  --brand-500: hsl(270, 100%, 65%);
-  --brand-600: hsl(270, 100%, 60%);
-  --brand-700: hsl(270, 100%, 55%);
-}
-
-.dark {
-  --background: hsl(240, 10%, 3.9%);
-  --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(240, 3.7%, 15.9%);
-  --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 3.7%, 15.9%);
-  --accent-foreground: hsl(0, 0%, 98%);
   --destructive: hsl(0, 62.8%, 30.6%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
-  --radius: 0.5rem;
+  --ring: hsl(217, 91%, 60%);
+  --radius: 0.75rem;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+.dark body,
+body.dark-body {
+  background-color: #000;
+  color: #f5f5f5;
+}
+
+.light body,
+body.light-body {
+  background-color: #fff;
+  color: #111;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+.light ::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
-
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-color: black;
-    /* Disable all animations and transitions for stability */
-    animation: none !important;
-    transition: none !important;
-  }
-
-  /* Disable all animations and movements globally */
-  *, *::before, *::after {
-    animation-duration: 0s !important;
-    animation-delay: 0s !important;
-    transition-duration: 0s !important;
-    transition-delay: 0s !important;
   }
 }
 
-@layer utilities {
-  .brand-50 {
-    @apply bg-brand-50;
-  }
-  .brand-500 {
-    @apply bg-brand-500;
-  }
-  .brand-600 {
-    @apply bg-brand-600;
-  }
-  .brand-700 {
-    @apply bg-brand-700;
-  }
-  .text-brand-500 {
-    color: var(--brand-500);
-  }
-  .text-brand-600 {
-    color: var(--brand-600);
-  }
-  .text-brand-700 {
-    color: var(--brand-700);
-  }
-  .border-brand-500 {
-    border-color: var(--brand-500);
-  }
-  .hover\:bg-brand-600:hover {
-    background-color: var(--brand-600);
-  }
-  .focus\:ring-brand-500:focus {
-    --tw-ring-color: var(--brand-500);
-  }
+@keyframes float-bubble {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.06; }
+  50% { transform: translateY(-20px) scale(1.05); opacity: 0.1; }
 }
 
-/* COMPLETE STABILITY - NO MOVEMENT OR ANIMATIONS */
-/* User preference: App must be completely stable with NO moving elements */
-*, *::before, *::after {
-  animation-duration: 0s !important;
-  animation-delay: 0s !important;
-  animation-iteration-count: 1 !important;
-  animation-fill-mode: forwards !important;
-  transition-duration: 0s !important;
-  transition-delay: 0s !important;
-  scroll-behavior: auto !important;
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: float-bubble 8s ease-in-out infinite;
 }
 
-/* Disable all animations and transitions globally */
-.animate-pulse,
-.animate-spin,
-.animate-bounce,
-.animate-ping {
-  animation: none !important;
+.dark .bubble {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15), transparent);
 }
 
-/* Ensure fixed positioning for critical UI elements */
+.light .bubble {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.08), transparent);
+}
+
+.bubble:nth-child(1) { width: 200px; height: 200px; top: 10%; left: 5%; animation-delay: 0s; }
+.bubble:nth-child(2) { width: 150px; height: 150px; top: 60%; right: 10%; animation-delay: 2s; }
+.bubble:nth-child(3) { width: 100px; height: 100px; top: 30%; right: 25%; animation-delay: 4s; }
+.bubble:nth-child(4) { width: 180px; height: 180px; bottom: 15%; left: 20%; animation-delay: 6s; }
+.bubble:nth-child(5) { width: 120px; height: 120px; top: 50%; left: 40%; animation-delay: 3s; }
+
 header, .input-area {
   position: relative !important;
   z-index: 50 !important;
 }
 
-/* Prevent layout shifts */
 .shrink-0 {
   flex-shrink: 0 !important;
-}
-
-/* Settings buttons always accessible */
-.settings-buttons {
-  z-index: 50 !important;
-  position: relative !important;
 }

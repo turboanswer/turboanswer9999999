@@ -7,9 +7,9 @@ Turbo Answer is a sophisticated AI assistant application built with a React (Typ
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
-Design preference: Clean, modern interface with professional dark theme - completely redesigned from scratch with minimal, fast UI.
+Design preference: Clean, modern interface with dark/light theme switcher, TurboAnswer robot logo branding, floating bubble backgrounds, chat bubble message styling.
 Layout preference: Bigger layout showing all options in one screen for better accessibility.
-Stability preference: App must be completely stable with NO moving elements, animations, or transitions. Settings must always be visible.
+Theme preference: Dark and white themes selectable by user via sun/moon toggle button in header.
 Intelligence preference: AI should give simple, clear, direct answers without complex explanations. For simple questions, keep responses short and conversational.
 Interface priority: Ensure settings buttons are always accessible and never blocked by app movement.
 Performance priority: AI responses must be ULTRA-FAST - enhanced with Gemini 2.0 Flash Experimental for breakthrough speed. NO LAG ALLOWED. Maximum performance optimization with turbocharged conversational AI for live human conversations. Target: Sub-300ms responses for simple queries.
@@ -27,7 +27,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Routing**: Wouter
 - **Form Handling**: React Hook Form with Zod validation
 - **Authentication**: Replit Auth (OpenID Connect) with session management
-- **UI/UX Decisions**: Pure black (#000000) interface matching ChatGPT mobile design, mobile-first optimization, instant loading, single-column chat interface, all animations and transitions disabled for stability.
+- **UI/UX Decisions**: Dark/light theme with TurboAnswer branding, mobile-first optimization, floating bubble backgrounds, chat bubble message design, theme toggle in header.
 
 ### Backend Architecture
 - **Framework**: Express.js with TypeScript
@@ -44,10 +44,10 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Authentication Storage**: User sessions and account data
 
 ### Key Features
-- **Multi-Model AI System**: 3 tiers - Free (Gemini 2.5 Flash), Pro ($6.99/mo - Gemini 2.5 Pro), Research ($10/mo - Claude AI via Anthropic API). Gemini models have automatic retry and fallback on rate limits. Research tier includes Pro access.
+- **Multi-Model AI System**: 3 tiers - Free (Gemini 2.5 Flash), Pro ($6.99/mo - Gemini Pro), Research ($15/mo - Gemini 2.5 Pro). All Gemini-powered with automatic fallback on rate limits. Research tier includes Pro access.
 - **Voice Command Features**: Speech recognition (Web Speech API), "Turbo" assistant name, optional "Hey Turbo" wake word, auto-send, text-to-speech, and visual feedback.
 - **Comprehensive Knowledge Coverage**: Expert-level knowledge in technical, scientific, creative, business, and general domains, including real-time weather and world time zone intelligence.
-- **Subscription Management**: Stripe Checkout integration for Pro ($6.99/month) and Research ($10/month) plans. Payment popups trigger from model selector. Uses Replit Stripe connector with stripe-replit-sync for webhook handling and data sync.
+- **Subscription Management**: Stripe Checkout integration for Pro ($6.99/month) and Research ($15/month) plans. Payment popups trigger from model selector. Uses Replit Stripe connector with stripe-replit-sync for webhook handling and data sync.
 - **Employee Management API**: Endpoints for user management (ban, flag, suspend) and audit logging.
 - **AI Image & Video Generation**: Integration with OpenAI DALL-E 3 and a framework for video generation with multi-provider architecture.
 - **Embeddable AI Widget System**: A universal JavaScript widget (`turbo-answer-widget.js`) for seamless integration into any website.
