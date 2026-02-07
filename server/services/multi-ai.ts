@@ -105,7 +105,7 @@ export async function generateAIResponse(
 ${languageInstruction}
 ${additionalContext}`;
     } else if (selectedModel === 'gemini-pro') {
-      geminiModel = 'gemini-2.0-pro';
+      geminiModel = 'gemini-2.5-pro';
       maxTokens = 8000;
       temperature = 0.3;
       systemPrompt = `You are Turbo Answer, a premium AI assistant. Provide clear, detailed, high-quality responses. For simple questions, be concise. For complex topics, provide thorough explanations.
@@ -147,8 +147,6 @@ ${additionalContext}`;
 async function callGemini(prompt: string, preferredModel: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
   const models = preferredModel === 'gemini-2.5-pro'
     ? ['gemini-2.5-pro', 'gemini-2.5-flash']
-    : preferredModel === 'gemini-2.0-pro'
-    ? ['gemini-2.0-pro-exp-02-05', 'gemini-2.5-flash']
     : ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
   const requestBody = JSON.stringify({
