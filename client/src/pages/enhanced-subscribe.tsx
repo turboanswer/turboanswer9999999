@@ -1,126 +1,68 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Crown, Zap, Star } from "lucide-react";
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Check, Crown, Zap, Star, Brain, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
-}
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 const SUBSCRIPTION_PLANS = {
   free: {
     name: "Free",
     price: "$0",
     period: "forever",
-    description: "Basic AI assistance with limited models",
+    description: "Basic AI assistance powered by Gemini Flash",
     icon: Zap,
     color: "from-gray-500 to-gray-600",
     features: [
       "Google Gemini 2.5 Flash",
-      "OpenAI GPT-4o Mini", 
       "Voice commands",
-      "Basic chat history",
+      "Unlimited conversations",
       "Standard support"
     ],
     limitations: [
-      "Limited daily usage",
-      "Basic AI models only"
+      "Basic AI model only"
     ]
   },
   pro: {
-    name: "Pro Monthly",
-    price: "$9.99",
+    name: "Pro",
+    price: "$6.99",
     period: "/month",
-    description: "Advanced AI models and premium features",
+    description: "Advanced AI with Gemini Pro power",
     icon: Crown,
     color: "from-purple-500 to-pink-500",
     popular: true,
+    apiPlan: 'pro' as const,
     features: [
-      "Google Gemini 2.5 Pro",
-      "OpenAI GPT-4o",
-      "Anthropic Claude 4.0 Sonnet",
-      "Unlimited voice commands", 
-      "Extended chat history",
+      "Google Gemini Flash Pro",
+      "Advanced AI reasoning",
+      "Superior code analysis",
+      "Enhanced problem solving",
       "Priority support",
-      "Model selection"
+      "Everything in Free"
     ]
   },
-  yearly: {
-    name: "Pro Yearly",
-    price: "$149.99", 
-    period: "/year",
-    description: "Best value - save 25% with annual billing",
-    icon: Star,
-    color: "from-green-500 to-blue-500",
+  research: {
+    name: "Research",
+    price: "$15",
+    period: "/month",
+    description: "Ultimate AI with deep research capabilities",
+    icon: Brain,
+    color: "from-blue-500 to-cyan-500",
+    apiPlan: 'research' as const,
     features: [
-      "Everything in Pro Monthly",
-      "Save $69.89 per year",
-      "Annual billing convenience",
-      "Priority support",
-      "No monthly payment hassles",
-      "Advanced analytics",
-      "Early access to new models",
-      "Custom AI training"
+      "Google Gemini 2.5 Pro",
+      "Deep research & analysis",
+      "Comprehensive reasoning",
+      "All Pro features included",
+      "Maximum AI intelligence",
+      "Priority support"
     ]
   }
 };
 
-const CheckoutForm = ({ planId }: { planId: string }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-
-    setIsLoading(true);
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin,
-      },
-    });
-
-    if (error) {
-      toast({
-        title: "Payment Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Subscription Active!",
-        description: `Welcome to Turbo Answer ${planId}!`,
-      });
-    }
-    setIsLoading(false);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
-      <Button 
-        type="submit" 
-        disabled={!stripe || isLoading}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-      >
-        {isLoading ? "Processing..." : `Subscribe to ${planId}`}
-      </Button>
-    </form>
-  );
-};
-
 export default function EnhancedSubscribe() {
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState("");
+  const [isLoading, setIsLoading] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handlePlanSelect = async (planId: string) => {
@@ -132,73 +74,53 @@ export default function EnhancedSubscribe() {
       return;
     }
 
-    setSelectedPlan(planId);
-    
+    const plan = SUBSCRIPTION_PLANS[planId as keyof typeof SUBSCRIPTION_PLANS];
+    if (!('apiPlan' in plan)) return;
+
+    setIsLoading(planId);
     try {
-      const response = await apiRequest("POST", "/api/create-subscription", { 
-        planId,
-        priceId: planId === 'pro' ? 'price_pro_monthly' : 'price_premium_monthly'
-      });
+      const response = await apiRequest("POST", "/api/checkout", { plan: plan.apiPlan });
       const data = await response.json();
-      setClientSecret(data.clientSecret);
-    } catch (error) {
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error: any) {
       toast({
-        title: "Error",
-        description: "Failed to initialize payment. Please try again.",
+        title: "Checkout Failed",
+        description: error.message || "Failed to initialize payment. Please try again.",
         variant: "destructive",
       });
+      setIsLoading(null);
     }
   };
 
-  if (selectedPlan && clientSecret) {
-    return (
-      <div className="min-h-screen bg-black text-white p-6">
-        <div className="max-w-md mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">Complete Your Subscription</h1>
-            <p className="text-gray-400">
-              Upgrading to {SUBSCRIPTION_PLANS[selectedPlan as keyof typeof SUBSCRIPTION_PLANS].name} Plan
-            </p>
-          </div>
-          
-          <Card className="bg-gray-900 border-gray-700">
-            <CardContent className="p-6">
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <CheckoutForm planId={selectedPlan} />
-              </Elements>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
       <div className="text-center py-12 px-6">
         <h1 className="text-4xl font-bold mb-4">
           Choose Your AI Experience
         </h1>
         <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-          Unlock the power of multiple language models with our flexible subscription plans
+          Unlock the power of advanced AI models with our flexible subscription plans
         </p>
       </div>
 
-      {/* Pricing Cards */}
       <div className="max-w-7xl mx-auto px-6 pb-12">
         <div className="grid md:grid-cols-3 gap-8">
           {Object.entries(SUBSCRIPTION_PLANS).map(([planId, plan]) => {
             const IconComponent = plan.icon;
+            const isPopular = 'popular' in plan && plan.popular;
             
             return (
               <Card 
                 key={planId}
                 className={`relative bg-gray-900 border-gray-700 hover:border-gray-600 transition-all duration-300 ${
-                  plan.popular ? 'ring-2 ring-purple-500 scale-105' : ''
+                  isPopular ? 'ring-2 ring-purple-500 scale-105' : ''
                 }`}
               >
-                {plan.popular && (
+                {isPopular && (
                   <Badge className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-500 to-pink-500">
                     Most Popular
                   </Badge>
@@ -228,64 +150,37 @@ export default function EnhancedSubscribe() {
                     ))}
                   </div>
                   
-                  {plan.limitations && (
+                  {'limitations' in plan && plan.limitations && (
                     <div className="pt-4 border-t border-gray-700">
                       <p className="text-xs text-gray-500 mb-2">Limitations:</p>
-                      {plan.limitations.map((limitation, index) => (
-                        <p key={index} className="text-xs text-gray-500">• {limitation}</p>
+                      {plan.limitations.map((limitation: string, index: number) => (
+                        <p key={index} className="text-xs text-gray-500">- {limitation}</p>
                       ))}
                     </div>
                   )}
                 </CardContent>
 
-                <CardFooter>
+                <CardFooter className="flex-col gap-2">
                   <Button 
                     onClick={() => handlePlanSelect(planId)}
+                    disabled={isLoading === planId}
                     className={`w-full ${
                       planId === 'free' 
                         ? 'bg-gray-700 hover:bg-gray-600' 
                         : `bg-gradient-to-r ${plan.color} hover:opacity-90`
                     }`}
                   >
-                    {planId === 'free' ? 'Current Plan' : `Upgrade to ${plan.name}`}
+                    {isLoading === planId ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
+                    ) : planId === 'free' ? 'Current Plan' : `Upgrade to ${plan.name}`}
                   </Button>
+                  {planId !== 'free' && (
+                    <p className="text-xs text-gray-500 text-center">Secure payment via PayPal</p>
+                  )}
                 </CardFooter>
               </Card>
             );
           })}
-        </div>
-      </div>
-
-      {/* Feature Comparison */}
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        <h2 className="text-3xl font-bold text-center mb-8">AI Models Available</h2>
-        
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <h3 className="text-xl font-semibold mb-4 text-gray-300">Free Plan</h3>
-            <div className="space-y-2">
-              <div className="p-3 bg-gray-800 rounded-lg">Google Gemini 2.5 Flash</div>
-              <div className="p-3 bg-gray-800 rounded-lg">OpenAI GPT-4o Mini</div>
-            </div>
-          </div>
-          
-          <div className="text-center">
-            <h3 className="text-xl font-semibold mb-4 text-purple-300">Pro Plan</h3>
-            <div className="space-y-2">
-              <div className="p-3 bg-purple-900/50 rounded-lg">Google Gemini 2.5 Pro</div>
-              <div className="p-3 bg-purple-900/50 rounded-lg">OpenAI GPT-4o</div>
-              <div className="p-3 bg-purple-900/50 rounded-lg">Anthropic Claude 4.0 Sonnet</div>
-            </div>
-          </div>
-          
-          <div className="text-center">
-            <h3 className="text-xl font-semibold mb-4 text-yellow-300">Premium Plan</h3>
-            <div className="space-y-2">
-              <div className="p-3 bg-yellow-900/50 rounded-lg">OpenAI GPT-4 Turbo</div>
-              <div className="p-3 bg-yellow-900/50 rounded-lg">Anthropic Claude 3 Opus</div>
-              <div className="p-3 bg-yellow-900/50 rounded-lg">Google Gemini Ultra</div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -49,6 +49,7 @@ export default function Chat() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const subParam = params.get('subscription');
+    const paypalSubId = params.get('subscription_id') || params.get('ba_token');
     if (subParam === 'pro' || subParam === 'research' || subParam === 'success') {
       window.history.replaceState({}, '', '/chat');
       const expectedTier = (subParam === 'research') ? 'research' : 'pro';
@@ -58,7 +59,7 @@ export default function Chat() {
             const res = await fetch("/api/sync-subscription", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ expectedTier }),
+              body: JSON.stringify({ expectedTier, subscriptionId: paypalSubId }),
               credentials: "include",
             });
             const data = await res.json();
@@ -516,7 +517,7 @@ export default function Chat() {
               <Star className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : "Subscribe Now - $6.99/mo"}
             </Button>
-            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Cancel anytime. Secure payment via Stripe.</p>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Cancel anytime. Secure payment via PayPal.</p>
           </div>
         </div>
       )}
@@ -566,7 +567,7 @@ export default function Chat() {
               <Brain className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : "Subscribe Now - $15/mo"}
             </Button>
-            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Cancel anytime. Secure payment via Stripe.</p>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Cancel anytime. Secure payment via PayPal.</p>
           </div>
         </div>
       )}

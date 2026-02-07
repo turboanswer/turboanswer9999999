@@ -1,17 +1,8 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Crown, Zap, Clock, Users, MessageSquare, Headphones } from 'lucide-react';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
-
-// Make sure to call `loadStripe` outside of a component's render to avoid
-// recreating the `Stripe` object on every render.
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
-}
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+import { Check, Crown, Zap, MessageSquare, Headphones, Loader2 } from 'lucide-react';
 
 interface PricingPlan {
   id: string;
@@ -21,7 +12,7 @@ interface PricingPlan {
   description: string;
   features: string[];
   popular?: boolean;
-  priceId?: string;
+  apiPlan?: 'pro' | 'research';
 }
 
 const plans: PricingPlan[] = [
@@ -32,374 +23,57 @@ const plans: PricingPlan[] = [
     period: 'forever',
     description: 'Get started with basic AI conversations',
     features: [
-      '50 messages per day',
-      'Basic AI models',
-      'Standard response time',
+      'Google Gemini 2.5 Flash',
+      'Voice commands',
+      'Unlimited conversations',
       'Community support',
       'Basic conversation history'
     ]
   },
   {
-    id: 'monthly',
-    name: 'Pro Monthly',
-    price: '$9.99',
+    id: 'pro',
+    name: 'Pro',
+    price: '$6.99',
     period: 'per month',
-    description: 'Perfect for regular users who want full access',
+    description: 'Advanced AI with Gemini Pro power',
     features: [
-      'Unlimited messages',
-      'All premium AI models (GPT-4, Claude Opus, Gemini Pro)',
-      'Priority response time',
-      'Advanced voice features',
-      'Priority email support',
-      'Extended conversation history',
-      'Custom AI personalities',
-      'Document analysis'
+      'Google Gemini Flash Pro',
+      'Advanced AI reasoning',
+      'Superior code analysis',
+      'Enhanced problem solving',
+      'Priority support',
+      'Everything in Free'
     ],
     popular: true,
-    priceId: 'price_monthly_999' // This should be set in Stripe dashboard
+    apiPlan: 'pro'
   },
   {
-    id: 'trial',
-    name: '5-Day Lifetime Trial',
-    price: 'FREE',
-    period: '5 days',
-    description: 'Try Lifetime Pro features risk-free for 5 days',
+    id: 'research',
+    name: 'Research',
+    price: '$15',
+    period: 'per month',
+    description: 'Ultimate AI with deep research capabilities',
     features: [
-      'Full access to Lifetime Pro features',
-      'Unlimited messages for 5 days',
-      'All premium AI models (GPT-4, Claude Opus, Gemini Pro)',
-      'Priority response time',
-      'Advanced voice features',
-      'Early access to new AI models',
-      'No credit card required',
-      'Upgrade to Pro after trial (from $9.99/month)'
+      'Google Gemini 2.5 Pro',
+      'Deep research & analysis',
+      'Comprehensive reasoning',
+      'All Pro features included',
+      'Maximum AI intelligence',
+      'Priority support'
     ],
-    popular: true
-  },
-  {
-    id: 'yearly',
-    name: 'Pro Yearly',
-    price: '$149.99',
-    period: 'per year',
-    description: 'Best value - save over 25% with annual billing',
-    features: [
-      'Everything in Pro Monthly',
-      'Save $69.89 per year vs monthly',
-      'Annual billing convenience',
-      'Priority support',
-      'No monthly payment hassles',
-      'Future feature updates included',
-      'Advanced customization options',
-      'API access (coming soon)'
-    ],
-    priceId: 'price_yearly_14999' // This should be set in Stripe dashboard
+    apiPlan: 'research'
   }
 ];
 
-function SubscribeForm({ plan }: { plan: PricingPlan }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [showPromoInput, setShowPromoInput] = useState(false);
-
-  const handlePromoApply = async () => {
-    if (!promoCode.trim()) return;
-    
-    setIsProcessing(true);
-    try {
-      // First ensure demo user exists
-      const demoUserResponse = await apiRequest('POST', '/api/create-demo-user', {});
-      const demoUserData = await demoUserResponse.json();
-      console.log('Demo user response:', demoUserData);
-      
-      if (!demoUserData.user || !demoUserData.user.id) {
-        throw new Error('Failed to create demo user');
-      }
-      
-      const demoUser = demoUserData.user;
-      
-      const promoResponse = await apiRequest('POST', '/api/apply-promo', {
-        userId: demoUser.id,
-        promoCode: promoCode.toUpperCase()
-      });
-      
-      const result = await promoResponse.json();
-
-      if (result.success) {
-        setPromoApplied(true);
-        toast({
-          title: "Promo Code Applied!",
-          description: result.message,
-        });
-        
-        // If lifetime access, redirect to chat
-        if (result.user && result.user.subscriptionStatus === 'lifetime') {
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 2000);
-        }
-      }
-    } catch (error: any) {
-      console.error('Promo code error:', error);
-      toast({
-        title: "Invalid Code",
-        description: error.message || "This promo code is not valid",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!stripe || !elements) {
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      // Create payment intent
-      const response = await apiRequest('POST', '/api/create-payment-intent', {
-        planId: plan.id,
-        priceId: plan.priceId,
-        amount: plan.id === 'monthly' ? 999 : 14999 // Amount in cents
-      });
-
-      const data = await response.json();
-      const { clientSecret } = data;
-
-      // Confirm payment
-      const { error } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement)!,
-        }
-      });
-
-      if (error) {
-        toast({
-          title: "Payment Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Success!",
-          description: `You're now subscribed to ${plan.name}!`,
-        });
-        // Redirect to chat or refresh user data
-        window.location.href = '/';
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Payment failed",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  if (promoApplied) {
-    return (
-      <div style={{
-        textAlign: 'center',
-        padding: '32px',
-        backgroundColor: '#0f172a',
-        borderRadius: '8px',
-        border: '1px solid #10b981'
-      }}>
-        <div style={{
-          width: '48px',
-          height: '48px',
-          backgroundColor: '#10b981',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 16px'
-        }}>
-          ✓
-        </div>
-        <h3 style={{ color: '#10b981', marginBottom: '8px' }}>
-          Promo Code Applied!
-        </h3>
-        <p style={{ color: '#9ca3af', marginBottom: '16px' }}>
-          You now have lifetime premium access
-        </p>
-        <button
-          onClick={() => window.location.href = '/'}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '16px',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}
-        >
-          Start Using Turbo AI
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} style={{ marginTop: '20px' }}>
-      {/* Promo Code Section */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '12px'
-        }}>
-          <span style={{ fontSize: '14px', color: '#9ca3af' }}>
-            Have a promo code?
-          </span>
-          <button
-            type="button"
-            onClick={() => setShowPromoInput(!showPromoInput)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#60a5fa',
-              fontSize: '14px',
-              cursor: 'pointer',
-              textDecoration: 'underline'
-            }}
-          >
-            {showPromoInput ? 'Hide' : 'Apply Code'}
-          </button>
-        </div>
-
-        {showPromoInput && (
-          <div style={{
-            padding: '16px',
-            backgroundColor: '#1a1a1a',
-            borderRadius: '8px',
-            marginBottom: '16px'
-          }}>
-            <div style={{ marginBottom: '12px' }}>
-              <input
-                type="text"
-                placeholder="Enter promo code"
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  backgroundColor: '#111111',
-                  border: '1px solid #333333',
-                  borderRadius: '6px',
-                  color: 'white',
-                  fontSize: '14px'
-                }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handlePromoApply}
-              disabled={!promoCode.trim() || isProcessing}
-              style={{
-                width: '100%',
-                padding: '10px',
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '14px',
-                cursor: (!promoCode.trim() || isProcessing) ? 'not-allowed' : 'pointer',
-                opacity: (!promoCode.trim() || isProcessing) ? 0.5 : 1
-              }}
-            >
-              {isProcessing ? 'Applying...' : 'Apply Promo Code'}
-            </button>
-
-          </div>
-        )}
-      </div>
-
-      {/* Payment Section */}
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{
-          display: 'block',
-          fontSize: '14px',
-          color: '#9ca3af',
-          marginBottom: '8px'
-        }}>
-          Payment Details
-        </label>
-        <div style={{
-          padding: '16px',
-          backgroundColor: '#1a1a1a',
-          borderRadius: '8px'
-        }}>
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#ffffff',
-                  '::placeholder': {
-                    color: '#9ca3af',
-                  },
-                },
-              },
-            }}
-          />
-        </div>
-      </div>
-      
-      <button
-        type="submit"
-        disabled={!stripe || isProcessing}
-        style={{
-          width: '100%',
-          padding: '12px 24px',
-          backgroundColor: '#2563eb',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          fontSize: '16px',
-          fontWeight: '600',
-          cursor: isProcessing ? 'not-allowed' : 'pointer',
-          opacity: isProcessing ? 0.7 : 1
-        }}
-      >
-        {isProcessing ? 'Processing...' : `Subscribe to ${plan.name}`}
-      </button>
-    </form>
-  );
-}
-
 export default function Pricing() {
-  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [showPromoCode, setShowPromoCode] = useState(false);
   const [promoCode, setPromoCode] = useState('');
-  const [promoLoading, setPromoLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Create demo user first
-  const createDemoUserMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/create-demo-user', {});
-      return await response.json();
-    },
-  });
-
   const applyPromoMutation = useMutation({
     mutationFn: async ({ promoCode }: { promoCode: string }) => {
-      // First ensure demo user exists
       const demoUserResponse = await apiRequest('POST', '/api/create-demo-user', {});
       const demoUserData = await demoUserResponse.json();
       const demoUser = demoUserData.user;
@@ -429,6 +103,27 @@ export default function Pricing() {
     }
   });
 
+  const handleCheckout = async (plan: PricingPlan) => {
+    if (!plan.apiPlan) return;
+    setCheckoutLoading(plan.id);
+    try {
+      const res = await apiRequest("POST", "/api/checkout", { plan: plan.apiPlan });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Checkout Failed",
+        description: error.message || "Please try again later.",
+        variant: "destructive",
+      });
+      setCheckoutLoading(null);
+    }
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -436,7 +131,6 @@ export default function Pricing() {
       color: 'white',
       padding: '40px 20px'
     }}>
-      {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '60px' }}>
         <div style={{
           width: '80px',
@@ -472,7 +166,6 @@ export default function Pricing() {
           Unlock the full power of AI with our premium plans. Start free or upgrade for unlimited access.
         </p>
 
-        {/* Promo Code Button */}
         <button
           onClick={() => setShowPromoCode(!showPromoCode)}
           style={{
@@ -489,7 +182,6 @@ export default function Pricing() {
           Have a promo code?
         </button>
 
-        {/* Promo Code Input */}
         {showPromoCode && (
           <div style={{
             maxWidth: '400px',
@@ -535,10 +227,7 @@ export default function Pricing() {
                 {applyPromoMutation.isPending ? 'Applying...' : 'Apply Code'}
               </button>
               <button
-                onClick={() => {
-                  setShowPromoCode(false);
-                  setPromoCode('');
-                }}
+                onClick={() => { setShowPromoCode(false); setPromoCode(''); }}
                 style={{
                   padding: '10px 16px',
                   backgroundColor: 'transparent',
@@ -552,18 +241,15 @@ export default function Pricing() {
                 Cancel
               </button>
             </div>
-            
-
           </div>
         )}
       </div>
 
-      {/* Pricing Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
         gap: '30px',
-        maxWidth: '1200px',
+        maxWidth: '1000px',
         margin: '0 auto'
       }}>
         {plans.map((plan) => (
@@ -596,16 +282,10 @@ export default function Pricing() {
               </div>
             )}
 
-            {/* Plan Header */}
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <h3 style={{
-                fontSize: '24px',
-                fontWeight: 'bold',
-                marginBottom: '8px'
-              }}>
+              <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>
                 {plan.name}
               </h3>
-              
               <div style={{ marginBottom: '8px' }}>
                 <span style={{
                   fontSize: '48px',
@@ -614,53 +294,27 @@ export default function Pricing() {
                 }}>
                   {plan.price}
                 </span>
-                <span style={{
-                  fontSize: '16px',
-                  color: '#9ca3af',
-                  marginLeft: '8px'
-                }}>
+                <span style={{ fontSize: '16px', color: '#9ca3af', marginLeft: '8px' }}>
                   {plan.period}
                 </span>
               </div>
-              
-              <p style={{
-                fontSize: '16px',
-                color: '#9ca3af'
-              }}>
+              <p style={{ fontSize: '16px', color: '#9ca3af' }}>
                 {plan.description}
               </p>
             </div>
 
-            {/* Features List */}
             <div style={{ marginBottom: '32px' }}>
               {plan.features.map((feature, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    marginBottom: '12px'
-                  }}
-                >
-                  <Check
-                    size={20}
-                    style={{
-                      color: '#10b981',
-                      marginRight: '12px',
-                      flexShrink: 0
-                    }}
-                  />
+                <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                  <Check size={20} style={{ color: '#10b981', marginRight: '12px', flexShrink: 0 }} />
                   <span style={{ fontSize: '16px' }}>{feature}</span>
                 </div>
               ))}
             </div>
 
-            {/* CTA Button */}
             {plan.id === 'free' ? (
               <button
-                onClick={() => {
-                  window.location.href = '/';
-                }}
+                onClick={() => { window.location.href = '/'; }}
                 style={{
                   width: '100%',
                   padding: '16px',
@@ -676,131 +330,40 @@ export default function Pricing() {
                 Start Free
               </button>
             ) : (
-              <button
-                onClick={async () => {
-                  if (plan.id === 'trial') {
-                    try {
-                      const response = await apiRequest('POST', '/api/start-trial', {});
-                      const result = await response.json();
-                      
-                      if (result.success) {
-                        toast({
-                          title: "Lifetime Pro Trial Activated! 🎉",
-                          description: "You now have 5 days of full Lifetime Pro access. Enjoy all premium features!",
-                        });
-                        window.location.href = '/';
-                      } else {
-                        toast({
-                          title: "Trial Error",
-                          description: result.error || "Unable to start trial",
-                          variant: "destructive",
-                        });
-                      }
-                    } catch (error: any) {
-                      toast({
-                        title: "Error",
-                        description: "Failed to activate trial. Please try again.",
-                        variant: "destructive",
-                      });
-                    }
-                  } else {
-                    setSelectedPlan(plan);
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  backgroundColor: plan.id === 'trial' ? '#10b981' : plan.popular ? '#3b82f6' : '#2563eb',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                {plan.id === 'trial' ? '🚀 Start Free Trial' : `Choose ${plan.name}`}
-              </button>
+              <>
+                <button
+                  onClick={() => handleCheckout(plan)}
+                  disabled={checkoutLoading === plan.id}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    backgroundColor: plan.popular ? '#3b82f6' : '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: checkoutLoading === plan.id ? 'not-allowed' : 'pointer',
+                    opacity: checkoutLoading === plan.id ? 0.7 : 1
+                  }}
+                >
+                  {checkoutLoading === plan.id ? 'Loading...' : `Subscribe with PayPal - ${plan.price}/mo`}
+                </button>
+                <p style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+                  Cancel anytime. Secure payment via PayPal.
+                </p>
+              </>
             )}
           </div>
         ))}
       </div>
 
-      {/* Payment Modal */}
-      {selectedPlan && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: '#111111',
-            padding: '32px',
-            borderRadius: '16px',
-            width: '90%',
-            maxWidth: '500px',
-            border: '1px solid #333333'
-          }}>
-            <h2 style={{
-              fontSize: '24px',
-              fontWeight: 'bold',
-              marginBottom: '16px',
-              textAlign: 'center'
-            }}>
-              Subscribe to {selectedPlan.name}
-            </h2>
-            
-            <p style={{
-              fontSize: '16px',
-              color: '#9ca3af',
-              textAlign: 'center',
-              marginBottom: '24px'
-            }}>
-              {selectedPlan.price} {selectedPlan.period}
-            </p>
-
-            <Elements stripe={stripePromise}>
-              <SubscribeForm plan={selectedPlan} />
-            </Elements>
-
-            <button
-              onClick={() => setSelectedPlan(null)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: 'transparent',
-                color: '#9ca3af',
-                border: '1px solid #333333',
-                borderRadius: '8px',
-                fontSize: '16px',
-                cursor: 'pointer',
-                marginTop: '16px'
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Features Section */}
       <div style={{
         maxWidth: '1200px',
         margin: '80px auto 0',
         textAlign: 'center'
       }}>
-        <h2 style={{
-          fontSize: '36px',
-          fontWeight: 'bold',
-          marginBottom: '48px'
-        }}>
+        <h2 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '48px' }}>
           Why Choose Turbo AI?
         </h2>
         

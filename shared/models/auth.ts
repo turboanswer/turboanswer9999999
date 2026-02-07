@@ -23,6 +23,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  paypalSubscriptionId: text("paypal_subscription_id"),
   subscriptionStatus: text("subscription_status").default("free"),
   subscriptionTier: text("subscription_tier").default("free"),
   preferredModel: text("preferred_model").default("gemini-2.0-flash"),

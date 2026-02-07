@@ -4,9 +4,8 @@ import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  updateStripeCustomerId(userId: string, stripeCustomerId: string): Promise<User>;
-  updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string, tier?: string): Promise<User>;
   updateUserSubscription(userId: string, subscriptionStatus: string, subscriptionTier: string): Promise<User>;
+  updatePaypalSubscription(userId: string, paypalSubscriptionId: string, tier: string): Promise<User>;
 
   getAllUsers(): Promise<User[]>;
   banUser(userId: string, reason: string): Promise<User>;
@@ -99,38 +98,24 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(messages).orderBy(messages.timestamp);
   }
 
-  async updateStripeCustomerId(userId: string, stripeCustomerId: string): Promise<User> {
-    const [user] = await db
-      .update(users)
-      .set({ stripeCustomerId })
-      .where(eq(users.id, userId))
-      .returning();
-    if (!user) throw new Error("User not found");
-    return user;
-  }
-
-  async updateUserStripeInfo(userId: string, stripeCustomerId: string, stripeSubscriptionId: string, tier?: string): Promise<User> {
-    const updateData: any = {
-      stripeCustomerId,
-      stripeSubscriptionId,
-      subscriptionStatus: "active",
-    };
-    if (tier) {
-      updateData.subscriptionTier = tier;
-    }
-    const [user] = await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, userId))
-      .returning();
-    if (!user) throw new Error("User not found");
-    return user;
-  }
-
   async updateUserSubscription(userId: string, subscriptionStatus: string, subscriptionTier: string): Promise<User> {
     const [user] = await db
       .update(users)
       .set({ subscriptionStatus, subscriptionTier })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async updatePaypalSubscription(userId: string, paypalSubscriptionId: string, tier: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        paypalSubscriptionId,
+        subscriptionStatus: "active",
+        subscriptionTier: tier,
+      })
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");

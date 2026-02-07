@@ -1,94 +1,38 @@
-import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Zap, Bot, Star } from "lucide-react";
-
-// Make sure to call `loadStripe` outside of a component's render to avoid
-// recreating the `Stripe` object on every render.
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
-}
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-
-const SubscribeForm = () => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const { toast } = useToast();
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin,
-      },
-    });
-
-    if (error) {
-      toast({
-        title: "Payment Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Payment Successful",
-        description: "Welcome to Turbo Answer Pro! You now have access to Google Gemini 2.5 Pro.",
-      });
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement />
-      <Button 
-        type="submit" 
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-        disabled={!stripe || !elements}
-      >
-        Subscribe to Turbo Answer Pro
-      </Button>
-    </form>
-  );
-};
+import { CheckCircle, Zap, Bot, Star, Loader2 } from "lucide-react";
 
 export default function Subscribe() {
-  const [clientSecret, setClientSecret] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    // Create subscription as soon as the page loads
-    apiRequest("POST", "/api/get-or-create-subscription")
-      .then((res) => res.json())
-      .then((data) => {
-        setClientSecret(data.clientSecret);
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  const handleSubscribe = async (plan: 'pro' | 'research') => {
+    setIsLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/checkout", { plan });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Checkout Failed",
+        description: error.message || "Please try again later.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-4xl mx-auto px-4 py-12">
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/20">
             <Bot className="text-white text-2xl" />
@@ -102,7 +46,6 @@ export default function Subscribe() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-8 mb-12">
-          {/* Free Plan */}
           <Card className="bg-zinc-900 border-zinc-800 p-6">
             <div className="text-center mb-6">
               <h3 className="text-2xl font-bold text-white mb-2">Free Plan</h3>
@@ -129,7 +72,6 @@ export default function Subscribe() {
             </ul>
           </Card>
 
-          {/* Pro Plan */}
           <Card className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 border-purple-500/30 p-6 relative overflow-hidden">
             <div className="absolute top-4 right-4">
               <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
@@ -167,18 +109,16 @@ export default function Subscribe() {
                 <span className="text-zinc-200">Everything in Free</span>
               </li>
             </ul>
+            <Button
+              onClick={() => handleSubscribe('pro')}
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            >
+              {isLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</> : "Subscribe with PayPal - $6.99/mo"}
+            </Button>
+            <p className="text-center text-xs mt-3 text-zinc-500">Cancel anytime. Secure payment via PayPal.</p>
           </Card>
         </div>
-
-        {/* Payment Form */}
-        {clientSecret && (
-          <Card className="bg-zinc-900 border-zinc-800 p-8 max-w-md mx-auto">
-            <h3 className="text-xl font-bold text-white mb-6 text-center">Subscribe to Pro Plan</h3>
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <SubscribeForm />
-            </Elements>
-          </Card>
-        )}
       </div>
     </div>
   );

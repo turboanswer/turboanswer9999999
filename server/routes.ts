@@ -14,7 +14,7 @@ import {
 } from "./services/document-analysis";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { getUncachableStripeClient, getStripePublishableKey } from "./stripeClient";
+import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans } from "./paypal";
 
 import widgetRoutes from './routes/widget-routes';
 
@@ -247,22 +247,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get Stripe publishable key for frontend
-  app.get('/api/stripe/publishable-key', async (req, res) => {
-    try {
-      const publishableKey = await getStripePublishableKey();
-      res.json({ publishableKey });
-    } catch (error: any) {
-      console.error('Stripe key error:', error);
-      res.status(500).json({ error: 'Failed to get Stripe key' });
-    }
-  });
-
-  // Create Stripe checkout session for Pro subscription
+  // PayPal checkout - create subscription and redirect to PayPal
   app.post('/api/checkout', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      console.log('[Checkout] Starting for user:', userId);
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(401).json({ error: 'User not found' });
@@ -270,142 +258,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { plan } = req.body || {};
       const tier = plan === 'research' ? 'research' : 'pro';
-      const priceAmount = tier === 'research' ? 1500 : 699;
-      console.log('[Checkout] Plan:', tier, 'Price:', priceAmount);
+      console.log('[PayPal Checkout] Starting for user:', userId, 'plan:', tier);
 
-      const stripe = await getUncachableStripeClient();
-      console.log('[Checkout] Stripe client ready');
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || req.get('host')}`;
+      const result = await createSubscription(
+        tier as 'pro' | 'research',
+        user.email,
+        userId,
+        `${baseUrl}/chat?subscription=${tier}&paypal_sub=SUBSCRIPTION_ID`,
+        `${baseUrl}/chat`,
+      );
 
-      let customerId = user.stripeCustomerId;
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.email || undefined,
-          name: user.firstName || user.email || 'User',
-          metadata: { userId },
-        });
-        customerId = customer.id;
-        await storage.updateStripeCustomerId(userId, customerId);
-        console.log('[Checkout] Created customer:', customerId);
-      }
-
-      const allProducts = await stripe.products.list({ limit: 100, active: true });
-      console.log('[Checkout] Found', allProducts.data.length, 'products:', allProducts.data.map(p => `${p.name} (${p.id})`).join(', '));
-
-      const productName = tier === 'research' ? 'Turbo Answer Research' : 'Turbo Answer Pro';
-      let product = allProducts.data.find(p => p.name === productName) 
-        || allProducts.data.find(p => p.metadata?.tier === tier) 
-        || null;
-
-      if (!product) {
-        product = await stripe.products.create({
-          name: productName,
-          description: tier === 'research'
-            ? 'Gemini 2.5 Pro powered deep research and comprehensive analysis'
-            : 'Unlock Gemini 2.5 Pro for advanced AI assistance',
-          metadata: { tier },
-        });
-        await stripe.prices.create({
-          product: product.id,
-          unit_amount: priceAmount,
-          currency: 'usd',
-          recurring: { interval: 'month' },
-        });
-        console.log('[Checkout] Auto-created product:', product.id);
-      }
-
-      console.log('[Checkout] Using product:', product.name, product.id);
-
-      const prices = await stripe.prices.list({ product: product.id, active: true });
-      console.log('[Checkout] Prices:', prices.data.map(p => `${p.id} $${(p.unit_amount||0)/100}/${p.recurring?.interval}`).join(', '));
-      
-      const priceId = (prices.data.find(p => p.recurring?.interval === 'month' && p.unit_amount === priceAmount) 
-        || prices.data.find(p => p.recurring?.interval === 'month'))?.id;
-      
-      if (!priceId) {
-        console.error('[Checkout] No matching price found');
-        return res.status(400).json({ error: `No price found for ${tier} plan. Please contact support.` });
-      }
-
-      console.log('[Checkout] Using price:', priceId);
-
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        payment_method_types: ['card'],
-        line_items: [{ price: priceId, quantity: 1 }],
-        mode: 'subscription',
-        success_url: `${baseUrl}/chat?subscription=${tier}`,
-        cancel_url: `${baseUrl}/chat`,
-        metadata: { userId, tier },
-      });
-
-      console.log('[Checkout] Session created:', session.id);
-      res.json({ url: session.url });
+      console.log('[PayPal Checkout] Subscription created:', result.subscriptionId);
+      res.json({ url: result.approvalUrl });
     } catch (error: any) {
-      console.error('[Checkout] ERROR:', error.type, error.code, error.message);
-      console.error('[Checkout] Stack:', error.stack?.substring(0, 300));
+      console.error('[PayPal Checkout] ERROR:', error.message);
       res.status(500).json({ error: error.message || 'Checkout failed. Please try again.' });
     }
   });
 
-  // Force sync subscription from Stripe after checkout redirect
+  // Sync subscription after PayPal redirect
   app.post('/api/sync-subscription', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { expectedTier } = req.body || {};
-      const user = await storage.getUser(userId);
-      if (!user?.stripeCustomerId) {
-        return res.json({ tier: 'free', status: 'none' });
-      }
+      const { subscriptionId, expectedTier } = req.body || {};
 
-      const stripe = await getUncachableStripeClient();
+      if (subscriptionId) {
+        const subDetails = await getSubscriptionDetails(subscriptionId);
+        if (subDetails.status === 'ACTIVE' || subDetails.status === 'APPROVED') {
+          let tier = expectedTier || 'pro';
+          try {
+            const customData = JSON.parse(subDetails.custom_id || '{}');
+            if (customData.tier) tier = customData.tier;
+          } catch (e) {}
 
-      // Check latest checkout sessions for this customer
-      const sessions = await stripe.checkout.sessions.list({
-        customer: user.stripeCustomerId,
-        limit: 5,
-      });
-
-      for (const session of sessions.data) {
-        if (session.status === 'complete' && session.subscription) {
-          const tier = session.metadata?.tier || 'pro';
-          const subId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
-          await storage.updateUserStripeInfo(userId, user.stripeCustomerId, subId, tier);
-          console.log(`[SyncSub] Updated user ${userId} to ${tier} via checkout session ${session.id}`);
+          await storage.updatePaypalSubscription(userId, subscriptionId, tier);
+          console.log(`[PayPal Sync] Updated user ${userId} to ${tier}`);
           return res.json({ tier, status: 'active' });
         }
       }
 
-      // Fallback: check active subscriptions and find highest tier
-      const subscriptions = await stripe.subscriptions.list({
-        customer: user.stripeCustomerId,
-        status: 'active',
-        limit: 10,
-        expand: ['data.items.data.price'],
-      });
-
-      for (const sub of subscriptions.data) {
-        const item = sub.items?.data?.[0];
-        if (item?.price?.unit_amount === 1500) {
-          await storage.updateUserStripeInfo(userId, user.stripeCustomerId, sub.id, 'research');
-          return res.json({ tier: 'research', status: 'active' });
-        }
+      const user = await storage.getUser(userId);
+      if (user?.paypalSubscriptionId) {
+        try {
+          const subDetails = await getSubscriptionDetails(user.paypalSubscriptionId);
+          if (subDetails.status === 'ACTIVE') {
+            let tier = 'pro';
+            try {
+              const customData = JSON.parse(subDetails.custom_id || '{}');
+              if (customData.tier) tier = customData.tier;
+            } catch (e) {}
+            await storage.updatePaypalSubscription(userId, user.paypalSubscriptionId, tier);
+            return res.json({ tier, status: 'active' });
+          }
+        } catch (e) {}
       }
 
-      if (subscriptions.data.length > 0) {
-        const sub = subscriptions.data[0];
-        await storage.updateUserStripeInfo(userId, user.stripeCustomerId, sub.id, 'pro');
-        return res.json({ tier: 'pro', status: 'active' });
-      }
-
-      res.json({ tier: user.subscriptionTier || 'free', status: user.subscriptionStatus || 'none' });
+      res.json({ tier: user?.subscriptionTier || 'free', status: user?.subscriptionStatus || 'none' });
     } catch (error: any) {
-      console.error('[SyncSub] Error:', error.message);
+      console.error('[PayPal Sync] Error:', error.message);
       res.json({ tier: 'free', status: 'none' });
     }
   });
 
-  // Check user subscription status - checks DB first, then verifies with Stripe
+  // Check user subscription status
   app.get('/api/subscription-status', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -414,71 +330,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ tier: 'free', status: 'none' });
       }
 
-      // If DB already says pro or research with active status, trust it immediately
       if ((user.subscriptionTier === 'pro' || user.subscriptionTier === 'research') && user.subscriptionStatus === 'active') {
         return res.json({ tier: user.subscriptionTier, status: 'active' });
       }
 
-      // Otherwise try to sync from Stripe
-      try {
-        const stripe = await getUncachableStripeClient();
-
-        // Helper to determine tier from a Stripe subscription
-        const getTierFromSub = async (sub: any): Promise<string> => {
-          try {
-            const item = sub.items?.data?.[0];
-            if (item?.price?.product) {
-              const productId = typeof item.price.product === 'string' ? item.price.product : item.price.product.id;
-              const product = await stripe.products.retrieve(productId);
-              if (product.name?.toLowerCase().includes('research') || product.metadata?.tier === 'research') {
-                return 'research';
-              }
-            }
-            if (item?.price?.unit_amount === 1500) return 'research';
-          } catch (e) {}
-          return 'pro';
-        };
-
-        if (user.stripeSubscriptionId) {
-          try {
-            const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, { expand: ['items.data.price'] });
-            if (sub.status === 'active' || sub.status === 'trialing') {
-              const tier = await getTierFromSub(sub);
-              await storage.updateUserSubscription(userId, sub.status, tier);
-              return res.json({ tier, status: sub.status });
-            }
-          } catch (e) {}
-        }
-
-        if (user.stripeCustomerId) {
-          const subscriptions = await stripe.subscriptions.list({
-            customer: user.stripeCustomerId,
-            status: 'active',
-            limit: 10,
-            expand: ['data.items.data.price'],
-          });
-          if (subscriptions.data.length > 0) {
-            let bestTier = 'pro';
-            let bestSub = subscriptions.data[0];
-            for (const sub of subscriptions.data) {
-              const t = await getTierFromSub(sub);
-              if (t === 'research') {
-                bestTier = 'research';
-                bestSub = sub;
-                break;
-              }
-            }
-            if (bestTier === 'pro') {
-              bestTier = await getTierFromSub(bestSub);
-            }
-            await storage.updateUserStripeInfo(userId, user.stripeCustomerId, bestSub.id, bestTier);
-            return res.json({ tier: bestTier, status: 'active' });
+      if (user.paypalSubscriptionId) {
+        try {
+          const subDetails = await getSubscriptionDetails(user.paypalSubscriptionId);
+          if (subDetails.status === 'ACTIVE') {
+            let tier = 'pro';
+            try {
+              const customData = JSON.parse(subDetails.custom_id || '{}');
+              if (customData.tier) tier = customData.tier;
+            } catch (e) {}
+            await storage.updatePaypalSubscription(userId, user.paypalSubscriptionId, tier);
+            return res.json({ tier, status: 'active' });
+          } else if (subDetails.status === 'CANCELLED' || subDetails.status === 'SUSPENDED') {
+            await storage.updateUserSubscription(userId, 'cancelled', 'free');
+            return res.json({ tier: 'free', status: 'cancelled' });
           }
-        }
-      } catch (stripeError: any) {
-        console.log('[Stripe] Could not verify with Stripe:', stripeError.message?.substring(0, 100));
-        if (user.subscriptionTier === 'pro' || user.subscriptionTier === 'research') {
-          return res.json({ tier: user.subscriptionTier, status: user.subscriptionStatus || 'active' });
+        } catch (e: any) {
+          console.log('[PayPal] Could not verify subscription:', e.message?.substring(0, 100));
+          if (user.subscriptionTier === 'pro' || user.subscriptionTier === 'research') {
+            return res.json({ tier: user.subscriptionTier, status: user.subscriptionStatus || 'active' });
+          }
         }
       }
 

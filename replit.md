@@ -47,7 +47,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Multi-Model AI System**: 3 tiers - Free (Gemini 2.5 Flash), Pro ($6.99/mo - Gemini Pro), Research ($15/mo - Gemini 2.5 Pro). All Gemini-powered with automatic fallback on rate limits. Research tier includes Pro access.
 - **Voice Command Features**: Speech recognition (Web Speech API), "Turbo" assistant name, optional "Hey Turbo" wake word, auto-send, text-to-speech, and visual feedback.
 - **Comprehensive Knowledge Coverage**: Expert-level knowledge in technical, scientific, creative, business, and general domains, including real-time weather and world time zone intelligence.
-- **Subscription Management**: Stripe Checkout integration for Pro ($6.99/month) and Research ($15/month) plans. Payment popups trigger from model selector. Uses Replit Stripe connector with stripe-replit-sync for webhook handling and data sync.
+- **Subscription Management**: PayPal Subscriptions API integration for Pro ($6.99/month) and Research ($15/month) plans. Payment popups trigger from model selector. Uses PayPal REST API with auto-created billing plans.
 - **Employee Management API**: Endpoints for user management (ban, flag, suspend) and audit logging.
 - **AI Image & Video Generation**: Integration with OpenAI DALL-E 3 and a framework for video generation with multi-provider architecture.
 - **Embeddable AI Widget System**: A universal JavaScript widget (`turbo-answer-widget.js`) for seamless integration into any website.
@@ -59,9 +59,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **@radix-ui/react-***: Accessible UI primitives
 - **drizzle-orm**: Database ORM and query builder
 - **@google/generative-ai**: Official Google Gemini AI SDK
-- **stripe**: Stripe payment processing SDK
-- **@stripe/react-stripe-js**: React Stripe.js integration
-- **@stripe/stripe-js**: Stripe.js client library
+- **PayPal REST API**: PayPal Subscriptions v1 API for payment processing (no npm package, uses fetch)
 - **tailwindcss**: Utility-first CSS framework
 - **typescript**: Type safety across the stack
 - **vite**: Fast development server and build tool
