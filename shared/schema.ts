@@ -49,6 +49,34 @@ export const auditLogs = pgTable("audit_logs", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
+export const adminNotifications = pgTable("admin_notifications", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull(),
+  userId: text("user_id").notNull(),
+  userEmail: text("user_email"),
+  userFirstName: text("user_first_name"),
+  userLastName: text("user_last_name"),
+  flaggedContent: text("flagged_content").notNull(),
+  conversationId: integer("conversation_id"),
+  actionTaken: text("action_taken").notNull(),
+  isRead: text("is_read").default("false"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAdminNotificationSchema = createInsertSchema(adminNotifications).pick({
+  type: true,
+  userId: true,
+  userEmail: true,
+  userFirstName: true,
+  userLastName: true,
+  flaggedContent: true,
+  conversationId: true,
+  actionTaken: true,
+});
+
+export type InsertAdminNotification = z.infer<typeof insertAdminNotificationSchema>;
+export type AdminNotification = typeof adminNotifications.$inferSelect;
+
 export const insertAuditLogSchema = createInsertSchema(auditLogs).pick({
   employeeId: true,
   employeeUsername: true,

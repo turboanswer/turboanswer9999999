@@ -5,6 +5,7 @@ import multer from "multer";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
+import { moderateContent } from "./services/content-moderation";
 import { 
   extractTextFromFile, 
   analyzeDocument, 
@@ -178,6 +179,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const conversation = await storage.getConversation(conversationId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      const modResult = moderateContent(content);
+      if (modResult.isFlagged) {
+        const userId = req.user?.claims?.sub;
+        if (userId) {
+          const offender = await storage.getUser(userId);
+          try {
+            await storage.suspendUser(userId, `Auto-suspended: ${modResult.type} detected - "${modResult.matchedWords.join(', ')}"`, "system", "AutoModerator");
+            await storage.flagUser(userId, `Inappropriate content: ${modResult.type}`);
+          } catch (e) {}
+
+          await storage.createAdminNotification({
+            type: modResult.type,
+            userId,
+            userEmail: offender?.email || "unknown",
+            userFirstName: offender?.firstName || "Unknown",
+            userLastName: offender?.lastName || "User",
+            flaggedContent: content,
+            conversationId,
+            actionTaken: `Account temporarily suspended and flagged. Severity: ${modResult.severity}. Matched: ${modResult.matchedWords.join(', ')}`,
+          });
+        }
+
+        return res.status(403).json({
+          message: "Your message contains inappropriate content. Your account has been temporarily suspended. Please contact support if you believe this is an error.",
+          flagged: true,
+          type: modResult.type,
+        });
       }
 
       const userMessage = await storage.createMessage({
@@ -547,6 +577,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Get user audit logs error:', error);
       res.status(500).json({ message: 'Failed to fetch user audit logs' });
+    }
+  });
+
+  app.get('/api/admin/notifications', isAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const notifications = await storage.getAdminNotifications(limit);
+      res.json(notifications);
+    } catch (error: any) {
+      console.error('Get notifications error:', error);
+      res.status(500).json({ message: 'Failed to fetch notifications' });
+    }
+  });
+
+  app.get('/api/admin/notifications/unread-count', isAdmin, async (req, res) => {
+    try {
+      const count = await storage.getUnreadNotificationCount();
+      res.json({ count });
+    } catch (error: any) {
+      console.error('Get unread count error:', error);
+      res.status(500).json({ message: 'Failed to fetch unread count' });
+    }
+  });
+
+  app.post('/api/admin/notifications/:id/read', isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const notification = await storage.markNotificationRead(id);
+      res.json(notification);
+    } catch (error: any) {
+      console.error('Mark notification read error:', error);
+      res.status(500).json({ message: 'Failed to mark notification read' });
+    }
+  });
+
+  app.post('/api/admin/notifications/read-all', isAdmin, async (req, res) => {
+    try {
+      await storage.markAllNotificationsRead();
+      res.json({ message: 'All notifications marked as read' });
+    } catch (error: any) {
+      console.error('Mark all read error:', error);
+      res.status(500).json({ message: 'Failed to mark all notifications read' });
     }
   });
 
