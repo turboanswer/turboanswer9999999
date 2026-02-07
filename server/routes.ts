@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tier as 'pro' | 'research',
         user.email,
         userId,
-        `${baseUrl}/chat?subscription=${tier}&paypal_sub=SUBSCRIPTION_ID`,
+        `${baseUrl}/chat?subscription=${tier}`,
         `${baseUrl}/chat`,
       );
 
