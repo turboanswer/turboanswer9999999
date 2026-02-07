@@ -373,7 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return 'research';
               }
             }
-            if (item?.price?.unit_amount === 1500 || item?.price?.unit_amount === 1000) return 'research';
+            if (item?.price?.unit_amount === 1500) return 'research';
           } catch (e) {}
           return 'pro';
         };

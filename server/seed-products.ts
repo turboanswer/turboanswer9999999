@@ -27,16 +27,16 @@ async function createProducts() {
   } else {
     const product = await stripe.products.create({
       name: 'Turbo Answer Research',
-      description: 'Claude AI powered deep research and comprehensive analysis',
-      metadata: { tier: 'research', features: 'claude-research,gemini-pro,priority-speed' },
+      description: 'Gemini 2.5 Pro powered deep research and comprehensive analysis',
+      metadata: { tier: 'research', features: 'gemini-2.5-pro,gemini-pro,priority-speed' },
     });
     await stripe.prices.create({
       product: product.id,
-      unit_amount: 1000,
+      unit_amount: 1500,
       currency: 'usd',
       recurring: { interval: 'month' },
     });
-    console.log('Created Turbo Answer Research:', product.id, '- $10/month');
+    console.log('Created Turbo Answer Research:', product.id, '- $15/month');
   }
 }
 
