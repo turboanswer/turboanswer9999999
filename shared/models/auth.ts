@@ -29,6 +29,7 @@ export const users = pgTable("users", {
   paypalSubscriptionId: text("paypal_subscription_id"),
   subscriptionStatus: text("subscription_status").default("free"),
   subscriptionTier: text("subscription_tier").default("free"),
+  subscriptionStartDate: timestamp("subscription_start_date"),
   preferredModel: text("preferred_model").default("gemini-2.0-flash"),
   isEmployee: boolean("is_employee").default(false),
   employeeRole: text("employee_role").default("basic"),

@@ -202,6 +202,45 @@ export async function cancelSubscription(subscriptionId: string, reason: string)
   });
 }
 
+export async function getSubscriptionTransactions(subscriptionId: string): Promise<any[]> {
+  const now = new Date().toISOString();
+  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const result = await paypalRequest(
+      "GET",
+      `/v1/billing/subscriptions/${subscriptionId}/transactions?start_time=${startDate}&end_time=${now}`
+    );
+    return result.transactions || [];
+  } catch (e: any) {
+    console.log('[PayPal] Could not fetch transactions:', e.message?.substring(0, 100));
+    return [];
+  }
+}
+
+export async function refundCapture(captureId: string, amount?: { value: string; currency_code: string }): Promise<any> {
+  const body = amount ? { amount } : {};
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "PayPal-Request-Id": `refund-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`,
+  };
+
+  const res = await fetch(`${PAYPAL_BASE_URL}/v2/payments/captures/${captureId}/refund`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`PayPal refund error ${res.status}: ${text}`);
+  }
+
+  if (res.status === 204) return { status: 'COMPLETED' };
+  return res.json();
+}
+
 export function getPayPalClientId(): string {
   return PAYPAL_CLIENT_ID;
 }

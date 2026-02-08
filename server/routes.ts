@@ -15,7 +15,7 @@ import {
 } from "./services/document-analysis";
 import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans } from "./paypal";
+import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture } from "./paypal";
 
 import widgetRoutes from './routes/widget-routes';
 
@@ -415,6 +415,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Subscription status error:', error);
       res.json({ tier: 'free', status: 'none' });
+    }
+  });
+
+  // Cancel subscription with auto-refund if within 3 days
+  app.post('/api/cancel-subscription', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      if (!user.paypalSubscriptionId || user.subscriptionTier === 'free') {
+        return res.status(400).json({ error: 'No active subscription to cancel' });
+      }
+
+      const subscriptionId = user.paypalSubscriptionId;
+      const subscriptionStartDate = user.subscriptionStartDate;
+      let refunded = false;
+      let refundAmount = '';
+
+      const isWithin3Days = subscriptionStartDate && 
+        (Date.now() - new Date(subscriptionStartDate).getTime()) < 3 * 24 * 60 * 60 * 1000;
+
+      if (isWithin3Days) {
+        try {
+          const transactions = await getSubscriptionTransactions(subscriptionId);
+          const latestCompleted = transactions.find((txn: any) => txn.status === 'COMPLETED' && txn.id);
+          if (latestCompleted) {
+            const amount = latestCompleted.amount_with_breakdown?.gross_amount?.value || (user.subscriptionTier === 'research' ? '15.00' : '6.99');
+            const currency = latestCompleted.amount_with_breakdown?.gross_amount?.currency_code || 'USD';
+            const refundResult = await refundCapture(latestCompleted.id, { value: amount, currency_code: currency });
+            if (refundResult && (refundResult.status === 'COMPLETED' || refundResult.status === 'PENDING')) {
+              refundAmount = amount;
+              refunded = true;
+              console.log(`[PayPal Refund] Refunded $${amount} (transaction ${latestCompleted.id}) for user ${userId}`);
+            }
+          }
+        } catch (refundError: any) {
+          console.error('[PayPal Refund] Error:', refundError.message);
+        }
+      }
+
+      try {
+        await cancelSubscription(subscriptionId, 'User requested cancellation');
+        console.log(`[PayPal Cancel] Subscription ${subscriptionId} cancelled for user ${userId}`);
+      } catch (cancelError: any) {
+        console.error('[PayPal Cancel] Error:', cancelError.message);
+      }
+
+      await storage.cancelUserSubscription(userId);
+
+      res.json({ 
+        success: true, 
+        refunded, 
+        refundAmount: refunded ? `$${refundAmount}` : null,
+        message: refunded 
+          ? `Subscription cancelled and $${refundAmount} refunded to your account.`
+          : 'Subscription cancelled. No refund available (cancellation after 3-day refund window).'
+      });
+    } catch (error: any) {
+      console.error('[Cancel Subscription] Error:', error.message);
+      res.status(500).json({ error: 'Failed to cancel subscription. Please try again.' });
     }
   });
 
