@@ -35,8 +35,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(widgetRoutes);
 
   app.get("/api/download/android-app", (req, res) => {
+    const fs = require("fs");
     const filePath = path.resolve("turbo-answer-v2.0.0.aab");
-    res.download(filePath, "turbo-answer-v2.0.0.aab");
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "AAB file not found" });
+    }
+    const stat = fs.statSync(filePath);
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", "attachment; filename=turbo-answer-v2.0.0.aab");
+    res.setHeader("Content-Length", stat.size);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+  });
+
+  app.get("/api/download/android-base64", (req, res) => {
+    const fs = require("fs");
+    const filePath = path.resolve("turbo-answer-v2.0.0.aab");
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: "AAB file not found" });
+    }
+    const fileBuffer = fs.readFileSync(filePath);
+    const base64Data = fileBuffer.toString("base64");
+    const html = `<!DOCTYPE html>
+<html><head><title>Download Turbo Answer AAB</title>
+<style>body{font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#1a1a2e;color:#fff}
+.container{text-align:center;padding:40px;background:#16213e;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+h1{color:#00d4ff;margin-bottom:10px}
+p{color:#aaa;margin-bottom:20px}
+button{background:linear-gradient(135deg,#00d4ff,#0099cc);color:#fff;border:none;padding:16px 40px;font-size:18px;border-radius:8px;cursor:pointer}
+button:hover{opacity:0.9}
+.info{font-size:12px;color:#666;margin-top:15px}
+</style></head><body>
+<div class="container">
+<h1>Turbo Answer v2.0.0</h1>
+<p>Android App Bundle (AAB) - ${(stat.size / 1024 / 1024).toFixed(1)} MB</p>
+<p style="font-size:12px">MD5: a90ee46be1d127ab65a57d8e1d93dc60</p>
+<button onclick="downloadAAB()">Download AAB File</button>
+<p id="status" class="info"></p>
+</div>
+<script>
+function downloadAAB(){
+  document.getElementById('status').textContent='Preparing download...';
+  const b64='${base64Data}';
+  const bytes=atob(b64);
+  const arr=new Uint8Array(bytes.length);
+  for(let i=0;i<bytes.length;i++)arr[i]=bytes.charCodeAt(i);
+  const blob=new Blob([arr],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='turbo-answer-v2.0.0.aab';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  document.getElementById('status').textContent='Download started! File size: ${(stat.size / 1024 / 1024).toFixed(1)} MB';
+}
+</script></body></html>`;
+    res.setHeader("Content-Type", "text/html");
+    res.send(html);
   });
 
   // Create a new conversation
