@@ -40,6 +40,8 @@ export const users = pgTable("users", {
   isFlagged: boolean("is_flagged").default(false),
   flagReason: text("flag_reason"),
   banReason: text("ban_reason"),
+  banExpiresAt: timestamp("ban_expires_at"),
+  banDuration: text("ban_duration"),
   isSuspended: boolean("is_suspended").default(false),
   suspensionReason: text("suspension_reason"),
   suspendedAt: timestamp("suspended_at"),

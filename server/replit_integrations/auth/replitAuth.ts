@@ -103,7 +103,14 @@ export async function setupAuth(app: Express) {
       }
 
       if (user.isBanned) {
-        return res.status(403).json({ message: "This account has been banned" });
+        if (user.banExpiresAt && new Date(user.banExpiresAt) <= new Date()) {
+          await authStorage.unbanUser(user.id);
+        } else {
+          const banMsg = user.banExpiresAt 
+            ? `This account is banned until ${new Date(user.banExpiresAt).toLocaleDateString()}.`
+            : "This account has been permanently banned.";
+          return res.status(403).json({ message: banMsg });
+        }
       }
 
       await authStorage.updateLastLogin(user.id);

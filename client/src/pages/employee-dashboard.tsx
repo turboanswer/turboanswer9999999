@@ -24,6 +24,8 @@ interface UserData {
   isFlagged: boolean;
   flagReason?: string;
   banReason?: string;
+  banExpiresAt?: string;
+  banDuration?: string;
   isSuspended: boolean;
   suspensionReason?: string;
   suspendedBy?: string;
@@ -80,6 +82,7 @@ export default function EmployeeDashboard() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [actionModal, setActionModal] = useState<{ type: string; userId: string; userName: string; userEmail?: string } | null>(null);
   const [actionReason, setActionReason] = useState('');
+  const [banDuration, setBanDuration] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [selectedNotification, setSelectedNotification] = useState<AdminNotification | null>(null);
   const [subModalUser, setSubModalUser] = useState<UserData | null>(null);
@@ -144,12 +147,13 @@ export default function EmployeeDashboard() {
   });
 
   const banMutation = useMutation({
-    mutationFn: ({ userId, reason }: { userId: string; reason: string }) =>
-      apiRequest('POST', `/api/employee/users/${userId}/ban`, { reason }),
+    mutationFn: ({ userId, reason, durationMonths }: { userId: string; reason: string; durationMonths?: number }) =>
+      apiRequest('POST', `/api/employee/users/${userId}/ban`, { reason, durationMonths }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] });
       setActionModal(null);
       setActionReason('');
+      setBanDuration(0);
     },
   });
 
@@ -290,7 +294,7 @@ export default function EmployeeDashboard() {
   const handleAction = () => {
     if (!actionModal || !actionReason.trim()) return;
     const { type, userId } = actionModal;
-    if (type === 'ban') banMutation.mutate({ userId, reason: actionReason.trim() });
+    if (type === 'ban') banMutation.mutate({ userId, reason: actionReason.trim(), durationMonths: banDuration || undefined });
     else if (type === 'flag') flagMutation.mutate({ userId, reason: actionReason.trim() });
     else if (type === 'suspend') suspendMutation.mutate({ userId, reason: actionReason.trim() });
   };
@@ -340,7 +344,11 @@ export default function EmployeeDashboard() {
                 }`}>
                   {(selectedUser?.subscriptionTier || 'free').toUpperCase()}
                 </span>
-                {selectedUser?.isBanned && <span className="px-2 py-1 rounded bg-red-600/20 text-red-400">BANNED</span>}
+                {selectedUser?.isBanned && (
+                  <span className="px-2 py-1 rounded bg-red-600/20 text-red-400" title={selectedUser?.banExpiresAt ? `Expires: ${new Date(selectedUser.banExpiresAt).toLocaleDateString()}` : 'Permanent'}>
+                    BANNED {selectedUser?.banDuration ? `(${selectedUser.banDuration})` : '(permanent)'}
+                  </span>
+                )}
                 {selectedUser?.isFlagged && <span className="px-2 py-1 rounded bg-yellow-600/20 text-yellow-400">FLAGGED</span>}
                 {selectedUser?.isSuspended && <span className="px-2 py-1 rounded bg-orange-600/20 text-orange-400">SUSPENDED</span>}
                 {!selectedUser?.isBanned && !selectedUser?.isFlagged && !selectedUser?.isSuspended && (
@@ -614,7 +622,7 @@ export default function EmployeeDashboard() {
                             </td>
                             <td className="p-3">
                               <div className="flex gap-1 flex-wrap">
-                                {user.isBanned && <span className="text-xs px-2 py-0.5 rounded bg-red-600/20 text-red-400">BANNED</span>}
+                                {user.isBanned && <span className="text-xs px-2 py-0.5 rounded bg-red-600/20 text-red-400" title={user.banExpiresAt ? `Expires: ${new Date(user.banExpiresAt).toLocaleDateString()}` : 'Permanent'}>BANNED{user.banDuration ? ` (${user.banDuration})` : ''}</span>}
                                 {user.isFlagged && <span className="text-xs px-2 py-0.5 rounded bg-yellow-600/20 text-yellow-400">FLAGGED</span>}
                                 {user.isSuspended && <span className="text-xs px-2 py-0.5 rounded bg-orange-600/20 text-orange-400">SUSPENDED</span>}
                                 {!user.isBanned && !user.isFlagged && !user.isSuspended && (
@@ -687,6 +695,28 @@ export default function EmployeeDashboard() {
               <p className="text-gray-300 text-sm">
                 Are you sure you want to {actionModal.type} <strong>{actionModal.userName}</strong>?
               </p>
+              {actionModal.type === 'ban' && (
+                <div>
+                  <label className="text-sm text-gray-400 mb-1 block">Ban Duration</label>
+                  <select
+                    value={banDuration}
+                    onChange={(e) => setBanDuration(parseInt(e.target.value))}
+                    className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value={0}>Permanent</option>
+                    <option value={1}>1 Month</option>
+                    <option value={2}>2 Months</option>
+                    <option value={3}>3 Months</option>
+                    <option value={4}>4 Months</option>
+                    <option value={12}>12 Months</option>
+                  </select>
+                  {banDuration > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Ban expires: {new Date(Date.now() + banDuration * 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="text-sm text-gray-400 mb-1 block">Reason</label>
                 <Input
@@ -697,7 +727,7 @@ export default function EmployeeDashboard() {
                 />
               </div>
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" onClick={() => { setActionModal(null); setActionReason(''); }} className="text-gray-400">
+                <Button variant="ghost" onClick={() => { setActionModal(null); setActionReason(''); setBanDuration(0); }} className="text-gray-400">
                   Cancel
                 </Button>
                 <Button

@@ -244,7 +244,14 @@ function downloadAAB(){
           return res.status(403).json({ message: "Your account is temporarily suspended. Please contact support for assistance." });
         }
         if (sender?.isBanned) {
-          return res.status(403).json({ message: "Your account has been banned. Please contact support for assistance." });
+          if (sender.banExpiresAt && new Date(sender.banExpiresAt) <= new Date()) {
+            await storage.unbanUser(sendingUserId);
+          } else {
+            const banMsg = sender.banExpiresAt 
+              ? `Your account is banned until ${new Date(sender.banExpiresAt).toLocaleDateString()}. Please contact support for assistance.`
+              : "Your account has been permanently banned. Please contact support for assistance.";
+            return res.status(403).json({ message: banMsg });
+          }
         }
       }
 
@@ -260,12 +267,22 @@ function downloadAAB(){
           const offender = await storage.getUser(userId);
           const actions: string[] = [];
 
-          try {
-            await storage.suspendUser(userId, `Auto-suspended: ${modResult.type} detected - "${modResult.matchedWords.join(', ')}"`, "system", "AutoModerator");
-            actions.push("Account temporarily suspended");
-          } catch (e: any) {
-            console.error("Auto-suspend failed:", e.message);
-            actions.push("Suspend attempted but failed");
+          if (modResult.autoBan && modResult.type === "sexual") {
+            try {
+              await storage.banUser(userId, `Auto-banned: Sexual content detected - "${modResult.matchedWords.join(', ')}"`, 1);
+              actions.push("Account banned for 1 month (sexual content)");
+            } catch (e: any) {
+              console.error("Auto-ban failed:", e.message);
+              actions.push("Ban attempted but failed");
+            }
+          } else {
+            try {
+              await storage.suspendUser(userId, `Auto-suspended: ${modResult.type} detected - "${modResult.matchedWords.join(', ')}"`, "system", "AutoModerator");
+              actions.push("Account temporarily suspended");
+            } catch (e: any) {
+              console.error("Auto-suspend failed:", e.message);
+              actions.push("Suspend attempted but failed");
+            }
           }
 
           try {
@@ -288,8 +305,12 @@ function downloadAAB(){
           });
         }
 
+        const banMessage = modResult.type === "sexual" 
+          ? "Your message contains sexual content which is strictly prohibited. Your account has been banned for 1 month. Please contact support if you believe this is an error."
+          : "Your message contains inappropriate content. Your account has been temporarily suspended. Please contact support if you believe this is an error.";
+
         return res.status(403).json({
-          message: "Your message contains inappropriate content. Your account has been temporarily suspended. Please contact support if you believe this is an error.",
+          message: banMessage,
           flagged: true,
           type: modResult.type,
         });
@@ -877,6 +898,8 @@ function downloadAAB(){
         isFlagged: user.isFlagged,
         flagReason: user.flagReason,
         banReason: user.banReason,
+        banExpiresAt: user.banExpiresAt,
+        banDuration: user.banDuration,
         isSuspended: user.isSuspended,
         suspensionReason: user.suspensionReason,
         suspendedBy: user.suspendedBy,
@@ -892,18 +915,38 @@ function downloadAAB(){
     }
   });
 
-  // Ban user (Employee only)
+  // Ban user (Employee only) - supports duration-based bans
   app.post('/api/employee/users/:id/ban', isAdmin, async (req, res) => {
     try {
       const userId = req.params.id;
-      const { reason } = req.body;
+      const { reason, durationMonths } = req.body;
       
       if (!reason || !reason.trim()) {
         return res.status(400).json({ message: 'Ban reason is required' });
       }
       
-      const user = await storage.banUser(userId, reason.trim());
-      res.json({ message: 'User banned successfully', user: { id: user.id, name: user.firstName || user.email || user.id } });
+      const validDurations = [1, 2, 3, 4, 12];
+      const parsedDuration = durationMonths ? parseInt(durationMonths) : 0;
+      const duration = validDurations.includes(parsedDuration) ? parsedDuration : undefined;
+      const user = await storage.banUser(userId, reason.trim(), duration);
+      
+      const durationText = duration ? `${duration} month${duration > 1 ? 's' : ''}` : 'permanently';
+      
+      const employeeId = (req as any).user?.claims?.sub || 'system';
+      const adminUser = employeeId !== 'system' ? await storage.getUser(employeeId) : null;
+      const employeeUsername = adminUser?.email || adminUser?.firstName || 'Admin';
+      
+      await storage.createAuditLog({
+        employeeId,
+        employeeUsername,
+        action: 'ban_user',
+        targetUserId: userId,
+        targetUsername: user.email || user.firstName || userId,
+        reason: reason.trim(),
+        details: `Ban duration: ${durationText}${user.banExpiresAt ? `. Expires: ${user.banExpiresAt.toISOString()}` : ''}`,
+      });
+      
+      res.json({ message: `User banned ${durationText}`, user: { id: user.id, name: user.firstName || user.email || user.id } });
     } catch (error: any) {
       console.error('Ban user error:', error);
       res.status(500).json({ message: error.message || 'Failed to ban user' });

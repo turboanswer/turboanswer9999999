@@ -9,7 +9,7 @@ export interface IStorage {
   cancelUserSubscription(userId: string): Promise<User>;
 
   getAllUsers(): Promise<User[]>;
-  banUser(userId: string, reason: string): Promise<User>;
+  banUser(userId: string, reason: string, durationMonths?: number): Promise<User>;
   unbanUser(userId: string): Promise<User>;
   flagUser(userId: string, reason: string): Promise<User>;
   unflagUser(userId: string): Promise<User>;
@@ -176,12 +176,23 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).orderBy(users.createdAt);
   }
 
-  async banUser(userId: string, reason: string): Promise<User> {
+  async banUser(userId: string, reason: string, durationMonths?: number): Promise<User> {
+    let banExpiresAt: Date | null = null;
+    let banDuration: string = "permanent";
+    
+    if (durationMonths && durationMonths > 0) {
+      banExpiresAt = new Date();
+      banExpiresAt.setMonth(banExpiresAt.getMonth() + durationMonths);
+      banDuration = `${durationMonths} month${durationMonths > 1 ? 's' : ''}`;
+    }
+    
     const [user] = await db
       .update(users)
       .set({
         isBanned: true,
         banReason: reason,
+        banExpiresAt,
+        banDuration,
         isFlagged: false,
         flagReason: null
       })
@@ -196,7 +207,9 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({
         isBanned: false,
-        banReason: null
+        banReason: null,
+        banExpiresAt: null,
+        banDuration: null
       })
       .where(eq(users.id, userId))
       .returning();

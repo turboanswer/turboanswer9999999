@@ -25,11 +25,31 @@ const THREAT_PATTERNS = [
   /\b(how to|make|build)\s+(a\s+)?(bomb|weapon|explosive|poison)\b/i,
 ];
 
+const SEXUAL_CONTENT_PATTERNS = [
+  /\b(sex(ual|ually)?|porn(ography|ographic)?|xxx|nsfw|hentai|erotic(a)?|nude(s)?|naked)\b/i,
+  /\b(orgasm|masturbat(e|ion|ing)|fetish|kink(y)?|bdsm|bondage)\b/i,
+  /\b(blowjob|blow\s*job|handjob|hand\s*job|anal\s*sex|oral\s*sex)\b/i,
+  /\b(strip(tease|per|ping)|lap\s*dance|cam\s*girl|onlyfans|only\s*fans)\b/i,
+  /\b(sex\s*chat|cyber\s*sex|sext(ing)?|hookup|hook\s*up\s*(with|for)\s*(sex|fun))\b/i,
+  /\b(write|create|generate|make|give)\s+(me\s+)?(a\s+)?(sex(ual|y)|erotic|porn(ographic)?|nsfw|explicit|dirty|naughty)\s+(story|scene|content|fantasy|fiction|roleplay|dialogue|chat|conversation|image|picture|video)\b/i,
+  /\b(roleplay|role\s*play)\s+(as\s+)?(my\s+)?(girlfriend|boyfriend|lover|mistress|master|daddy|mommy|dom|sub)\b/i,
+  /\b(talk\s+dirty|be\s+my\s+(girl|boy)friend|pretend\s+(to\s+be|you'?re)\s+(my\s+)?(lover|partner))\b/i,
+  /\b(underage|child|minor|kid)\s+(sex|porn|nude|naked|erotic)\b/i,
+  /\b(sex|fuck|screw)\s+(me|him|her|them|us)\b/i,
+];
+
+const SEXUAL_REQUEST_PATTERNS = [
+  /\b(show|send|give)\s+(me\s+)?(nude|naked|nsfw|porn|sex(y|ual)?)\s+(pic|picture|image|photo|video|content)\b/i,
+  /\b(i\s+want|i\s+need|i'd\s+like)\s+(to\s+)?(see|watch|have)\s+(porn|sex|nude|naked|erotic)\b/i,
+  /\bgenerate\s+(nsfw|porn|nude|naked|sex(ual|y)?|erotic|explicit)\b/i,
+];
+
 export interface ModerationResult {
   isFlagged: boolean;
-  type: "clean" | "profanity" | "inappropriate" | "threat";
+  type: "clean" | "profanity" | "inappropriate" | "threat" | "sexual";
   matchedWords: string[];
   severity: "none" | "low" | "medium" | "high";
+  autoBan?: boolean;
 }
 
 export function moderateContent(content: string): ModerationResult {
@@ -48,6 +68,29 @@ export function moderateContent(content: string): ModerationResult {
       type: "threat",
       matchedWords: threatMatches,
       severity: "high",
+    };
+  }
+
+  const sexualMatches: string[] = [];
+  for (const pattern of SEXUAL_CONTENT_PATTERNS) {
+    const match = lowerContent.match(pattern);
+    if (match) {
+      sexualMatches.push(match[0]);
+    }
+  }
+  for (const pattern of SEXUAL_REQUEST_PATTERNS) {
+    const match = lowerContent.match(pattern);
+    if (match) {
+      sexualMatches.push(match[0]);
+    }
+  }
+  if (sexualMatches.length > 0) {
+    return {
+      isFlagged: true,
+      type: "sexual",
+      matchedWords: Array.from(new Set(sexualMatches)),
+      severity: "high",
+      autoBan: true,
     };
   }
 

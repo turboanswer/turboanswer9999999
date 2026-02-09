@@ -10,6 +10,7 @@ export interface IAuthStorage {
   setTwoFactorSecret(userId: string, secret: string): Promise<void>;
   enableTwoFactor(userId: string): Promise<void>;
   disableTwoFactor(userId: string): Promise<void>;
+  unbanUser(userId: string): Promise<void>;
 }
 
 class AuthStorage implements IAuthStorage {
@@ -52,6 +53,15 @@ class AuthStorage implements IAuthStorage {
 
   async disableTwoFactor(userId: string): Promise<void> {
     await db.update(users).set({ twoFactorEnabled: false, twoFactorSecret: null }).where(eq(users.id, userId));
+  }
+
+  async unbanUser(userId: string): Promise<void> {
+    await db.update(users).set({
+      isBanned: false,
+      banReason: null,
+      banExpiresAt: null,
+      banDuration: null
+    }).where(eq(users.id, userId));
   }
 }
 
