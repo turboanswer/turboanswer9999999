@@ -52,6 +52,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Customer Support**: Email (support@turboanswer.it.com), Phone (518-250-5405), Hours: Mon-Fri 10am-4pm EST.
 - **Employee Management API**: Endpoints for user management (ban, flag, suspend) and audit logging.
 - **Content Moderation System**: Automatic profanity/threat detection on user messages. Flagged users are auto-suspended with admin notifications sent to the admin panel showing full user details, flagged content, and action taken.
+- **Crisis Support Bot**: Dedicated AI companion for mental health crisis support with AES-256-GCM encrypted conversations. Fully private - exempt from content moderation, no admin access, no data shared with authorities. Includes crisis hotline resources (988, Crisis Text Line). Users can delete all crisis data permanently. Specialized Gemini-powered AI with safety settings disabled for sensitive topic support.
 - **AI Image & Video Generation**: Integration with OpenAI DALL-E 3 and a framework for video generation with multi-provider architecture.
 - **Embeddable AI Widget System**: A universal JavaScript widget (`turbo-answer-widget.js`) for seamless integration into any website.
 

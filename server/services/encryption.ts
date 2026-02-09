@@ -5,10 +5,19 @@ const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 const SALT_LENGTH = 32;
 
+let cachedKey: Buffer | null = null;
+
 function getEncryptionKey(): Buffer {
-  const secret = process.env.CRISIS_ENCRYPTION_KEY || process.env.DATABASE_URL || 'turbo-answer-crisis-default-key';
+  if (cachedKey) return cachedKey;
+  
+  const secret = process.env.CRISIS_ENCRYPTION_KEY;
+  if (!secret) {
+    throw new Error('CRISIS_ENCRYPTION_KEY environment variable is required for crisis support encryption');
+  }
+  
   const salt = crypto.createHash('sha256').update('crisis-support-salt-v1').digest();
-  return crypto.pbkdf2Sync(secret, salt, 100000, 32, 'sha512');
+  cachedKey = crypto.pbkdf2Sync(secret, salt, 100000, 32, 'sha512');
+  return cachedKey;
 }
 
 export function encrypt(plaintext: string): string {
