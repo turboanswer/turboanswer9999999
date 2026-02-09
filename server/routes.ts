@@ -478,6 +478,50 @@ function downloadAAB(){
     }
   });
 
+  app.post('/api/apply-promo', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+
+      const { promoCode } = req.body;
+      if (!promoCode) {
+        return res.status(400).json({ error: 'Promo code is required' });
+      }
+
+      const PROMO_CODES: Record<string, { tier: string; email?: string; description: string }> = {
+        'TURBO-CREATOR-LIFETIME': {
+          tier: 'research',
+          email: 'support@turboanswer.it.com',
+          description: 'Creator lifetime Research access'
+        }
+      };
+
+      const promo = PROMO_CODES[promoCode.toUpperCase()];
+      if (!promo) {
+        return res.status(400).json({ error: 'Invalid promo code' });
+      }
+
+      if (promo.email && user.email !== promo.email) {
+        return res.status(403).json({ error: 'This promo code is not valid for your account' });
+      }
+
+      await storage.updateUserSubscription(userId, 'active', promo.tier);
+      console.log(`[Promo] Applied code ${promoCode} for user ${userId} (${user.email}) - ${promo.description}`);
+
+      res.json({
+        success: true,
+        message: `${promo.description} activated! You now have lifetime ${promo.tier} access.`,
+        tier: promo.tier
+      });
+    } catch (error: any) {
+      console.error('[Promo] Error:', error.message);
+      res.status(500).json({ error: 'Failed to apply promo code' });
+    }
+  });
+
   // Cancel subscription with auto-refund if within 3 days
   app.post('/api/cancel-subscription', isAuthenticated, async (req: any, res) => {
     try {

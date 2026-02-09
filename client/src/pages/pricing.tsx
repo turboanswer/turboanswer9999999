@@ -74,12 +74,7 @@ export default function Pricing() {
 
   const applyPromoMutation = useMutation({
     mutationFn: async ({ promoCode }: { promoCode: string }) => {
-      const demoUserResponse = await apiRequest('POST', '/api/create-demo-user', {});
-      const demoUserData = await demoUserResponse.json();
-      const demoUser = demoUserData.user;
-      
       const promoResponse = await apiRequest('POST', '/api/apply-promo', {
-        userId: demoUser.id,
         promoCode: promoCode.toUpperCase()
       });
       
