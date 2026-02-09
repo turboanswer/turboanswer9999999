@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Brain, Zap, CheckCircle, Star, FlaskConical, XCircle, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Brain, Zap, CheckCircle, Star, FlaskConical, XCircle, AlertTriangle, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -57,6 +57,34 @@ export default function AISettings() {
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({
     queryKey: ["/api/subscription-status"],
+  });
+
+  const [promoCode, setPromoCode] = useState('');
+  const [showPromoInput, setShowPromoInput] = useState(false);
+
+  const promoMutation = useMutation({
+    mutationFn: async ({ promoCode }: { promoCode: string }) => {
+      const res = await apiRequest('POST', '/api/apply-promo', {
+        promoCode: promoCode.toUpperCase()
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/subscription-status"] });
+      setPromoCode('');
+      setShowPromoInput(false);
+      toast({
+        title: "Promo Code Applied!",
+        description: data.message,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Invalid Code",
+        description: error.message || "This promo code is not valid",
+        variant: "destructive",
+      });
+    },
   });
 
   const cancelMutation = useMutation({
@@ -147,6 +175,53 @@ export default function AISettings() {
             );
           })}
         </RadioGroup>
+
+        <div className="mt-10">
+          <div className={`border-t ${isDark ? 'border-gray-800' : 'border-gray-200'} pt-8`}>
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+              <Gift className="h-5 w-5 text-purple-400" />
+              Promo Code
+            </h3>
+            <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Have a promo code? Enter it below to unlock premium features.
+            </p>
+            {!showPromoInput ? (
+              <Button
+                variant="outline"
+                onClick={() => setShowPromoInput(true)}
+                className={isDark ? 'border-purple-800 text-purple-400 hover:bg-purple-950 hover:text-purple-300' : 'border-purple-300 text-purple-600 hover:bg-purple-50'}
+              >
+                <Gift className="h-4 w-4 mr-2" />
+                Enter Promo Code
+              </Button>
+            ) : (
+              <div className="flex gap-2 max-w-md">
+                <input
+                  type="text"
+                  placeholder="Enter promo code"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && promoCode.trim()) promoMutation.mutate({ promoCode }); }}
+                  className={`flex-1 px-3 py-2 rounded-md border text-sm ${isDark ? 'bg-gray-900 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                />
+                <Button
+                  onClick={() => promoMutation.mutate({ promoCode })}
+                  disabled={!promoCode.trim() || promoMutation.isPending}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  {promoMutation.isPending ? "Applying..." : "Apply"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => { setShowPromoInput(false); setPromoCode(''); }}
+                  className={isDark ? 'text-gray-400 hover:text-gray-200' : ''}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {hasPaidSubscription && (
           <div className="mt-10">
