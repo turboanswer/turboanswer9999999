@@ -236,11 +236,23 @@ export default function EmployeeDashboard() {
   const runDiagnostics = async () => {
     setDiagLoading(true);
     try {
-      const res = await fetch('/api/admin/run-diagnostics', { credentials: 'include', method: 'POST' });
+      const res = await fetch('/api/admin/run-diagnostics', {
+        credentials: 'include',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('[Diagnostics] Error response:', res.status, errText);
+        setDiagResults([{ check: 'Diagnostics', status: 'fail', details: `Server error: ${res.status}` }]);
+        setDiagLoading(false);
+        return;
+      }
       const data = await res.json();
-      setDiagResults(data.results);
-    } catch {
-      setDiagResults([{ check: 'Diagnostics', status: 'fail', details: 'Failed to run diagnostics' }]);
+      setDiagResults(data.results || []);
+    } catch (err: any) {
+      console.error('[Diagnostics] Fetch error:', err);
+      setDiagResults([{ check: 'Diagnostics', status: 'fail', details: 'Failed to connect to diagnostics endpoint' }]);
     }
     setDiagLoading(false);
   };

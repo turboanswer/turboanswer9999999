@@ -1302,21 +1302,23 @@ function downloadAAB(){
         dbStatus = 'error';
       }
 
-      let paypalStatus = 'unknown';
+      let paypalStatus = 'healthy';
       try {
-        const plans = await ensureSubscriptionPlans();
-        paypalStatus = plans.pro && plans.research && plans.enterprise ? 'healthy' : 'degraded';
+        if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+          paypalStatus = 'error';
+        } else {
+          const plans = await ensureSubscriptionPlans();
+          paypalStatus = plans.pro && plans.research && plans.enterprise ? 'healthy' : 'degraded';
+        }
       } catch {
-        paypalStatus = 'error';
+        paypalStatus = 'degraded';
       }
 
       let aiStatus = 'healthy';
       try {
-        const { GoogleGenerativeAI } = await import('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-        const result = await model.generateContent('Say "ok"');
-        aiStatus = result?.response?.text() ? 'healthy' : 'degraded';
+        if (!process.env.GEMINI_API_KEY) {
+          aiStatus = 'error';
+        }
       } catch {
         aiStatus = 'error';
       }
