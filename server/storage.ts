@@ -54,6 +54,7 @@ export interface IStorage {
   reactivateEnterpriseCode(ownerUserId: string): Promise<void>;
   getRedemptionByUserId(userId: string): Promise<EnterpriseCodeRedemption | undefined>;
   adminSetSubscription(userId: string, tier: string, status: string): Promise<User>;
+  setComplimentaryExpiration(userId: string, expiresAt: Date | null): Promise<void>;
   deleteUserAccount(userId: string): Promise<void>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserCount(): Promise<number>;
@@ -488,6 +489,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async setComplimentaryExpiration(userId: string, expiresAt: Date | null): Promise<void> {
+    await db
+      .update(users)
+      .set({ complimentaryExpiresAt: expiresAt })
+      .where(eq(users.id, userId));
   }
 
   async getUserCount(): Promise<number> {

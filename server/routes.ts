@@ -531,6 +531,13 @@ function downloadAAB(){
         return res.json({ tier: 'free', status: 'none' });
       }
 
+      if (user.complimentaryExpiresAt && new Date(user.complimentaryExpiresAt) < new Date()) {
+        await storage.adminSetSubscription(userId, 'free', 'cancelled');
+        await storage.setComplimentaryExpiration(userId, null);
+        console.log(`[Subscription] Complimentary access expired for user ${userId}`);
+        return res.json({ tier: 'free', status: 'expired' });
+      }
+
       if ((user.subscriptionTier === 'pro' || user.subscriptionTier === 'research' || user.subscriptionTier === 'enterprise') && user.subscriptionStatus === 'active') {
         return res.json({ tier: user.subscriptionTier, status: 'active' });
       }
@@ -839,7 +846,12 @@ function downloadAAB(){
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      const subscriptionTier = user?.subscriptionTier || "free";
+      let subscriptionTier = user?.subscriptionTier || "free";
+      if (user?.complimentaryExpiresAt && new Date(user.complimentaryExpiresAt) < new Date()) {
+        await storage.adminSetSubscription(userId, 'free', 'cancelled');
+        await storage.setComplimentaryExpiration(userId, null);
+        subscriptionTier = 'free';
+      }
       const availableModels = getAvailableModels(subscriptionTier);
       res.json({ models: availableModels, currentTier: subscriptionTier });
     } catch (error: any) {
@@ -1242,10 +1254,13 @@ function downloadAAB(){
   app.post('/api/admin/grant-complimentary', isAdmin, async (req: any, res) => {
     try {
       const adminUserId = req.user.claims.sub;
-      const { userId, tier, reason } = req.body;
+      const { userId, tier, reason, durationMonths } = req.body;
       if (!userId || !tier) return res.status(400).json({ error: 'User ID and tier required' });
       const validTiers = ['pro', 'research', 'enterprise'];
       if (!validTiers.includes(tier)) return res.status(400).json({ error: 'Invalid tier. Must be pro, research, or enterprise.' });
+      const validDurations = [1, 2, 3, 4, 0];
+      const duration = durationMonths !== undefined ? Number(durationMonths) : 0;
+      if (!validDurations.includes(duration)) return res.status(400).json({ error: 'Invalid duration. Must be 1, 2, 3, 4, or 0 (forever).' });
 
       const targetUser = await storage.getUser(userId);
       if (!targetUser) return res.status(404).json({ error: 'User not found' });
@@ -1261,7 +1276,16 @@ function downloadAAB(){
         }
       }
 
+      let expiresAt: Date | null = null;
+      if (duration > 0) {
+        expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + duration);
+      }
+
       await storage.adminSetSubscription(userId, tier, 'active');
+      await storage.setComplimentaryExpiration(userId, expiresAt);
+
+      const durationLabel = duration === 0 ? 'forever' : `${duration} month${duration > 1 ? 's' : ''}`;
 
       await storage.createAuditLog({
         employeeId: adminUserId,
@@ -1269,12 +1293,12 @@ function downloadAAB(){
         action: 'grant_complimentary',
         targetUserId: userId,
         targetUsername: targetUser.email || userId,
-        reason: reason || `Complimentary ${tier} access granted`,
-        details: JSON.stringify({ tier, complimentary: true }),
+        reason: reason || `Complimentary ${tier} access granted (${durationLabel})`,
+        details: JSON.stringify({ tier, complimentary: true, duration: durationLabel, expiresAt: expiresAt?.toISOString() || 'never' }),
       });
 
-      console.log(`[Admin] Granted complimentary ${tier} to ${userId}`);
-      res.json({ success: true, message: `Complimentary ${tier} access granted` });
+      console.log(`[Admin] Granted complimentary ${tier} to ${userId} for ${durationLabel}`);
+      res.json({ success: true, message: `Complimentary ${tier} access granted for ${durationLabel}` });
     } catch (error: any) {
       console.error('[Admin] Grant complimentary error:', error.message);
       res.status(500).json({ error: 'Failed to grant complimentary access' });

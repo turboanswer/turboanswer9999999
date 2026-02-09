@@ -86,6 +86,7 @@ export default function EmployeeDashboard() {
   const [subModalTier, setSubModalTier] = useState('');
   const [subModalReason, setSubModalReason] = useState('');
   const [subModalAction, setSubModalAction] = useState<'modify' | 'cancel' | 'grant'>('modify');
+  const [subModalDuration, setSubModalDuration] = useState<number>(0);
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
 
@@ -219,7 +220,7 @@ export default function EmployeeDashboard() {
   });
 
   const grantCompMutation = useMutation({
-    mutationFn: (data: { userId: string; tier: string; reason: string }) =>
+    mutationFn: (data: { userId: string; tier: string; reason: string; durationMonths: number }) =>
       apiRequest('POST', '/api/admin/grant-complimentary', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] });
@@ -227,6 +228,7 @@ export default function EmployeeDashboard() {
       setSubModalUser(null);
       setSubModalTier('');
       setSubModalReason('');
+      setSubModalDuration(0);
     },
   });
 
@@ -300,7 +302,7 @@ export default function EmployeeDashboard() {
     } else if (subModalAction === 'cancel') {
       cancelSubMutation.mutate({ userId: subModalUser.id, reason: subModalReason });
     } else if (subModalAction === 'grant' && subModalTier) {
-      grantCompMutation.mutate({ userId: subModalUser.id, tier: subModalTier, reason: subModalReason });
+      grantCompMutation.mutate({ userId: subModalUser.id, tier: subModalTier, reason: subModalReason, durationMonths: subModalDuration });
     }
   };
 
@@ -360,6 +362,7 @@ export default function EmployeeDashboard() {
                     setSubModalUser(selectedUser);
                     setSubModalAction('grant');
                     setSubModalTier('pro');
+                    setSubModalDuration(0);
                   }
                 }}>
                   <Gift className="w-3 h-3 mr-1" /> Grant Free Access
@@ -486,7 +489,7 @@ export default function EmployeeDashboard() {
             setSearchTerm={setSearchTerm}
             onModify={(user) => { setSubModalUser(user); setSubModalAction('modify'); setSubModalTier(user.subscriptionTier || 'free'); }}
             onCancel={(user) => { setSubModalUser(user); setSubModalAction('cancel'); }}
-            onGrant={(user) => { setSubModalUser(user); setSubModalAction('grant'); setSubModalTier('pro'); }}
+            onGrant={(user) => { setSubModalUser(user); setSubModalAction('grant'); setSubModalTier('pro'); setSubModalDuration(0); }}
             onViewUser={(userId) => setSelectedUserId(userId)}
             adminStats={adminStats}
           />
@@ -725,7 +728,7 @@ export default function EmployeeDashboard() {
                 {subModalAction === 'grant' ? 'Grant Complimentary Access' :
                  subModalAction === 'cancel' ? 'Cancel Subscription' : 'Modify Subscription'}
               </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => { setSubModalUser(null); setSubModalTier(''); setSubModalReason(''); }}>
+              <Button variant="ghost" size="sm" onClick={() => { setSubModalUser(null); setSubModalTier(''); setSubModalReason(''); setSubModalDuration(0); }}>
                 <X className="w-4 h-4" />
               </Button>
             </CardHeader>
@@ -764,6 +767,26 @@ export default function EmployeeDashboard() {
                 </div>
               )}
 
+              {subModalAction === 'grant' && (
+                <div>
+                  <label className="text-sm text-gray-400 mb-1 block">Duration</label>
+                  <select
+                    value={subModalDuration}
+                    onChange={(e) => setSubModalDuration(Number(e.target.value))}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
+                  >
+                    <option value={0}>Forever</option>
+                    <option value={1}>1 Month</option>
+                    <option value={2}>2 Months</option>
+                    <option value={3}>3 Months</option>
+                    <option value={4}>4 Months</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {subModalDuration === 0 ? 'Access will never expire' : `Access expires after ${subModalDuration} month${subModalDuration > 1 ? 's' : ''}`}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="text-sm text-gray-400 mb-1 block">Reason (optional)</label>
                 <Input
@@ -775,7 +798,7 @@ export default function EmployeeDashboard() {
               </div>
 
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" onClick={() => { setSubModalUser(null); setSubModalTier(''); setSubModalReason(''); }} className="text-gray-400">
+                <Button variant="ghost" onClick={() => { setSubModalUser(null); setSubModalTier(''); setSubModalReason(''); setSubModalDuration(0); }} className="text-gray-400">
                   Cancel
                 </Button>
                 <Button
