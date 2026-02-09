@@ -234,7 +234,7 @@ export default function Support() {
                 What is the Enterprise plan?
               </h4>
               <p style={{ color: '#9ca3af', fontSize: '14px' }}>
-                The Enterprise plan ($30/month) gives you a special 6-digit code that up to 10 team members can use to get Research-level access.
+                The Enterprise plan ($50/month) gives you a special 6-digit code that up to 5 team members can use to get Research-level access. That's a 33% savings compared to 5 individual Research plans! Need more than 5 members? Contact support@turboanswer.it.com for custom team pricing.
               </p>
             </div>
             <div style={{

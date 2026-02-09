@@ -259,7 +259,7 @@ export default function Chat() {
                 <SelectItem value="gemini-flash">Free</SelectItem>
                 <SelectItem value="gemini-pro">Pro $6.99</SelectItem>
                 <SelectItem value="claude-research">Research $15</SelectItem>
-                <SelectItem value="enterprise-research">Enterprise $35</SelectItem>
+                <SelectItem value="enterprise-research">Enterprise $50</SelectItem>
               </SelectContent>
             </Select>
 
@@ -644,7 +644,7 @@ export default function Chat() {
                           <Copy className="w-5 h-5" />
                         </button>
                       </div>
-                      <p className={`text-xs mt-2 ${isDark ? 'text-amber-400/60' : 'text-amber-600'}`}>Share this code with up to 10 team members</p>
+                      <p className={`text-xs mt-2 ${isDark ? 'text-amber-400/60' : 'text-amber-600'}`}>Share this code with up to 5 team members</p>
                     </div>
                   )}
                   <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-gray-50 border-gray-200'} rounded-xl p-4 border`}>

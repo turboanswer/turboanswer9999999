@@ -155,7 +155,7 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
           tenure_type: "REGULAR",
           sequence: 1,
           total_cycles: 0,
-          pricing_scheme: { fixed_price: { value: "35.00", currency_code: "USD" } },
+          pricing_scheme: { fixed_price: { value: "50.00", currency_code: "USD" } },
         }],
         payment_preferences: {
           auto_bill_outstanding: true,

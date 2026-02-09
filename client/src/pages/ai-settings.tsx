@@ -164,7 +164,7 @@ export default function AISettings() {
   }, [selectedModel]);
 
   const hasPaidSubscription = subscriptionData?.tier === 'pro' || subscriptionData?.tier === 'research' || subscriptionData?.tier === 'enterprise';
-  const tierLabel = subscriptionData?.tier === 'enterprise' ? 'Enterprise ($35/mo)' : subscriptionData?.tier === 'research' ? 'Research ($15/mo)' : 'Pro ($6.99/mo)';
+  const tierLabel = subscriptionData?.tier === 'enterprise' ? 'Enterprise ($50/mo)' : subscriptionData?.tier === 'research' ? 'Research ($15/mo)' : 'Pro ($6.99/mo)';
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -283,11 +283,11 @@ export default function AISettings() {
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="h-4 w-4 text-amber-400" />
                   <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    {enterpriseData.currentUses || 0} / {enterpriseData.maxUses || 10} codes used
+                    {enterpriseData.currentUses || 0} / {enterpriseData.maxUses || 5} codes used
                   </span>
                 </div>
                 <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Share this code with up to 10 team members to give them Research-level access.
+                  Share this code with up to 5 team members to give them Research-level access.
                 </p>
               </CardContent>
             </Card>

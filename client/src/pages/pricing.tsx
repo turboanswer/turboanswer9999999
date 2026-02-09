@@ -66,15 +66,15 @@ const plans: PricingPlan[] = [
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: '$35',
+    price: '$50',
     period: 'per month',
-    description: 'Team access with shareable code for up to 10 members',
+    description: 'Team access with shareable code — save 33% vs individual plans',
     features: [
       'All Research features included',
       'Shareable 6-digit team code',
-      'Up to 10 team members',
+      'Up to 5 team members',
       'Research-level access for all members',
-      'Team management dashboard',
+      'Save 33% compared to 5 individual Research plans',
       'Priority enterprise support'
     ],
     apiPlan: 'enterprise'
@@ -439,6 +439,42 @@ export default function Pricing() {
             )}
           </div>
         ))}
+      </div>
+
+      <div style={{
+        maxWidth: '600px',
+        margin: '40px auto 0',
+        padding: '0 20px',
+        textAlign: 'center'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+          borderRadius: '16px',
+          padding: '28px 32px',
+          border: '1px solid rgba(148, 163, 184, 0.15)'
+        }}>
+          <h3 style={{ color: '#f8fafc', fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>
+            Need more than 5 team members?
+          </h3>
+          <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', marginBottom: '16px' }}>
+            We offer custom team plans for larger organizations. Get in touch and we'll create a plan that fits your team.
+          </p>
+          <a
+            href="mailto:support@turboanswer.it.com?subject=Custom%20Enterprise%20Plan%20Inquiry"
+            style={{
+              display: 'inline-block',
+              padding: '12px 28px',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: 'white',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              textDecoration: 'none'
+            }}
+          >
+            Contact support@turboanswer.it.com
+          </a>
+        </div>
       </div>
 
       <div style={{

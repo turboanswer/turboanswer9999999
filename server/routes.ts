@@ -634,8 +634,8 @@ function downloadAAB(){
         return res.status(400).json({ error: 'You cannot redeem your own enterprise code' });
       }
 
-      if ((enterpriseCode.currentUses || 0) >= (enterpriseCode.maxUses || 10)) {
-        return res.status(400).json({ error: 'This enterprise code has reached its maximum number of uses (10)' });
+      if ((enterpriseCode.currentUses || 0) >= (enterpriseCode.maxUses || 5)) {
+        return res.status(400).json({ error: 'This enterprise code has reached its maximum number of uses (5). Contact support@turboanswer.it.com for larger team plans.' });
       }
 
       const existingRedemptions = await storage.getEnterpriseCodeRedemptions(enterpriseCode.id);

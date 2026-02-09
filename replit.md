@@ -44,10 +44,10 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Authentication Storage**: User sessions and account data
 
 ### Key Features
-- **Multi-Model AI System**: 4 tiers - Free (Gemini 2.5 Flash), Pro ($6.99/mo - Gemini Pro), Research ($15/mo - Gemini 2.5 Pro), Enterprise ($35/mo - Research access + shareable 6-digit code for up to 10 team members). All Gemini-powered with automatic fallback on rate limits. Research tier includes Pro access. Enterprise includes Research access.
+- **Multi-Model AI System**: 4 tiers - Free (Gemini 2.5 Flash), Pro ($6.99/mo - Gemini Pro), Research ($15/mo - Gemini 2.5 Pro), Enterprise ($50/mo - Research access + shareable 6-digit code for up to 5 team members, 33% savings vs individual plans). All Gemini-powered with automatic fallback on rate limits. Research tier includes Pro access. Enterprise includes Research access. Custom team plans available via support@turboanswer.it.com for teams larger than 5.
 - **Voice Command Features**: Speech recognition (Web Speech API), "Turbo" assistant name, optional "Hey Turbo" wake word, auto-send, text-to-speech, and visual feedback.
 - **Comprehensive Knowledge Coverage**: Expert-level knowledge in technical, scientific, creative, business, and general domains, including real-time weather and world time zone intelligence.
-- **Subscription Management**: PayPal Subscriptions API integration for Pro ($6.99/month), Research ($15/month), and Enterprise ($35/month) plans. Payment popups trigger from model selector. Uses PayPal REST API with auto-created billing plans. Enterprise subscribers get a secure 6-digit numeric code saved to their account (persists across sessions) to share with up to 10 team members for Research access.
+- **Subscription Management**: PayPal Subscriptions API integration for Pro ($6.99/month), Research ($15/month), and Enterprise ($50/month) plans. Payment popups trigger from model selector. Uses PayPal REST API with auto-created billing plans. Enterprise subscribers get a secure 6-digit numeric code saved to their account (persists across sessions) to share with up to 5 team members for Research access. Custom pricing available for larger teams via support email.
 - **Account Management**: Delete account functionality in AI settings with PayPal auto-cancellation and complete data removal.
 - **Customer Support**: Email (support@turboanswer.it.com), Phone (518-250-5405), Hours: Mon-Fri 10am-4pm EST.
 - **Employee Management API**: Endpoints for user management (ban, flag, suspend) and audit logging.
