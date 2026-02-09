@@ -226,12 +226,14 @@ export default function Chat() {
 
   const handleModelChange = (value: string) => {
     const tier = subscriptionData?.tier;
-    if (value === 'gemini-pro' && tier !== 'pro' && tier !== 'research') {
+    if (value === 'gemini-pro' && tier !== 'pro' && tier !== 'research' && tier !== 'enterprise') {
       setShowProPopup(true);
-    } else if (value === 'claude-research' && tier !== 'research') {
+    } else if (value === 'claude-research' && tier !== 'research' && tier !== 'enterprise') {
+      setShowResearchPopup(true);
+    } else if (value === 'enterprise-research' && tier !== 'enterprise') {
       setShowResearchPopup(true);
     } else {
-      setSelectedAIModel(value);
+      setSelectedAIModel(value === 'enterprise-research' ? 'claude-research' : value);
     }
   };
 
@@ -257,6 +259,7 @@ export default function Chat() {
                 <SelectItem value="gemini-flash">Free</SelectItem>
                 <SelectItem value="gemini-pro">Pro $6.99</SelectItem>
                 <SelectItem value="claude-research">Research $15</SelectItem>
+                <SelectItem value="enterprise-research">Enterprise $35</SelectItem>
               </SelectContent>
             </Select>
 
@@ -414,7 +417,7 @@ export default function Chat() {
               <p className={`text-sm sm:text-base mb-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Think Faster. Build Smarter.</p>
               <div className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-full ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-gray-200 text-gray-500'}`}>
                 <Brain className="h-3 w-3" />
-                <span>Model: {selectedAIModel === 'gemini-flash' ? 'Free' : selectedAIModel === 'gemini-pro' ? 'Pro' : 'Research'}</span>
+                <span>Model: {selectedAIModel === 'gemini-flash' ? 'Free' : selectedAIModel === 'gemini-pro' ? 'Pro' : selectedAIModel === 'enterprise-research' ? 'Enterprise' : 'Research'}</span>
               </div>
             </div>
           )}
