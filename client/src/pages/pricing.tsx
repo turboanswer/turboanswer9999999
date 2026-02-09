@@ -85,6 +85,9 @@ export default function Pricing() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [showPromoCode, setShowPromoCode] = useState(false);
   const [promoCode, setPromoCode] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState(false);
+  const [couponDiscount, setCouponDiscount] = useState<{ price: string; label: string } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -114,11 +117,32 @@ export default function Pricing() {
     }
   });
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    try {
+      const res = await apiRequest("POST", "/api/validate-coupon", { coupon: couponCode.trim().toUpperCase() });
+      const data = await res.json();
+      if (data.valid) {
+        setCouponApplied(true);
+        setCouponDiscount({ price: data.discountedPrice, label: data.label });
+        toast({ title: "Coupon Applied!", description: data.label });
+      }
+    } catch (error: any) {
+      toast({ title: "Invalid Coupon", description: error.message || "This coupon is not valid.", variant: "destructive" });
+      setCouponApplied(false);
+      setCouponDiscount(null);
+    }
+  };
+
   const handleCheckout = async (plan: PricingPlan) => {
     if (!plan.apiPlan) return;
     setCheckoutLoading(plan.id);
     try {
-      const res = await apiRequest("POST", "/api/checkout", { plan: plan.apiPlan });
+      const body: any = { plan: plan.apiPlan };
+      if (plan.id === 'enterprise' && couponApplied && couponCode.trim()) {
+        body.coupon = couponCode.trim().toUpperCase();
+      }
+      const res = await apiRequest("POST", "/api/checkout", body);
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
@@ -342,6 +366,50 @@ export default function Pricing() {
               </button>
             ) : (
               <>
+                {plan.id === 'enterprise' && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="Coupon code"
+                        value={couponCode}
+                        onChange={(e) => { setCouponCode(e.target.value); if (couponApplied) { setCouponApplied(false); setCouponDiscount(null); } }}
+                        style={{
+                          flex: 1,
+                          padding: '10px 12px',
+                          backgroundColor: '#1f2937',
+                          color: 'white',
+                          border: couponApplied ? '1px solid #10b981' : '1px solid #374151',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                      />
+                      <button
+                        onClick={handleApplyCoupon}
+                        disabled={!couponCode.trim() || couponApplied}
+                        style={{
+                          padding: '10px 16px',
+                          backgroundColor: couponApplied ? '#10b981' : '#6366f1',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: !couponCode.trim() || couponApplied ? 'not-allowed' : 'pointer',
+                          opacity: !couponCode.trim() ? 0.5 : 1
+                        }}
+                      >
+                        {couponApplied ? '✓ Applied' : 'Apply'}
+                      </button>
+                    </div>
+                    {couponApplied && couponDiscount && (
+                      <p style={{ fontSize: '13px', color: '#10b981', marginTop: '6px', textAlign: 'center' }}>
+                        {couponDiscount.label}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <button
                   onClick={() => handleCheckout(plan)}
                   disabled={checkoutLoading === plan.id}
@@ -358,7 +426,11 @@ export default function Pricing() {
                     opacity: checkoutLoading === plan.id ? 0.7 : 1
                   }}
                 >
-                  {checkoutLoading === plan.id ? 'Loading...' : `Subscribe with PayPal - ${plan.price}/mo`}
+                  {checkoutLoading === plan.id ? 'Loading...' : (
+                    plan.id === 'enterprise' && couponApplied && couponDiscount
+                      ? `Subscribe with PayPal - ${couponDiscount.price}/mo`
+                      : `Subscribe with PayPal - ${plan.price}/mo`
+                  )}
                 </button>
                 <p style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
                   Cancel anytime. Secure payment via PayPal.

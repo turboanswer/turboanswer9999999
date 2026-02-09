@@ -178,6 +178,7 @@ export async function createSubscription(
   userId: string,
   returnUrl: string,
   cancelUrl: string,
+  priceOverride?: string,
 ): Promise<{ subscriptionId: string; approvalUrl: string }> {
   const plans = await ensureSubscriptionPlans();
   const planId = planTier === "enterprise" ? plans.enterprise : planTier === "research" ? plans.research : plans.pro;
@@ -198,6 +199,21 @@ export async function createSubscription(
     },
     custom_id: JSON.stringify({ userId, tier: planTier }),
   };
+
+  if (priceOverride) {
+    body.plan = {
+      billing_cycles: [{
+        frequency: { interval_unit: "MONTH", interval_count: 1 },
+        tenure_type: "REGULAR",
+        sequence: 1,
+        total_cycles: 0,
+        pricing_scheme: {
+          fixed_price: { value: priceOverride, currency_code: "USD" },
+        },
+      }],
+    };
+    console.log(`[PayPal] Price override applied: $${priceOverride}/mo`);
+  }
 
   if (userEmail) {
     body.subscriber = { email_address: userEmail };

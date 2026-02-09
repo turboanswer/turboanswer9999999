@@ -362,6 +362,30 @@ function downloadAAB(){
     }
   });
 
+  const VALID_COUPONS: Record<string, { discountedPrice: string; label: string; allowedEmail: string }> = {
+    'TURBOTEST99': { discountedPrice: '$0.99', label: 'Enterprise discounted to $0.99/mo', allowedEmail: 'support@turboanswer.it.com' },
+  };
+
+  app.post('/api/validate-coupon', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+
+      const { coupon } = req.body || {};
+      const couponData = VALID_COUPONS[coupon?.toUpperCase()];
+      if (!couponData) {
+        return res.status(400).json({ error: 'Invalid coupon code.' });
+      }
+      if (user.email?.toLowerCase() !== couponData.allowedEmail.toLowerCase()) {
+        return res.status(403).json({ error: 'This coupon is not valid for your account.' });
+      }
+      res.json({ valid: true, discountedPrice: couponData.discountedPrice, label: couponData.label });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to validate coupon.' });
+    }
+  });
+
   // PayPal checkout - create subscription and redirect to PayPal
   app.post('/api/checkout', isAuthenticated, async (req: any, res) => {
     try {
@@ -371,9 +395,18 @@ function downloadAAB(){
         return res.status(401).json({ error: 'User not found' });
       }
 
-      const { plan } = req.body || {};
+      const { plan, coupon } = req.body || {};
       const tier = plan === 'enterprise' ? 'enterprise' : plan === 'research' ? 'research' : 'pro';
       console.log('[PayPal Checkout] Starting for user:', userId, 'plan:', tier);
+
+      let priceOverride: string | undefined;
+      if (coupon && tier === 'enterprise') {
+        const couponData = VALID_COUPONS[coupon.toUpperCase()];
+        if (couponData && user.email?.toLowerCase() === couponData.allowedEmail.toLowerCase()) {
+          priceOverride = '0.99';
+          console.log('[PayPal Checkout] Coupon applied - price override to $0.99');
+        }
+      }
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || req.get('host')}`;
       const result = await createSubscription(
@@ -382,6 +415,7 @@ function downloadAAB(){
         userId,
         `${baseUrl}/chat?subscription=${tier}`,
         `${baseUrl}/chat`,
+        priceOverride,
       );
 
       console.log('[PayPal Checkout] Subscription created:', result.subscriptionId);
