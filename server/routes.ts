@@ -55,8 +55,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: "AAB file not found" });
     }
+    const fileStat = fs.statSync(filePath);
     const fileBuffer = fs.readFileSync(filePath);
     const base64Data = fileBuffer.toString("base64");
+    const fileSizeMB = (fileStat.size / 1024 / 1024).toFixed(1);
     const html = `<!DOCTYPE html>
 <html><head><title>Download Turbo Answer AAB</title>
 <style>body{font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#1a1a2e;color:#fff}
@@ -69,8 +71,7 @@ button:hover{opacity:0.9}
 </style></head><body>
 <div class="container">
 <h1>Turbo Answer v2.0.0</h1>
-<p>Android App Bundle (AAB) - ${(stat.size / 1024 / 1024).toFixed(1)} MB</p>
-<p style="font-size:12px">MD5: a90ee46be1d127ab65a57d8e1d93dc60</p>
+<p>Android App Bundle (AAB) - ${fileSizeMB} MB</p>
 <button onclick="downloadAAB()">Download AAB File</button>
 <p id="status" class="info"></p>
 </div>
@@ -87,7 +88,7 @@ function downloadAAB(){
   a.href=url;a.download='turbo-answer-v2.0.0.aab';
   document.body.appendChild(a);a.click();
   document.body.removeChild(a);URL.revokeObjectURL(url);
-  document.getElementById('status').textContent='Download started! File size: ${(stat.size / 1024 / 1024).toFixed(1)} MB';
+  document.getElementById('status').textContent='Download started! File size: ${fileSizeMB} MB';
 }
 </script></body></html>`;
     res.setHeader("Content-Type", "text/html");

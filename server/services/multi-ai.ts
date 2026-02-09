@@ -190,65 +190,8 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
   throw new Error('AI is temporarily busy. Please try again in a moment.');
 }
 
-async function callClaude(userMessage: string, systemPrompt: string, contextMessages: string, maxTokens: number, temperature: number, apiKey: string, baseUrl?: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
-
-  try {
-    const messages: Array<{role: string, content: string}> = [];
-    if (contextMessages) {
-      messages.push({ role: "user", content: `Previous conversation context:\n${contextMessages}` });
-      messages.push({ role: "assistant", content: "I understand the context. How can I help?" });
-    }
-    messages.push({ role: "user", content: userMessage });
-
-    const apiUrl = baseUrl ? `${baseUrl}/v1/messages` : 'https://api.anthropic.com/v1/messages';
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: maxTokens,
-        temperature,
-        system: systemPrompt,
-        messages,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('[Claude] API error:', response.status, errorData);
-      if (response.status === 429) {
-        return "Claude is a bit busy right now. Please wait a few seconds and try again!";
-      }
-      throw new Error(errorData.error?.message || `Claude API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.content?.[0]?.text;
-    if (!content) {
-      throw new Error('No content received from Claude');
-    }
-    return content;
-  } catch (error: any) {
-    clearTimeout(timeout);
-    if (error.name === 'AbortError') {
-      return "The research query took too long. Please try a simpler question or try again.";
-    }
-    throw error;
-  }
-}
-
 export function getAvailableModels(subscriptionTier: string): Record<string, any> {
   const hasGemini = !!process.env.GEMINI_API_KEY;
-  const hasClaude = !!(process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY);
 
   const models: Record<string, any> = {};
 

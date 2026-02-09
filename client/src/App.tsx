@@ -9,9 +9,7 @@ import { Loader2 } from "lucide-react";
 import Home from "@/pages/home";
 import Chat from "@/pages/chat";
 import AISettings from "@/pages/ai-settings";
-import TestSimple from "@/pages/test-simple";
 import Subscribe from "@/pages/subscribe";
-import EnhancedSubscribe from "@/pages/enhanced-subscribe";
 import NotFound from "@/pages/not-found";
 import Pricing from "@/pages/pricing";
 import Support from "@/pages/support";
@@ -33,7 +31,6 @@ function AuthenticatedRouter() {
       <Route path="/chat" component={Chat} />
       <Route path="/" component={Chat} />
       <Route path="/ai-settings" component={AISettings} />
-      <Route path="/test" component={TestSimple} />
       <Route path="/subscribe" component={Subscribe} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/support" component={Support} />
