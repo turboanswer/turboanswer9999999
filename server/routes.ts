@@ -34,6 +34,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use(widgetRoutes);
 
+  app.get("/sitemap.xml", (req, res) => {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const today = new Date().toISOString().split("T")[0];
+    const pages = [
+      { loc: "/", priority: "1.0", changefreq: "daily" },
+      { loc: "/login", priority: "0.8", changefreq: "monthly" },
+      { loc: "/register", priority: "0.8", changefreq: "monthly" },
+      { loc: "/pricing", priority: "0.9", changefreq: "weekly" },
+      { loc: "/support", priority: "0.7", changefreq: "monthly" },
+      { loc: "/privacy-policy", priority: "0.5", changefreq: "yearly" },
+      { loc: "/business", priority: "0.8", changefreq: "monthly" },
+      { loc: "/widget-demo", priority: "0.6", changefreq: "monthly" },
+      { loc: "/crisis-info", priority: "0.7", changefreq: "monthly" },
+    ];
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${pages.map(p => `  <url>
+    <loc>${baseUrl}${p.loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>${p.changefreq}</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`).join("\n")}
+</urlset>`;
+    res.set("Content-Type", "application/xml");
+    res.send(xml);
+  });
+
   app.get("/api/download/android-app", (req, res) => {
     const fs = require("fs");
     const filePath = path.resolve("turbo-answer-v2.0.0.aab");
