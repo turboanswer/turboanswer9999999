@@ -80,7 +80,7 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
       try {
         const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
         const price = details?.billing_cycles?.[0]?.pricing_scheme?.fixed_price?.value;
-        if (price === "50.00") {
+        if (price && parseFloat(price) === 50) {
           enterprisePlanId = plan.id;
         } else {
           console.log(`[PayPal] Found old Enterprise plan ${plan.id} with price $${price}, deactivating...`);

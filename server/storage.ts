@@ -50,6 +50,8 @@ export interface IStorage {
   decrementEnterpriseCodeUses(codeId: number): Promise<void>;
   removeEnterpriseCodeRedemption(codeId: number, userId: string): Promise<void>;
   revokeAllEnterpriseCodeAccess(ownerUserId: string): Promise<string[]>;
+  deactivateEnterpriseCode(ownerUserId: string): Promise<void>;
+  reactivateEnterpriseCode(ownerUserId: string): Promise<void>;
   getRedemptionByUserId(userId: string): Promise<EnterpriseCodeRedemption | undefined>;
   deleteUserAccount(userId: string): Promise<void>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -447,6 +449,18 @@ export class DatabaseStorage implements IStorage {
       .set({ currentUses: 0 })
       .where(eq(enterpriseCodes.id, code.id));
     return affectedUserIds;
+  }
+
+  async deactivateEnterpriseCode(ownerUserId: string): Promise<void> {
+    await db.update(enterpriseCodes)
+      .set({ isActive: false })
+      .where(eq(enterpriseCodes.ownerUserId, ownerUserId));
+  }
+
+  async reactivateEnterpriseCode(ownerUserId: string): Promise<void> {
+    await db.update(enterpriseCodes)
+      .set({ isActive: true })
+      .where(eq(enterpriseCodes.ownerUserId, ownerUserId));
   }
 
   async getRedemptionByUserId(userId: string): Promise<EnterpriseCodeRedemption | undefined> {

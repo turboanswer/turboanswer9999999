@@ -463,6 +463,10 @@ function downloadAAB(){
               enterpriseCode = code;
               console.log(`[Enterprise] Generated code ${code} for user ${userId}`);
             } else {
+              if (!existingCode.isActive) {
+                await storage.reactivateEnterpriseCode(userId);
+                console.log(`[Enterprise] Reactivated code ${existingCode.code} for user ${userId}`);
+              }
               enterpriseCode = existingCode.code;
             }
           }
@@ -496,6 +500,10 @@ function downloadAAB(){
                 enterpriseCode = code;
                 console.log(`[Enterprise] Generated code ${code} for user ${userId}`);
               } else {
+                if (!existingCode.isActive) {
+                  await storage.reactivateEnterpriseCode(userId);
+                  console.log(`[Enterprise] Reactivated code ${existingCode.code} for user ${userId}`);
+                }
                 enterpriseCode = existingCode.code;
               }
             }
@@ -658,6 +666,10 @@ function downloadAAB(){
         return res.status(400).json({ error: 'Invalid enterprise code' });
       }
 
+      if (!enterpriseCode.isActive) {
+        return res.status(400).json({ error: 'This enterprise code is no longer active. The owner may have cancelled their subscription.' });
+      }
+
       if (enterpriseCode.ownerUserId === userId) {
         return res.status(400).json({ error: 'You cannot redeem your own enterprise code' });
       }
@@ -795,7 +807,8 @@ function downloadAAB(){
 
       if (user.subscriptionTier === 'enterprise') {
         const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
-        console.log(`[Cancel Subscription] Revoked enterprise access for ${revokedUsers.length} team members`);
+        await storage.deactivateEnterpriseCode(userId);
+        console.log(`[Cancel Subscription] Revoked enterprise access for ${revokedUsers.length} team members and deactivated code`);
       }
 
       const redemption = await storage.getRedemptionByUserId(userId);
