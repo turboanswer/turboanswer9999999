@@ -1258,6 +1258,124 @@ function downloadAAB(){
     }
   });
 
+  // === CRISIS SUPPORT BOT (Encrypted, Private, No Content Moderation) ===
+
+  app.post("/api/crisis/conversations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conv = await storage.createCrisisConversation(userId);
+      res.json(conv);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to create crisis conversation" });
+    }
+  });
+
+  app.get("/api/crisis/conversations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const convs = await storage.getCrisisConversationsByUser(userId);
+      res.json(convs);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to get crisis conversations" });
+    }
+  });
+
+  app.get("/api/crisis/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversationId = parseInt(req.params.id);
+      const conv = await storage.getCrisisConversation(conversationId, userId);
+      if (!conv) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      const encryptedMessages = await storage.getCrisisMessagesByConversation(conversationId);
+      const { decrypt } = await import("./services/encryption");
+      const decryptedMessages = encryptedMessages.map(msg => ({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        content: decrypt(msg.encryptedContent),
+        role: msg.role,
+        timestamp: msg.timestamp,
+      }));
+      res.json(decryptedMessages);
+    } catch (error: any) {
+      console.error("[Crisis] Failed to get messages:", error.message);
+      res.status(500).json({ message: "Failed to get messages" });
+    }
+  });
+
+  app.post("/api/crisis/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversationId = parseInt(req.params.id);
+      const { content } = req.body;
+
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ message: "Message content is required" });
+      }
+
+      const conv = await storage.getCrisisConversation(conversationId, userId);
+      if (!conv) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      const { encrypt, decrypt } = await import("./services/encryption");
+      const { generateCrisisResponse } = await import("./services/crisis-ai");
+
+      const encryptedUserContent = encrypt(content);
+      await storage.createCrisisMessage({
+        conversationId,
+        encryptedContent: encryptedUserContent,
+        role: "user",
+      });
+
+      const encryptedMessages = await storage.getCrisisMessagesByConversation(conversationId);
+      const history = encryptedMessages.slice(-10).map(msg => ({
+        role: msg.role,
+        content: decrypt(msg.encryptedContent),
+      }));
+
+      const savedLanguage = req.body.language || "en";
+      const aiResponse = await generateCrisisResponse(content, history.slice(0, -1), savedLanguage);
+
+      const encryptedAiContent = encrypt(aiResponse);
+      await storage.createCrisisMessage({
+        conversationId,
+        encryptedContent: encryptedAiContent,
+        role: "assistant",
+      });
+
+      res.json({
+        userMessage: { content, role: "user" },
+        aiMessage: { content: aiResponse, role: "assistant" },
+      });
+    } catch (error: any) {
+      console.error("[Crisis] Message error:", error.message);
+      res.status(500).json({ message: "Something went wrong. If you need immediate help, please call 988." });
+    }
+  });
+
+  app.delete("/api/crisis/conversations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversationId = parseInt(req.params.id);
+      await storage.deleteCrisisConversation(conversationId, userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
+  app.delete("/api/crisis/all-data", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.deleteAllCrisisData(userId);
+      res.json({ success: true, message: "All crisis support data has been permanently deleted" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to delete crisis data" });
+    }
+  });
+
   // Serve widget files
   app.get('/widget/turbo-widget.js', (req, res) => {
     res.setHeader('Content-Type', 'application/javascript');
