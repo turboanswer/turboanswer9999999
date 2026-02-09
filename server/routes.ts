@@ -725,6 +725,17 @@ function downloadAAB(){
         }
       }
 
+      if (user.subscriptionTier === 'enterprise') {
+        const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
+        console.log(`[Delete Account] Revoked enterprise access for ${revokedUsers.length} team members`);
+      }
+
+      const redemption = await storage.getRedemptionByUserId(userId);
+      if (redemption) {
+        await storage.decrementEnterpriseCodeUses(redemption.codeId);
+        console.log(`[Delete Account] Freed enterprise code slot for code ${redemption.codeId}`);
+      }
+
       await storage.deleteUserAccount(userId);
       console.log(`[Delete Account] User ${userId} (${user.email}) account deleted`);
 
@@ -780,6 +791,18 @@ function downloadAAB(){
         console.log(`[PayPal Cancel] Subscription ${subscriptionId} cancelled for user ${userId}`);
       } catch (cancelError: any) {
         console.error('[PayPal Cancel] Error:', cancelError.message);
+      }
+
+      if (user.subscriptionTier === 'enterprise') {
+        const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
+        console.log(`[Cancel Subscription] Revoked enterprise access for ${revokedUsers.length} team members`);
+      }
+
+      const redemption = await storage.getRedemptionByUserId(userId);
+      if (redemption) {
+        await storage.decrementEnterpriseCodeUses(redemption.codeId);
+        await storage.removeEnterpriseCodeRedemption(redemption.codeId, userId);
+        console.log(`[Cancel Subscription] Freed enterprise code slot for code ${redemption.codeId}`);
       }
 
       await storage.cancelUserSubscription(userId);

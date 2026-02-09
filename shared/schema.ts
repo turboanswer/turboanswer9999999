@@ -82,7 +82,7 @@ export const enterpriseCodes = pgTable("enterprise_codes", {
   code: text("code").notNull().unique(),
   ownerUserId: text("owner_user_id").notNull(),
   ownerEmail: text("owner_email"),
-  maxUses: integer("max_uses").default(10),
+  maxUses: integer("max_uses").default(5),
   currentUses: integer("current_uses").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

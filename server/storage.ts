@@ -47,6 +47,10 @@ export interface IStorage {
   redeemEnterpriseCode(codeId: number, userId: string, userEmail: string | null): Promise<EnterpriseCodeRedemption>;
   getEnterpriseCodeRedemptions(codeId: number): Promise<EnterpriseCodeRedemption[]>;
   incrementEnterpriseCodeUses(codeId: number): Promise<void>;
+  decrementEnterpriseCodeUses(codeId: number): Promise<void>;
+  removeEnterpriseCodeRedemption(codeId: number, userId: string): Promise<void>;
+  revokeAllEnterpriseCodeAccess(ownerUserId: string): Promise<string[]>;
+  getRedemptionByUserId(userId: string): Promise<EnterpriseCodeRedemption | undefined>;
   deleteUserAccount(userId: string): Promise<void>;
   getUserByEmail(email: string): Promise<User | undefined>;
 
@@ -411,6 +415,43 @@ export class DatabaseStorage implements IStorage {
       .update(enterpriseCodes)
       .set({ currentUses: sql`${enterpriseCodes.currentUses} + 1` })
       .where(eq(enterpriseCodes.id, codeId));
+  }
+
+  async decrementEnterpriseCodeUses(codeId: number): Promise<void> {
+    await db
+      .update(enterpriseCodes)
+      .set({ currentUses: sql`GREATEST(${enterpriseCodes.currentUses} - 1, 0)` })
+      .where(eq(enterpriseCodes.id, codeId));
+  }
+
+  async removeEnterpriseCodeRedemption(codeId: number, userId: string): Promise<void> {
+    await db.delete(enterpriseCodeRedemptions)
+      .where(
+        sql`${enterpriseCodeRedemptions.codeId} = ${codeId} AND ${enterpriseCodeRedemptions.userId} = ${userId}`
+      );
+  }
+
+  async revokeAllEnterpriseCodeAccess(ownerUserId: string): Promise<string[]> {
+    const code = await this.getEnterpriseCodeByOwner(ownerUserId);
+    if (!code) return [];
+    const redemptions = await this.getEnterpriseCodeRedemptions(code.id);
+    const affectedUserIds: string[] = [];
+    for (const r of redemptions) {
+      affectedUserIds.push(r.userId);
+      await db.update(users)
+        .set({ subscriptionStatus: 'free', subscriptionTier: 'free' })
+        .where(eq(users.id, r.userId));
+    }
+    await db.delete(enterpriseCodeRedemptions).where(eq(enterpriseCodeRedemptions.codeId, code.id));
+    await db.update(enterpriseCodes)
+      .set({ currentUses: 0 })
+      .where(eq(enterpriseCodes.id, code.id));
+    return affectedUserIds;
+  }
+
+  async getRedemptionByUserId(userId: string): Promise<EnterpriseCodeRedemption | undefined> {
+    const [result] = await db.select().from(enterpriseCodeRedemptions).where(eq(enterpriseCodeRedemptions.userId, userId));
+    return result || undefined;
   }
 
   async deleteUserAccount(userId: string): Promise<void> {
