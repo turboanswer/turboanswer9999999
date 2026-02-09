@@ -496,6 +496,11 @@ function downloadAAB(){
           tier: 'research',
           email: 'support@turboanswer.it.com',
           description: 'Creator lifetime Research access'
+        },
+        'TURBO-VIP-LIFETIME': {
+          tier: 'research',
+          email: 'tschantret@yahoo.com',
+          description: 'VIP lifetime Research access'
         }
       };
 
