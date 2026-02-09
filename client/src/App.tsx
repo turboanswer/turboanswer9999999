@@ -24,6 +24,7 @@ import LandingPage from "@/pages/landing";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 import CrisisSupport from "@/pages/crisis-support";
+import CrisisInfo from "@/pages/crisis-info";
 
 function AuthenticatedRouter() {
   return (
@@ -43,6 +44,7 @@ function AuthenticatedRouter() {
       <Route path="/where-to-add" component={WhereToAdd} />
       <Route path="/widget-demo" component={WidgetDemo} />
       <Route path="/crisis-support" component={CrisisSupport} />
+      <Route path="/crisis-info" component={CrisisInfo} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -59,6 +61,7 @@ function UnauthenticatedRouter() {
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/business" component={Business} />
       <Route path="/widget-demo" component={WidgetDemo} />
+      <Route path="/crisis-info" component={CrisisInfo} />
       <Route component={LandingPage} />
     </Switch>
   );

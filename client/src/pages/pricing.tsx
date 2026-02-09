@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Crown, Zap, MessageSquare, Headphones, Loader2 } from 'lucide-react';
+import { Check, Crown, Zap, MessageSquare, Headphones, Loader2, Heart, HandHeart } from 'lucide-react';
 
 interface PricingPlan {
   id: string;
@@ -367,6 +367,93 @@ export default function Pricing() {
             )}
           </div>
         ))}
+      </div>
+
+      <div style={{
+        maxWidth: '700px',
+        margin: '60px auto 0',
+        padding: '0 20px'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, #831843, #312e81)',
+          borderRadius: '20px',
+          padding: '40px',
+          textAlign: 'center',
+          border: '1px solid rgba(236, 72, 153, 0.2)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '-12px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#ec4899',
+            color: 'white',
+            padding: '6px 20px',
+            borderRadius: '20px',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}>
+            Always Free
+          </div>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            borderRadius: '50%',
+            background: 'rgba(236, 72, 153, 0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <HandHeart size={28} color="#f472b6" />
+          </div>
+          <h3 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px', color: 'white' }}>
+            Crisis Support
+          </h3>
+          <p style={{ fontSize: '16px', color: '#e2d1f0', marginBottom: '20px', maxWidth: '500px', margin: '0 auto 20px' }}>
+            24/7 private, encrypted mental health companion. A caring AI that truly listens and talks through what you're going through - not just a hotline list.
+          </p>
+          <div style={{ marginBottom: '24px', textAlign: 'left', maxWidth: '400px', margin: '0 auto 24px' }}>
+            {[
+              'AES-256 encrypted private conversations',
+              'Warm, conversational AI companion',
+              'Anxiety, depression, grief & more',
+              'Zero judgment, zero data sharing',
+              'Delete all data permanently anytime',
+              'Available 24/7, no appointment needed'
+            ].map((feature, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                <Check size={18} style={{ color: '#f472b6', marginRight: '10px', flexShrink: 0 }} />
+                <span style={{ fontSize: '15px', color: '#e2d1f0' }}>{feature}</span>
+              </div>
+            ))}
+          </div>
+          <a
+            href="/crisis-info"
+            style={{
+              padding: '14px 32px',
+              background: 'linear-gradient(135deg, #ec4899, #6366f1)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              textDecoration: 'none'
+            }}
+          >
+            <Heart size={18} />
+            Learn More
+          </a>
+          <p style={{ textAlign: 'center', fontSize: '12px', color: '#c4b5d0', marginTop: '10px' }}>
+            Free for all users. No subscription required.
+          </p>
+        </div>
       </div>
 
       <div style={{

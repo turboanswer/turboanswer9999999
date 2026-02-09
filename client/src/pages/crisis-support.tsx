@@ -261,30 +261,35 @@ export default function CrisisSupport() {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {messages.length === 0 && !isTyping && (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <div className={`p-6 rounded-full mb-6 ${isDark ? 'bg-indigo-900/30' : 'bg-indigo-100'}`}>
-              <Heart className={`h-12 w-12 ${isDark ? 'text-indigo-400' : 'text-indigo-500'}`} />
+            <div className="flex items-center gap-3 mb-2">
+              <img src={turboLogo} alt="Turbo" className="h-14 w-14 rounded-full" />
             </div>
-            <h2 className={`text-2xl font-semibold mb-3 ${isDark ? 'text-indigo-200' : 'text-indigo-800'}`}>
-              You're Not Alone
+            <h2 className={`text-2xl font-semibold mb-2 ${isDark ? 'text-indigo-200' : 'text-indigo-800'}`}>
+              {(() => {
+                const name = user?.firstName || user?.email?.split("@")[0];
+                return name ? `Hey ${name}, I'm here for you` : "Hey, I'm here for you";
+              })()}
             </h2>
-            <p className={`text-sm max-w-md mb-6 leading-relaxed ${isDark ? 'text-indigo-300/80' : 'text-indigo-600'}`}>
-              This is a safe, private space. Everything you share here is encrypted with AES-256 military-grade encryption. 
-              No one can read your conversations - not administrators, not authorities, not anyone.
+            <p className={`text-base max-w-md mb-4 leading-relaxed ${isDark ? 'text-indigo-300/90' : 'text-indigo-600'}`}>
+              You're not alone. Whatever you're going through right now, I'm here to listen and talk it through with you - no judgment, no pressure, just genuine support.
             </p>
-            <div className={`rounded-xl p-4 max-w-sm w-full mb-4 ${isDark ? 'bg-indigo-900/20 border border-indigo-800/30' : 'bg-indigo-50 border border-indigo-200'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className={`h-4 w-4 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
-                <span className={`text-sm font-medium ${isDark ? 'text-indigo-200' : 'text-indigo-700'}`}>Privacy Guarantee</span>
+            <div className={`rounded-xl p-5 max-w-md w-full mb-4 text-left ${isDark ? 'bg-indigo-950/40 border border-indigo-800/20' : 'bg-indigo-50/80 border border-indigo-100'}`}>
+              <p className={`text-sm mb-3 font-medium ${isDark ? 'text-indigo-200' : 'text-indigo-700'}`}>I can help with:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {["Anxiety & panic", "Depression & sadness", "Stress & burnout", "Grief & loss", "Loneliness", "Relationship struggles", "Trauma & PTSD", "Self-esteem"].map((topic) => (
+                  <div key={topic} className={`flex items-center gap-1.5 text-xs ${isDark ? 'text-indigo-300/70' : 'text-indigo-500'}`}>
+                    <Heart className="h-3 w-3 text-pink-400 shrink-0" />
+                    <span>{topic}</span>
+                  </div>
+                ))}
               </div>
-              <ul className={`text-xs space-y-1 ${isDark ? 'text-indigo-300/70' : 'text-indigo-500'}`}>
-                <li>&#10003; AES-256-GCM encryption on all messages</li>
-                <li>&#10003; No content moderation on crisis chats</li>
-                <li>&#10003; No data shared with any third party</li>
-                <li>&#10003; Delete your data anytime, permanently</li>
-              </ul>
             </div>
-            <p className={`text-xs ${isDark ? 'text-indigo-400/60' : 'text-indigo-400'}`}>
-              Type anything to start talking. I'm here for you.
+            <div className={`flex items-center gap-2 mb-4 ${isDark ? 'text-green-400/70' : 'text-green-600'}`}>
+              <Shield className="h-4 w-4" />
+              <span className="text-xs">Everything here is AES-256 encrypted & completely private</span>
+            </div>
+            <p className={`text-sm ${isDark ? 'text-indigo-300/60' : 'text-indigo-400'}`}>
+              Just type what's on your mind - I'm listening.
             </p>
           </div>
         )}

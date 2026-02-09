@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { MessageSquare, Settings, Zap, Brain, Shield, LogOut } from "lucide-react";
+import { MessageSquare, Settings, Zap, Brain, Shield, LogOut, Heart, HandHeart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
@@ -86,6 +86,28 @@ export default function Home() {
               </Link>
             </div>
           </div>
+        </div>
+
+        <div className="max-w-2xl mx-auto mb-8">
+          <Link href="/crisis-info">
+            <Card className="bg-gradient-to-r from-pink-900/60 to-indigo-900/60 hover:from-pink-800/60 hover:to-indigo-800/60 transition-colors border border-pink-700/30 cursor-pointer">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-pink-900/40">
+                    <HandHeart className="h-8 w-8 text-pink-400" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      Crisis Support
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-pink-600/40 text-pink-200 font-medium">FREE</span>
+                    </h3>
+                    <p className="text-pink-200/80 text-sm">24/7 private, encrypted mental health support. You're never alone - talk to a caring AI companion whenever you need it.</p>
+                  </div>
+                  <Heart className="h-5 w-5 text-pink-400 shrink-0" />
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
