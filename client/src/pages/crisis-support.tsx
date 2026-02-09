@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Heart, Shield, Phone, ArrowLeft, Trash2, Plus, Lock, MessageCircleHeart } from "lucide-react";
+import { Send, Heart, Shield, Phone, ArrowLeft, Trash2, Plus, Lock, MessageCircleHeart, AlertTriangle, HandHeart } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
@@ -25,6 +25,7 @@ interface CrisisMessage {
 }
 
 export default function CrisisSupport() {
+  const [hasAccepted, setHasAccepted] = useState(() => sessionStorage.getItem('crisis_accepted') === 'true');
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [messageContent, setMessageContent] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -128,6 +129,73 @@ export default function CrisisSupport() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
   };
+
+  const handleAccept = () => {
+    sessionStorage.setItem('crisis_accepted', 'true');
+    setHasAccepted(true);
+  };
+
+  if (!hasAccepted) {
+    return (
+      <div className={`flex flex-col h-screen items-center justify-center px-4 ${isDark ? 'bg-gradient-to-b from-slate-950 via-indigo-950/30 to-slate-950' : 'bg-gradient-to-b from-blue-50 via-indigo-50 to-white'}`}>
+        <div className={`max-w-lg w-full rounded-2xl p-8 ${isDark ? 'bg-slate-900/90 border border-indigo-800/30' : 'bg-white border border-indigo-200 shadow-lg'}`}>
+          <div className="flex flex-col items-center mb-6">
+            <div className={`p-4 rounded-full mb-4 ${isDark ? 'bg-indigo-900/40' : 'bg-indigo-100'}`}>
+              <HandHeart className={`h-10 w-10 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
+            </div>
+            <h1 className={`text-2xl font-bold mb-1 ${isDark ? 'text-indigo-200' : 'text-indigo-800'}`}>Crisis Support Mode</h1>
+            <p className={`text-sm ${isDark ? 'text-indigo-400/70' : 'text-indigo-500'}`}>A safe space for when you need it most</p>
+          </div>
+
+          <div className={`rounded-xl p-4 mb-5 ${isDark ? 'bg-indigo-950/40 border border-indigo-800/20' : 'bg-indigo-50 border border-indigo-100'}`}>
+            <h2 className={`text-sm font-semibold mb-3 ${isDark ? 'text-indigo-200' : 'text-indigo-700'}`}>What This Is For:</h2>
+            <ul className={`text-sm space-y-2 ${isDark ? 'text-indigo-300/80' : 'text-indigo-600'}`}>
+              <li className="flex items-start gap-2"><Heart className="h-4 w-4 mt-0.5 shrink-0 text-pink-400" /> Mental health support & emotional crisis</li>
+              <li className="flex items-start gap-2"><Heart className="h-4 w-4 mt-0.5 shrink-0 text-pink-400" /> Anxiety, depression, stress, and burnout</li>
+              <li className="flex items-start gap-2"><Heart className="h-4 w-4 mt-0.5 shrink-0 text-pink-400" /> Grief, loneliness, relationship struggles</li>
+              <li className="flex items-start gap-2"><Heart className="h-4 w-4 mt-0.5 shrink-0 text-pink-400" /> Self-harm prevention & safety planning</li>
+              <li className="flex items-start gap-2"><Heart className="h-4 w-4 mt-0.5 shrink-0 text-pink-400" /> Trauma, substance concerns, self-esteem</li>
+            </ul>
+          </div>
+
+          <div className={`rounded-xl p-4 mb-5 ${isDark ? 'bg-red-950/20 border border-red-800/20' : 'bg-red-50 border border-red-100'}`}>
+            <h2 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+              <AlertTriangle className="h-4 w-4" /> Not For:
+            </h2>
+            <p className={`text-sm ${isDark ? 'text-red-300/70' : 'text-red-600'}`}>
+              Math, homework, coding, trivia, general questions, or anything unrelated to emotional wellbeing. Use the main TurboAnswer chat for those topics.
+            </p>
+          </div>
+
+          <div className={`rounded-xl p-4 mb-6 ${isDark ? 'bg-green-950/20 border border-green-800/20' : 'bg-green-50 border border-green-100'}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className={`h-4 w-4 ${isDark ? 'text-green-400' : 'text-green-600'}`} />
+              <span className={`text-sm font-semibold ${isDark ? 'text-green-300' : 'text-green-700'}`}>Privacy & Encryption</span>
+            </div>
+            <p className={`text-xs ${isDark ? 'text-green-300/70' : 'text-green-600'}`}>
+              All conversations are encrypted with AES-256-GCM military-grade encryption. No one can read your messages - not admins, not authorities, not anyone. You can permanently delete all your data at any time.
+            </p>
+          </div>
+
+          <div className={`text-center text-xs mb-5 p-3 rounded-lg ${isDark ? 'bg-amber-950/20 border border-amber-800/20 text-amber-300/70' : 'bg-amber-50 border border-amber-100 text-amber-700'}`}>
+            <Phone className="h-3 w-3 inline mr-1" />
+            If you are in immediate danger, please call <strong>911</strong> or <strong>988</strong> (Suicide & Crisis Lifeline)
+          </div>
+
+          <div className="flex gap-3">
+            <Link href="/chat" className="flex-1">
+              <Button variant="outline" className={`w-full ${isDark ? 'border-indigo-700 text-indigo-300' : 'border-indigo-200 text-indigo-600'}`}>
+                Go Back
+              </Button>
+            </Link>
+            <Button onClick={handleAccept} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white">
+              I Understand, Enter
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col h-screen ${isDark ? 'bg-gradient-to-b from-slate-950 via-indigo-950/30 to-slate-950' : 'bg-gradient-to-b from-blue-50 via-indigo-50 to-white'}`}>
