@@ -34,6 +34,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use(widgetRoutes);
 
+  app.get("/robots.txt", (req, res) => {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const robotsTxt = `User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /employee/
+Disallow: /ai-settings
+Disallow: /crisis-support
+
+Sitemap: ${baseUrl}/sitemap.xml`;
+    res.set("Content-Type", "text/plain");
+    res.send(robotsTxt);
+  });
+
   app.get("/sitemap.xml", (req, res) => {
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const today = new Date().toISOString().split("T")[0];
