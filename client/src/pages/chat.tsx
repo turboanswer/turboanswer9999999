@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -35,8 +35,13 @@ export default function Chat() {
   const [welcomeTier, setWelcomeTier] = useState<'pro' | 'research' | 'enterprise'>('pro');
   const [enterpriseCode, setEnterpriseCode] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [showUpgradeBanner, setShowUpgradeBanner] = useState(true);
+  const [showPromoPopup, setShowPromoPopup] = useState(false);
+  const [messageCountSinceLastPromo, setMessageCountSinceLastPromo] = useState(0);
+  const [lastPromoDismissedAt, setLastPromoDismissedAt] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const timedPromoShown = useRef(false);
 
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -163,6 +168,9 @@ export default function Chat() {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", currentConversationId, "messages"] });
       setMessageContent("");
       setIsTyping(false);
+      if (isFreeTier) {
+        setMessageCountSinceLastPromo(prev => prev + 1);
+      }
     },
     onError: (error: any) => {
       setIsTyping(false);
@@ -201,7 +209,7 @@ export default function Chat() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendWithPromo(); }
   };
 
   const handleLanguageChange = (languageCode: string) => {
@@ -254,6 +262,39 @@ export default function Chat() {
   };
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
+  const isFreeTier = !subscriptionData?.tier || subscriptionData?.tier === 'free';
+  const isAnyPopupOpen = showProPopup || showResearchPopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;
+  const promoCooldownActive = lastPromoDismissedAt > 0 && (Date.now() - lastPromoDismissedAt) < 600000;
+
+  useEffect(() => {
+    if (!isFreeTier || timedPromoShown.current || promoCooldownActive) return;
+    const timer = setTimeout(() => {
+      if (!isAnyPopupOpen) {
+        setShowPromoPopup(true);
+        timedPromoShown.current = true;
+      }
+    }, 120000);
+    return () => clearTimeout(timer);
+  }, [isFreeTier, promoCooldownActive]);
+
+  useEffect(() => {
+    if (!isFreeTier || promoCooldownActive || isAnyPopupOpen) return;
+    if (messageCountSinceLastPromo >= 5 && messages.length > 0) {
+      setShowPromoPopup(true);
+      setMessageCountSinceLastPromo(0);
+    }
+  }, [messageCountSinceLastPromo, isFreeTier, promoCooldownActive]);
+
+  const dismissPromo = () => {
+    setShowPromoPopup(false);
+    setLastPromoDismissedAt(Date.now());
+  };
+
+  const handleSendWithPromo = async () => {
+    if (!messageContent.trim() || sendMessageMutation.isPending) return;
+    setIsTyping(true);
+    sendMessageMutation.mutate(messageContent.trim());
+  };
 
   const handleModelChange = (value: string) => {
     const tier = subscriptionData?.tier;
@@ -369,6 +410,31 @@ export default function Chat() {
           </div>
         )}
       </header>
+
+      {/* Free tier upgrade banner */}
+      {isFreeTier && showUpgradeBanner && (
+        <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 px-3 sm:px-5 py-2.5 relative z-30 shrink-0">
+          <div className="flex items-center justify-between max-w-3xl mx-auto">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="h-4 w-4 text-white flex-shrink-0" />
+              <p className="text-white text-xs sm:text-sm font-medium truncate">
+                Upgrade to Pro for faster, smarter AI responses
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowProPopup(true)}
+                className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1 transition-colors"
+              >
+                Try Pro <ArrowRight className="h-3 w-3" />
+              </button>
+              <button onClick={() => setShowUpgradeBanner(false)} className="text-white/70 hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showQR && (
         <div className={`${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-gray-200'} border-b px-3 sm:px-6 py-4 sm:py-6 relative z-30 shrink-0`}>
@@ -523,7 +589,7 @@ export default function Chat() {
                 rows={1}
               />
               <Button
-                onClick={handleSendMessage}
+                onClick={handleSendWithPromo}
                 disabled={!messageContent.trim() || sendMessageMutation.isPending}
                 className="absolute right-2 bottom-2 h-8 w-8 p-0 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-40"
                 title="Send message"
@@ -861,6 +927,73 @@ export default function Chat() {
               onClick={() => { setShowWelcomePro(false); setSelectedAIModel(welcomeTier === 'enterprise' ? "claude-research" : welcomeTier === 'research' ? "claude-research" : "gemini-pro"); }}>
               {welcomeTier === 'enterprise' ? 'Start Using Enterprise' : welcomeTier === 'research' ? 'Start Using Research' : 'Start Using Pro'}
             </Button>
+          </div>
+        </div>
+      )}
+      {/* Pro Upgrade Promo Popup for Free Users */}
+      {showPromoPopup && isFreeTier && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={dismissPromo}>
+          <div className={`${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl max-w-sm w-full p-6 relative overflow-hidden`} onClick={(e) => e.stopPropagation()}>
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent pointer-events-none" />
+            <button onClick={dismissPromo} className={`absolute top-3 right-3 z-10 ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>
+              <X className="h-5 w-5" />
+            </button>
+            <div className="relative text-center mb-5">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/25">
+                <Rocket className="text-white h-8 w-8" />
+              </div>
+              <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Supercharge Your Experience</h2>
+              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Unlock Pro for smarter, faster answers</p>
+            </div>
+            <div className="relative space-y-3 mb-5">
+              {[
+                { icon: <Zap className="w-4 h-4 text-yellow-400" />, title: "Faster Responses", desc: "Priority speed with Gemini Pro" },
+                { icon: <Brain className="w-4 h-4 text-purple-400" />, title: "Advanced Reasoning", desc: "More accurate, detailed answers" },
+                { icon: <Sparkles className="w-4 h-4 text-pink-400" />, title: "Pro-Level Intelligence", desc: "Access our most powerful free model" },
+              ].map((item, i) => (
+                <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-zinc-700' : 'bg-white shadow-sm'}`}>{item.icon}</div>
+                  <div>
+                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.title}</p>
+                    <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="relative text-center mb-4">
+              <span className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$6.99</span>
+              <span className={`text-base ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>/month</span>
+            </div>
+            <Button
+              className="relative w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-5 rounded-xl text-base"
+              disabled={checkoutLoading}
+              onClick={async () => {
+                setShowPromoPopup(false);
+                setCheckoutLoading(true);
+                try {
+                  const res = await fetch("/api/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ plan: "pro" }),
+                    credentials: "include",
+                  });
+                  const data = await res.json();
+                  if (data.url) {
+                    localStorage.setItem('turbo_pending_subscription', JSON.stringify({ tier: 'pro', timestamp: Date.now() }));
+                    window.location.href = data.url;
+                  } else toast({ title: "Error", description: data.error || "Could not start checkout", variant: "destructive" });
+                } catch { toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }); }
+                finally { setCheckoutLoading(false); }
+              }}>
+              <Star className="w-4 h-4 mr-2" />
+              {checkoutLoading ? "Loading..." : "Upgrade to Pro"}
+            </Button>
+            <button
+              onClick={dismissPromo}
+              className={`w-full text-center text-xs mt-3 py-1 ${isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              Maybe later
+            </button>
           </div>
         </div>
       )}
