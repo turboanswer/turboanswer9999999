@@ -6,16 +6,6 @@ import { authStorage } from "./storage";
 
 const ADMIN_EMAIL = "support@turboanswer.it.com";
 
-const BLOCKED_EMAIL_PREFIXES = [
-  "momaaccess17",
-];
-
-function isBlockedEmail(email: string): boolean {
-  const emailLower = email.toLowerCase().trim();
-  const localPart = emailLower.split('@')[0];
-  return BLOCKED_EMAIL_PREFIXES.some(prefix => localPart === prefix);
-}
-
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000;
   const pgStore = connectPg(session);
@@ -72,10 +62,6 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "Please enter a valid email address" });
       }
 
-      if (isBlockedEmail(email)) {
-        return res.status(403).json({ message: "This email address has been permanently blocked from creating an account." });
-      }
-
       const existing = await authStorage.getUserByEmail(email.toLowerCase());
       if (existing) {
         return res.status(400).json({ message: "An account with this email already exists" });
@@ -109,10 +95,6 @@ export async function setupAuth(app: Express) {
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
-      }
-
-      if (isBlockedEmail(email)) {
-        return res.status(403).json({ message: "This account has been permanently banned." });
       }
 
       const user = await authStorage.getUserByEmail(email.toLowerCase());
