@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useAuth } from '@/hooks/use-auth';
 import { Link } from 'wouter';
-import { ArrowLeft, Send, Copy, Check, Mail, Download } from 'lucide-react';
+import { ArrowLeft, Send, Mail, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
 import turboLogo from "@assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509.png";
 
 const APP_URL = 'https://turbo-answer.replit.app';
@@ -13,7 +13,8 @@ export default function EmailTemplates() {
   const { toast } = useToast();
   const [recipientName, setRecipientName] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
@@ -23,52 +24,31 @@ export default function EmailTemplates() {
 
   const name = recipientName.trim() || '[Recipient Name]';
 
-  const generatePlainText = () => {
-    return `BLACKLIST REMOVAL NOTICE - TurboAnswer
-==========================================
-
-Dear ${name},
-
-We are writing to officially inform you that your account has been REMOVED FROM THE BLACKLIST on TurboAnswer, effective as of ${currentDate}.
-
-Your access to all TurboAnswer services has been fully restored. You may now:
-
-- Log in and use TurboAnswer normally
-- Access all AI features available to your subscription tier
-- Engage with the community and all platform features
-
-You can log back in here: ${APP_URL}/login
-
-We kindly ask that you continue to adhere to our community guidelines and terms of service to ensure a positive experience for all users.
-
-If you have any questions or concerns, please don't hesitate to reach out to our support team.
-
-Best regards,
-The TurboAnswer Team
-
----
-CONTACT US
-Email: support@turboanswer.it.com
-Phone: 518-250-5405
-Hours: Mon - Fri, 10:00 AM - 4:00 PM EST
-
-© ${new Date().getFullYear()} TurboAnswer. All rights reserved.`;
-  };
-
-  const handleSendEmail = () => {
-    const email = recipientEmail.trim();
-    const subject = encodeURIComponent('Blacklist Removal Notice - TurboAnswer');
-    const body = encodeURIComponent(generatePlainText());
-    const mailto = `mailto:${email}?subject=${subject}&body=${body}`;
-    window.open(mailto, '_blank');
-    toast({ title: "Email app opened!", description: "Your email is ready to send" });
-  };
-
-  const handleCopyText = () => {
-    navigator.clipboard.writeText(generatePlainText());
-    setCopied(true);
-    toast({ title: "Copied!", description: "Email text copied to clipboard" });
-    setTimeout(() => setCopied(false), 2000);
+  const handleSendEmail = async () => {
+    if (!recipientName.trim() || !recipientEmail.trim()) {
+      toast({ title: "Missing info", description: "Please enter both the name and email address", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    setSent(false);
+    try {
+      const res = await apiRequest('POST', '/api/admin/send-email', {
+        recipientEmail: recipientEmail.trim(),
+        recipientName: recipientName.trim(),
+        templateType: 'blacklist-removal',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSent(true);
+        toast({ title: "Email sent!", description: `Blacklist removal notice sent to ${recipientEmail.trim()}` });
+      } else {
+        toast({ title: "Failed to send", description: data.error || "Something went wrong", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Failed to send", description: err.message || "Something went wrong", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -95,7 +75,7 @@ Hours: Mon - Fri, 10:00 AM - 4:00 PM EST
               Email Templates
             </h1>
           </div>
-          <p style={{ color: '#9ca3af', fontSize: '16px' }}>Send professional email notifications in one click</p>
+          <p style={{ color: '#9ca3af', fontSize: '16px' }}>Send professional email notifications from support@turboanswer.it.com</p>
         </div>
 
         <div style={{
@@ -113,32 +93,39 @@ Hours: Mon - Fri, 10:00 AM - 4:00 PM EST
               <Input
                 placeholder="Recipient's full name"
                 value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
+                onChange={(e) => { setRecipientName(e.target.value); setSent(false); }}
                 className="flex-1 min-w-[200px] bg-black/50 border-gray-700 text-white"
               />
               <Input
                 placeholder="Recipient's email address"
                 type="email"
                 value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
+                onChange={(e) => { setRecipientEmail(e.target.value); setSent(false); }}
                 className="flex-1 min-w-[200px] bg-black/50 border-gray-700 text-white"
               />
             </div>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
               <Button
                 onClick={handleSendEmail}
-                disabled={!recipientName.trim()}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold px-6"
+                disabled={!recipientName.trim() || !recipientEmail.trim() || sending}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold px-8"
               >
-                <Send className="w-4 h-4 mr-2" /> Send Email
+                {sending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</>
+                ) : sent ? (
+                  <><CheckCircle className="w-4 h-4 mr-2" /> Sent!</>
+                ) : (
+                  <><Send className="w-4 h-4 mr-2" /> Send Email</>
+                )}
               </Button>
-              <Button onClick={handleCopyText} variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800">
-                {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                {copied ? 'Copied!' : 'Copy Text'}
-              </Button>
+              {sent && (
+                <span style={{ color: '#22c55e', fontSize: '14px' }}>
+                  Email delivered to {recipientEmail}
+                </span>
+              )}
             </div>
             <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>
-              "Send Email" will open your email app (Gmail, Outlook, etc.) with the message ready to send.
+              Sends a professional HTML email with the TurboAnswer logo directly from your Spacemail account.
             </p>
           </div>
         </div>
@@ -151,7 +138,7 @@ Hours: Mon - Fri, 10:00 AM - 4:00 PM EST
           marginBottom: '40px'
         }}>
           <p style={{ color: '#9ca3af', fontSize: '13px', padding: '8px 16px', marginBottom: '8px' }}>
-            Preview:
+            Email Preview (this is what the recipient will see):
           </p>
           <div style={{ backgroundColor: '#f4f4f7', borderRadius: '8px', overflow: 'hidden' }}>
             <div style={{ maxWidth: '600px', margin: '40px auto', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
