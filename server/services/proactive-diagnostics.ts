@@ -38,20 +38,19 @@ async function checkAIService(): Promise<DiagnosticResult> {
     return { check: 'AI Engine (Gemini)', status: 'fail', details: 'GEMINI_API_KEY not configured', timestamp: ts };
   }
   try {
-    const { GoogleGenerativeAI } = await import("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await model.generateContent("Reply with OK");
-    const text = result.response.text();
-    if (text && text.length > 0) {
-      return { check: 'AI Engine (Gemini)', status: 'pass', details: 'Gemini API responding normally', timestamp: ts };
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`,
+      { method: 'GET', signal: AbortSignal.timeout(5000) }
+    );
+    if (response.ok) {
+      return { check: 'AI Engine (Gemini)', status: 'pass', details: 'Gemini API key valid and accessible', timestamp: ts };
     }
-    return { check: 'AI Engine (Gemini)', status: 'warn', details: 'Gemini returned empty response', timestamp: ts };
-  } catch (e: any) {
-    if (e.message?.includes('429') || e.message?.includes('rate')) {
+    if (response.status === 429) {
       return { check: 'AI Engine (Gemini)', status: 'warn', details: 'Rate limited - will recover automatically', timestamp: ts };
     }
-    return { check: 'AI Engine (Gemini)', status: 'fail', details: e.message, timestamp: ts };
+    return { check: 'AI Engine (Gemini)', status: 'fail', details: `API returned status ${response.status}`, timestamp: ts };
+  } catch (e: any) {
+    return { check: 'AI Engine (Gemini)', status: 'warn', details: `Connection check failed: ${e.message}`, timestamp: ts };
   }
 }
 

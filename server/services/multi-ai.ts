@@ -142,52 +142,69 @@ export async function generateAIResponse(
 }
 
 async function callGemini(prompt: string, preferredModel: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
-  const fallback = preferredModel === 'gemini-2.5-pro' ? 'gemini-2.5-flash'
-    : preferredModel === 'gemini-2.5-flash' ? 'gemini-2.0-flash'
-    : null;
-  const models = fallback ? [preferredModel, fallback] : [preferredModel];
+  const allModels = preferredModel === 'gemini-2.5-pro' 
+    ? ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash']
+    : preferredModel === 'gemini-2.5-flash' 
+    ? ['gemini-2.5-flash', 'gemini-2.0-flash']
+    : ['gemini-2.0-flash'];
 
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature, maxOutputTokens: maxTokens }
   });
 
-  for (const model of models) {
-    try {
-      const start = Date.now();
-      const controller = new AbortController();
-      const timeoutMs = model.includes('2.0-flash') ? 10000 : 20000;
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
-      );
-      clearTimeout(timeout);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    for (const model of allModels) {
+      try {
+        const start = Date.now();
+        const controller = new AbortController();
+        const timeoutMs = model.includes('2.0-flash') ? 10000 : 25000;
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
+        );
+        clearTimeout(timeout);
 
-      if (response.status === 429) {
-        console.log(`[Gemini] ${model} rate limited, trying fallback...`);
+        if (response.status === 429) {
+          console.log(`[Gemini] ${model} rate limited (attempt ${attempt + 1}), trying next...`);
+          if (attempt === 0) await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+
+        if (response.status === 503 || response.status === 500) {
+          console.log(`[Gemini] ${model} server error ${response.status}, trying next...`);
+          continue;
+        }
+
+        const data = await response.json();
+        if (data.error) {
+          console.error(`[Gemini] ${model} error:`, data.error.message);
+          if (data.error.code === 429 && attempt === 0) {
+            await new Promise(r => setTimeout(r, 3000));
+          }
+          continue;
+        }
+
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!content) continue;
+
+        console.log(`[Gemini] ${model} responded in ${Date.now() - start}ms`);
+        return content;
+
+      } catch (error: any) {
+        console.log(`[Gemini] ${model} failed: ${error.message}, trying next...`);
         continue;
       }
+    }
 
-      const data = await response.json();
-      if (data.error) {
-        console.error(`[Gemini] ${model} error:`, data.error.message);
-        continue;
-      }
-
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!content) continue;
-
-      console.log(`[Gemini] ${model} responded in ${Date.now() - start}ms`);
-      return content;
-
-    } catch (error: any) {
-      console.log(`[Gemini] ${model} failed: ${error.message}, trying next...`);
-      continue;
+    if (attempt === 0) {
+      console.log('[Gemini] All models failed on first attempt, retrying after delay...');
+      await new Promise(r => setTimeout(r, 3000));
     }
   }
 
-  throw new Error('AI is temporarily busy. Please try again in a moment.');
+  throw new Error('AI is temporarily busy due to high demand. Please wait a moment and try again.');
 }
 
 export function getAvailableModels(subscriptionTier: string): Record<string, any> {
