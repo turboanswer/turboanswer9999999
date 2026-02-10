@@ -455,6 +455,51 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="py-16 sm:py-24 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className={`rounded-3xl p-8 sm:p-12 border ${isDark ? 'bg-gradient-to-br from-gray-900/80 via-gray-900/60 to-gray-900/80 border-gray-700/50' : 'bg-gradient-to-br from-white via-gray-50 to-white border-gray-200'}`}>
+            <div className="text-center mb-8">
+              <span className={`inline-block text-sm font-semibold tracking-widest uppercase mb-3 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Our Story</span>
+              <h2 className={`text-3xl sm:text-4xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                Built Through the Hate
+              </h2>
+              <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto mt-4 rounded-full"></div>
+            </div>
+
+            <div className={`space-y-6 text-lg leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+              <p>
+                When we first launched TurboAnswer, the response wasn't applause — it was ridicule. People laughed at the idea. They said we were wasting our time. They said an AI assistant built by a small team could never compete. The hate was loud, constant, and came from every direction.
+              </p>
+              <p>
+                <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>"It'll never work."</span>{" "}
+                <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>"Who's going to use this?"</span>{" "}
+                <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>"Just give up."</span>{" "}
+                We heard it all. Every single day. From people online, from doubters, even from people we knew. They wanted us to quit.
+              </p>
+              <p>
+                But we didn't quit. We took every piece of criticism, every hateful comment, every dismissive laugh — and we turned it into fuel. Late nights turned into breakthroughs. Setbacks turned into comebacks. Every time someone said TurboAnswer wasn't good enough, we made it better.
+              </p>
+              <p>
+                We built multi-model AI intelligence. We added voice commands, document analysis, image generation, crisis support, enterprise-grade security, and a system fast enough to feel like a real conversation. We didn't just build an app — we built something that actually helps people, every single day.
+              </p>
+              <p className={`font-semibold text-xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                The same people who doubted us? Some of them are our users now.
+              </p>
+              <p>
+                TurboAnswer exists because we refused to let the noise stop us. Innovation doesn't come from comfort — it comes from proving the doubters wrong. And we're just getting started.
+              </p>
+            </div>
+
+            <div className="mt-10 pt-8 border-t flex items-center justify-center gap-3" style={{ borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
+              <TurboLogo size={32} animated={false} />
+              <span className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>TurboAnswer</span>
+              <span className={`mx-2 ${isDark ? 'text-gray-600' : 'text-gray-300'}`}>|</span>
+              <span className={`italic ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Built through adversity. Powered by innovation.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <TrustpilotWidget isDark={isDark} />
 
       <footer className={`border-t py-8 px-4 ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
