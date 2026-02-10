@@ -492,6 +492,11 @@ export default function EmployeeDashboard() {
               )}
             </Button>
           ))}
+          <Link href="/email-templates">
+            <Button className="flex items-center gap-2 whitespace-nowrap bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800">
+              <Mail className="w-4 h-4" /> Email Templates
+            </Button>
+          </Link>
         </div>
 
         {activeTab === 'overview' && (

@@ -25,6 +25,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import CrisisSupport from "@/pages/crisis-support";
 import CrisisInfo from "@/pages/crisis-info";
+import EmailTemplates from "@/pages/email-templates";
 
 function AuthenticatedRouter() {
   return (
@@ -45,6 +46,7 @@ function AuthenticatedRouter() {
       <Route path="/widget-demo" component={WidgetDemo} />
       <Route path="/crisis-support" component={CrisisSupport} />
       <Route path="/crisis-info" component={CrisisInfo} />
+      <Route path="/email-templates" component={EmailTemplates} />
       <Route component={NotFound} />
     </Switch>
   );
