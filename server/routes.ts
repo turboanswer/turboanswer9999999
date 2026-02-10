@@ -18,6 +18,7 @@ import { registerImageRoutes } from "./replit_integrations/image";
 import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture } from "./paypal";
 
 import widgetRoutes from './routes/widget-routes';
+import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1569,6 +1570,25 @@ function downloadAAB(){
     }
   });
 
+  app.get('/api/admin/proactive-diagnostics', isAdmin, async (req: any, res) => {
+    try {
+      const latest = getLatestReport();
+      const history = getDiagnosticsHistory();
+      res.json({ latest, history, historyCount: history.length });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to get diagnostics history' });
+    }
+  });
+
+  app.post('/api/admin/proactive-diagnostics/run', isAdmin, async (req: any, res) => {
+    try {
+      const report = await runProactiveDiagnostics();
+      res.json(report);
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to run proactive diagnostics' });
+    }
+  });
+
   app.get('/api/admin/stats', isAdmin, async (req: any, res) => {
     try {
       const userCount = await storage.getUserCount();
@@ -1934,6 +1954,8 @@ function downloadAAB(){
   });
 
 
+
+  startProactiveDiagnostics();
 
   return httpServer;
 }

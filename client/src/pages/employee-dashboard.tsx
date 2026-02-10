@@ -1149,6 +1149,26 @@ function SystemTab({ systemHealth, diagResults, diagLoading, onRunDiagnostics, o
   onRunDiagnostics: () => void;
   onRefreshHealth: () => void;
 }) {
+  const [showHistory, setShowHistory] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: proactiveData, isLoading: proactiveFetching } = useQuery<any>({
+    queryKey: ['/api/admin/proactive-diagnostics'],
+    refetchInterval: 60000,
+  });
+
+  const proactiveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/admin/proactive-diagnostics/run');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/proactive-diagnostics'] });
+    },
+  });
+
+  const proactiveLoading = proactiveMutation.isPending;
+
   return (
     <div className="space-y-6">
       <div className="flex gap-3 flex-wrap">
@@ -1159,6 +1179,100 @@ function SystemTab({ systemHealth, diagResults, diagLoading, onRunDiagnostics, o
           <Wrench className="w-4 h-4 mr-2" /> {diagLoading ? 'Running Diagnostics...' : 'Run Diagnostics & Auto-Fix'}
         </Button>
       </div>
+
+      <Card className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border-purple-600/50">
+        <CardHeader>
+          <CardTitle className="text-white text-lg flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-purple-400" /> Proactive Self-Diagnosis
+              <span className="text-xs bg-purple-600/40 text-purple-300 px-2 py-0.5 rounded-full">Auto — Every 5 min</span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => proactiveMutation.mutate()} disabled={proactiveLoading}
+                className="bg-purple-600 hover:bg-purple-700 text-xs h-7">
+                {proactiveLoading ? 'Running...' : 'Run Now'}
+              </Button>
+              <Button size="sm" onClick={() => setShowHistory(!showHistory)}
+                className="bg-gray-700 hover:bg-gray-600 text-xs h-7">
+                {showHistory ? 'Hide History' : `History (${proactiveData?.historyCount || 0})`}
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {proactiveFetching ? (
+            <p className="text-gray-400 text-sm text-center py-4">Loading proactive diagnostics data...</p>
+          ) : proactiveData?.latest ? (
+            <>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-3 h-3 rounded-full animate-pulse ${
+                  proactiveData.latest.overallStatus === 'healthy' ? 'bg-green-400' :
+                  proactiveData.latest.overallStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
+                }`} />
+                <span className={`text-sm font-bold capitalize ${
+                  proactiveData.latest.overallStatus === 'healthy' ? 'text-green-400' :
+                  proactiveData.latest.overallStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'
+                }`}>{proactiveData.latest.overallStatus}</span>
+                <span className="text-xs text-gray-400">
+                  Last run: {new Date(proactiveData.latest.timestamp).toLocaleString()}
+                </span>
+                <span className="text-xs text-gray-500 ml-auto">
+                  {proactiveData.latest.issuesFound} issue(s) found, {proactiveData.latest.issuesFixed} auto-fixed
+                </span>
+              </div>
+              <div className="grid gap-2">
+                {proactiveData.latest.results.map((r: any, i: number) => (
+                  <div key={i} className={`flex items-center gap-2 p-2 rounded text-sm ${
+                    r.status === 'pass' ? 'bg-green-900/20' :
+                    r.status === 'fixed' ? 'bg-blue-900/20' :
+                    r.status === 'warn' ? 'bg-yellow-900/20' : 'bg-red-900/20'
+                  }`}>
+                    {r.status === 'pass' ? <CheckCircle className="w-3.5 h-3.5 text-green-400 shrink-0" /> :
+                     r.status === 'fixed' ? <Wrench className="w-3.5 h-3.5 text-blue-400 shrink-0" /> :
+                     r.status === 'warn' ? <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 shrink-0" /> :
+                     <X className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+                    <span className="text-white font-medium">{r.check}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      r.status === 'pass' ? 'bg-green-600/30 text-green-400' :
+                      r.status === 'fixed' ? 'bg-blue-600/30 text-blue-400' :
+                      r.status === 'warn' ? 'bg-yellow-600/30 text-yellow-400' : 'bg-red-600/30 text-red-400'
+                    }`}>{r.status === 'fixed' ? 'AUTO-FIXED' : r.status.toUpperCase()}</span>
+                    <span className="text-gray-400 text-xs ml-auto truncate max-w-[300px]">{r.details}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm text-center py-4">
+              Proactive diagnostics will run automatically. First scan starts 30 seconds after server boot.
+            </p>
+          )}
+
+          {showHistory && proactiveData?.history && proactiveData.history.length > 1 && (
+            <div className="mt-4 border-t border-purple-600/30 pt-4">
+              <h4 className="text-sm font-medium text-purple-300 mb-3">Diagnostic History (last {proactiveData.history.length} runs)</h4>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {[...proactiveData.history].reverse().slice(1).map((report: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3 p-2 bg-gray-800/50 rounded text-xs">
+                    <div className={`w-2 h-2 rounded-full ${
+                      report.overallStatus === 'healthy' ? 'bg-green-400' :
+                      report.overallStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
+                    }`} />
+                    <span className="text-gray-300">{new Date(report.timestamp).toLocaleString()}</span>
+                    <span className={`capitalize font-medium ${
+                      report.overallStatus === 'healthy' ? 'text-green-400' :
+                      report.overallStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'
+                    }`}>{report.overallStatus}</span>
+                    <span className="text-gray-500 ml-auto">
+                      {report.issuesFound} issues, {report.issuesFixed} fixed
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {systemHealth && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
