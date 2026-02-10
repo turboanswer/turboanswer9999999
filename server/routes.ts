@@ -39,11 +39,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const robotsTxt = `User-agent: *
 Allow: /
 
-Disallow: /api/
-Disallow: /employee/
-Disallow: /ai-settings
-Disallow: /crisis-support
-
 Sitemap: ${baseUrl}/sitemap.xml`;
     res.set("Content-Type", "text/plain");
     res.send(robotsTxt);
