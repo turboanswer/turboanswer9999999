@@ -166,6 +166,26 @@ export default function LandingPage() {
         )}
       </nav>
 
+      <div className="w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 py-4 px-4 text-center shadow-lg">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
+          <div className="flex items-center gap-2">
+            <HeartPulse className="h-6 w-6 text-white animate-pulse" />
+            <span className="text-white text-lg sm:text-xl font-bold tracking-wide">
+              Need Support? Call Now!
+            </span>
+          </div>
+          <a
+            href="tel:+18444692156"
+            className="inline-flex items-center gap-2 bg-white text-emerald-700 font-bold text-lg sm:text-xl px-6 py-2 rounded-full hover:bg-emerald-50 transition-colors shadow-md"
+          >
+            (844) 469-2156
+          </a>
+          <span className="text-white/90 text-sm sm:text-base font-medium">
+            M-F 10 AM - 6 PM EST
+          </span>
+        </div>
+      </div>
+
       <section className="pt-28 sm:pt-40 pb-16 sm:pb-24 px-4 relative">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px]" />
