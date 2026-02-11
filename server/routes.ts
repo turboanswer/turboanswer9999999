@@ -2058,19 +2058,29 @@ function downloadAAB(){
       const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       const year = new Date().getFullYear();
       const appUrl = 'https://turbo-answer.replit.app';
-      const logoUrl = `${appUrl}/turbo-logo.png`;
+      const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@turboanswer.it.com>`;
 
       const htmlBody = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;padding:40px 20px;">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+<title>TurboAnswer - Account Update</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f7;padding:40px 20px;">
 <tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+
 <tr><td style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:32px;text-align:center;">
-<img src="${logoUrl}" alt="TurboAnswer" width="64" height="64" style="border-radius:16px;margin-bottom:12px;display:inline-block;" />
-<h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:bold;">TurboAnswer</h1>
+<img src="cid:turbologo" alt="TurboAnswer Logo" width="64" height="64" style="border-radius:16px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;outline:none;border:none;" />
+<h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:bold;letter-spacing:-0.5px;">TurboAnswer</h1>
 <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">Advanced AI Assistant</p>
 </td></tr>
+
 <tr><td style="padding:40px 32px;">
 <div style="background-color:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:16px;margin-bottom:24px;text-align:center;">
 <span style="color:#065f46;font-weight:bold;font-size:16px;">&#10003; Blacklist Removal Confirmed</span>
@@ -2078,42 +2088,67 @@ function downloadAAB(){
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Dear ${recipientName},</p>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">We are writing to officially inform you that your account has been <strong>removed from the blacklist</strong> on TurboAnswer, effective as of <strong>${currentDate}</strong>.</p>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Your access to all TurboAnswer services has been fully restored. You may now:</p>
-<ul style="color:#374151;font-size:16px;line-height:1.8;margin:0 0 16px;padding-left:20px;">
-<li>Log in and use TurboAnswer normally</li>
-<li>Access all AI features available to your subscription tier</li>
-<li>Engage with the community and all platform features</li>
-</ul>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Log in and use TurboAnswer normally</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Access all AI features available to your subscription tier</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Engage with the community and all platform features</td></tr>
+</table>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">We kindly ask that you continue to adhere to our community guidelines and terms of service to ensure a positive experience for all users.</p>
-<div style="text-align:center;margin:32px 0;">
-<a href="${appUrl}/login" style="display:inline-block;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:bold;font-size:16px;">Log In to TurboAnswer</a>
-</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:32px auto;">
+<tr><td align="center" style="border-radius:8px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+<a href="${appUrl}/login" target="_blank" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 32px;font-weight:bold;font-size:16px;border-radius:8px;">Log In to TurboAnswer</a>
+</td></tr>
+</table>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">If you have any questions or concerns, please don't hesitate to reach out to our support team.</p>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:24px 0 4px;">Best regards,</p>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:0;font-weight:bold;">The TurboAnswer Team</p>
 </td></tr>
+
 <tr><td style="background-color:#f9fafb;padding:32px;border-top:1px solid #e5e7eb;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 <tr><td style="text-align:center;">
 <p style="color:#6b7280;font-size:14px;font-weight:bold;margin:0 0 12px;">Contact Us</p>
 <p style="color:#6b7280;font-size:13px;line-height:1.8;margin:0;">
-&#9993; <a href="mailto:support@turboanswer.it.com" style="color:#667eea;text-decoration:none;">support@turboanswer.it.com</a><br/>
-&#9742; <a href="tel:+15182505405" style="color:#667eea;text-decoration:none;">518-250-5405</a><br/>
-&#128339; Mon - Fri, 10:00 AM - 4:00 PM EST</p>
-<div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
-<p style="color:#9ca3af;font-size:12px;margin:0;">&copy; ${year} TurboAnswer. All rights reserved.</p>
-</div>
+Email: <a href="mailto:support@turboanswer.it.com" style="color:#667eea;text-decoration:none;">support@turboanswer.it.com</a><br/>
+Phone: <a href="tel:+15182505405" style="color:#667eea;text-decoration:none;">518-250-5405</a><br/>
+Hours: Mon - Fri, 10:00 AM - 4:00 PM EST</p>
+<p style="color:#9ca3af;font-size:12px;margin:16px 0 0;padding-top:16px;border-top:1px solid #e5e7eb;">
+&copy; ${year} TurboAnswer. All rights reserved.<br/>
+<a href="${appUrl}" style="color:#9ca3af;text-decoration:underline;font-size:11px;">turboanswer.com</a>
+&nbsp;|&nbsp;
+<a href="mailto:support@turboanswer.it.com?subject=Unsubscribe" style="color:#9ca3af;text-decoration:underline;font-size:11px;">Unsubscribe</a>
+</p>
 </td></tr></table>
 </td></tr>
+
 </table>
 </td></tr></table>
 </body></html>`;
 
+      const logoPath = path.join(__dirname, 'email-logo.png');
+
       await transporter.sendMail({
-        from: '"TurboAnswer" <support@turboanswer.it.com>',
+        from: '"TurboAnswer Support" <support@turboanswer.it.com>',
         to: recipientEmail,
-        subject: 'Blacklist Removal Notice - TurboAnswer',
-        text: `Dear ${recipientName},\n\nYour account has been removed from the blacklist on TurboAnswer as of ${currentDate}.\n\nYour access to all TurboAnswer services has been fully restored. You may now log in and use TurboAnswer normally.\n\nWe kindly ask that you continue to adhere to our community guidelines and terms of service.\n\nBest regards,\nThe TurboAnswer Team\n\nsupport@turboanswer.it.com\n518-250-5405\nMon - Fri, 10:00 AM - 4:00 PM EST`,
+        replyTo: 'support@turboanswer.it.com',
+        subject: 'Your TurboAnswer Account Has Been Restored',
+        messageId: messageId,
+        headers: {
+          'List-Unsubscribe': '<mailto:support@turboanswer.it.com?subject=Unsubscribe>',
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          'Precedence': 'bulk',
+          'X-Mailer': 'TurboAnswer Notification System',
+          'Organization': 'TurboAnswer',
+        },
+        text: `Dear ${recipientName},\n\nWe are writing to inform you that your account has been removed from the blacklist on TurboAnswer, effective as of ${currentDate}.\n\nYour access to all TurboAnswer services has been fully restored. You may now:\n\n- Log in and use TurboAnswer normally\n- Access all AI features available to your subscription tier\n- Engage with the community and all platform features\n\nLog in here: ${appUrl}/login\n\nWe kindly ask that you continue to adhere to our community guidelines and terms of service to ensure a positive experience for all users.\n\nIf you have any questions, please contact us:\nEmail: support@turboanswer.it.com\nPhone: 518-250-5405\nHours: Mon - Fri, 10:00 AM - 4:00 PM EST\n\nBest regards,\nThe TurboAnswer Team\n\n---\n© ${year} TurboAnswer. All rights reserved.\nTo unsubscribe, reply to this email with "Unsubscribe" in the subject line.`,
         html: htmlBody,
+        attachments: [{
+          filename: 'turbo-logo.png',
+          path: logoPath,
+          cid: 'turbologo',
+          contentDisposition: 'inline',
+          contentType: 'image/png',
+        }],
       });
 
       res.json({ success: true, message: `Email sent to ${recipientEmail}` });
