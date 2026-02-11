@@ -77,3 +77,4 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **OpenMeteo API**: For real-time weather data (no API key required).
 - **OpenAI API**: For GPT models and DALL-E 3 (secondary/image generation).
 - **Anthropic API**: For Claude models (optional).
+- **Resend**: Transactional email delivery service (replaced Spacemail SMTP for better inbox deliverability). Uses RESEND_API_KEY secret.
