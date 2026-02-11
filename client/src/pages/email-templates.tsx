@@ -372,30 +372,26 @@ export default function EmailTemplates() {
           <p style={{ color: '#9ca3af', fontSize: '13px', padding: '8px 16px', marginBottom: '8px' }}>
             Email Preview (this is what the recipient will see):
           </p>
-          <div style={{ backgroundColor: '#f4f4f7', borderRadius: '8px', overflow: 'hidden' }}>
-            <div style={{ maxWidth: '600px', margin: '40px auto', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+          <div style={{ backgroundColor: '#f9fafb', borderRadius: '8px', overflow: 'hidden' }}>
+            <div style={{ maxWidth: '600px', margin: '32px auto', backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
 
               <div style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                padding: '32px',
-                textAlign: 'center' as const
+                padding: '32px 32px 24px',
+                borderBottom: '1px solid #e5e7eb'
               }}>
-                <img src={turboLogo} alt="TurboAnswer" width="64" height="64" style={{ borderRadius: '16px', marginBottom: '12px' }} />
-                <h1 style={{ color: '#ffffff', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>TurboAnswer</h1>
-                <p style={{ color: 'rgba(255,255,255,0.85)', margin: '8px 0 0', fontSize: '14px' }}>Advanced AI Assistant</p>
+                <span style={{ fontSize: '22px', fontWeight: 'bold', color: '#111827', letterSpacing: '-0.3px' }}>TurboAnswer</span>
               </div>
 
-              <div style={{ padding: '40px 32px' }}>
+              <div style={{ padding: '32px' }}>
                 <div style={{
                   backgroundColor: template.bannerBg,
-                  border: `1px solid ${template.bannerColor}33`,
-                  borderRadius: '8px',
-                  padding: '16px',
+                  borderLeft: `4px solid ${template.bannerColor}`,
+                  padding: '14px 18px',
                   marginBottom: '24px',
-                  textAlign: 'center' as const
+                  borderRadius: '4px'
                 }}>
-                  <span style={{ color: template.bannerColor, fontWeight: 'bold', fontSize: '16px' }}>
-                    {template.bannerIcon} {template.bannerText}
+                  <span style={{ color: template.bannerColor, fontWeight: 600, fontSize: '15px' }}>
+                    {template.bannerText}
                   </span>
                 </div>
 
@@ -413,59 +409,42 @@ export default function EmailTemplates() {
                 ))}
 
                 {body.showLogin && (
-                  <div style={{ textAlign: 'center' as const, margin: '32px 0' }}>
+                  <div style={{ margin: '28px 0' }}>
                     <a href={`${APP_URL}/login`} style={{
                       display: 'inline-block',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      backgroundColor: '#4f46e5',
                       color: '#ffffff',
                       textDecoration: 'none',
-                      padding: '14px 32px',
-                      borderRadius: '8px',
-                      fontWeight: 'bold',
-                      fontSize: '16px'
-                    }}>Log In to TurboAnswer</a>
+                      padding: '12px 28px',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      fontSize: '15px'
+                    }}>Log In to Your Account</a>
                   </div>
                 )}
 
-                <p style={{ color: '#374151', fontSize: '16px', lineHeight: 1.6, margin: '16px 0 0' }}>
-                  If you have any questions or concerns, please reach out to our support team using the contact information below.
+                <p style={{ color: '#374151', fontSize: '15px', lineHeight: 1.6, margin: '20px 0 0' }}>
+                  If you have any questions, please do not hesitate to contact us.
                 </p>
-                <p style={{ color: '#374151', fontSize: '16px', lineHeight: 1.6, margin: '24px 0 4px' }}>Best regards,</p>
-                <p style={{ color: '#374151', fontSize: '16px', lineHeight: 1.6, margin: 0, fontWeight: 'bold' }}>The TurboAnswer Team</p>
+                <p style={{ color: '#374151', fontSize: '15px', lineHeight: 1.6, margin: '20px 0 4px' }}>Sincerely,</p>
+                <p style={{ color: '#111827', fontSize: '15px', lineHeight: 1.6, margin: 0, fontWeight: 600 }}>The TurboAnswer Team</p>
               </div>
 
-              <div style={{ backgroundColor: '#1e293b', padding: '28px 32px', textAlign: 'center' as const }}>
-                <p style={{ color: '#ffffff', fontSize: '18px', fontWeight: 'bold', margin: '0 0 20px', letterSpacing: '0.5px' }}>
-                  Need Help? Contact Us
+              <div style={{ padding: '24px 32px', borderTop: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 8px', fontWeight: 600 }}>Contact Support</p>
+                <p style={{ color: '#374151', fontSize: '13px', margin: '0 0 4px' }}>
+                  Email: <a href="mailto:support@turboanswer.it.com" style={{ color: '#4f46e5', textDecoration: 'none' }}>support@turboanswer.it.com</a>
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '10px' }}>
-                  <a href="mailto:support@turboanswer.it.com" style={{
-                    display: 'inline-block',
-                    backgroundColor: '#667eea',
-                    color: '#ffffff',
-                    textDecoration: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    fontSize: '15px',
-                  }}>support@turboanswer.it.com</a>
-                  <a href="tel:+15182505405" style={{
-                    display: 'inline-block',
-                    backgroundColor: '#764ba2',
-                    color: '#ffffff',
-                    textDecoration: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    fontWeight: 'bold',
-                    fontSize: '15px',
-                  }}>Call Us: (518) 250-5405</a>
-                </div>
-                <p style={{ color: '#94a3b8', fontSize: '14px', margin: '16px 0 0' }}>Mon - Fri, 10:00 AM - 4:00 PM EST</p>
-                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #334155' }}>
-                  <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>
-                    &copy; {new Date().getFullYear()} TurboAnswer. All rights reserved.
-                  </p>
-                </div>
+                <p style={{ color: '#374151', fontSize: '13px', margin: '0 0 4px' }}>
+                  Phone: <a href="tel:+15182505405" style={{ color: '#4f46e5', textDecoration: 'none' }}>(518) 250-5405</a>
+                </p>
+                <p style={{ color: '#6b7280', fontSize: '12px', margin: '8px 0 0' }}>Monday - Friday, 10:00 AM - 4:00 PM EST</p>
+              </div>
+
+              <div style={{ padding: '16px 32px', borderTop: '1px solid #e5e7eb', textAlign: 'center' as const }}>
+                <p style={{ color: '#9ca3af', fontSize: '11px', margin: 0 }}>
+                  &copy; {new Date().getFullYear()} TurboAnswer. All rights reserved.
+                </p>
               </div>
 
             </div>
