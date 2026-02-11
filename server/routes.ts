@@ -2185,7 +2185,7 @@ You can log in at: ${appUrl}/login`,
 --
 TurboAnswer Support
 Email: support@turboanswer.it.com
-Phone: (844) 469-2156
+Phone: (866) 467-7269
 Hours: Mon-Fri, 9:30 AM - 6:00 PM EST
 
 To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
@@ -2202,7 +2202,7 @@ ${template.bodyText.split('\n').map(line => {
 <hr style="border:none;border-top:1px solid #ddd;margin:24px 0;">
 <p style="font-size:13px;color:#666;margin:0;">TurboAnswer Support</p>
 <p style="font-size:13px;color:#666;margin:2px 0;">Email: support@turboanswer.it.com</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Phone: (844) 469-2156</p>
+<p style="font-size:13px;color:#666;margin:2px 0;">Phone: (866) 467-7269</p>
 <p style="font-size:13px;color:#666;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
 </body>
 </html>`;

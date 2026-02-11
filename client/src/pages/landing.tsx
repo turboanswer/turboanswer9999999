@@ -230,10 +230,10 @@ export default function LandingPage() {
             </span>
           </div>
           <a
-            href="tel:+18444692156"
+            href="tel:+18664677269"
             className="inline-flex items-center gap-2 bg-white text-emerald-700 font-bold text-lg sm:text-xl px-6 py-2 rounded-full hover:bg-emerald-50 transition-colors shadow-md"
           >
-            (844) 469-2156
+            (866) 467-7269
           </a>
           <span className="text-white/90 text-sm sm:text-base font-medium">
             M-F 9:30 AM - 6 PM EST

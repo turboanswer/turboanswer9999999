@@ -132,7 +132,7 @@ export default function Support() {
               Call us directly for immediate assistance
             </p>
             <a
-              href="tel:+18444692156"
+              href="tel:+18664677269"
               style={{
                 display: 'inline-block',
                 padding: '12px 24px',
@@ -147,7 +147,7 @@ export default function Support() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
             >
-              (844) 469-2156
+              (866) 467-7269
             </a>
           </div>
         </div>
