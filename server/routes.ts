@@ -2278,7 +2278,7 @@ ${showLoginButton ? `<table role="presentation" cellpadding="0" cellspacing="0" 
 </td></tr></table>
 </body></html>`;
 
-      const logoPath = path.join(__dirname, 'email-logo.png');
+      const logoPath = path.resolve(process.cwd(), 'server', 'email-logo.png');
       const plainText = `${template.bodyText}\n\nNeed help? Contact us:\nEmail: support@turboanswer.it.com\nPhone: (518) 250-5405\nHours: Mon - Fri, 10:00 AM - 4:00 PM EST${showLoginButton ? `\n\nLog in here: ${appUrl}/login` : ''}\n\nBest regards,\nThe TurboAnswer Team\n\n---\n© ${year} TurboAnswer. All rights reserved.\nTo unsubscribe, reply to this email with "Unsubscribe" in the subject line.`;
 
       await transporter.sendMail({
