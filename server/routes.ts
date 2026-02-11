@@ -2032,8 +2032,8 @@ function downloadAAB(){
   app.post('/api/admin/send-email', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { recipientEmail, recipientName, templateType } = req.body;
-      if (!recipientEmail || !recipientName) {
-        return res.status(400).json({ error: 'Recipient email and name are required' });
+      if (!recipientEmail || !recipientName || !templateType) {
+        return res.status(400).json({ error: 'Recipient email, name, and template type are required' });
       }
 
       const nodemailer = await import('nodemailer');
@@ -2050,15 +2050,111 @@ function downloadAAB(){
           user: 'support@turboanswer.it.com',
           pass: smtpPassword,
         },
-        tls: {
-          rejectUnauthorized: false,
-        },
+        tls: { rejectUnauthorized: false },
       });
 
       const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       const year = new Date().getFullYear();
       const appUrl = 'https://turbo-answer.replit.app';
       const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@turboanswer.it.com>`;
+
+      const templates: Record<string, { subject: string; bannerColor: string; bannerBg: string; statusIcon: string; statusText: string; bodyHtml: string; bodyText: string }> = {
+        'account-banned': {
+          subject: 'Account Banned - TurboAnswer',
+          bannerColor: '#991b1b',
+          bannerBg: '#fef2f2',
+          statusIcon: '&#10007;',
+          statusText: 'Account Banned',
+          bodyHtml: `<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Dear ${recipientName},</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">We regret to inform you that your TurboAnswer account has been <strong>banned</strong> effective <strong>${currentDate}</strong>.</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">This action was taken due to a violation of our community guidelines or terms of service. As a result:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Your account access has been revoked</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; You will not be able to log in or use TurboAnswer services</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Any active subscriptions have been paused</td></tr>
+</table>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">If you believe this was done in error, you may appeal by contacting our support team. Please include your account email and a detailed explanation in your appeal.</p>`,
+          bodyText: `Dear ${recipientName},\n\nWe regret to inform you that your TurboAnswer account has been banned effective ${currentDate}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our support team.`,
+        },
+        'account-unbanned': {
+          subject: 'Account Restored - TurboAnswer',
+          bannerColor: '#065f46',
+          bannerBg: '#ecfdf5',
+          statusIcon: '&#10003;',
+          statusText: 'Account Unbanned',
+          bodyHtml: `<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Dear ${recipientName},</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Great news! Your TurboAnswer account has been <strong>unbanned and fully restored</strong> as of <strong>${currentDate}</strong>.</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Your access to all TurboAnswer services has been fully restored. You may now:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Log in and use TurboAnswer normally</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Access all AI features available to your subscription tier</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Engage with the community and all platform features</td></tr>
+</table>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">We kindly ask that you continue to adhere to our community guidelines and terms of service to ensure a positive experience for all users.</p>`,
+          bodyText: `Dear ${recipientName},\n\nGreat news! Your TurboAnswer account has been unbanned and fully restored as of ${currentDate}.\n\nYour access to all TurboAnswer services has been fully restored. You may now:\n\n- Log in and use TurboAnswer normally\n- Access all AI features available to your subscription tier\n- Engage with the community and all platform features`,
+        },
+        'account-suspended': {
+          subject: 'Account Under Review - TurboAnswer',
+          bannerColor: '#92400e',
+          bannerBg: '#fffbeb',
+          statusIcon: '&#9888;',
+          statusText: 'Account Suspended for Review',
+          bodyHtml: `<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Dear ${recipientName},</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Your TurboAnswer account has been <strong>temporarily suspended</strong> and is currently <strong>under review</strong> as of <strong>${currentDate}</strong>.</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">During this review period:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Your account access is temporarily restricted</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Your data and conversations remain safe and intact</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Any active subscriptions are paused until the review is complete</td></tr>
+</table>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Our team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">If you have additional information that may assist in the review, please contact our support team.</p>`,
+          bodyText: `Dear ${recipientName},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.`,
+        },
+        'account-recovered': {
+          subject: 'Account Successfully Recovered - TurboAnswer',
+          bannerColor: '#1e40af',
+          bannerBg: '#eff6ff',
+          statusIcon: '&#128274;',
+          statusText: 'Account Recovered',
+          bodyHtml: `<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Dear ${recipientName},</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Your TurboAnswer account has been <strong>successfully recovered</strong> as of <strong>${currentDate}</strong>.</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Your account is now fully accessible. Here's what you should know:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; All your data, conversations, and settings have been restored</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Your subscription status remains unchanged</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; We recommend updating your password for security</td></tr>
+</table>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">For your security, if you did not request this recovery, please contact our support team immediately.</p>`,
+          bodyText: `Dear ${recipientName},\n\nYour TurboAnswer account has been successfully recovered as of ${currentDate}.\n\nYour account is now fully accessible. Here's what you should know:\n\n- All your data, conversations, and settings have been restored\n- Your subscription status remains unchanged\n- We recommend updating your password for security\n\nFor your security, if you did not request this recovery, please contact our support team immediately.`,
+        },
+        'account-deleted': {
+          subject: 'Account Permanently Deleted - TurboAnswer',
+          bannerColor: '#7f1d1d',
+          bannerBg: '#fef2f2',
+          statusIcon: '&#128465;',
+          statusText: 'Account Permanently Deleted',
+          bodyHtml: `<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Dear ${recipientName},</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">This email confirms that your TurboAnswer account has been <strong>permanently deleted</strong> as of <strong>${currentDate}</strong>.</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">The following actions have been completed:</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; All account data has been permanently removed from our systems</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; All conversation history has been deleted</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Any active subscriptions have been cancelled</td></tr>
+<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; This action is irreversible and cannot be undone</td></tr>
+</table>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">If you wish to use TurboAnswer again in the future, you are welcome to create a new account at any time.</p>
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">We're sorry to see you go. Thank you for being a part of the TurboAnswer community.</p>`,
+          bodyText: `Dear ${recipientName},\n\nThis email confirms that your TurboAnswer account has been permanently deleted as of ${currentDate}.\n\nThe following actions have been completed:\n\n- All account data has been permanently removed from our systems\n- All conversation history has been deleted\n- Any active subscriptions have been cancelled\n- This action is irreversible and cannot be undone\n\nIf you wish to use TurboAnswer again in the future, you are welcome to create a new account at any time.\n\nWe're sorry to see you go. Thank you for being a part of the TurboAnswer community.`,
+        },
+      };
+
+      const template = templates[templateType];
+      if (!template) {
+        return res.status(400).json({ error: `Unknown template type: ${templateType}. Valid types: ${Object.keys(templates).join(', ')}` });
+      }
+
+      const showLoginButton = ['account-unbanned', 'account-recovered'].includes(templateType);
 
       const htmlBody = `<!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
@@ -2070,7 +2166,7 @@ function downloadAAB(){
 <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
 <title>TurboAnswer - Account Update</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4f4f7;padding:40px 20px;">
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
@@ -2082,43 +2178,59 @@ function downloadAAB(){
 </td></tr>
 
 <tr><td style="padding:40px 32px;">
-<div style="background-color:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:16px;margin-bottom:24px;text-align:center;">
-<span style="color:#065f46;font-weight:bold;font-size:16px;">&#10003; Blacklist Removal Confirmed</span>
+<div style="background-color:${template.bannerBg};border:1px solid ${template.bannerColor}33;border-radius:8px;padding:16px;margin-bottom:24px;text-align:center;">
+<span style="color:${template.bannerColor};font-weight:bold;font-size:16px;">${template.statusIcon} ${template.statusText}</span>
 </div>
-<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Dear ${recipientName},</p>
-<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">We are writing to officially inform you that your account has been <strong>removed from the blacklist</strong> on TurboAnswer, effective as of <strong>${currentDate}</strong>.</p>
-<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">Your access to all TurboAnswer services has been fully restored. You may now:</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0;">
-<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Log in and use TurboAnswer normally</td></tr>
-<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Access all AI features available to your subscription tier</td></tr>
-<tr><td style="color:#374151;font-size:16px;line-height:2;padding-left:8px;">&#8226; Engage with the community and all platform features</td></tr>
-</table>
-<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">We kindly ask that you continue to adhere to our community guidelines and terms of service to ensure a positive experience for all users.</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:32px auto;">
+${template.bodyHtml}
+${showLoginButton ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:32px auto;">
 <tr><td align="center" style="border-radius:8px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
 <a href="${appUrl}/login" target="_blank" style="display:inline-block;color:#ffffff;text-decoration:none;padding:14px 32px;font-weight:bold;font-size:16px;border-radius:8px;">Log In to TurboAnswer</a>
 </td></tr>
-</table>
-<p style="color:#374151;font-size:16px;line-height:1.6;margin:0 0 16px;">If you have any questions or concerns, please don't hesitate to reach out to our support team.</p>
+</table>` : ''}
+<p style="color:#374151;font-size:16px;line-height:1.6;margin:16px 0 0;">If you have any questions or concerns, please reach out to our support team using the contact information below.</p>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:24px 0 4px;">Best regards,</p>
 <p style="color:#374151;font-size:16px;line-height:1.6;margin:0;font-weight:bold;">The TurboAnswer Team</p>
 </td></tr>
 
-<tr><td style="background-color:#f9fafb;padding:32px;border-top:1px solid #e5e7eb;">
+<tr><td style="background-color:#1e293b;padding:0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td style="text-align:center;">
-<p style="color:#6b7280;font-size:14px;font-weight:bold;margin:0 0 12px;">Contact Us</p>
-<p style="color:#6b7280;font-size:13px;line-height:1.8;margin:0;">
-Email: <a href="mailto:support@turboanswer.it.com" style="color:#667eea;text-decoration:none;">support@turboanswer.it.com</a><br/>
-Phone: <a href="tel:+15182505405" style="color:#667eea;text-decoration:none;">518-250-5405</a><br/>
-Hours: Mon - Fri, 10:00 AM - 4:00 PM EST</p>
-<p style="color:#9ca3af;font-size:12px;margin:16px 0 0;padding-top:16px;border-top:1px solid #e5e7eb;">
+<tr><td style="padding:28px 32px 20px;text-align:center;">
+<p style="color:#ffffff;font-size:18px;font-weight:bold;margin:0 0 20px;letter-spacing:0.5px;">Need Help? Contact Us</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+<tr>
+<td style="padding:8px 0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td style="background-color:#667eea;border-radius:8px;padding:12px 24px;">
+<a href="mailto:support@turboanswer.it.com" style="color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;display:block;">support@turboanswer.it.com</a>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td style="padding:8px 0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td style="background-color:#764ba2;border-radius:8px;padding:12px 24px;">
+<a href="tel:+15182505405" style="color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;display:block;">Call Us: (518) 250-5405</a>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+<p style="color:#94a3b8;font-size:14px;margin:16px 0 0;">Mon - Fri, 10:00 AM - 4:00 PM EST</p>
+</td></tr>
+<tr><td style="padding:0 32px 24px;text-align:center;border-top:1px solid #334155;">
+<p style="color:#64748b;font-size:12px;margin:16px 0 0;">
 &copy; ${year} TurboAnswer. All rights reserved.<br/>
-<a href="${appUrl}" style="color:#9ca3af;text-decoration:underline;font-size:11px;">turboanswer.com</a>
+<a href="${appUrl}" style="color:#64748b;text-decoration:underline;font-size:11px;">turboanswer.com</a>
 &nbsp;|&nbsp;
-<a href="mailto:support@turboanswer.it.com?subject=Unsubscribe" style="color:#9ca3af;text-decoration:underline;font-size:11px;">Unsubscribe</a>
+<a href="mailto:support@turboanswer.it.com?subject=Unsubscribe" style="color:#64748b;text-decoration:underline;font-size:11px;">Unsubscribe</a>
 </p>
-</td></tr></table>
+</td></tr>
+</table>
 </td></tr>
 
 </table>
@@ -2126,12 +2238,13 @@ Hours: Mon - Fri, 10:00 AM - 4:00 PM EST</p>
 </body></html>`;
 
       const logoPath = path.join(__dirname, 'email-logo.png');
+      const plainText = `${template.bodyText}\n\nNeed help? Contact us:\nEmail: support@turboanswer.it.com\nPhone: (518) 250-5405\nHours: Mon - Fri, 10:00 AM - 4:00 PM EST${showLoginButton ? `\n\nLog in here: ${appUrl}/login` : ''}\n\nBest regards,\nThe TurboAnswer Team\n\n---\n© ${year} TurboAnswer. All rights reserved.\nTo unsubscribe, reply to this email with "Unsubscribe" in the subject line.`;
 
       await transporter.sendMail({
         from: '"TurboAnswer Support" <support@turboanswer.it.com>',
         to: recipientEmail,
         replyTo: 'support@turboanswer.it.com',
-        subject: 'Your TurboAnswer Account Has Been Restored',
+        subject: template.subject,
         messageId: messageId,
         headers: {
           'List-Unsubscribe': '<mailto:support@turboanswer.it.com?subject=Unsubscribe>',
@@ -2140,7 +2253,7 @@ Hours: Mon - Fri, 10:00 AM - 4:00 PM EST</p>
           'X-Mailer': 'TurboAnswer Notification System',
           'Organization': 'TurboAnswer',
         },
-        text: `Dear ${recipientName},\n\nWe are writing to inform you that your account has been removed from the blacklist on TurboAnswer, effective as of ${currentDate}.\n\nYour access to all TurboAnswer services has been fully restored. You may now:\n\n- Log in and use TurboAnswer normally\n- Access all AI features available to your subscription tier\n- Engage with the community and all platform features\n\nLog in here: ${appUrl}/login\n\nWe kindly ask that you continue to adhere to our community guidelines and terms of service to ensure a positive experience for all users.\n\nIf you have any questions, please contact us:\nEmail: support@turboanswer.it.com\nPhone: 518-250-5405\nHours: Mon - Fri, 10:00 AM - 4:00 PM EST\n\nBest regards,\nThe TurboAnswer Team\n\n---\n© ${year} TurboAnswer. All rights reserved.\nTo unsubscribe, reply to this email with "Unsubscribe" in the subject line.`,
+        text: plainText,
         html: htmlBody,
         attachments: [{
           filename: 'turbo-logo.png',
@@ -2151,7 +2264,7 @@ Hours: Mon - Fri, 10:00 AM - 4:00 PM EST</p>
         }],
       });
 
-      res.json({ success: true, message: `Email sent to ${recipientEmail}` });
+      res.json({ success: true, message: `${template.statusText} email sent to ${recipientEmail}` });
     } catch (error: any) {
       console.error('Email send error:', error);
       res.status(500).json({ error: error.message || 'Failed to send email' });
