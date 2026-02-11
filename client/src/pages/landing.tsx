@@ -236,7 +236,7 @@ export default function LandingPage() {
             (844) 469-2156
           </a>
           <span className="text-white/90 text-sm sm:text-base font-medium">
-            M-F 10 AM - 6 PM EST
+            M-F 9:30 AM - 6 PM EST
           </span>
         </div>
       </div>

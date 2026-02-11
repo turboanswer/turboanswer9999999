@@ -17,7 +17,6 @@ export default function Register() {
     email: "",
     firstName: "",
     lastName: "",
-    homeAddress: "",
     password: "",
     confirmPassword: "",
   });
@@ -43,15 +42,6 @@ export default function Register() {
       return;
     }
 
-    if (!formData.homeAddress.trim()) {
-      toast({
-        title: "Error",
-        description: "Home address is required",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -64,7 +54,6 @@ export default function Register() {
           password: formData.password,
           firstName: formData.firstName || undefined,
           lastName: formData.lastName || undefined,
-          homeAddress: formData.homeAddress || undefined,
         }),
       });
 
@@ -136,19 +125,6 @@ export default function Register() {
                   className="bg-gray-800 border-gray-700 text-white placeholder-gray-400"
                 />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="homeAddress" className="text-white">Home Address *</Label>
-              <Input
-                id="homeAddress"
-                type="text"
-                placeholder="Enter your home address"
-                value={formData.homeAddress}
-                onChange={(e) => setFormData(prev => ({ ...prev, homeAddress: e.target.value }))}
-                required
-                className="bg-gray-800 border-gray-700 text-white placeholder-gray-400"
-              />
             </div>
 
             <div className="space-y-2">

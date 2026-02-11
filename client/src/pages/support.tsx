@@ -180,7 +180,7 @@ export default function Support() {
             fontSize: '16px',
             lineHeight: '1.6'
           }}>
-            <p><strong style={{ color: 'white' }}>Monday - Friday:</strong> 10:00 AM - 6:00 PM EST</p>
+            <p><strong style={{ color: 'white' }}>Monday - Friday:</strong> 9:30 AM - 6:00 PM EST</p>
             <p><strong style={{ color: 'white' }}>Saturday - Sunday:</strong> Closed</p>
             <p style={{ marginTop: '16px', fontSize: '14px' }}>
               Email support is available 24/7 - we'll respond as soon as possible
