@@ -439,12 +439,12 @@ function downloadAAB(){
               const banType = modResult.type === "terrorism" ? "permanently" : "for 1 month";
               sendBrevoEmail(offender.email, userName,
                 'Your TurboAnswer account update',
-                `Dear ${userName},\n\nWe regret to inform you that your TurboAnswer account has been banned ${banType} effective ${currentDate}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our support team at support@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`
+                `Dear ${userName},\n\nWe regret to inform you that your TurboAnswer account has been banned ${banType} effective ${currentDate}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our appeals team at appeals@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`
               ).catch(() => {});
             } else if (wasSuspended) {
               sendBrevoEmail(offender.email, userName,
                 'Your TurboAnswer account is under review',
-                `Dear ${userName},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.\n\nIf you have additional information that may assist in the review, please contact our support team at support@turboanswer.it.com.`
+                `Dear ${userName},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.\n\nIf you have additional information that may assist in the review, please contact our appeals team at appeals@turboanswer.it.com.`
               ).catch(() => {});
             }
           }
@@ -1101,7 +1101,7 @@ function downloadAAB(){
         const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         sendBrevoEmail(user.email, userName,
           'Your TurboAnswer account update',
-          `Dear ${userName},\n\nWe regret to inform you that your TurboAnswer account has been banned ${durationText} effective ${currentDate}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our support team at support@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`
+          `Dear ${userName},\n\nWe regret to inform you that your TurboAnswer account has been banned ${durationText} effective ${currentDate}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our appeals team at appeals@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`
         ).catch(() => {});
       }
 
@@ -1141,7 +1141,7 @@ function downloadAAB(){
         const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         sendBrevoEmail(user.email, userName,
           'Your TurboAnswer account is under review',
-          `Dear ${userName},\n\nYour TurboAnswer account has been flagged for review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account remains accessible but is being monitored\n- Our team is reviewing recent activity on your account\n- You will receive a follow-up email once the review is complete\n\nThis process typically takes 1-3 business days. If you have additional information that may assist in the review, please contact our support team at support@turboanswer.it.com.`
+          `Dear ${userName},\n\nYour TurboAnswer account has been flagged for review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account remains accessible but is being monitored\n- Our team is reviewing recent activity on your account\n- You will receive a follow-up email once the review is complete\n\nThis process typically takes 1-3 business days. If you have additional information that may assist in the review, please contact our appeals team at appeals@turboanswer.it.com.`
         ).catch(() => {});
       }
 
@@ -1185,7 +1185,7 @@ function downloadAAB(){
         const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
         sendBrevoEmail(user.email, userName,
           'Your TurboAnswer account is under review',
-          `Dear ${userName},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.\n\nIf you have additional information that may assist in the review, please contact our support team at support@turboanswer.it.com.`
+          `Dear ${userName},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.\n\nIf you have additional information that may assist in the review, please contact our appeals team at appeals@turboanswer.it.com.`
         ).catch(() => {});
       }
 
@@ -2170,7 +2170,7 @@ This action was taken due to a violation of our community guidelines or terms of
 - You will not be able to log in or use TurboAnswer services
 - Any active subscriptions have been paused
 
-If you believe this was done in error, you may appeal by contacting our support team at support@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`,
+If you believe this was done in error, you may appeal by contacting our appeals team at appeals@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`,
         },
         'account-unbanned': {
           subject: 'Your TurboAnswer account has been restored',
@@ -2204,7 +2204,7 @@ During this review period:
 
 Our team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.
 
-If you have additional information that may assist in the review, please contact our support team at support@turboanswer.it.com.`,
+If you have additional information that may assist in the review, please contact our appeals team at appeals@turboanswer.it.com.`,
         },
         'account-recovered': {
           subject: 'Your TurboAnswer account has been recovered',
@@ -2219,7 +2219,7 @@ Your account is now fully accessible:
 - Your subscription status remains unchanged
 - We recommend updating your password for security
 
-For your security, if you did not request this recovery, please contact our support team immediately at support@turboanswer.it.com.
+For your security, if you did not request this recovery, please contact our appeals team immediately at appeals@turboanswer.it.com.
 
 You can log in at: ${appUrl}/login`,
         },
@@ -2257,7 +2257,7 @@ The following restrictions are now in effect:
 
 This action was taken due to severe or repeated violations of our terms of service.
 
-If you believe this decision was made in error, you may submit an appeal by contacting support@turboanswer.it.com. Please include your account email and a detailed explanation.`,
+If you believe this decision was made in error, you may submit an appeal by contacting appeals@turboanswer.it.com. Please include your account email and a detailed explanation.`,
         },
         'blacklist-removed': {
           subject: 'Your TurboAnswer account has been restored',
