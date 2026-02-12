@@ -75,7 +75,7 @@ interface AdminStats {
   estimatedMonthlyRevenue: string;
 }
 
-type TabType = 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications';
+type TabType = 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged';
 
 export default function EmployeeDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -473,6 +473,7 @@ export default function EmployeeDashboard() {
             { id: 'users', icon: Users, label: 'Users' },
             { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
             { id: 'system', icon: Server, label: 'System & Debug' },
+            { id: 'flagged', icon: Flag, label: 'Flagged' },
             { id: 'notifications', icon: Bell, label: 'Alerts' },
           ] as const).map(tab => (
             <Button
@@ -488,6 +489,11 @@ export default function EmployeeDashboard() {
               {tab.id === 'notifications' && unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
                   {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+              {tab.id === 'flagged' && users.filter(u => u.isFlagged || u.isSuspended || u.isBanned).length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {users.filter(u => u.isFlagged || u.isSuspended || u.isBanned).length}
                 </span>
               )}
             </Button>
@@ -506,6 +512,15 @@ export default function EmployeeDashboard() {
             users={users}
             unreadCount={unreadCount}
             onTabChange={setActiveTab}
+          />
+        )}
+
+        {activeTab === 'flagged' && (
+          <FlaggedUsersTab
+            users={users}
+            notifications={notifications.filter(n => n.type !== 'system_outage')}
+            onViewUser={(userId) => { setSelectedUserId(userId); setActiveTab('users'); }}
+            onAction={(type, userId, userName, userEmail) => setActionModal({ type, userId, userName, userEmail })}
           />
         )}
 
@@ -1483,6 +1498,173 @@ function SystemTab({ systemHealth, diagResults, diagLoading, onRunDiagnostics, o
             </div>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function FlaggedUsersTab({
+  users,
+  notifications,
+  onViewUser,
+  onAction,
+}: {
+  users: UserData[];
+  notifications: AdminNotification[];
+  onViewUser: (userId: string) => void;
+  onAction: (type: string, userId: string, userName: string, userEmail?: string) => void;
+}) {
+  const flaggedUsers = users.filter(u => u.isFlagged);
+  const suspendedUsers = users.filter(u => u.isSuspended);
+  const bannedUsers = users.filter(u => u.isBanned);
+  const [filterType, setFilterType] = useState<'all' | 'flagged' | 'suspended' | 'banned'>('all');
+
+  const displayUsers = filterType === 'flagged' ? flaggedUsers
+    : filterType === 'suspended' ? suspendedUsers
+    : filterType === 'banned' ? bannedUsers
+    : [...flaggedUsers, ...suspendedUsers.filter(u => !u.isFlagged), ...bannedUsers.filter(u => !u.isFlagged && !u.isSuspended)];
+
+  const uniqueUsers = displayUsers.filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Flag className="w-5 h-5 text-orange-400" />
+          Flagged & Actioned Users
+        </h2>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <Card className={`border cursor-pointer transition-colors ${filterType === 'all' ? 'bg-gray-800 border-orange-500' : 'bg-gray-900 border-gray-800 hover:border-gray-700'}`} onClick={() => setFilterType('all')}>
+          <CardContent className="p-4 text-center">
+            <AlertTriangle className="w-5 h-5 text-orange-400 mx-auto mb-1" />
+            <div className="text-2xl font-bold text-white">{users.filter(u => u.isFlagged || u.isSuspended || u.isBanned).length}</div>
+            <div className="text-xs text-gray-400">All Issues</div>
+          </CardContent>
+        </Card>
+        <Card className={`border cursor-pointer transition-colors ${filterType === 'flagged' ? 'bg-gray-800 border-yellow-500' : 'bg-gray-900 border-gray-800 hover:border-gray-700'}`} onClick={() => setFilterType('flagged')}>
+          <CardContent className="p-4 text-center">
+            <Flag className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
+            <div className="text-2xl font-bold text-white">{flaggedUsers.length}</div>
+            <div className="text-xs text-gray-400">Flagged</div>
+          </CardContent>
+        </Card>
+        <Card className={`border cursor-pointer transition-colors ${filterType === 'suspended' ? 'bg-gray-800 border-orange-500' : 'bg-gray-900 border-gray-800 hover:border-gray-700'}`} onClick={() => setFilterType('suspended')}>
+          <CardContent className="p-4 text-center">
+            <Pause className="w-5 h-5 text-orange-400 mx-auto mb-1" />
+            <div className="text-2xl font-bold text-white">{suspendedUsers.length}</div>
+            <div className="text-xs text-gray-400">Suspended</div>
+          </CardContent>
+        </Card>
+        <Card className={`border cursor-pointer transition-colors ${filterType === 'banned' ? 'bg-gray-800 border-red-500' : 'bg-gray-900 border-gray-800 hover:border-gray-700'}`} onClick={() => setFilterType('banned')}>
+          <CardContent className="p-4 text-center">
+            <Ban className="w-5 h-5 text-red-400 mx-auto mb-1" />
+            <div className="text-2xl font-bold text-white">{bannedUsers.length}</div>
+            <div className="text-xs text-gray-400">Banned</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {uniqueUsers.length === 0 ? (
+        <Card className="bg-gray-900 border-gray-800">
+          <CardContent className="p-8 text-center">
+            <Shield className="w-12 h-12 text-green-400 mx-auto mb-3 opacity-50" />
+            <p className="text-gray-400">No flagged or actioned users. All clear!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {uniqueUsers.map((user) => {
+            const relatedNotifications = notifications.filter(n => n.userId === user.id);
+            const latestNotification = relatedNotifications[0];
+            const statusBadges = [];
+            if (user.isBanned) statusBadges.push({ label: 'BANNED', color: 'bg-red-600/20 text-red-400' });
+            if (user.isSuspended) statusBadges.push({ label: 'SUSPENDED', color: 'bg-orange-600/20 text-orange-400' });
+            if (user.isFlagged) statusBadges.push({ label: 'FLAGGED', color: 'bg-yellow-600/20 text-yellow-400' });
+
+            return (
+              <Card key={user.id} className="bg-gray-900 border-gray-800 hover:border-gray-700 transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-1 p-2 rounded-full ${
+                      user.isBanned ? 'bg-red-600/20' : user.isSuspended ? 'bg-orange-600/20' : 'bg-yellow-600/20'
+                    }`}>
+                      {user.isBanned ? <Ban className="w-4 h-4 text-red-400" /> :
+                       user.isSuspended ? <Pause className="w-4 h-4 text-orange-400" /> :
+                       <Flag className="w-4 h-4 text-yellow-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-white text-sm font-medium">{user.firstName} {user.lastName}</span>
+                        <span className="text-gray-500 text-xs">{user.email}</span>
+                        {statusBadges.map((badge, i) => (
+                          <span key={i} className={`text-xs px-1.5 py-0.5 rounded font-medium ${badge.color}`}>
+                            {badge.label}
+                          </span>
+                        ))}
+                      </div>
+
+                      {user.banReason && (
+                        <p className="text-gray-400 text-sm mb-1">
+                          <span className="text-gray-500">Ban reason:</span> {user.banReason}
+                        </p>
+                      )}
+                      {user.flagReason && (
+                        <p className="text-gray-400 text-sm mb-1">
+                          <span className="text-gray-500">Flag reason:</span> {user.flagReason}
+                        </p>
+                      )}
+                      {user.suspensionReason && (
+                        <p className="text-gray-400 text-sm mb-1">
+                          <span className="text-gray-500">Suspension reason:</span> {user.suspensionReason}
+                        </p>
+                      )}
+                      {user.banExpiresAt && (
+                        <p className="text-gray-400 text-xs">
+                          <span className="text-gray-500">Ban expires:</span> {new Date(user.banExpiresAt).toLocaleDateString()}
+                        </p>
+                      )}
+
+                      {latestNotification && (
+                        <div className="mt-2 bg-gray-800/50 rounded p-2">
+                          <p className="text-xs text-gray-500 mb-1">Flagged content:</p>
+                          <p className="text-red-300 text-xs truncate">{latestNotification.flaggedContent}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 mt-3">
+                        <Button size="sm" onClick={() => onViewUser(user.id)} className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7">
+                          <Eye className="w-3 h-3 mr-1" /> View
+                        </Button>
+                        {user.isBanned && (
+                          <Button size="sm" onClick={() => onAction('unban', user.id, user.firstName || user.email)} variant="outline" className="border-green-700 text-green-400 hover:bg-green-900/30 text-xs h-7">
+                            <Play className="w-3 h-3 mr-1" /> Unban
+                          </Button>
+                        )}
+                        {user.isSuspended && (
+                          <Button size="sm" onClick={() => onAction('unsuspend', user.id, user.firstName || user.email)} variant="outline" className="border-green-700 text-green-400 hover:bg-green-900/30 text-xs h-7">
+                            <Play className="w-3 h-3 mr-1" /> Unsuspend
+                          </Button>
+                        )}
+                        {user.isFlagged && (
+                          <Button size="sm" onClick={() => onAction('unflag', user.id, user.firstName || user.email)} variant="outline" className="border-green-700 text-green-400 hover:bg-green-900/30 text-xs h-7">
+                            <CheckCircle className="w-3 h-3 mr-1" /> Unflag
+                          </Button>
+                        )}
+                        {!user.isBanned && (
+                          <Button size="sm" onClick={() => onAction('ban', user.id, user.firstName || user.email, user.email)} variant="outline" className="border-red-700 text-red-400 hover:bg-red-900/30 text-xs h-7">
+                            <Ban className="w-3 h-3 mr-1" /> Ban
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );

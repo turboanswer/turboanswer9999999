@@ -23,6 +23,64 @@ import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSu
 import widgetRoutes from './routes/widget-routes';
 import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
 
+async function sendBrevoEmail(recipientEmail: string, recipientName: string, subject: string, bodyText: string) {
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (!brevoApiKey) {
+    console.warn('[Email] BREVO_API_KEY not configured, skipping email');
+    return null;
+  }
+
+  const appUrl = 'https://turbo-answer.replit.app';
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+${bodyText.split('\n').map(line => {
+    if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;">${line}</p>`;
+    if (line.trim() === '') return '<br>';
+    return `<p style="margin:0 0 10px;">${line}</p>`;
+  }).join('\n')}
+<hr style="border:none;border-top:1px solid #ddd;margin:24px 0;">
+<p style="font-size:13px;color:#666;margin:0;">TurboAnswer Support</p>
+<p style="font-size:13px;color:#666;margin:2px 0;">Email: support@turboanswer.it.com</p>
+<p style="font-size:13px;color:#666;margin:2px 0;">Phone: (866) 467-7269</p>
+<p style="font-size:13px;color:#666;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+</body>
+</html>`;
+
+  const textContent = `${bodyText}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 467-7269\nHours: Mon-Fri, 9:30 AM - 6:00 PM EST`;
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': brevoApiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: 'TurboAnswer', email: 'support@turboanswer.it.com' },
+        to: [{ email: recipientEmail, name: recipientName }],
+        subject,
+        htmlContent,
+        textContent,
+        headers: { 'X-Mailer': 'TurboAnswer Notifications' },
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      console.error('[Email] Brevo error:', result);
+      return null;
+    }
+    console.log(`[Email] Sent "${subject}" to ${recipientEmail}`);
+    return result.messageId;
+  } catch (err: any) {
+    console.error('[Email] Send failed:', err.message);
+    return null;
+  }
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -330,12 +388,16 @@ function downloadAAB(){
           const offender = await storage.getUser(userId);
           const actions: string[] = [];
 
+          let wasBanned = false;
+          let wasSuspended = false;
+
           if (modResult.autoBan && (modResult.type === "sexual" || modResult.type === "terrorism" || modResult.type === "threat")) {
             const banMonths = modResult.type === "terrorism" ? undefined : 1;
             const banLabel = modResult.type === "terrorism" ? "permanently (terrorism/harmful content)" : `for 1 month (${modResult.type} content)`;
             try {
               await storage.banUser(userId, `Auto-banned: ${modResult.type} content detected - "${modResult.matchedWords.join(', ')}"`, banMonths);
               actions.push(`Account banned ${banLabel}`);
+              wasBanned = true;
             } catch (e: any) {
               console.error("Auto-ban failed:", e.message);
               actions.push("Ban attempted but failed");
@@ -344,6 +406,7 @@ function downloadAAB(){
             try {
               await storage.suspendUser(userId, `Auto-suspended: ${modResult.type} detected - "${modResult.matchedWords.join(', ')}"`, "system", "AutoModerator");
               actions.push("Account temporarily suspended");
+              wasSuspended = true;
             } catch (e: any) {
               console.error("Auto-suspend failed:", e.message);
               actions.push("Suspend attempted but failed");
@@ -368,6 +431,23 @@ function downloadAAB(){
             conversationId,
             actionTaken: `${actions.join(". ")}. Severity: ${modResult.severity}. Matched: ${modResult.matchedWords.join(', ')}`,
           });
+
+          if (offender?.email) {
+            const userName = offender.firstName || 'User';
+            const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            if (wasBanned) {
+              const banType = modResult.type === "terrorism" ? "permanently" : "for 1 month";
+              sendBrevoEmail(offender.email, userName,
+                'Your TurboAnswer account update',
+                `Dear ${userName},\n\nWe regret to inform you that your TurboAnswer account has been banned ${banType} effective ${currentDate}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our support team at support@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`
+              ).catch(() => {});
+            } else if (wasSuspended) {
+              sendBrevoEmail(offender.email, userName,
+                'Your TurboAnswer account is under review',
+                `Dear ${userName},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.\n\nIf you have additional information that may assist in the review, please contact our support team at support@turboanswer.it.com.`
+              ).catch(() => {});
+            }
+          }
         }
 
         const banMessage = modResult.type === "terrorism" 
@@ -1016,6 +1096,15 @@ function downloadAAB(){
         details: `Ban duration: ${durationText}${user.banExpiresAt ? `. Expires: ${user.banExpiresAt.toISOString()}` : ''}`,
       });
       
+      if (user.email) {
+        const userName = user.firstName || 'User';
+        const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        sendBrevoEmail(user.email, userName,
+          'Your TurboAnswer account update',
+          `Dear ${userName},\n\nWe regret to inform you that your TurboAnswer account has been banned ${durationText} effective ${currentDate}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our support team at support@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`
+        ).catch(() => {});
+      }
+
       res.json({ message: `User banned ${durationText}`, user: { id: user.id, name: user.firstName || user.email || user.id } });
     } catch (error: any) {
       console.error('Ban user error:', error);
@@ -1046,6 +1135,16 @@ function downloadAAB(){
       }
       
       const user = await storage.flagUser(userId, reason.trim());
+
+      if (user.email) {
+        const userName = user.firstName || 'User';
+        const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        sendBrevoEmail(user.email, userName,
+          'Your TurboAnswer account is under review',
+          `Dear ${userName},\n\nYour TurboAnswer account has been flagged for review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account remains accessible but is being monitored\n- Our team is reviewing recent activity on your account\n- You will receive a follow-up email once the review is complete\n\nThis process typically takes 1-3 business days. If you have additional information that may assist in the review, please contact our support team at support@turboanswer.it.com.`
+        ).catch(() => {});
+      }
+
       res.json({ message: 'User flagged successfully', user: { id: user.id, name: user.firstName || user.email || user.id } });
     } catch (error: any) {
       console.error('Flag user error:', error);
@@ -1080,6 +1179,16 @@ function downloadAAB(){
       }
       
       const user = await storage.suspendUser(userId, reason.trim(), employeeId, employeeUsername);
+
+      if (user.email) {
+        const userName = user.firstName || 'User';
+        const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        sendBrevoEmail(user.email, userName,
+          'Your TurboAnswer account is under review',
+          `Dear ${userName},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${currentDate}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.\n\nIf you have additional information that may assist in the review, please contact our support team at support@turboanswer.it.com.`
+        ).catch(() => {});
+      }
+
       res.json({ 
         message: 'User suspended successfully', 
         user: { 
