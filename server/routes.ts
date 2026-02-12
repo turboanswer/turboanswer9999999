@@ -2039,13 +2039,10 @@ function downloadAAB(){
         return res.status(400).json({ error: 'Recipient email, name, and template type are required' });
       }
 
-      const { Resend } = await import('resend');
-      const resendApiKey = process.env.RESEND_API_KEY;
-      if (!resendApiKey) {
-        return res.status(500).json({ error: 'Resend API key not configured' });
+      const brevoApiKey = process.env.BREVO_API_KEY;
+      if (!brevoApiKey) {
+        return res.status(500).json({ error: 'Brevo API key not configured' });
       }
-
-      const resend = new Resend(resendApiKey);
 
       const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       const appUrl = 'https://turbo-answer.replit.app';
@@ -2207,30 +2204,39 @@ ${template.bodyText.split('\n').map(line => {
 </body>
 </html>`;
 
-      const emailPayload: any = {
-        from: 'TurboAnswer <support@turboanswer.it.com>',
-        to: [recipientEmail],
+      const brevoPayload: any = {
+        sender: { name: 'TurboAnswer', email: 'support@turboanswer.it.com' },
+        to: [{ email: recipientEmail, name: recipientName }],
         subject: template.subject,
-        text: fullPlainText,
+        textContent: fullPlainText,
         headers: {
           'X-Mailer': 'TurboAnswer Notifications',
           'List-Unsubscribe': '<mailto:support@turboanswer.it.com?subject=Unsubscribe>',
-          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       };
 
       if (useHtml) {
-        emailPayload.html = minimalHtml;
+        brevoPayload.htmlContent = minimalHtml;
       }
 
-      const { data, error } = await resend.emails.send(emailPayload);
+      const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': brevoApiKey,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(brevoPayload),
+      });
 
-      if (error) {
-        console.error('Resend email error:', error);
-        return res.status(500).json({ error: error.message || 'Failed to send email via Resend' });
+      const brevoResult = await brevoResponse.json();
+
+      if (!brevoResponse.ok) {
+        console.error('Brevo email error:', brevoResult);
+        return res.status(500).json({ error: brevoResult.message || 'Failed to send email via Brevo' });
       }
 
-      res.json({ success: true, message: `${template.statusText} email sent to ${recipientEmail}`, emailId: data?.id });
+      res.json({ success: true, message: `${template.statusText} email sent to ${recipientEmail}`, emailId: brevoResult.messageId });
     } catch (error: any) {
       console.error('Email send error:', error);
       res.status(500).json({ error: error.message || 'Failed to send email' });

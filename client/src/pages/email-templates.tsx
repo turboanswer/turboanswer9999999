@@ -383,8 +383,8 @@ To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
             <li>Uncheck "Include HTML formatting" to send plain-text only emails (best chance of avoiding spam)</li>
             <li>Ask recipients to check their spam/junk folder and mark as "Not Spam"</li>
             <li>Ask recipients to add support@turboanswer.it.com to their contacts</li>
-            <li>Emails are sent via Resend for reliable inbox delivery</li>
-            <li>Verify your sender domain in Resend dashboard for best results</li>
+            <li>Emails are sent via Brevo for reliable inbox delivery</li>
+            <li>Verify your sender domain in Brevo dashboard for best results</li>
           </ul>
         </div>
       </div>
