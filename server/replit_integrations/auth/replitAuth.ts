@@ -35,7 +35,7 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, password, firstName, lastName, homeAddress } = req.body;
+      const { email, password, firstName, lastName } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
@@ -47,10 +47,6 @@ export async function setupAuth(app: Express) {
 
       if (!lastName || !lastName.trim()) {
         return res.status(400).json({ message: "Last name is required" });
-      }
-
-      if (!homeAddress || !homeAddress.trim()) {
-        return res.status(400).json({ message: "Home address is required" });
       }
 
       if (password.length < 6) {
@@ -74,7 +70,6 @@ export async function setupAuth(app: Express) {
         password: hashedPassword,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        homeAddress: homeAddress.trim(),
         isEmployee: isAdmin,
         employeeRole: isAdmin ? "super_admin" : "basic",
         canViewAllChats: isAdmin,

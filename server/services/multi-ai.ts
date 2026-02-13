@@ -107,7 +107,7 @@ export async function generateAIResponse(
     let temperature: number;
 
     if (selectedModel === 'gpt-4o') {
-      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const openaiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
       if (!openaiApiKey) {
         return "OpenAI API key is not configured. Please add OPENAI_API_KEY to use GPT-4o.";
       }
@@ -257,11 +257,23 @@ async function callOpenAI(messages: Array<{ role: 'system' | 'user' | 'assistant
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[OpenAI] Error ${response.status}:`, errorText.substring(0, 200));
+      console.error(`[OpenAI] Error ${response.status}:`, errorText.substring(0, 500));
       if (response.status === 429) {
+        if (errorText.includes('insufficient_quota')) {
+          return "Your OpenAI API key has run out of credits. Please add credits to your OpenAI account at platform.openai.com to use GPT-4o.";
+        }
         return "GPT-4o is busy right now. Please wait a few seconds and try again.";
       }
-      throw new Error(`OpenAI API error: ${response.status}`);
+      if (response.status === 401) {
+        return "GPT-4o authentication error. The API key may be invalid. Please update your OpenAI API key.";
+      }
+      if (response.status === 404) {
+        return "GPT-4o model not available with current API key. Please verify your OpenAI account has access to GPT-4o.";
+      }
+      if (response.status === 403 || errorText.includes('insufficient_quota')) {
+        return "Your OpenAI API key has run out of credits. Please add credits to your OpenAI account at platform.openai.com to use GPT-4o.";
+      }
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const data = await response.json();
@@ -281,7 +293,7 @@ async function callOpenAI(messages: Array<{ role: 'system' | 'user' | 'assistant
 
 export function getAvailableModels(subscriptionTier: string): Record<string, any> {
   const hasGemini = !!process.env.GEMINI_API_KEY;
-  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasOpenAI = !!(process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY);
 
   const models: Record<string, any> = {};
 

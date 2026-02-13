@@ -218,7 +218,7 @@ export async function createSubscription(
   priceOverride?: string,
 ): Promise<{ subscriptionId: string; approvalUrl: string }> {
   const plans = await ensureSubscriptionPlans();
-  const planId = planTier === "enterprise" ? plans.enterprise : planTier === "research" ? plans.research : plans.pro;
+  const planId = planTier === "enterprise" ? plans.enterprise : planTier === "ultimate" ? plans.ultimate : planTier === "research" ? plans.research : plans.pro;
 
   const body: any = {
     plan_id: planId,
