@@ -572,7 +572,7 @@ function downloadAAB(){
       }
 
       const { plan, coupon } = req.body || {};
-      const tier = plan === 'enterprise' ? 'enterprise' : plan === 'research' ? 'research' : 'pro';
+      const tier = plan === 'enterprise' ? 'enterprise' : plan === 'ultimate' ? 'ultimate' : plan === 'research' ? 'research' : 'pro';
       console.log('[PayPal Checkout] Starting for user:', userId, 'plan:', tier);
 
       let priceOverride: string | undefined;
@@ -586,7 +586,7 @@ function downloadAAB(){
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || req.get('host')}`;
       const result = await createSubscription(
-        tier as 'pro' | 'research' | 'enterprise',
+        tier as 'pro' | 'research' | 'enterprise' | 'ultimate',
         user.email,
         userId,
         `${baseUrl}/chat?subscription=${tier}`,
@@ -1438,7 +1438,7 @@ function downloadAAB(){
       const adminUserId = req.user.claims.sub;
       const { userId, tier, reason } = req.body;
       if (!userId || !tier) return res.status(400).json({ error: 'User ID and tier required' });
-      const validTiers = ['free', 'pro', 'research', 'enterprise'];
+      const validTiers = ['free', 'pro', 'research', 'ultimate', 'enterprise'];
       if (!validTiers.includes(tier)) return res.status(400).json({ error: 'Invalid tier' });
 
       const targetUser = await storage.getUser(userId);
@@ -1533,8 +1533,8 @@ function downloadAAB(){
       const adminUserId = req.user.claims.sub;
       const { userId, tier, reason, durationMonths } = req.body;
       if (!userId || !tier) return res.status(400).json({ error: 'User ID and tier required' });
-      const validTiers = ['pro', 'research', 'enterprise'];
-      if (!validTiers.includes(tier)) return res.status(400).json({ error: 'Invalid tier. Must be pro, research, or enterprise.' });
+      const validTiers = ['pro', 'research', 'ultimate', 'enterprise'];
+      if (!validTiers.includes(tier)) return res.status(400).json({ error: 'Invalid tier. Must be pro, research, ultimate, or enterprise.' });
       const validDurations = [1, 2, 3, 4, 0];
       const duration = durationMonths !== undefined ? Number(durationMonths) : 0;
       if (!validDurations.includes(duration)) return res.status(400).json({ error: 'Invalid duration. Must be 1, 2, 3, 4, or 0 (forever).' });
@@ -1794,7 +1794,7 @@ function downloadAAB(){
       const bannedCount = allUsers.filter(u => u.isBanned).length;
       const suspendedCount = allUsers.filter(u => u.isSuspended).length;
       const flaggedCount = allUsers.filter(u => u.isFlagged).length;
-      const revenue = (subscriptionStats.pro * 6.99) + (subscriptionStats.research * 15) + (subscriptionStats.enterprise * 50);
+      const revenue = (subscriptionStats.pro * 6.99) + (subscriptionStats.research * 15) + (subscriptionStats.ultimate * 25) + (subscriptionStats.enterprise * 50);
 
       const statsResponse = {
         totalUsers: userCount,

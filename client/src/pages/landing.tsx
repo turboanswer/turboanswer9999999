@@ -531,7 +531,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className={`card-hologram rounded-2xl p-7 border ${isDark ? 'bg-white/[0.02] border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}>
               <div className="mb-5">
                 <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Free</h3>
@@ -615,6 +615,35 @@ export default function LandingPage() {
               <a href="/login">
                 <Button className="w-full rounded-xl h-12 font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 shadow-lg shadow-indigo-500/20">
                   Upgrade to Research
+                </Button>
+              </a>
+            </div>
+
+            <div className={`card-hologram rounded-2xl p-7 border-2 relative overflow-hidden ${isDark ? 'border-emerald-500/40 bg-emerald-500/[0.03]' : 'border-emerald-400 bg-emerald-50/30 shadow-lg shadow-emerald-100'}`}>
+              <div className="absolute -top-px left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500" />
+              <div className="mb-5">
+                <h3 className={`text-xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <Zap className="h-5 w-5 text-emerald-400" /> Ultimate
+                </h3>
+                <div className="flex items-baseline gap-1 mt-2">
+                  <span className="text-4xl font-black">$25</span>
+                  <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>/month</span>
+                </div>
+              </div>
+              <div className={`text-sm mb-5 font-medium ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>OpenAI GPT-4o</div>
+              <ul className="space-y-3 mb-7">
+                {["Everything in Research", "OpenAI GPT-4o model", "Superior code generation", "Advanced reasoning", "Multimodal understanding", "Priority support"].map((item, i) => (
+                  <li key={i} className={`flex items-center gap-2.5 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                      <Check className="h-3 w-3 text-emerald-400" />
+                    </div>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <a href="/login">
+                <Button className="w-full rounded-xl h-12 font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-500/20">
+                  Upgrade to Ultimate
                 </Button>
               </a>
             </div>

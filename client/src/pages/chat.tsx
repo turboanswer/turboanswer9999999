@@ -28,6 +28,7 @@ export default function Chat() {
   const [showQR, setShowQR] = useState(false);
   const [showProPopup, setShowProPopup] = useState(false);
   const [showResearchPopup, setShowResearchPopup] = useState(false);
+  const [showUltimatePopup, setShowUltimatePopup] = useState(false);
   const [showEnterprisePopup, setShowEnterprisePopup] = useState(false);
   const [entCoupon, setEntCoupon] = useState('');
   const [entCouponApplied, setEntCouponApplied] = useState(false);
@@ -263,7 +264,7 @@ export default function Chat() {
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
   const isFreeTier = !subscriptionData?.tier || subscriptionData?.tier === 'free';
-  const isAnyPopupOpen = showProPopup || showResearchPopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;
+  const isAnyPopupOpen = showProPopup || showResearchPopup || showUltimatePopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;
   const promoCooldownActive = lastPromoDismissedAt > 0 && (Date.now() - lastPromoDismissedAt) < 600000;
 
   useEffect(() => {
@@ -298,10 +299,12 @@ export default function Chat() {
 
   const handleModelChange = (value: string) => {
     const tier = subscriptionData?.tier;
-    if (value === 'gemini-pro' && tier !== 'pro' && tier !== 'research' && tier !== 'enterprise') {
+    if (value === 'gemini-pro' && tier !== 'pro' && tier !== 'research' && tier !== 'ultimate' && tier !== 'enterprise') {
       setShowProPopup(true);
-    } else if (value === 'claude-research' && tier !== 'research' && tier !== 'enterprise') {
+    } else if (value === 'claude-research' && tier !== 'research' && tier !== 'ultimate' && tier !== 'enterprise') {
       setShowResearchPopup(true);
+    } else if (value === 'gpt-4o' && tier !== 'ultimate') {
+      setShowUltimatePopup(true);
     } else if (value === 'enterprise-research' && tier !== 'enterprise') {
       setShowEnterprisePopup(true);
     } else {
@@ -331,6 +334,7 @@ export default function Chat() {
                 <SelectItem value="gemini-flash">Free</SelectItem>
                 <SelectItem value="gemini-pro">Pro $6.99</SelectItem>
                 <SelectItem value="claude-research">Research $15</SelectItem>
+                <SelectItem value="gpt-4o">Ultimate $25</SelectItem>
                 <SelectItem value="enterprise-research">Enterprise $50</SelectItem>
               </SelectContent>
             </Select>
@@ -752,6 +756,58 @@ export default function Chat() {
               }}>
               <Brain className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : "Subscribe Now - $15/mo"}
+            </Button>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Cancel anytime. Secure payment via PayPal.</p>
+          </div>
+        </div>
+      )}
+
+      {showUltimatePopup && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowUltimatePopup(false)}>
+          <div className={`${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl max-w-sm w-full p-6 relative`} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowUltimatePopup(false)} className={`absolute top-3 right-3 ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>
+              <X className="h-5 w-5" />
+            </button>
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Zap className="text-white h-7 w-7" />
+              </div>
+              <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade to Ultimate</h2>
+              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>OpenAI GPT-4o for superior performance</p>
+            </div>
+            <div className="text-center mb-5">
+              <span className={`text-4xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$25</span>
+              <span className={isDark ? 'text-zinc-400 text-base' : 'text-gray-500 text-base'}>/month</span>
+            </div>
+            <ul className="space-y-3 mb-6">
+              {["OpenAI GPT-4o - superior coding & reasoning", "All Research + Pro features included", "Best-in-class code generation", "Advanced multimodal understanding", "Priority support"].map((text, i) => (
+                <li key={i} className="flex items-center gap-3">
+                  <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                  <span className={`text-sm ${isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
+                </li>
+              ))}
+            </ul>
+            <Button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-5 rounded-xl text-base" disabled={checkoutLoading}
+              onClick={async () => {
+                setCheckoutLoading(true);
+                try {
+                  const res = await fetch("/api/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ plan: "ultimate" }),
+                    credentials: "include",
+                  });
+                  const data = await res.json();
+                  if (data.url) {
+                    localStorage.setItem('turbo_pending_subscription', JSON.stringify({ tier: 'ultimate', timestamp: Date.now() }));
+                    window.location.href = data.url;
+                  }
+                  else toast({ title: "Error", description: data.error || "Could not start checkout", variant: "destructive" });
+                } catch (err: any) { toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }); }
+                finally { setCheckoutLoading(false); }
+              }}>
+              <Zap className="w-4 h-4 mr-2" />
+              {checkoutLoading ? "Loading..." : "Subscribe Now - $25/mo"}
             </Button>
             <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>Cancel anytime. Secure payment via PayPal.</p>
           </div>

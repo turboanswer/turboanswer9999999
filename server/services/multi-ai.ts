@@ -30,6 +30,15 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
       temperature: 0.1,
     },
   },
+  ultimate: {
+    "gpt-4o": {
+      name: "GPT-4o",
+      provider: "openai",
+      description: "OpenAI's most powerful model for superior coding, reasoning, and analysis",
+      maxTokens: 16000,
+      temperature: 0.2,
+    },
+  },
   free: {
     "gemini-flash": {
       name: "Gemini 2.5 Flash",
@@ -97,7 +106,24 @@ export async function generateAIResponse(
     let maxTokens: number;
     let temperature: number;
 
-    if (selectedModel === 'claude-research') {
+    if (selectedModel === 'gpt-4o') {
+      const openaiApiKey = process.env.OPENAI_API_KEY;
+      if (!openaiApiKey) {
+        return "OpenAI API key is not configured. Please add OPENAI_API_KEY to use GPT-4o.";
+      }
+      const gptSystemPrompt = `You are Turbo Answer, the most powerful AI assistant. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. Give expert-level, comprehensive responses with excellent code, analysis, and reasoning.${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+      const recentHistory = conversationHistory.slice(-4).map(m => ({
+        role: m.role === 'assistant' ? 'assistant' as const : 'user' as const,
+        content: m.content.slice(0, 1000),
+      }));
+      const messages = [
+        { role: 'system' as const, content: gptSystemPrompt },
+        ...recentHistory,
+        { role: 'user' as const, content: enhancedMessage },
+      ];
+      console.log(`[AI] Model: gpt-4o, Tokens: 16000`);
+      return await callOpenAI(messages, openaiApiKey);
+    } else if (selectedModel === 'claude-research') {
       geminiModel = 'gemini-2.5-pro';
       maxTokens = 8000;
       temperature = 0.1;
@@ -207,8 +233,55 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
   throw new Error('AI is temporarily busy due to high demand. Please wait a moment and try again.');
 }
 
+async function callOpenAI(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, apiKey: string): Promise<string> {
+  const start = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages,
+        max_tokens: 16000,
+        temperature: 0.2,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[OpenAI] Error ${response.status}:`, errorText.substring(0, 200));
+      if (response.status === 429) {
+        return "GPT-4o is busy right now. Please wait a few seconds and try again.";
+      }
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('No content in OpenAI response');
+
+    console.log(`[OpenAI] gpt-4o responded in ${Date.now() - start}ms`);
+    return content;
+  } catch (error: any) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      return "GPT-4o took too long to respond. Please try again.";
+    }
+    throw error;
+  }
+}
+
 export function getAvailableModels(subscriptionTier: string): Record<string, any> {
   const hasGemini = !!process.env.GEMINI_API_KEY;
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
 
   const models: Record<string, any> = {};
 
@@ -216,12 +289,16 @@ export function getAvailableModels(subscriptionTier: string): Record<string, any
     Object.assign(models, AI_MODELS.free);
   }
 
-  if (subscriptionTier === 'pro' || subscriptionTier === 'research' || subscriptionTier === 'enterprise') {
+  if (subscriptionTier === 'pro' || subscriptionTier === 'research' || subscriptionTier === 'enterprise' || subscriptionTier === 'ultimate') {
     if (hasGemini) Object.assign(models, AI_MODELS.pro);
   }
 
-  if (subscriptionTier === 'research' || subscriptionTier === 'enterprise') {
+  if (subscriptionTier === 'research' || subscriptionTier === 'enterprise' || subscriptionTier === 'ultimate') {
     if (hasGemini) Object.assign(models, AI_MODELS.research);
+  }
+
+  if (subscriptionTier === 'ultimate') {
+    if (hasOpenAI) Object.assign(models, AI_MODELS.ultimate);
   }
 
   return models;

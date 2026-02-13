@@ -59,9 +59,9 @@ async function paypalRequest(method: string, path: string, body?: any): Promise<
   return res.json();
 }
 
-let planIds: { pro: string; research: string; enterprise: string } | null = null;
+let planIds: { pro: string; research: string; enterprise: string; ultimate: string } | null = null;
 
-export async function ensureSubscriptionPlans(): Promise<{ pro: string; research: string; enterprise: string }> {
+export async function ensureSubscriptionPlans(): Promise<{ pro: string; research: string; enterprise: string; ultimate: string }> {
   if (planIds) return planIds;
 
   const token = await getAccessToken();
@@ -71,11 +71,13 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
   let proPlanId: string | null = null;
   let researchPlanId: string | null = null;
   let enterprisePlanId: string | null = null;
+  let ultimatePlanId: string | null = null;
 
   for (const plan of plans.plans || []) {
     if (plan.status !== "ACTIVE") continue;
     if (plan.name === "Turbo Answer Pro") proPlanId = plan.id;
     if (plan.name === "Turbo Answer Research") researchPlanId = plan.id;
+    if (plan.name === "Turbo Answer Ultimate") ultimatePlanId = plan.id;
     if (plan.name === "Turbo Answer Enterprise") {
       try {
         const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
@@ -92,7 +94,7 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
     }
   }
 
-  if (!proPlanId || !researchPlanId || !enterprisePlanId) {
+  if (!proPlanId || !researchPlanId || !enterprisePlanId || !ultimatePlanId) {
     let productId: string | null = null;
     const products = await paypalRequest("GET", "/v1/catalogs/products?page_size=20&page=1&total_required=true");
     for (const product of products.products || []) {
@@ -157,6 +159,28 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
       console.log("[PayPal] Created Research plan:", researchPlanId);
     }
 
+    if (!ultimatePlanId) {
+      const plan = await paypalRequest("POST", "/v1/billing/plans", {
+        product_id: productId,
+        name: "Turbo Answer Ultimate",
+        description: "Ultimate tier - GPT-4o powered AI with superior coding and reasoning",
+        status: "ACTIVE",
+        billing_cycles: [{
+          frequency: { interval_unit: "MONTH", interval_count: 1 },
+          tenure_type: "REGULAR",
+          sequence: 1,
+          total_cycles: 0,
+          pricing_scheme: { fixed_price: { value: "25.00", currency_code: "USD" } },
+        }],
+        payment_preferences: {
+          auto_bill_outstanding: true,
+          payment_failure_threshold: 3,
+        },
+      });
+      ultimatePlanId = plan.id;
+      console.log("[PayPal] Created Ultimate plan:", ultimatePlanId);
+    }
+
     if (!enterprisePlanId) {
       const plan = await paypalRequest("POST", "/v1/billing/plans", {
         product_id: productId,
@@ -180,13 +204,13 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
     }
   }
 
-  planIds = { pro: proPlanId!, research: researchPlanId!, enterprise: enterprisePlanId! };
+  planIds = { pro: proPlanId!, research: researchPlanId!, enterprise: enterprisePlanId!, ultimate: ultimatePlanId! };
   console.log("[PayPal] Subscription plans ready:", planIds);
   return planIds;
 }
 
 export async function createSubscription(
-  planTier: "pro" | "research" | "enterprise",
+  planTier: "pro" | "research" | "enterprise" | "ultimate",
   userEmail: string | null,
   userId: string,
   returnUrl: string,

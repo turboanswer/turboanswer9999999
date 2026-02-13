@@ -58,7 +58,7 @@ export interface IStorage {
   deleteUserAccount(userId: string): Promise<void>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserCount(): Promise<number>;
-  getActiveSubscriptionCount(): Promise<{ pro: number; research: number; enterprise: number }>;
+  getActiveSubscriptionCount(): Promise<{ pro: number; research: number; ultimate: number; enterprise: number }>;
 
   createCrisisConversation(userId: string): Promise<CrisisConversation>;
   getCrisisConversationsByUser(userId: string): Promise<CrisisConversation[]>;
@@ -516,11 +516,12 @@ export class DatabaseStorage implements IStorage {
     return Number(result[0]?.count || 0);
   }
 
-  async getActiveSubscriptionCount(): Promise<{ pro: number; research: number; enterprise: number }> {
+  async getActiveSubscriptionCount(): Promise<{ pro: number; research: number; ultimate: number; enterprise: number }> {
     const allUsers = await db.select().from(users);
     return {
       pro: allUsers.filter(u => u.subscriptionTier === 'pro' && u.subscriptionStatus === 'active').length,
       research: allUsers.filter(u => u.subscriptionTier === 'research' && u.subscriptionStatus === 'active').length,
+      ultimate: allUsers.filter(u => u.subscriptionTier === 'ultimate' && u.subscriptionStatus === 'active').length,
       enterprise: allUsers.filter(u => u.subscriptionTier === 'enterprise' && u.subscriptionStatus === 'active').length,
     };
   }

@@ -12,7 +12,7 @@ interface PricingPlan {
   description: string;
   features: string[];
   popular?: boolean;
-  apiPlan?: 'pro' | 'research' | 'enterprise';
+  apiPlan?: 'pro' | 'research' | 'ultimate' | 'enterprise';
 }
 
 const plans: PricingPlan[] = [
@@ -62,6 +62,22 @@ const plans: PricingPlan[] = [
       'Priority support'
     ],
     apiPlan: 'research'
+  },
+  {
+    id: 'ultimate',
+    name: 'Ultimate',
+    price: '$25',
+    period: 'per month',
+    description: 'GPT-4o powered AI for superior coding & reasoning',
+    features: [
+      'OpenAI GPT-4o model',
+      'Superior coding & reasoning',
+      'All Research + Pro features',
+      'Best-in-class code generation',
+      'Advanced multimodal understanding',
+      'Priority support'
+    ],
+    apiPlan: 'ultimate'
   },
   {
     id: 'enterprise',
