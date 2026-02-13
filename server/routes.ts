@@ -124,13 +124,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!fs.existsSync(aabPath)) {
       return res.status(404).json({ error: "AAB file not found" });
     }
-    const stat = fs.statSync(aabPath);
-    res.setHeader("Content-Type", "application/octet-stream");
-    res.setHeader("Content-Length", stat.size);
+    const fileBuffer = fs.readFileSync(aabPath);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Length", fileBuffer.length);
     res.setHeader("Content-Disposition", "attachment; filename=turbo-answer-release.aab");
-    res.setHeader("Cache-Control", "no-cache, no-store");
-    const fileStream = fs.createReadStream(aabPath);
-    fileStream.pipe(res);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.end(fileBuffer);
+  });
+
+  app.get("/download-page", (req, res) => {
+    res.setHeader("Content-Type", "text/html");
+    res.send(`<!DOCTYPE html>
+<html><head><title>Download TurboAnswer AAB</title>
+<style>body{font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#1a1a2e;color:#fff}
+.card{background:#16213e;padding:40px;border-radius:16px;text-align:center;max-width:500px;box-shadow:0 8px 32px rgba(0,0,0,0.3)}
+h1{margin-bottom:10px}p{color:#aaa;margin-bottom:30px}
+.btn{display:inline-block;padding:16px 40px;background:#4f46e5;color:#fff;border-radius:8px;text-decoration:none;font-size:18px;font-weight:bold;cursor:pointer;border:none}
+.btn:hover{background:#4338ca}.info{margin-top:20px;font-size:13px;color:#888}</style></head>
+<body><div class="card">
+<h1>TurboAnswer AAB</h1>
+<p>Android App Bundle for Google Play Console</p>
+<a class="btn" href="/download/turbo-answer.aab" download="turbo-answer-release.aab">Download AAB File</a>
+<p class="info">File size: ~3.9 MB | MD5: fd2c9625dc6cace35da2a71a44d57f79<br>
+After downloading, verify the file is exactly 4,041,426 bytes</p>
+</div></body></html>`);
   });
 
   app.get("/robots.txt", (req, res) => {
