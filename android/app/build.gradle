@@ -7,8 +7,8 @@ android {
         applicationId "com.turboanswer.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "2.0.0"
+        versionCode 3
+        versionName "2.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
@@ -16,10 +16,10 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('../turbo-answer-release.keystore')
-            storePassword 'turboanswer2024'
-            keyAlias 'turbo-answer'
-            keyPassword 'turboanswer2024'
+            storeFile file('../turbo-answer-upload.keystore')
+            storePassword 'TurboAnswer2026!'
+            keyAlias 'turbo-answer-upload'
+            keyPassword 'TurboAnswer2026!'
         }
     }
     buildTypes {
