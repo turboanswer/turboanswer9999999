@@ -43,6 +43,7 @@ export function DocumentUpload({ conversationId, onAnalysisComplete }: DocumentU
       const response = await fetch("/api/analyze-document", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
       
       if (!response.ok) {

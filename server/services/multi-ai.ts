@@ -99,9 +99,11 @@ export async function generateAIResponse(
 
     if (selectedModel === 'claude-research') {
       geminiModel = 'gemini-2.5-pro';
-      maxTokens = 8000;
+      maxTokens = isSimple ? 500 : 8000;
       temperature = 0.1;
-      systemPrompt = `You are Turbo Answer, a research assistant. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. Give thorough, well-structured analysis with clear headings and evidence-based reasoning.${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+      systemPrompt = isSimple
+        ? `You are Turbo, an AI assistant. Only if someone specifically asks who made or developed TurboAnswer, say Tiago Tschantret — otherwise never mention it. Be direct and concise. Answer the user's actual question simply.${languageInstruction ? ' ' + languageInstruction : ''}`
+        : `You are Turbo Answer, a powerful AI assistant. Only if someone specifically asks who made or developed TurboAnswer, say Tiago Tschantret — otherwise never mention it. Answer the user's actual question directly. Do NOT analyze or dissect the user's message itself — just answer it helpfully. Use clear structure only when the topic is complex.${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
     } else if (selectedModel === 'gemini-pro') {
       geminiModel = 'gemini-2.0-flash';
       maxTokens = isSimple ? 500 : 4000;
