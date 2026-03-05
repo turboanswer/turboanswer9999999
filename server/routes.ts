@@ -2455,19 +2455,6 @@ ${template.bodyText.split('\n').map(line => {
       const userId = req.user?.claims?.sub || null;
       const [app] = await db.insert(betaApplications).values({ name, email, answers, userId, status: 'pending' }).returning();
 
-      // Notify admins
-      await db.insert((await import('@shared/schema')).adminNotifications).values({
-        type: 'system',
-        title: 'New Beta Application',
-        message: `${name} (${email}) submitted a beta testing application.`,
-        userId: null,
-        userFirstName: name,
-        userLastName: '',
-        userEmail: email,
-        isRead: false,
-        severity: 'info',
-      });
-
       res.json({ success: true, id: app.id });
     } catch (err: any) {
       console.error('Beta apply error:', err);
