@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Star, Lock, Palette, Search, Code, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Rocket } from "lucide-react";
+import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Rocket } from "lucide-react";
 import { Link } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import TurboLogo from "@/components/TurboLogo";
 
-const TRUSTPILOT_BUSINESS_UNIT_ID = "";
 
 function StarField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -144,55 +143,6 @@ function GlowOrb({ className, color, size }: { className?: string; color: string
   );
 }
 
-function TrustpilotWidget({ isDark }: { isDark: boolean }) {
-  const trustpilotRef = useRef<HTMLDivElement>(null);
-  const [widgetError, setWidgetError] = useState(false);
-
-  useEffect(() => {
-    if (!TRUSTPILOT_BUSINESS_UNIT_ID) return;
-    try {
-      if ((window as any).Trustpilot && trustpilotRef.current) {
-        (window as any).Trustpilot.loadFromElement(trustpilotRef.current, true);
-      }
-    } catch (e) {
-      setWidgetError(true);
-    }
-  }, []);
-
-  return (
-    <section className="py-12 sm:py-16 px-4 relative z-10">
-      <div className="max-w-4xl mx-auto text-center">
-        <h2 className={`text-2xl sm:text-3xl font-bold mb-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Trusted by Users Worldwide
-        </h2>
-        {TRUSTPILOT_BUSINESS_UNIT_ID && !widgetError ? (
-          <div
-            ref={trustpilotRef}
-            className="trustpilot-widget"
-            data-locale="en-US"
-            data-template-id="56278e9abfbbba0bdcd568bc"
-            data-businessunit-id={TRUSTPILOT_BUSINESS_UNIT_ID}
-            data-style-height="52px"
-            data-style-width="100%"
-            data-theme={isDark ? "dark" : "light"}
-          >
-            <a href="https://www.trustpilot.com/review/turboanswer.com" target="_blank" rel="noopener noreferrer" className={`text-sm ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'}`}>
-              See our reviews on Trustpilot
-            </a>
-          </div>
-        ) : (
-          <div className={`flex items-center justify-center gap-2 py-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-            <Star className="h-5 w-5 text-green-500 fill-green-500" />
-            <a href="https://www.trustpilot.com/review/turboanswer.com" target="_blank" rel="noopener noreferrer" className={`text-sm font-medium ${isDark ? 'text-green-400 hover:text-green-300' : 'text-green-600 hover:text-green-500'} underline`}>
-              See our reviews on Trustpilot
-            </a>
-            <Star className="h-5 w-5 text-green-500 fill-green-500" />
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -829,8 +779,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
-      <TrustpilotWidget isDark={isDark} />
 
       {/* Floating Open Chat button for authenticated users */}
       {isAuthenticated && (
