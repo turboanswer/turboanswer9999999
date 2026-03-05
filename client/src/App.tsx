@@ -27,6 +27,7 @@ import CrisisSupport from "@/pages/crisis-support";
 import CrisisInfo from "@/pages/crisis-info";
 import EmailTemplates from "@/pages/email-templates";
 import ForgotPassword from "@/pages/forgot-password";
+import ImageStudio from "@/pages/image-studio";
 
 function AuthenticatedRouter() {
   return (
@@ -48,6 +49,7 @@ function AuthenticatedRouter() {
       <Route path="/crisis-support" component={CrisisSupport} />
       <Route path="/crisis-info" component={CrisisInfo} />
       <Route path="/email-templates" component={EmailTemplates} />
+      <Route path="/image-studio" component={ImageStudio} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -66,6 +68,7 @@ function UnauthenticatedRouter() {
       <Route path="/widget-demo" component={WidgetDemo} />
       <Route path="/crisis-info" component={CrisisInfo} />
       <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/image-studio" component={ImageStudio} />
       <Route component={LandingPage} />
     </Switch>
   );

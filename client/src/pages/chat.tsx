@@ -340,6 +340,11 @@ export default function Chat() {
             </button>
 
             <div className="hidden sm:flex items-center gap-1">
+              <Link href="/image-studio">
+                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-pink-400' : 'text-gray-500 hover:text-pink-500'}`} title="Image Studio">
+                  <ImageIcon className="h-4 w-4 mr-1" /> Studio
+                </Button>
+              </Link>
               <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 ${showQR ? 'text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-blue-500`} title="QR Code">
                 <QrCode className="h-4 w-4" />
               </Button>
@@ -377,9 +382,11 @@ export default function Chat() {
               <Button onClick={() => { setShowDocumentUpload(!showDocumentUpload); setShowToolbar(false); }} variant="ghost" size="sm" className={`h-8 px-2 text-xs ${showDocumentUpload ? 'text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 <FileText className="h-4 w-4 mr-1" /> Docs
               </Button>
-              <Button onClick={() => { setShowImageGenerator(!showImageGenerator); setShowToolbar(false); }} variant="ghost" size="sm" className={`h-8 px-2 text-xs ${showImageGenerator ? 'text-pink-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                <ImageIcon className="h-4 w-4 mr-1" /> Image
-              </Button>
+              <Link href="/image-studio">
+                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-pink-400' : 'text-gray-500 hover:text-pink-500'}`}>
+                  <ImageIcon className="h-4 w-4 mr-1" /> Studio
+                </Button>
+              </Link>
             </div>
             <div className="flex items-center gap-1">
               <LanguageSelector currentLanguage={currentLanguage} onLanguageChange={handleLanguageChange} />
@@ -462,9 +469,11 @@ export default function Chat() {
             <Button onClick={() => setShowDocumentUpload(!showDocumentUpload)} variant="ghost" size="sm" className={`h-8 px-2 ${showDocumentUpload ? 'text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-blue-500`} title="Upload Document">
               <FileText className="h-4 w-4" />
             </Button>
-            <Button onClick={() => setShowImageGenerator(!showImageGenerator)} variant="ghost" size="sm" className={`h-8 px-2 ${showImageGenerator ? 'text-pink-400' : isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-pink-500`} title="Generate Image">
-              <ImageIcon className="h-4 w-4" />
-            </Button>
+            <Link href="/image-studio">
+              <Button variant="ghost" size="sm" className={`h-8 px-2 ${isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-pink-500`} title="Image Studio">
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
           <LanguageSelector currentLanguage={currentLanguage} onLanguageChange={handleLanguageChange} />
         </div>
