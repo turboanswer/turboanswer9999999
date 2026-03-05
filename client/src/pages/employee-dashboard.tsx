@@ -35,6 +35,8 @@ interface UserData {
   suspendedAt?: string;
   createdAt: string;
   lastLoginAt?: string;
+  isEmployee?: boolean;
+  employeeRole?: string;
 }
 
 interface AdminNotification {
@@ -204,6 +206,22 @@ export default function EmployeeDashboard() {
         employeeUsername: currentUser?.email || 'admin',
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] }),
+  });
+
+  const setAdminMutation = useMutation({
+    mutationFn: async ({ userId, grant }: { userId: string; grant: boolean }) => {
+      const res = await fetch(`/api/admin/users/${userId}/set-admin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ grant }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed'); }
+      return res.json();
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] });
+    },
   });
 
   const deleteUserMutation = useMutation({
@@ -655,7 +673,12 @@ export default function EmployeeDashboard() {
                         {filteredUsers.map((user) => (
                           <tr key={user.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                             <td className="p-3">
-                              <div className="font-medium text-white">{user.firstName} {user.lastName}</div>
+                              <div className="flex items-center gap-1.5">
+                                <div className="font-medium text-white">{user.firstName} {user.lastName}</div>
+                                {user.isEmployee && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-700/40 text-red-300 border border-red-700/50 font-bold">ADMIN</span>
+                                )}
+                              </div>
                               <div className="text-xs text-gray-500">ID: {user.id.slice(0, 8)}...</div>
                             </td>
                             <td className="p-3 text-sm text-gray-300">{user.email || '-'}</td>
@@ -715,6 +738,27 @@ export default function EmployeeDashboard() {
                                 ) : (
                                   <Button size="sm" variant="ghost" className="h-7 px-2 text-green-400 hover:text-green-300 hover:bg-green-900/20" onClick={() => unsuspendMutation.mutate(user.id)} disabled={unsuspendMutation.isPending}>
                                     <Play className="w-3 h-3 mr-1" /> Unsuspend
+                                  </Button>
+                                )}
+                                {user.isEmployee ? (
+                                  <Button
+                                    size="sm" variant="ghost"
+                                    className="h-7 px-2 text-orange-400 hover:text-orange-300 hover:bg-orange-900/20"
+                                    onClick={() => setAdminMutation.mutate({ userId: user.id, grant: false })}
+                                    disabled={setAdminMutation.isPending}
+                                    title="Revoke admin access"
+                                  >
+                                    <Shield className="w-3 h-3 mr-1" /> Revoke Admin
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm" variant="ghost"
+                                    className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                    onClick={() => setAdminMutation.mutate({ userId: user.id, grant: true })}
+                                    disabled={setAdminMutation.isPending}
+                                    title="Grant admin access"
+                                  >
+                                    <Shield className="w-3 h-3 mr-1" /> Make Admin
                                   </Button>
                                 )}
                                 <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-400 hover:bg-red-900/30" onClick={() => { setDeleteModal({ userId: user.id, userName: `${user.firstName} ${user.lastName}` }); setDeleteVerificationCode(''); setDeleteError(''); }}>

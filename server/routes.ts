@@ -1090,6 +1090,8 @@ function downloadAAB(){
         suspendedAt: user.suspendedAt,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
+        isEmployee: user.isEmployee,
+        employeeRole: user.employeeRole,
       }));
       
       res.json(sanitizedUsers);
@@ -2404,6 +2406,36 @@ ${template.bodyText.split('\n').map(line => {
   });
 
 
+
+  // --- Admin Promote/Revoke Route ---
+  app.post('/api/admin/users/:id/set-admin', isAdmin, async (req: any, res) => {
+    try {
+      const targetId = req.params.id;
+      const { grant } = req.body;
+      const requesterId = req.user?.claims?.sub;
+
+      if (targetId === requesterId) {
+        return res.status(400).json({ error: "You cannot change your own admin status." });
+      }
+
+      const { authStorage } = await import('./replit_integrations/auth/storage');
+      const targetUser = await authStorage.getUser(targetId);
+      if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+      await authStorage.upsertUser({
+        ...targetUser,
+        isEmployee: !!grant,
+        employeeRole: grant ? 'super_admin' : 'basic',
+        canViewAllChats: !!grant,
+        canBanUsers: !!grant,
+      });
+
+      res.json({ success: true, isEmployee: !!grant });
+    } catch (err: any) {
+      console.error('Set admin error:', err);
+      res.status(500).json({ error: 'Failed to update admin status' });
+    }
+  });
 
   // --- Admin Invite Token Routes ---
   app.post('/api/admin/invite-tokens', isAdmin, async (req: any, res) => {
