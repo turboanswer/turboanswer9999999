@@ -710,6 +710,15 @@ export default function EmployeeDashboard() {
                                 <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20" onClick={() => setSelectedUserId(user.id)}>
                                   <Eye className="w-3 h-3 mr-1" /> View
                                 </Button>
+                                {user.isEmployee ? (
+                                  <Button size="sm" variant="outline" className="h-7 px-2 text-orange-300 border-orange-600 hover:bg-orange-900/30" onClick={() => setAdminMutation.mutate({ userId: user.id, grant: false })} disabled={setAdminMutation.isPending}>
+                                    <Shield className="w-3 h-3 mr-1" /> Revoke Admin
+                                  </Button>
+                                ) : (
+                                  <Button size="sm" variant="outline" className="h-7 px-2 text-purple-300 border-purple-600 hover:bg-purple-900/30" onClick={() => setAdminMutation.mutate({ userId: user.id, grant: true })} disabled={setAdminMutation.isPending}>
+                                    <Shield className="w-3 h-3 mr-1" /> Make Admin
+                                  </Button>
+                                )}
                                 <Button size="sm" variant="ghost" className="h-7 px-2 text-purple-400 hover:text-purple-300 hover:bg-purple-900/20" onClick={() => { setSubModalUser(user); setSubModalAction('modify'); setSubModalTier(user.subscriptionTier || 'free'); }}>
                                   <CreditCard className="w-3 h-3 mr-1" /> Plan
                                 </Button>
@@ -738,27 +747,6 @@ export default function EmployeeDashboard() {
                                 ) : (
                                   <Button size="sm" variant="ghost" className="h-7 px-2 text-green-400 hover:text-green-300 hover:bg-green-900/20" onClick={() => unsuspendMutation.mutate(user.id)} disabled={unsuspendMutation.isPending}>
                                     <Play className="w-3 h-3 mr-1" /> Unsuspend
-                                  </Button>
-                                )}
-                                {user.isEmployee ? (
-                                  <Button
-                                    size="sm" variant="ghost"
-                                    className="h-7 px-2 text-orange-400 hover:text-orange-300 hover:bg-orange-900/20"
-                                    onClick={() => setAdminMutation.mutate({ userId: user.id, grant: false })}
-                                    disabled={setAdminMutation.isPending}
-                                    title="Revoke admin access"
-                                  >
-                                    <Shield className="w-3 h-3 mr-1" /> Revoke Admin
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm" variant="ghost"
-                                    className="h-7 px-2 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                                    onClick={() => setAdminMutation.mutate({ userId: user.id, grant: true })}
-                                    disabled={setAdminMutation.isPending}
-                                    title="Grant admin access"
-                                  >
-                                    <Shield className="w-3 h-3 mr-1" /> Make Admin
                                   </Button>
                                 )}
                                 <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-400 hover:bg-red-900/30" onClick={() => { setDeleteModal({ userId: user.id, userName: `${user.firstName} ${user.lastName}` }); setDeleteVerificationCode(''); setDeleteError(''); }}>
