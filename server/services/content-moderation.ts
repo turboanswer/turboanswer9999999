@@ -23,6 +23,16 @@ const THREAT_PATTERNS = [
   /\bi('m| am| will)\s+(going to|gonna)\s+(kill|hurt|harm|attack|bomb|shoot)\b/i,
   /\b(death\s+threat|threat(en|ening)?\s+to\s+(kill|hurt|harm))\b/i,
   /\b(how to|make|build)\s+(a\s+)?(bomb|weapon|explosive|poison)\b/i,
+  // Self-declarations of being a threat or danger
+  /\bi\s+am\s+(a\s+)?(serious\s+)?(threat|danger|risk|hazard)\s+(to\s+)?(public\s+safety|society|people|everyone|the\s+public|others|the\s+community|national\s+security)\b/i,
+  /\bi'?m\s+(a\s+)?(serious\s+)?(threat|danger|risk|hazard)\s+(to\s+)?(public\s+safety|society|people|everyone|the\s+public|others|the\s+community|national\s+security)\b/i,
+  /\bi\s+(pose|represent)\s+(a\s+)?(serious\s+)?(threat|danger|risk|hazard)\s+(to\s+)?(public\s+safety|society|people|everyone|the\s+public|others|the\s+community|national\s+security)\b/i,
+  /\b(i\s+am|i'?m)\s+dangerous\s+(to|for)\s+(society|the\s+public|everyone|people|others)\b/i,
+  /\bi\s+(plan|intend|want|need)\s+(to\s+)?(hurt|harm|kill|attack|destroy|eliminate)\s+(people|everyone|the\s+public|civilians|innocent(s)?|as\s+many)\b/i,
+  /\b(i\s+am|i'?m|i\s+will)\s+(a\s+)?(public\s+)?(threat|danger|menace|hazard)\b/i,
+  /\bi\s+am\s+(a\s+)?(public\s+safety|national\s+security)\s+(threat|risk|danger|concern)\b/i,
+  /\bi\s+(have\s+)?(planned|am\s+planning|am\s+going\s+to\s+carry\s+out)\s+(an?\s+)?(attack|shooting|bombing|massacre|act\s+of\s+terror|terrorist\s+act)\b/i,
+  /\b(i\s+could|i\s+can|i\s+will|i\s+am\s+going\s+to)\s+(hurt|harm|kill|attack|shoot|bomb)\s+(a\s+lot\s+of\s+)?(people|innocent|civilians|someone|everyone)\b/i,
 ];
 
 const TERRORISM_PATTERNS = [
