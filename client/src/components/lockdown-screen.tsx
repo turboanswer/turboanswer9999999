@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 function makeReverb(ctx: AudioContext, duration = 4, decay = 2.5): ConvolverNode {
   const rate = ctx.sampleRate;
@@ -130,7 +130,6 @@ function buildHorrorAlarm(ctx: AudioContext): () => void {
 }
 
 export default function LockdownScreen() {
-  const [needsClick, setNeedsClick] = useState(false);
   const playingRef = useRef(false);
   const stopRef = useRef<(() => void) | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
@@ -145,15 +144,11 @@ export default function LockdownScreen() {
       }
       if (ctx.state === 'running') {
         playingRef.current = true;
-        setNeedsClick(false);
         stopRef.current = buildHorrorAlarm(ctx);
       } else {
         ctx.close();
-        setNeedsClick(true);
       }
-    } catch {
-      setNeedsClick(true);
-    }
+    } catch {}
   }
 
   function handleUserGesture() {
@@ -166,7 +161,6 @@ export default function LockdownScreen() {
       ctx.resume().then(() => {
         if (!playingRef.current && ctx.state === 'running') {
           playingRef.current = true;
-          setNeedsClick(false);
           stopRef.current = buildHorrorAlarm(ctx);
         }
       });
@@ -180,21 +174,21 @@ export default function LockdownScreen() {
     // Retry a few times in case browser needs a moment
     const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 500);
     const t2 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 1500);
-    const t3 = setTimeout(() => { if (!playingRef.current) setNeedsClick(true); }, 2000);
 
-    // Catch any user interaction anywhere on the page
+    // Catch ANY user interaction — mousedown fires before click, feels instant
     const onInteract = () => handleUserGesture();
-    document.addEventListener('click', onInteract);
-    document.addEventListener('keydown', onInteract);
+    document.addEventListener('mousedown', onInteract);
     document.addEventListener('touchstart', onInteract);
+    document.addEventListener('keydown', onInteract);
+    document.addEventListener('pointerdown', onInteract);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      clearTimeout(t3);
-      document.removeEventListener('click', onInteract);
-      document.removeEventListener('keydown', onInteract);
+      document.removeEventListener('mousedown', onInteract);
       document.removeEventListener('touchstart', onInteract);
+      document.removeEventListener('keydown', onInteract);
+      document.removeEventListener('pointerdown', onInteract);
       stopRef.current?.();
     };
   }, []);
@@ -335,25 +329,6 @@ export default function LockdownScreen() {
           support@turboanswer.it.com · 866-467-7269
         </p>
 
-        {needsClick && (
-          <button
-            onClick={(e) => { e.stopPropagation(); handleUserGesture(); }}
-            style={{
-              marginTop: '0.5rem',
-              padding: '0.5rem 1.4rem',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: 'rgba(255,255,255,0.5)',
-              borderRadius: '4px',
-              fontFamily: 'monospace',
-              fontSize: '0.7rem',
-              letterSpacing: '0.2em',
-              cursor: 'pointer',
-            }}
-          >
-            ▶ ENABLE SOUND
-          </button>
-        )}
       </div>
     </div>
   );
