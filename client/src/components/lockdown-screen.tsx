@@ -135,74 +135,55 @@ const VOICE_SCRIPT =
   'Emergency protocols have been activated. ' +
   'Our engineers are responding. Please stand by.';
 
-function speakAlarm(repeat = false) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
+export default function LockdownScreen() {
+  const playingRef  = useRef(false);
+  const stopRef     = useRef<(() => void) | null>(null);
+  const ctxRef      = useRef<AudioContext | null>(null);
+  const voiceActive = useRef(false); // true only after onstart fires
 
+  // ── Voice ──────────────────────────────────────────────────────────────
   function doSpeak() {
+    if (!window.speechSynthesis || voiceActive.current) return;
+    window.speechSynthesis.cancel();
+
     const utt = new SpeechSynthesisUtterance(VOICE_SCRIPT);
-    utt.rate   = 0.62;   // painfully slow
-    utt.pitch  = 0.1;    // as deep as possible
+    utt.rate   = 0.62;
+    utt.pitch  = 0.1;
     utt.volume = 1.0;
 
-    // Try to grab the deepest available English voice
     const voices = window.speechSynthesis.getVoices();
-    const deep = voices.find(v =>
-      /daniel|fred|thomas|oliver|google uk english male/i.test(v.name)
-    ) || voices.find(v => /en[-_]?(gb|us|au)/i.test(v.lang) && !v.name.toLowerCase().includes('female'))
+    const pick = voices.find(v => /daniel|fred|thomas|google uk english male/i.test(v.name))
+      || voices.find(v => /en/i.test(v.lang) && !/female/i.test(v.name))
       || voices[0];
-    if (deep) utt.voice = deep;
+    if (pick) utt.voice = pick;
 
-    if (repeat) {
-      utt.onend = () => {
-        setTimeout(doSpeak, 4000); // pause then repeat
-      };
-    }
+    // Only mark active when the browser confirms it actually started
+    utt.onstart = () => { voiceActive.current = true; };
+    utt.onend   = () => { voiceActive.current = false; setTimeout(doSpeak, 4000); };
+    utt.onerror = () => { voiceActive.current = false; };
+
     window.speechSynthesis.speak(utt);
   }
 
-  // Voices may not be loaded yet on first call
-  if (window.speechSynthesis.getVoices().length === 0) {
-    window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
-  } else {
-    doSpeak();
-  }
-}
-
-export default function LockdownScreen() {
-  const playingRef = useRef(false);
-  const stopRef = useRef<(() => void) | null>(null);
-  const ctxRef = useRef<AudioContext | null>(null);
-  const voiceStartedRef = useRef(false);
-
-  function startVoice() {
-    if (voiceStartedRef.current) return;
-    voiceStartedRef.current = true;
-    speakAlarm(true);
-  }
-
+  // ── Audio ───────────────────────────────────────────────────────────────
   async function attemptPlay() {
     if (playingRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       ctxRef.current = ctx;
-      if (ctx.state === 'suspended') {
-        await ctx.resume();
-      }
+      if (ctx.state === 'suspended') await ctx.resume();
       if (ctx.state === 'running') {
         playingRef.current = true;
         stopRef.current = buildHorrorAlarm(ctx);
-        startVoice();
       } else {
         ctx.close();
       }
     } catch {}
   }
 
+  // ── On any user gesture — both voice and audio become unlocked ──────────
   function handleUserGesture() {
-    // Start voice immediately — speech synthesis is more permissive than AudioContext
-    startVoice();
-
+    doSpeak();           // voice: cancel blocked queue, restart fresh inside gesture
     if (playingRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -217,28 +198,26 @@ export default function LockdownScreen() {
   }
 
   useEffect(() => {
-    // Try speech immediately — it works without gesture in many browsers
-    startVoice();
-
-    // Try audio immediately (works if user has prior site interaction)
+    // Attempt immediately (works if user has prior domain interaction)
+    doSpeak();
     attemptPlay();
 
-    const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 500);
+    const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 600);
     const t2 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 1500);
 
     const onInteract = () => handleUserGesture();
-    document.addEventListener('mousedown', onInteract);
-    document.addEventListener('touchstart', onInteract);
-    document.addEventListener('keydown', onInteract);
+    document.addEventListener('mousedown',   onInteract);
     document.addEventListener('pointerdown', onInteract);
+    document.addEventListener('touchstart',  onInteract);
+    document.addEventListener('keydown',     onInteract);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
-      document.removeEventListener('mousedown', onInteract);
-      document.removeEventListener('touchstart', onInteract);
-      document.removeEventListener('keydown', onInteract);
+      document.removeEventListener('mousedown',   onInteract);
       document.removeEventListener('pointerdown', onInteract);
+      document.removeEventListener('touchstart',  onInteract);
+      document.removeEventListener('keydown',     onInteract);
       stopRef.current?.();
       window.speechSynthesis?.cancel();
     };
