@@ -157,27 +157,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ active: lockdownActive, activatedAt: lockdownActivatedAt });
   });
 
-  app.post('/api/admin/lockdown/activate', isAdmin, (req: any, res) => {
-    const user = req.user as any;
-    if (user?.email !== 'support@turboanswer.it.com') {
-      return res.status(403).json({ error: 'Forbidden' });
+  app.post('/api/admin/lockdown/activate', isAdmin, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+    const dbUser = userId ? await storage.getUser(userId) : null;
+    if (!dbUser || dbUser.email?.toLowerCase() !== 'support@turboanswer.it.com') {
+      return res.status(403).json({ error: 'Forbidden — owner account required' });
     }
     lockdownActive = true;
-    lockdownActivatedBy = user.email;
+    lockdownActivatedBy = dbUser.email;
     lockdownActivatedAt = new Date();
-    console.log(`[LOCKDOWN] ACTIVATED by ${user.email} at ${lockdownActivatedAt}`);
+    console.log(`[LOCKDOWN] ACTIVATED by ${dbUser.email} at ${lockdownActivatedAt}`);
     res.json({ success: true, active: true, activatedAt: lockdownActivatedAt });
   });
 
-  app.post('/api/admin/lockdown/deactivate', isAdmin, (req: any, res) => {
-    const user = req.user as any;
-    if (user?.email !== 'support@turboanswer.it.com') {
-      return res.status(403).json({ error: 'Forbidden' });
+  app.post('/api/admin/lockdown/deactivate', isAdmin, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+    const dbUser = userId ? await storage.getUser(userId) : null;
+    if (!dbUser || dbUser.email?.toLowerCase() !== 'support@turboanswer.it.com') {
+      return res.status(403).json({ error: 'Forbidden — owner account required' });
     }
     lockdownActive = false;
     lockdownActivatedBy = '';
     lockdownActivatedAt = null;
-    console.log(`[LOCKDOWN] DEACTIVATED by ${user.email}`);
+    console.log(`[LOCKDOWN] DEACTIVATED by ${dbUser.email}`);
     res.json({ success: true, active: false });
   });
 
