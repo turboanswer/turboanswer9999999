@@ -112,12 +112,42 @@ function setCache(key: string, data: any, ttl = CACHE_TTL): void {
   }
 }
 
+interface ActivityEntry {
+  id: string;
+  timestamp: number;
+  method: string;
+  path: string;
+  status: number;
+  duration: number;
+}
+
+const activityLog: ActivityEntry[] = [];
+const MAX_ACTIVITY_LOG = 300;
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
   registerImageRoutes(app);
 
   app.use(widgetRoutes);
+
+  app.use((req: any, res, next) => {
+    if (!req.path.startsWith('/api')) return next();
+    const start = Date.now();
+    res.on('finish', () => {
+      const entry: ActivityEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: Date.now(),
+        method: req.method,
+        path: req.path.length > 55 ? req.path.substring(0, 55) + '…' : req.path,
+        status: res.statusCode,
+        duration: Date.now() - start,
+      };
+      activityLog.push(entry);
+      if (activityLog.length > MAX_ACTIVITY_LOG) activityLog.shift();
+    });
+    next();
+  });
 
   app.get("/download/turbo-answer.aab", async (req, res) => {
     const fs = await import("fs");
@@ -1818,6 +1848,10 @@ function downloadAAB(){
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to run proactive diagnostics' });
     }
+  });
+
+  app.get('/api/admin/activity', isAdmin, (req: any, res) => {
+    res.json([...activityLog].reverse().slice(0, 150));
   });
 
   app.get('/api/admin/error-log', isAdmin, async (req: any, res) => {

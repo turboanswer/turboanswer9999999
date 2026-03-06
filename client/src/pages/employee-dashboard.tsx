@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/use-auth';
@@ -11,7 +11,8 @@ import {
   Database, Brain, DollarSign, TrendingUp, RefreshCw, ChevronDown, BarChart3, Trash2,
   Copy, Plus, ExternalLink, Link2, Calendar, FlaskConical, Send, ThumbsUp, ThumbsDown,
   Bug, Terminal, Filter, XCircle, AlertOctagon, CheckSquare, SlidersHorizontal,
-  ChevronRight, AlertCircle, Layers
+  ChevronRight, AlertCircle, Layers, LayoutDashboard, LogOut, ChevronLeft,
+  Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -101,7 +102,16 @@ interface ErrorLog {
   stats: { total: number; unresolved: number; critical: number; high: number; byType: Record<string, number> };
 }
 
-type TabType = 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta';
+interface ActivityEntry {
+  id: string;
+  timestamp: number;
+  method: string;
+  path: string;
+  status: number;
+  duration: number;
+}
+
+type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta';
 
 export default function EmployeeDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,7 +120,8 @@ export default function EmployeeDashboard() {
   const [actionModal, setActionModal] = useState<{ type: string; userId: string; userName: string; userEmail?: string } | null>(null);
   const [actionReason, setActionReason] = useState('');
   const [banDuration, setBanDuration] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>('commandcenter');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<AdminNotification | null>(null);
   const [subModalUser, setSubModalUser] = useState<UserData | null>(null);
   const [subModalTier, setSubModalTier] = useState('');
@@ -144,8 +155,7 @@ export default function EmployeeDashboard() {
 
   const { data: systemHealth, refetch: refetchHealth } = useQuery<SystemHealth>({
     queryKey: ['/api/admin/system-health'],
-    refetchInterval: 60000,
-    enabled: activeTab === 'system' || activeTab === 'overview',
+    refetchInterval: 30000,
   });
 
   const unreadCount = unreadData?.count || 0;
@@ -383,9 +393,9 @@ export default function EmployeeDashboard() {
   if (selectedUserId) {
     const selectedUser = users.find(u => u.id === selectedUserId);
     return (
-      <div className="min-h-screen bg-black text-white p-4 md:p-6">
+      <div className="min-h-screen bg-[#030c1a] text-slate-100 p-4 md:p-6">
         <div className="max-w-5xl mx-auto">
-          <Button variant="ghost" onClick={() => setSelectedUserId(null)} className="mb-4 text-gray-400 hover:text-white">
+          <Button variant="ghost" onClick={() => setSelectedUserId(null)} className="mb-4 text-slate-400 hover:text-white">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </Button>
 
@@ -484,70 +494,135 @@ export default function EmployeeDashboard() {
     );
   }
 
+  const flaggedCount = users.filter(u => u.isFlagged || u.isSuspended || u.isBanned).length;
+
+  const navItems = [
+    { id: 'commandcenter' as TabType, icon: LayoutDashboard, label: 'Command Center' },
+    { id: 'users' as TabType, icon: Users, label: 'Users' },
+    { id: 'subscriptions' as TabType, icon: CreditCard, label: 'Subscriptions' },
+    { id: 'system' as TabType, icon: Terminal, label: 'System & Debug' },
+    { id: 'flagged' as TabType, icon: Flag, label: 'Flagged', badge: flaggedCount },
+    { id: 'notifications' as TabType, icon: Bell, label: 'Alerts', badge: unreadCount },
+    { id: 'invite' as TabType, icon: Shield, label: 'Admin Invites' },
+    { id: 'beta' as TabType, icon: FlaskConical, label: 'Beta Testing' },
+  ];
+
+  const svcStatus = systemHealth?.services;
+
   return (
-    <div className="min-h-screen bg-black text-white p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 bg-clip-text text-transparent flex items-center gap-2">
-              <Crown className="w-7 h-7 text-amber-500" />
-              Command Center
-            </h1>
-            <p className="text-gray-400 text-sm mt-1">Ultimate admin authority - Full system control</p>
-          </div>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ background: '#030c1a', color: '#e2e8f0' }}>
+
+      {/* ── TOP STATUS BAR ── */}
+      <header className="flex-shrink-0 flex items-center justify-between px-4 py-2.5 border-b"
+        style={{ background: '#010810', borderColor: '#0f1e30' }}>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+            {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
           <div className="flex items-center gap-2">
-            {hasActiveOutage && (
-              <div className="flex items-center gap-1 px-3 py-1.5 bg-red-600/20 border border-red-600/50 rounded-full text-red-400 text-sm animate-pulse">
-                <AlertTriangle className="w-4 h-4" /> Outage
-              </div>
-            )}
-            <Link href="/">
-              <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:text-white">
-                <ArrowLeft className="w-4 h-4 mr-2" /> Back to App
-              </Button>
-            </Link>
+            <div className="w-6 h-6 rounded bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
+              <Zap className="w-3.5 h-3.5 text-cyan-400" />
+            </div>
+            <span className="text-sm font-bold text-white tracking-wide">TURBO ADMIN</span>
+            <span className="text-xs text-slate-600 font-mono ml-1">v2.0</span>
+          </div>
+          <div className="w-px h-4 bg-slate-800 mx-1" />
+          <div className="flex items-center gap-2">
+            {['database', 'paypal', 'ai'].map((svc, i) => {
+              const st = [svcStatus?.database, svcStatus?.paypal, svcStatus?.ai][i];
+              const labels = ['DB', 'PAY', 'AI'];
+              const color = st === 'healthy' ? '#00cc88' : st === 'degraded' ? '#f59e0b' : st ? '#ef4444' : '#475569';
+              return (
+                <div key={svc} className="flex items-center gap-1 text-xs font-mono">
+                  <span style={{ color, fontSize: '10px' }}>●</span>
+                  <span style={{ color: st ? (st === 'healthy' ? '#6ee7b7' : st === 'degraded' ? '#fde68a' : '#fca5a5') : '#475569' }}>{labels[i]}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
-
-        <div className="flex gap-1 mb-6 overflow-x-auto pb-2">
-          {([
-            { id: 'overview', icon: BarChart3, label: 'Overview' },
-            { id: 'users', icon: Users, label: 'Users' },
-            { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
-            { id: 'system', icon: Server, label: 'System & Debug' },
-            { id: 'flagged', icon: Flag, label: 'Flagged' },
-            { id: 'notifications', icon: Bell, label: 'Alerts' },
-            { id: 'invite', icon: Shield, label: 'Admin Invites' },
-            { id: 'beta', icon: FlaskConical, label: 'Beta Testing' },
-          ] as const).map(tab => (
-            <Button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 whitespace-nowrap relative ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white'
-                  : 'bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" /> {tab.label}
-              {tab.id === 'notifications' && unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-              {tab.id === 'flagged' && users.filter(u => u.isFlagged || u.isSuspended || u.isBanned).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                  {users.filter(u => u.isFlagged || u.isSuspended || u.isBanned).length}
-                </span>
-              )}
-            </Button>
-          ))}
-          <Link href="/email-templates">
-            <Button className="flex items-center gap-2 whitespace-nowrap bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800">
-              <Mail className="w-4 h-4" /> Email Templates
-            </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 text-xs font-mono text-slate-500">
+            <span className="text-slate-400">{adminStats?.totalUsers || users.length} <span className="text-slate-600">users</span></span>
+            <span className="text-green-400 font-semibold">${adminStats?.estimatedMonthlyRevenue || '0'}<span className="text-slate-600">/mo</span></span>
+            {systemHealth?.uptimeFormatted && <span className="text-slate-500">↑{systemHealth.uptimeFormatted}</span>}
+          </div>
+          {hasActiveOutage && (
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold animate-pulse"
+              style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}>
+              <AlertTriangle className="w-3 h-3" /> OUTAGE
+            </div>
+          )}
+          <Link href="/">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs text-slate-400 hover:text-white transition-colors"
+              style={{ background: '#0d1b2a', border: '1px solid #1e3048' }}>
+              <ArrowLeft className="w-3 h-3" /> Back to App
+            </button>
           </Link>
         </div>
+      </header>
+
+      {/* ── BODY: SIDEBAR + MAIN ── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* ── SIDEBAR ── */}
+        <aside className="flex-shrink-0 flex flex-col border-r overflow-y-auto"
+          style={{ width: sidebarCollapsed ? '52px' : '200px', background: '#010810', borderColor: '#0f1e30', transition: 'width 0.2s' }}>
+          <nav className="flex flex-col gap-0.5 p-2 flex-1">
+            {navItems.map(item => {
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left relative transition-all group"
+                  style={{
+                    background: isActive ? 'rgba(6,182,212,0.12)' : 'transparent',
+                    borderLeft: isActive ? '2px solid #06b6d4' : '2px solid transparent',
+                    color: isActive ? '#22d3ee' : '#64748b',
+                  }}
+                  title={sidebarCollapsed ? item.label : undefined}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: isActive ? '#22d3ee' : '#475569' }} />
+                  {!sidebarCollapsed && <span className="text-xs font-medium truncate">{item.label}</span>}
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute right-2 top-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold"
+                      style={{ background: item.id === 'notifications' ? '#dc2626' : '#ea580c', color: 'white' }}>
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            <div className="flex-1" />
+            <div className="border-t mt-2 pt-2" style={{ borderColor: '#0f1e30' }}>
+              <Link href="/email-templates">
+                <button className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg w-full transition-colors text-slate-600 hover:text-slate-300"
+                  title={sidebarCollapsed ? 'Email Templates' : undefined}>
+                  <Mail className="w-4 h-4 flex-shrink-0" />
+                  {!sidebarCollapsed && <span className="text-xs font-medium">Email Templates</span>}
+                </button>
+              </Link>
+            </div>
+          </nav>
+        </aside>
+
+        {/* ── MAIN CONTENT ── */}
+        <main className="flex-1 overflow-y-auto" style={{ background: '#030c1a' }}>
+          <div className="p-5">
+
+        {activeTab === 'commandcenter' && (
+          <CommandCenter
+            stats={adminStats}
+            systemHealth={systemHealth}
+            users={users}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onTabChange={setActiveTab}
+            onViewUser={(userId) => { setSelectedUserId(userId); setActiveTab('users'); }}
+            onMarkRead={(id) => markReadMutation.mutate(id)}
+          />
+        )}
 
         {activeTab === 'overview' && (
           <OverviewTab
@@ -787,6 +862,16 @@ export default function EmployeeDashboard() {
             </Card>
           </>
         )}
+
+        {activeTab === 'invite' && (
+          <AdminInviteTab currentUser={currentUser} />
+        )}
+        {activeTab === 'beta' && (
+          <BetaTestingTab />
+        )}
+
+          </div>
+        </main>
       </div>
 
       {actionModal && (
@@ -1007,12 +1092,6 @@ export default function EmployeeDashboard() {
         </div>
       )}
 
-        {activeTab === 'invite' && (
-          <AdminInviteTab currentUser={currentUser} />
-        )}
-        {activeTab === 'beta' && (
-          <BetaTestingTab />
-        )}
     </div>
   );
 }
@@ -1216,6 +1295,308 @@ function AdminInviteTab({ currentUser }: { currentUser: any }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function CommandCenter({
+  stats, systemHealth, users, notifications, unreadCount, onTabChange, onViewUser, onMarkRead
+}: {
+  stats: AdminStats | undefined;
+  systemHealth: SystemHealth | undefined;
+  users: UserData[];
+  notifications: AdminNotification[];
+  unreadCount: number;
+  onTabChange: (tab: TabType) => void;
+  onViewUser: (id: string) => void;
+  onMarkRead: (id: number) => void;
+}) {
+  const activityRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'errors' | 'slow'>('all');
+
+  const { data: activity = [] } = useQuery<ActivityEntry[]>({
+    queryKey: ['/api/admin/activity'],
+    refetchInterval: 3000,
+  });
+
+  const { data: errorLog } = useQuery<ErrorLog>({
+    queryKey: ['/api/admin/error-log'],
+    refetchInterval: 10000,
+  });
+
+  useEffect(() => {
+    if (autoScroll && activityRef.current) {
+      activityRef.current.scrollTop = 0;
+    }
+  }, [activity, autoScroll]);
+
+  const filteredActivity = activity.filter(e => {
+    if (activityFilter === 'errors') return e.status >= 400;
+    if (activityFilter === 'slow') return e.duration > 500;
+    return true;
+  });
+
+  const svc = systemHealth?.services;
+  const metrics = [
+    { label: 'Total Users', value: stats?.totalUsers ?? users.length, color: '#22d3ee', icon: Users },
+    { label: 'Revenue/mo', value: `$${stats?.estimatedMonthlyRevenue ?? 0}`, color: '#4ade80', icon: DollarSign },
+    { label: 'Pro Users', value: stats?.subscriptions?.pro ?? 0, color: '#a78bfa', icon: Crown },
+    { label: 'Unread Alerts', value: unreadCount, color: unreadCount > 0 ? '#f87171' : '#4ade80', icon: Bell },
+    { label: 'Active Errors', value: errorLog?.stats?.unresolved ?? 0, color: (errorLog?.stats?.unresolved ?? 0) > 0 ? '#fb923c' : '#4ade80', icon: AlertTriangle },
+    { label: 'Flagged Users', value: users.filter(u => u.isFlagged).length, color: '#fbbf24', icon: Flag },
+  ];
+
+  const statusColor = (s?: string) =>
+    s === 'healthy' ? '#4ade80' : s === 'degraded' ? '#fbbf24' : s ? '#f87171' : '#475569';
+
+  const methodColor = (m: string) =>
+    m === 'GET' ? '#22d3ee' : m === 'POST' ? '#4ade80' : m === 'DELETE' ? '#f87171' : m === 'PATCH' ? '#a78bfa' : '#94a3b8';
+
+  const statusBg = (s: number) =>
+    s >= 500 ? 'rgba(239,68,68,0.15)' : s >= 400 ? 'rgba(251,146,60,0.12)' : s >= 300 ? 'rgba(250,204,21,0.08)' : 'transparent';
+
+  return (
+    <div className="space-y-4">
+
+      {/* ── HEADER ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-white flex items-center gap-2">
+            <LayoutDashboard className="w-5 h-5 text-cyan-400" />
+            Command Center
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 font-mono">Live system overview · auto-refresh every 3s</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-xs font-mono text-slate-500">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            LIVE
+          </div>
+        </div>
+      </div>
+
+      {/* ── KPI ROW ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {metrics.map(m => (
+          <div key={m.label} className="rounded-lg p-3 flex flex-col gap-1"
+            style={{ background: '#040f20', border: '1px solid #0d1e30' }}>
+            <div className="flex items-center justify-between">
+              <m.icon className="w-3.5 h-3.5" style={{ color: m.color }} />
+              <span className="text-[10px] font-mono text-slate-600">KPI</span>
+            </div>
+            <div className="text-lg font-bold font-mono" style={{ color: m.color }}>{m.value}</div>
+            <div className="text-[10px] text-slate-500 truncate">{m.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── MAIN GRID: Activity Feed + Right Panel ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* ── LIVE ACTIVITY FEED ── */}
+        <div className="lg:col-span-2 rounded-lg overflow-hidden"
+          style={{ background: '#010810', border: '1px solid #0d1e30' }}>
+          <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: '#0d1e30' }}>
+            <div className="flex items-center gap-2">
+              <Radio className="w-3.5 h-3.5 text-green-400 animate-pulse" />
+              <span className="text-xs font-bold text-slate-300 font-mono">LIVE API FEED</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {(['all', 'errors', 'slow'] as const).map(f => (
+                <button key={f} onClick={() => setActivityFilter(f)}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono transition-colors"
+                  style={{
+                    background: activityFilter === f ? '#0e2a40' : 'transparent',
+                    color: activityFilter === f ? '#22d3ee' : '#475569',
+                    border: activityFilter === f ? '1px solid #1e4a6e' : '1px solid transparent',
+                  }}>
+                  {f === 'all' ? 'ALL' : f === 'errors' ? 'ERR' : 'SLOW'}
+                </button>
+              ))}
+              <button onClick={() => setAutoScroll(a => !a)}
+                className="px-2 py-0.5 rounded text-[10px] font-mono transition-colors ml-1"
+                style={{
+                  background: autoScroll ? 'rgba(74,222,128,0.1)' : 'transparent',
+                  color: autoScroll ? '#4ade80' : '#475569',
+                  border: autoScroll ? '1px solid rgba(74,222,128,0.3)' : '1px solid #1e2a38',
+                }}>
+                {autoScroll ? '▼ AUTO' : '⏸ PAUSED'}
+              </button>
+            </div>
+          </div>
+          <div ref={activityRef} className="overflow-y-auto font-mono text-[11px]" style={{ maxHeight: '420px' }}>
+            {filteredActivity.length === 0 ? (
+              <div className="flex items-center justify-center h-20 text-slate-600 text-xs">
+                Waiting for API calls...
+              </div>
+            ) : (
+              filteredActivity.map((entry, i) => (
+                <div key={entry.id || i} className="flex items-center gap-2 px-3 py-1.5 border-b"
+                  style={{ borderColor: '#060e1a', background: statusBg(entry.status) }}>
+                  <span className="text-[9px] text-slate-600 w-16 flex-shrink-0">
+                    {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                  <span className="w-10 flex-shrink-0 font-bold text-[10px]" style={{ color: methodColor(entry.method) }}>
+                    {entry.method}
+                  </span>
+                  <span className="flex-1 truncate text-slate-400">{entry.path}</span>
+                  <span className="w-8 flex-shrink-0 text-right"
+                    style={{ color: entry.status >= 500 ? '#f87171' : entry.status >= 400 ? '#fb923c' : '#4ade80' }}>
+                    {entry.status}
+                  </span>
+                  <span className="w-14 flex-shrink-0 text-right"
+                    style={{ color: entry.duration > 1000 ? '#f87171' : entry.duration > 500 ? '#fbbf24' : '#475569' }}>
+                    {entry.duration}ms
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL: Services + Alerts + Errors ── */}
+        <div className="flex flex-col gap-4">
+
+          {/* Services */}
+          <div className="rounded-lg overflow-hidden" style={{ background: '#010810', border: '1px solid #0d1e30' }}>
+            <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#0d1e30' }}>
+              <Server className="w-3.5 h-3.5 text-slate-500" />
+              <span className="text-xs font-bold text-slate-300 font-mono">SERVICES</span>
+            </div>
+            <div className="p-3 space-y-2">
+              {[
+                { name: 'Database', key: 'database', icon: Database },
+                { name: 'PayPal', key: 'paypal', icon: CreditCard },
+                { name: 'AI (Gemini)', key: 'ai', icon: Brain },
+              ].map(({ name, key, icon: Icon }) => {
+                const s = svc?.[key as keyof typeof svc];
+                const col = statusColor(s);
+                return (
+                  <div key={key} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-3 h-3 text-slate-600" />
+                      <span className="text-xs text-slate-400 font-mono">{name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span style={{ color: col, fontSize: '10px' }}>●</span>
+                      <span className="text-[10px] font-mono capitalize" style={{ color: col }}>
+                        {s ?? 'unknown'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {systemHealth?.uptimeFormatted && (
+                <div className="pt-2 mt-1 border-t text-[10px] font-mono text-slate-600 flex justify-between"
+                  style={{ borderColor: '#0d1e30' }}>
+                  <span>uptime</span>
+                  <span className="text-green-500">{systemHealth.uptimeFormatted}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Alerts */}
+          <div className="rounded-lg overflow-hidden flex-1" style={{ background: '#010810', border: '1px solid #0d1e30' }}>
+            <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: '#0d1e30' }}>
+              <div className="flex items-center gap-2">
+                <Bell className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-xs font-bold text-slate-300 font-mono">RECENT ALERTS</span>
+              </div>
+              {unreadCount > 0 && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                  style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
+                  {unreadCount} unread
+                </span>
+              )}
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: '180px' }}>
+              {notifications.slice(0, 8).map(n => (
+                <div key={n.id}
+                  className="px-3 py-2 border-b flex items-start gap-2 cursor-pointer hover:bg-white/5 transition-colors"
+                  style={{ borderColor: '#060e1a', background: n.isRead === 'false' ? 'rgba(234,88,12,0.05)' : 'transparent' }}
+                  onClick={() => onMarkRead(n.id)}>
+                  <div className="flex-shrink-0 mt-0.5">
+                    {n.type === 'system_outage' ? (
+                      <AlertTriangle className="w-3 h-3 text-red-400" />
+                    ) : n.type === 'content_flagged' ? (
+                      <Flag className="w-3 h-3 text-orange-400" />
+                    ) : (
+                      <Bell className="w-3 h-3 text-blue-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-slate-400 truncate font-mono">
+                      {n.type.replace(/_/g, ' ').toUpperCase()}
+                    </div>
+                    <div className="text-[10px] text-slate-600 truncate">{(n.flaggedContent || n.actionTaken)?.slice(0, 60)}</div>
+                  </div>
+                  {n.isRead === 'false' && (
+                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400 mt-1" />
+                  )}
+                </div>
+              ))}
+              {notifications.length === 0 && (
+                <div className="flex items-center justify-center h-12 text-slate-600 text-[10px] font-mono">
+                  No alerts
+                </div>
+              )}
+            </div>
+            <div className="px-3 py-1.5 border-t" style={{ borderColor: '#0d1e30' }}>
+              <button onClick={() => onTabChange('notifications')}
+                className="text-[10px] font-mono text-cyan-600 hover:text-cyan-400 transition-colors">
+                View all alerts →
+              </button>
+            </div>
+          </div>
+
+          {/* Error summary */}
+          {errorLog && (errorLog.stats.unresolved > 0 || errorLog.stats.critical > 0) && (
+            <div className="rounded-lg overflow-hidden" style={{ background: '#010810', border: '1px solid rgba(239,68,68,0.25)' }}>
+              <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
+                <Bug className="w-3.5 h-3.5 text-red-400" />
+                <span className="text-xs font-bold text-red-300 font-mono">ERROR TRACKER</span>
+              </div>
+              <div className="p-3 space-y-1.5">
+                <div className="flex justify-between text-[10px] font-mono">
+                  <span className="text-slate-500">Unresolved</span>
+                  <span className="text-orange-400">{errorLog.stats.unresolved}</span>
+                </div>
+                {errorLog.stats.critical > 0 && (
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-slate-500">Critical</span>
+                    <span className="text-red-400 font-bold">{errorLog.stats.critical}</span>
+                  </div>
+                )}
+                <button onClick={() => onTabChange('system')}
+                  className="text-[10px] font-mono text-cyan-600 hover:text-cyan-400 transition-colors block mt-1">
+                  View error log →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── QUICK ACTIONS ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Manage Users', icon: Users, tab: 'users' as TabType, color: '#22d3ee' },
+          { label: 'Subscriptions', icon: CreditCard, tab: 'subscriptions' as TabType, color: '#a78bfa' },
+          { label: 'System & Debug', icon: Terminal, tab: 'system' as TabType, color: '#4ade80' },
+          { label: 'Beta Testing', icon: FlaskConical, tab: 'beta' as TabType, color: '#fb923c' },
+        ].map(action => (
+          <button key={action.tab} onClick={() => onTabChange(action.tab)}
+            className="flex items-center gap-2.5 p-3 rounded-lg text-left transition-all hover:scale-[1.02]"
+            style={{ background: '#040f20', border: '1px solid #0d1e30' }}>
+            <action.icon className="w-4 h-4 flex-shrink-0" style={{ color: action.color }} />
+            <span className="text-xs text-slate-400 font-medium">{action.label}</span>
+            <ChevronRight className="w-3 h-3 text-slate-700 ml-auto" />
+          </button>
+        ))}
+      </div>
+
     </div>
   );
 }
