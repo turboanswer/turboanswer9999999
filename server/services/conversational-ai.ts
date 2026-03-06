@@ -22,6 +22,8 @@ interface UserProfile {
   relationshipLevel: number; // 1-10
 }
 
+const MAX_USER_PROFILES = 500;
+
 export class ConversationalAI {
   private userProfiles: Map<string, UserProfile> = new Map();
   private personalities: ConversationPersonality[] = [
@@ -102,6 +104,10 @@ export class ConversationalAI {
         userProfile.conversationHistory = userProfile.conversationHistory.slice(-10);
       }
       
+      if (this.userProfiles.size >= MAX_USER_PROFILES && !this.userProfiles.has(userId)) {
+        const firstKey = this.userProfiles.keys().next().value;
+        if (firstKey) this.userProfiles.delete(firstKey);
+      }
       this.userProfiles.set(userId, userProfile);
       
       return aiResponse;
@@ -141,7 +147,7 @@ export class ConversationalAI {
     const lowerMessage = message.toLowerCase();
     if (lowerMessage.includes('i like') || lowerMessage.includes('i love')) {
       const preference = message.substring(message.toLowerCase().indexOf('i like') + 6).trim();
-      if (preference && !profile.preferences.includes(preference)) {
+      if (preference && !profile.preferences.includes(preference) && profile.preferences.length < 20) {
         profile.preferences.push(preference);
       }
     }

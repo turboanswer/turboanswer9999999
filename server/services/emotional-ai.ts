@@ -21,6 +21,10 @@ interface ConversationMemory {
   relationshipLevel: number; // 1-10, how well we know the user
 }
 
+const MAX_MEMORY_USERS = 500;
+const MAX_PREV_EMOTIONS = 30;
+const MAX_EMOTIONAL_HISTORY = 20;
+
 export class EmotionalAI {
   private conversationMemory: Map<string, ConversationMemory> = new Map();
 
@@ -92,13 +96,23 @@ Consider:
 
     // Update conversation memory
     memory.previousEmotions.push(...emotionalContext.emotions);
+    if (memory.previousEmotions.length > MAX_PREV_EMOTIONS) {
+      memory.previousEmotions = memory.previousEmotions.slice(-MAX_PREV_EMOTIONS);
+    }
     memory.conversationHistory.push({
       message: userMessage,
       emotion: emotionalContext.emotions[0] || "neutral",
       timestamp: new Date()
     });
+    if (memory.conversationHistory.length > MAX_EMOTIONAL_HISTORY) {
+      memory.conversationHistory = memory.conversationHistory.slice(-MAX_EMOTIONAL_HISTORY);
+    }
     memory.relationshipLevel = Math.min(10, memory.relationshipLevel + 0.1);
 
+    if (this.conversationMemory.size >= MAX_MEMORY_USERS) {
+      const firstKey = this.conversationMemory.keys().next().value;
+      if (firstKey) this.conversationMemory.delete(firstKey);
+    }
     this.conversationMemory.set(userId, memory);
 
     const emotionalPrompt = this.buildEmotionalPrompt(emotionalContext, memory);
