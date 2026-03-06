@@ -1,6 +1,7 @@
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
@@ -29,6 +30,7 @@ import ForgotPassword from "@/pages/forgot-password";
 import ImageStudio from "@/pages/image-studio";
 import BetaApply from "@/pages/beta-apply";
 import LockdownScreen from "@/components/lockdown-screen";
+import { primeAudioContext } from "@/lib/audio-manager";
 
 function AuthenticatedRouter() {
   return (
@@ -80,6 +82,18 @@ function UnauthenticatedRouter() {
 function AppContent() {
   const { isLoading, isAuthenticated } = useAuth();
   const [location] = useLocation();
+
+  useEffect(() => {
+    const unlock = () => primeAudioContext();
+    window.addEventListener('click', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
 
   const { data: lockdownStatus } = useQuery<{ active: boolean }>({
     queryKey: ['/api/system/lockdown-status'],
