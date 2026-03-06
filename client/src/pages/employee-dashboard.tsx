@@ -9,7 +9,9 @@ import {
   ArrowLeft, MessageSquare, X, Bell, ShieldAlert, Clock, Mail, User as UserIcon,
   FileText, CreditCard, Gift, Settings, Activity, Wrench, Crown, Zap, Server,
   Database, Brain, DollarSign, TrendingUp, RefreshCw, ChevronDown, BarChart3, Trash2,
-  Copy, Plus, ExternalLink, Link2, Calendar, FlaskConical, Send, ThumbsUp, ThumbsDown
+  Copy, Plus, ExternalLink, Link2, Calendar, FlaskConical, Send, ThumbsUp, ThumbsDown,
+  Bug, Terminal, Filter, XCircle, AlertOctagon, CheckSquare, SlidersHorizontal,
+  ChevronRight, AlertCircle, Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,6 +79,26 @@ interface AdminStats {
   subscriptions: { pro: number; research: number; enterprise: number };
   moderation: { banned: number; suspended: number; flagged: number };
   estimatedMonthlyRevenue: string;
+}
+
+interface TrackedError {
+  id: string;
+  timestamp: string;
+  lastSeen: string;
+  type: string;
+  message: string;
+  stack?: string;
+  route?: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  resolved: boolean;
+  autoFixAttempted: boolean;
+  autoFixResult?: string;
+  occurrences: number;
+}
+
+interface ErrorLog {
+  errors: TrackedError[];
+  stats: { total: number; unresolved: number; critical: number; high: number; byType: Record<string, number> };
 }
 
 type TabType = 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta';
@@ -1493,11 +1515,19 @@ function SystemTab({ systemHealth, diagResults, diagLoading, onRunDiagnostics, o
   onRefreshHealth: () => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
+  const [expandedError, setExpandedError] = useState<string | null>(null);
+  const [errorFilter, setErrorFilter] = useState<'all' | 'unresolved' | 'critical'>('unresolved');
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: proactiveData, isLoading: proactiveFetching } = useQuery<any>({
     queryKey: ['/api/admin/proactive-diagnostics'],
-    refetchInterval: 60000,
+    refetchInterval: 120000,
+  });
+
+  const { data: errorLogData, isLoading: errorLogLoading, refetch: refetchErrors } = useQuery<ErrorLog>({
+    queryKey: ['/api/admin/error-log'],
+    refetchInterval: 30000,
   });
 
   const proactiveMutation = useMutation({
@@ -1507,48 +1537,162 @@ function SystemTab({ systemHealth, diagResults, diagLoading, onRunDiagnostics, o
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/proactive-diagnostics'] });
+      toast({ title: 'Diagnostics complete', description: 'Self-diagnosis finished. Check results below.' });
     },
   });
 
-  const proactiveLoading = proactiveMutation.isPending;
+  const resolveErrorMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest('POST', `/api/admin/error-log/${id}/resolve`, { autoFixResult: 'Manually resolved by admin' });
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchErrors();
+      toast({ title: 'Error resolved', description: 'Error marked as resolved.' });
+    },
+  });
+
+  const clearResolvedMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('DELETE', '/api/admin/error-log/resolved');
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      refetchErrors();
+      toast({ title: 'Cleared', description: `Removed ${data.cleared} resolved error(s).` });
+    },
+  });
+
+  const heapPercent = systemHealth
+    ? Math.round((systemHealth.memory.heapUsed / systemHealth.memory.heapTotal) * 100)
+    : 0;
+
+  const filteredErrors = (errorLogData?.errors || []).filter(e => {
+    if (errorFilter === 'unresolved') return !e.resolved;
+    if (errorFilter === 'critical') return e.severity === 'critical' || e.severity === 'high';
+    return true;
+  });
+
+  const severityColor = (s: string) => {
+    if (s === 'critical') return 'bg-red-600/30 text-red-400 border border-red-700/50';
+    if (s === 'high') return 'bg-orange-600/30 text-orange-400 border border-orange-700/50';
+    if (s === 'medium') return 'bg-yellow-600/30 text-yellow-400 border border-yellow-700/50';
+    return 'bg-gray-600/30 text-gray-400 border border-gray-700/50';
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-3 flex-wrap">
-        <Button onClick={onRefreshHealth} className="bg-blue-600 hover:bg-blue-700">
+    <div className="space-y-5">
+      <div className="flex gap-2 flex-wrap">
+        <Button onClick={onRefreshHealth} variant="outline" className="border-blue-700 text-blue-400 hover:bg-blue-900/30 hover:text-blue-300">
           <RefreshCw className="w-4 h-4 mr-2" /> Refresh Health
         </Button>
         <Button onClick={onRunDiagnostics} disabled={diagLoading} className="bg-amber-600 hover:bg-amber-700">
-          <Wrench className="w-4 h-4 mr-2" /> {diagLoading ? 'Running Diagnostics...' : 'Run Diagnostics & Auto-Fix'}
+          <Wrench className="w-4 h-4 mr-2" /> {diagLoading ? 'Running...' : 'Run Full Diagnostics'}
+        </Button>
+        <Button onClick={() => proactiveMutation.mutate()} disabled={proactiveMutation.isPending} className="bg-purple-700 hover:bg-purple-600">
+          <Zap className="w-4 h-4 mr-2" /> {proactiveMutation.isPending ? 'Scanning...' : 'Auto-Scan & Fix'}
         </Button>
       </div>
 
-      <Card className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border-purple-600/50">
-        <CardHeader>
-          <CardTitle className="text-white text-lg flex items-center justify-between">
+      {systemHealth && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className={`border ${
+            systemHealth.status === 'healthy' ? 'bg-green-950/40 border-green-700/60' :
+            systemHealth.status === 'degraded' ? 'bg-yellow-950/40 border-yellow-700/60' :
+            'bg-red-950/40 border-red-700/60'
+          }`}>
+            <CardContent className="p-4 flex items-center gap-3">
+              <Activity className={`w-7 h-7 shrink-0 ${
+                systemHealth.status === 'healthy' ? 'text-green-400' :
+                systemHealth.status === 'degraded' ? 'text-yellow-400' : 'text-red-400'
+              }`} />
+              <div>
+                <div className={`text-lg font-bold capitalize ${
+                  systemHealth.status === 'healthy' ? 'text-green-400' :
+                  systemHealth.status === 'degraded' ? 'text-yellow-400' : 'text-red-400'
+                }`}>{systemHealth.status}</div>
+                <div className="text-xs text-gray-400">Overall Status</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gray-900 border-gray-800">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Clock className="w-7 h-7 shrink-0 text-blue-400" />
+              <div>
+                <div className="text-lg font-bold text-white">{systemHealth.uptimeFormatted}</div>
+                <div className="text-xs text-gray-400">Uptime</div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gray-900 border-gray-800">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-400">Memory</span>
+                <span className={`text-xs font-bold ${heapPercent > 85 ? 'text-red-400' : heapPercent > 70 ? 'text-yellow-400' : 'text-green-400'}`}>{heapPercent}%</span>
+              </div>
+              <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden mb-1">
+                <div className={`h-full rounded-full transition-all ${heapPercent > 85 ? 'bg-red-500' : heapPercent > 70 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                  style={{ width: `${heapPercent}%` }} />
+              </div>
+              <div className="text-xs text-gray-500">{systemHealth.memory.heapUsed}MB / {systemHealth.memory.heapTotal}MB</div>
+            </CardContent>
+          </Card>
+          <Card className="bg-gray-900 border-gray-800">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Bug className={`w-7 h-7 shrink-0 ${(errorLogData?.stats.critical || 0) > 0 ? 'text-red-400' : (errorLogData?.stats.high || 0) > 0 ? 'text-orange-400' : 'text-green-400'}`} />
+              <div>
+                <div className="text-lg font-bold text-white">{errorLogData?.stats.unresolved || 0}</div>
+                <div className="text-xs text-gray-400">Active Errors</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {systemHealth ? (
+          ['Database', 'PayPal Payments', 'AI Engine'].map((name, i) => {
+            const status = [systemHealth.services.database, systemHealth.services.paypal, systemHealth.services.ai][i];
+            const icon = [<Database className="w-4 h-4" />, <DollarSign className="w-4 h-4" />, <Brain className="w-4 h-4" />][i];
+            return (
+              <Card key={name} className={`border ${status === 'healthy' ? 'bg-green-950/30 border-green-800/50' : status === 'degraded' ? 'bg-yellow-950/30 border-yellow-800/50' : 'bg-red-950/30 border-red-800/50'}`}>
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={status === 'healthy' ? 'text-green-400' : status === 'degraded' ? 'text-yellow-400' : 'text-red-400'}>{icon}</span>
+                    <span className="text-sm font-medium text-white">{name}</span>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full font-semibold ${status === 'healthy' ? 'bg-green-600/30 text-green-400' : status === 'degraded' ? 'bg-yellow-600/30 text-yellow-400' : 'bg-red-600/30 text-red-400'}`}>
+                    {status?.toUpperCase()}
+                  </span>
+                </CardContent>
+              </Card>
+            );
+          })
+        ) : (
+          [1,2,3].map(i => <Card key={i} className="bg-gray-900 border-gray-800 animate-pulse"><CardContent className="p-4 h-14" /></Card>)
+        )}
+      </div>
+
+      <Card className="bg-gradient-to-r from-purple-950/50 to-blue-950/50 border-purple-700/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-white text-base flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-purple-400" /> Proactive Self-Diagnosis
-              <span className="text-xs bg-purple-600/40 text-purple-300 px-2 py-0.5 rounded-full">Auto — Every 5 min</span>
+              <Zap className="w-5 h-5 text-purple-400" />
+              Proactive Self-Diagnosis
+              <span className="text-xs bg-purple-800/50 text-purple-300 px-2 py-0.5 rounded-full">Auto — Every 30 min</span>
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={() => proactiveMutation.mutate()} disabled={proactiveLoading}
-                className="bg-purple-600 hover:bg-purple-700 text-xs h-7">
-                {proactiveLoading ? 'Running...' : 'Run Now'}
-              </Button>
-              <Button size="sm" onClick={() => setShowHistory(!showHistory)}
-                className="bg-gray-700 hover:bg-gray-600 text-xs h-7">
-                {showHistory ? 'Hide History' : `History (${proactiveData?.historyCount || 0})`}
-              </Button>
-            </div>
+            <Button size="sm" onClick={() => setShowHistory(!showHistory)} variant="ghost" className="text-gray-400 hover:text-white text-xs h-7">
+              <Layers className="w-3 h-3 mr-1" /> {showHistory ? 'Hide' : `History (${proactiveData?.historyCount || 0})`}
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {proactiveFetching ? (
-            <p className="text-gray-400 text-sm text-center py-4">Loading proactive diagnostics data...</p>
+            <p className="text-gray-400 text-sm text-center py-3">Loading...</p>
           ) : proactiveData?.latest ? (
             <>
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`w-3 h-3 rounded-full animate-pulse ${
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${
                   proactiveData.latest.overallStatus === 'healthy' ? 'bg-green-400' :
                   proactiveData.latest.overallStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
                 }`} />
@@ -1556,59 +1700,44 @@ function SystemTab({ systemHealth, diagResults, diagLoading, onRunDiagnostics, o
                   proactiveData.latest.overallStatus === 'healthy' ? 'text-green-400' :
                   proactiveData.latest.overallStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'
                 }`}>{proactiveData.latest.overallStatus}</span>
-                <span className="text-xs text-gray-400">
-                  Last run: {new Date(proactiveData.latest.timestamp).toLocaleString()}
-                </span>
-                <span className="text-xs text-gray-500 ml-auto">
-                  {proactiveData.latest.issuesFound} issue(s) found, {proactiveData.latest.issuesFixed} auto-fixed
-                </span>
+                <span className="text-xs text-gray-500">Last run: {new Date(proactiveData.latest.timestamp).toLocaleString()}</span>
+                <span className="text-xs text-gray-600 ml-auto">{proactiveData.latest.issuesFixed} auto-fixed</span>
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1.5">
                 {proactiveData.latest.results.map((r: any, i: number) => (
-                  <div key={i} className={`flex items-center gap-2 p-2 rounded text-sm ${
-                    r.status === 'pass' ? 'bg-green-900/20' :
-                    r.status === 'fixed' ? 'bg-blue-900/20' :
-                    r.status === 'warn' ? 'bg-yellow-900/20' : 'bg-red-900/20'
+                  <div key={i} className={`flex items-center gap-2 px-3 py-2 rounded text-sm ${
+                    r.status === 'pass' ? 'bg-green-950/40' : r.status === 'fixed' ? 'bg-blue-950/40' :
+                    r.status === 'warn' ? 'bg-yellow-950/40' : 'bg-red-950/40'
                   }`}>
                     {r.status === 'pass' ? <CheckCircle className="w-3.5 h-3.5 text-green-400 shrink-0" /> :
                      r.status === 'fixed' ? <Wrench className="w-3.5 h-3.5 text-blue-400 shrink-0" /> :
                      r.status === 'warn' ? <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 shrink-0" /> :
-                     <X className="w-3.5 h-3.5 text-red-400 shrink-0" />}
-                    <span className="text-white font-medium">{r.check}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      r.status === 'pass' ? 'bg-green-600/30 text-green-400' :
-                      r.status === 'fixed' ? 'bg-blue-600/30 text-blue-400' :
-                      r.status === 'warn' ? 'bg-yellow-600/30 text-yellow-400' : 'bg-red-600/30 text-red-400'
+                     <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />}
+                    <span className="text-gray-200 font-medium text-xs">{r.check}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ml-1 ${
+                      r.status === 'pass' ? 'bg-green-700/30 text-green-400' :
+                      r.status === 'fixed' ? 'bg-blue-700/30 text-blue-400' :
+                      r.status === 'warn' ? 'bg-yellow-700/30 text-yellow-400' : 'bg-red-700/30 text-red-400'
                     }`}>{r.status === 'fixed' ? 'AUTO-FIXED' : r.status.toUpperCase()}</span>
-                    <span className="text-gray-400 text-xs ml-auto truncate max-w-[300px]">{r.details}</span>
+                    <span className="text-gray-500 text-xs ml-auto truncate max-w-[260px]">{r.details}</span>
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            <p className="text-gray-400 text-sm text-center py-4">
-              Proactive diagnostics will run automatically. First scan starts 30 seconds after server boot.
-            </p>
+            <p className="text-gray-500 text-sm text-center py-3">First scan runs 30 seconds after server boot.</p>
           )}
 
           {showHistory && proactiveData?.history && proactiveData.history.length > 1 && (
-            <div className="mt-4 border-t border-purple-600/30 pt-4">
-              <h4 className="text-sm font-medium text-purple-300 mb-3">Diagnostic History (last {proactiveData.history.length} runs)</h4>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="mt-3 border-t border-purple-700/30 pt-3">
+              <h4 className="text-xs font-medium text-purple-400 mb-2 uppercase tracking-wide">Scan History</h4>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {[...proactiveData.history].reverse().slice(1).map((report: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3 p-2 bg-gray-800/50 rounded text-xs">
-                    <div className={`w-2 h-2 rounded-full ${
-                      report.overallStatus === 'healthy' ? 'bg-green-400' :
-                      report.overallStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'
-                    }`} />
-                    <span className="text-gray-300">{new Date(report.timestamp).toLocaleString()}</span>
-                    <span className={`capitalize font-medium ${
-                      report.overallStatus === 'healthy' ? 'text-green-400' :
-                      report.overallStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'
-                    }`}>{report.overallStatus}</span>
-                    <span className="text-gray-500 ml-auto">
-                      {report.issuesFound} issues, {report.issuesFixed} fixed
-                    </span>
+                  <div key={i} className="flex items-center gap-2 px-2 py-1.5 bg-gray-900/60 rounded text-xs">
+                    <div className={`w-1.5 h-1.5 rounded-full ${report.overallStatus === 'healthy' ? 'bg-green-400' : report.overallStatus === 'degraded' ? 'bg-yellow-400' : 'bg-red-400'}`} />
+                    <span className="text-gray-400">{new Date(report.timestamp).toLocaleString()}</span>
+                    <span className={`capitalize font-medium ${report.overallStatus === 'healthy' ? 'text-green-400' : report.overallStatus === 'degraded' ? 'text-yellow-400' : 'text-red-400'}`}>{report.overallStatus}</span>
+                    <span className="text-gray-600 ml-auto">{report.issuesFound} found · {report.issuesFixed} fixed</span>
                   </div>
                 ))}
               </div>
@@ -1617,131 +1746,136 @@ function SystemTab({ systemHealth, diagResults, diagLoading, onRunDiagnostics, o
         </CardContent>
       </Card>
 
-      {systemHealth && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className={`border ${
-            systemHealth.status === 'healthy' ? 'bg-green-900/20 border-green-600/50' :
-            systemHealth.status === 'degraded' ? 'bg-yellow-900/20 border-yellow-600/50' :
-            'bg-red-900/20 border-red-600/50'
-          }`}>
-            <CardContent className="p-5 text-center">
-              <Activity className={`w-8 h-8 mx-auto mb-2 ${
-                systemHealth.status === 'healthy' ? 'text-green-400' :
-                systemHealth.status === 'degraded' ? 'text-yellow-400' : 'text-red-400'
-              }`} />
-              <div className={`text-2xl font-bold capitalize ${
-                systemHealth.status === 'healthy' ? 'text-green-400' :
-                systemHealth.status === 'degraded' ? 'text-yellow-400' : 'text-red-400'
-              }`}>
-                {systemHealth.status}
+      <Card className="bg-gray-950 border-gray-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-white text-base flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-5 h-5 text-green-400" />
+              Live Error Log
+              {(errorLogData?.stats.critical || 0) > 0 && (
+                <span className="text-xs bg-red-700/40 text-red-400 border border-red-700/50 px-2 py-0.5 rounded-full animate-pulse">
+                  {errorLogData?.stats.critical} CRITICAL
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex bg-gray-900 rounded-lg p-0.5 gap-0.5">
+                {(['all', 'unresolved', 'critical'] as const).map(f => (
+                  <button key={f} onClick={() => setErrorFilter(f)}
+                    className={`text-xs px-2 py-1 rounded capitalize transition-colors ${errorFilter === f ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+                    {f}
+                  </button>
+                ))}
               </div>
-              <div className="text-sm text-gray-400">Overall Status</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-900 border-gray-800">
-            <CardContent className="p-5 text-center">
-              <Clock className="w-8 h-8 mx-auto mb-2 text-blue-400" />
-              <div className="text-2xl font-bold text-white">{systemHealth.uptimeFormatted}</div>
-              <div className="text-sm text-gray-400">Uptime</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-900 border-gray-800">
-            <CardContent className="p-5 text-center">
-              <Zap className="w-8 h-8 mx-auto mb-2 text-purple-400" />
-              <div className="text-2xl font-bold text-white">{systemHealth.memory.heapUsed}MB</div>
-              <div className="text-sm text-gray-400">Memory Used ({Math.round((systemHealth.memory.heapUsed / systemHealth.memory.heapTotal) * 100)}%)</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <Card className="bg-gray-900 border-gray-800">
-        <CardHeader>
-          <CardTitle className="text-white text-lg flex items-center gap-2">
-            <Server className="w-5 h-5 text-green-400" /> Service Status
+              <Button size="sm" variant="ghost" onClick={() => refetchErrors()} className="text-gray-400 hover:text-white h-7 w-7 p-0">
+                <RefreshCw className="w-3.5 h-3.5" />
+              </Button>
+              {(errorLogData?.errors.filter(e => e.resolved).length || 0) > 0 && (
+                <Button size="sm" variant="ghost" onClick={() => clearResolvedMutation.mutate()} className="text-gray-500 hover:text-red-400 text-xs h-7">
+                  <Trash2 className="w-3 h-3 mr-1" /> Clear Resolved
+                </Button>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {systemHealth ? (
-            <>
-              <ServiceRow name="Database" status={systemHealth.services.database} icon={<Database className="w-4 h-4" />} />
-              <ServiceRow name="PayPal Payments" status={systemHealth.services.paypal} icon={<DollarSign className="w-4 h-4" />} />
-              <ServiceRow name="AI Engine (Gemini)" status={systemHealth.services.ai} icon={<Brain className="w-4 h-4" />} />
-            </>
+        <CardContent>
+          {errorLogLoading ? (
+            <p className="text-gray-500 text-sm text-center py-6">Loading error log...</p>
+          ) : filteredErrors.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle className="w-10 h-10 text-green-400 mx-auto mb-2 opacity-60" />
+              <p className="text-gray-500 text-sm">
+                {errorFilter === 'unresolved' ? 'No unresolved errors — system is clean.' : 'No errors match this filter.'}
+              </p>
+            </div>
           ) : (
-            <p className="text-gray-500 text-center py-4">Loading...</p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {filteredErrors.map(err => (
+                <div key={err.id} className={`rounded-lg border transition-colors ${err.resolved ? 'opacity-50 bg-gray-900/30 border-gray-800' : 'bg-gray-900 border-gray-700 hover:border-gray-600'}`}>
+                  <div className="flex items-start gap-3 p-3 cursor-pointer" onClick={() => setExpandedError(expandedError === err.id ? null : err.id)}>
+                    <div className={`mt-0.5 shrink-0 px-2 py-0.5 rounded text-xs font-bold uppercase ${severityColor(err.severity)}`}>
+                      {err.severity}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-blue-400 font-mono bg-blue-900/20 px-1.5 py-0.5 rounded">{err.type}</span>
+                        {err.route && <span className="text-xs text-gray-500 font-mono">{err.route}</span>}
+                        {err.occurrences > 1 && (
+                          <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded">×{err.occurrences}</span>
+                        )}
+                        {err.resolved && <span className="text-xs bg-green-900/30 text-green-500 px-1.5 py-0.5 rounded">RESOLVED</span>}
+                      </div>
+                      <p className="text-sm text-gray-200 mt-1 font-mono leading-tight break-words">{err.message}</p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {new Date(err.timestamp).toLocaleString()}
+                        {err.occurrences > 1 && ` · last seen ${new Date(err.lastSeen).toLocaleTimeString()}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!err.resolved && (
+                        <Button size="sm" onClick={(e) => { e.stopPropagation(); resolveErrorMutation.mutate(err.id); }}
+                          className="text-xs h-6 bg-green-800/50 hover:bg-green-700 text-green-300 border border-green-700/50">
+                          Resolve
+                        </Button>
+                      )}
+                      <ChevronRight className={`w-4 h-4 text-gray-600 transition-transform ${expandedError === err.id ? 'rotate-90' : ''}`} />
+                    </div>
+                  </div>
+                  {expandedError === err.id && err.stack && (
+                    <div className="border-t border-gray-800 px-3 pb-3">
+                      <pre className="text-xs text-gray-500 font-mono bg-black/40 rounded p-3 mt-2 overflow-x-auto whitespace-pre-wrap max-h-40">{err.stack}</pre>
+                      {err.autoFixResult && (
+                        <p className="text-xs text-blue-400 mt-2 flex items-center gap-1">
+                          <Wrench className="w-3 h-3" /> {err.autoFixResult}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {errorLogData && (
+            <div className="flex gap-4 mt-3 pt-3 border-t border-gray-800 text-xs text-gray-600">
+              <span>Total: <span className="text-gray-400">{errorLogData.stats.total}</span></span>
+              <span>Unresolved: <span className={errorLogData.stats.unresolved > 0 ? 'text-yellow-400' : 'text-gray-400'}>{errorLogData.stats.unresolved}</span></span>
+              <span>Critical: <span className={errorLogData.stats.critical > 0 ? 'text-red-400' : 'text-gray-400'}>{errorLogData.stats.critical}</span></span>
+              <span>High: <span className={errorLogData.stats.high > 0 ? 'text-orange-400' : 'text-gray-400'}>{errorLogData.stats.high}</span></span>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {diagResults && (
         <Card className="bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <Wrench className="w-5 h-5 text-amber-400" /> Diagnostic Results
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white text-base flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-amber-400" /> Last Manual Diagnostic Run
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-1.5">
             {diagResults.map((r, i) => (
-              <div key={i} className={`flex items-start gap-3 p-3 rounded-lg ${
-                r.status === 'pass' ? 'bg-green-900/20' :
-                r.status === 'fixed' ? 'bg-blue-900/20' :
-                r.status === 'warn' ? 'bg-yellow-900/20' : 'bg-red-900/20'
+              <div key={i} className={`flex items-start gap-3 px-3 py-2 rounded-lg ${
+                r.status === 'pass' ? 'bg-green-950/30' : r.status === 'fixed' ? 'bg-blue-950/30' :
+                r.status === 'warn' ? 'bg-yellow-950/30' : 'bg-red-950/30'
               }`}>
-                <div className="mt-0.5">
-                  {r.status === 'pass' ? <CheckCircle className="w-4 h-4 text-green-400" /> :
-                   r.status === 'fixed' ? <Wrench className="w-4 h-4 text-blue-400" /> :
-                   r.status === 'warn' ? <AlertTriangle className="w-4 h-4 text-yellow-400" /> :
-                   <X className="w-4 h-4 text-red-400" />}
-                </div>
+                {r.status === 'pass' ? <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" /> :
+                 r.status === 'fixed' ? <Wrench className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" /> :
+                 r.status === 'warn' ? <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" /> :
+                 <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-white font-medium text-sm">{r.check}</span>
                     <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      r.status === 'pass' ? 'bg-green-600/30 text-green-400' :
-                      r.status === 'fixed' ? 'bg-blue-600/30 text-blue-400' :
-                      r.status === 'warn' ? 'bg-yellow-600/30 text-yellow-400' : 'bg-red-600/30 text-red-400'
-                    }`}>
-                      {r.status === 'fixed' ? 'AUTO-FIXED' : r.status.toUpperCase()}
-                    </span>
+                      r.status === 'pass' ? 'bg-green-700/30 text-green-400' :
+                      r.status === 'fixed' ? 'bg-blue-700/30 text-blue-400' :
+                      r.status === 'warn' ? 'bg-yellow-700/30 text-yellow-400' : 'bg-red-700/30 text-red-400'
+                    }`}>{r.status === 'fixed' ? 'AUTO-FIXED' : r.status.toUpperCase()}</span>
                   </div>
-                  <p className="text-gray-400 text-sm mt-0.5">{r.details}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">{r.details}</p>
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {systemHealth && (
-        <Card className="bg-gray-900 border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-white text-lg flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-400" /> System Info
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-800 rounded-lg p-3">
-                <div className="text-xs text-gray-400">Total Users</div>
-                <div className="text-xl font-bold text-white">{systemHealth.totalUsers}</div>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
-                <div className="text-xs text-gray-400">Heap Used</div>
-                <div className="text-xl font-bold text-white">{systemHealth.memory.heapUsed}MB</div>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
-                <div className="text-xs text-gray-400">Heap Total</div>
-                <div className="text-xl font-bold text-white">{systemHealth.memory.heapTotal}MB</div>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-3">
-                <div className="text-xs text-gray-400">RSS Memory</div>
-                <div className="text-xl font-bold text-white">{systemHealth.memory.rss}MB</div>
-              </div>
-            </div>
-            <div className="mt-3 text-xs text-gray-500">
-              Last health check: {new Date(systemHealth.lastHealthCheck).toLocaleString()}
-            </div>
           </CardContent>
         </Card>
       )}
@@ -1933,99 +2067,133 @@ function NotificationsPanel({
   selectedNotification: AdminNotification | null;
   onSelectNotification: (n: AdminNotification | null) => void;
 }) {
+  const [filterType, setFilterType] = useState<'all' | 'user' | 'system' | 'unread'>('all');
+
+  const getAlertSeverity = (type: string) => {
+    if (type === 'terrorism') return { label: 'CRITICAL', cls: 'bg-red-700/40 text-red-300 border border-red-700/60' };
+    if (type === 'threat' || type === 'system_outage') return { label: 'HIGH', cls: 'bg-orange-700/40 text-orange-300 border border-orange-700/60' };
+    if (type === 'sexual') return { label: 'HIGH', cls: 'bg-orange-700/40 text-orange-300 border border-orange-700/60' };
+    if (type === 'system_diagnostic') return { label: 'MEDIUM', cls: 'bg-yellow-700/40 text-yellow-300 border border-yellow-700/60' };
+    return { label: 'LOW', cls: 'bg-gray-700/40 text-gray-300 border border-gray-700/60' };
+  };
+
+  const getIcon = (type: string) => {
+    if (type === 'system_outage') return <Server className="w-4 h-4 text-red-400" />;
+    if (type === 'system_diagnostic') return <Activity className="w-4 h-4 text-yellow-400" />;
+    if (type === 'threat' || type === 'terrorism') return <AlertOctagon className="w-4 h-4 text-red-400" />;
+    return <ShieldAlert className="w-4 h-4 text-orange-400" />;
+  };
+
+  const filteredNotifications = notifications.filter(n => {
+    if (filterType === 'unread') return n.isRead === 'false';
+    if (filterType === 'system') return n.type === 'system_outage' || n.type === 'system_diagnostic';
+    if (filterType === 'user') return n.type !== 'system_outage' && n.type !== 'system_diagnostic';
+    return true;
+  });
+
+  const typeGroups = notifications.reduce((acc, n) => {
+    acc[n.type] = (acc[n.type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
   if (selectedNotification) {
     const n = selectedNotification;
-    const isOutage = n.type === 'system_outage';
+    const isSystem = n.type === 'system_outage' || n.type === 'system_diagnostic';
+    const severity = getAlertSeverity(n.type);
     return (
       <div>
         <Button variant="ghost" onClick={() => onSelectNotification(null)} className="mb-4 text-gray-400 hover:text-white">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Alerts
         </Button>
-
         <Card className="bg-gray-900 border-gray-800">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg text-white flex items-center gap-2">
-                {isOutage ? <Server className="w-5 h-5 text-red-500" /> :
-                 <ShieldAlert className={`w-5 h-5 ${n.type === 'threat' ? 'text-red-500' : 'text-yellow-500'}`} />}
-                {isOutage ? 'System Outage Alert' :
-                 n.type === 'threat' ? 'Threat Detected' : 'Inappropriate Content Detected'}
-              </CardTitle>
-              <span className={`text-xs px-2 py-1 rounded font-medium ${
-                isOutage ? 'bg-red-600/20 text-red-400' :
-                n.type === 'threat' ? 'bg-red-600/20 text-red-400' : 'bg-yellow-600/20 text-yellow-400'
-              }`}>
-                {n.type.toUpperCase().replace('_', ' ')}
-              </span>
+          <CardHeader className="pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-lg ${isSystem ? 'bg-yellow-900/40 border border-yellow-800/50' : 'bg-red-900/40 border border-red-800/50'}`}>
+                  {getIcon(n.type)}
+                </div>
+                <div>
+                  <CardTitle className="text-white text-base">
+                    {isSystem ? (n.type === 'system_outage' ? 'System Outage Alert' : 'System Diagnostic Alert') :
+                     n.type === 'terrorism' ? 'Terrorism / Extremist Content' :
+                     n.type === 'threat' ? 'Threat Detected' :
+                     n.type === 'sexual' ? 'Explicit Content Violation' : 'Content Policy Violation'}
+                  </CardTitle>
+                  <p className="text-xs text-gray-500 mt-0.5">{new Date(n.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${severity.cls}`}>{severity.label}</span>
+                <span className="text-xs px-2 py-1 rounded bg-gray-800 text-gray-400 uppercase">{n.type.replace(/_/g, ' ')}</span>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-5">
-            {!isOutage && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                    <UserIcon className="w-4 h-4 text-blue-400" /> User Information
+          <CardContent className="space-y-4">
+            {!isSystem && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-gray-800/60 rounded-xl p-4 space-y-2.5 border border-gray-700/50">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <UserIcon className="w-3.5 h-3.5 text-blue-400" /> User Information
                   </h4>
-                  <div className="bg-gray-800 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400 text-sm">Name</span>
-                      <span className="text-white text-sm font-medium">{n.userFirstName} {n.userLastName}</span>
+                  {[
+                    ['Name', `${n.userFirstName} ${n.userLastName}`],
+                    ['Email', n.userEmail],
+                    ['User ID', n.userId.slice(0, 16) + '...'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-gray-500 text-sm">{label}</span>
+                      <span className="text-white text-sm font-medium font-mono">{value}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400 text-sm">Email</span>
-                      <span className="text-white text-sm">{n.userEmail}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400 text-sm">User ID</span>
-                      <span className="text-white text-sm font-mono">{n.userId.slice(0, 12)}...</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-orange-400" /> Event Details
+                <div className="bg-gray-800/60 rounded-xl p-4 space-y-2.5 border border-gray-700/50">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-orange-400" /> Event Details
                   </h4>
-                  <div className="bg-gray-800 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400 text-sm">Date</span>
-                      <span className="text-white text-sm">{new Date(n.createdAt).toLocaleDateString()}</span>
+                  {[
+                    ['Date', new Date(n.createdAt).toLocaleDateString()],
+                    ['Time', new Date(n.createdAt).toLocaleTimeString()],
+                    ['Conversation', n.conversationId ? `#${n.conversationId}` : 'N/A'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between items-center">
+                      <span className="text-gray-500 text-sm">{label}</span>
+                      <span className="text-white text-sm">{value}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400 text-sm">Time</span>
-                      <span className="text-white text-sm">{new Date(n.createdAt).toLocaleTimeString()}</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                {isOutage ? <AlertTriangle className="w-4 h-4 text-red-400" /> : <AlertTriangle className="w-4 h-4 text-red-400" />}
-                {isOutage ? 'Outage Details' : 'Flagged Message'}
-              </h4>
-              <div className={`${isOutage ? 'bg-red-900/30 border border-red-700/50' : 'bg-red-900/20 border border-red-800/50'} rounded-lg p-4`}>
-                <p className="text-red-200 text-sm break-words whitespace-pre-wrap">{n.flaggedContent}</p>
+            <div className="rounded-xl border border-red-800/40 overflow-hidden">
+              <div className="bg-red-950/40 px-4 py-2 border-b border-red-800/40">
+                <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" /> {isSystem ? 'Alert Details' : 'Flagged Content'}
+                </h4>
+              </div>
+              <div className="p-4 bg-red-950/20">
+                <p className="text-red-200 text-sm break-words whitespace-pre-wrap leading-relaxed">{n.flaggedContent}</p>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-green-400" /> Action Taken
-              </h4>
-              <div className="bg-gray-800 rounded-lg p-4">
+            <div className="rounded-xl border border-green-800/40 overflow-hidden">
+              <div className="bg-green-950/40 px-4 py-2 border-b border-green-800/40">
+                <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5" /> Action Taken
+                </h4>
+              </div>
+              <div className="p-4 bg-green-950/10">
                 <p className="text-gray-300 text-sm">{n.actionTaken}</p>
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
-              {!isOutage && (
+            <div className="flex gap-2 pt-1">
+              {!isSystem && (
                 <Button onClick={() => onViewUser(n.userId)} className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <Eye className="w-4 h-4 mr-2" /> View User
+                  <Eye className="w-4 h-4 mr-2" /> View User Profile
                 </Button>
               )}
               {n.isRead === 'false' && (
-                <Button onClick={() => onMarkRead(n.id)} variant="outline" className="border-gray-700 text-gray-300 hover:text-white">
+                <Button onClick={() => onMarkRead(n.id)} variant="outline" className="border-gray-700 text-gray-300 hover:text-white hover:border-green-700">
                   <CheckCircle className="w-4 h-4 mr-2" /> Mark as Read
                 </Button>
               )}
@@ -2036,80 +2204,98 @@ function NotificationsPanel({
     );
   }
 
+  const criticalCount = notifications.filter(n => ['terrorism', 'threat'].includes(n.type) && n.isRead === 'false').length;
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Bell className="w-5 h-5 text-yellow-400" />
-          Alerts & Notifications
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <Bell className="w-5 h-5 text-yellow-400" />
+            Alerts & Notifications
+            {unreadCount > 0 && (
+              <span className="bg-red-600 text-white text-xs rounded-full px-2 py-0.5 font-bold">{unreadCount} unread</span>
+            )}
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">{notifications.length} total · {Object.keys(typeGroups).length} type{Object.keys(typeGroups).length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex items-center gap-2">
           {unreadCount > 0 && (
-            <span className="bg-red-600 text-white text-xs rounded-full px-2 py-0.5 ml-2">{unreadCount} new</span>
+            <Button variant="outline" size="sm" onClick={onMarkAllRead} className="border-gray-700 text-gray-300 hover:text-white hover:border-green-700">
+              <CheckSquare className="w-3.5 h-3.5 mr-1.5" /> Mark All Read
+            </Button>
           )}
-        </h2>
-        {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={onMarkAllRead} className="border-gray-700 text-gray-300 hover:text-white">
-            <CheckCircle className="w-3 h-3 mr-1" /> Mark All Read
-          </Button>
-        )}
+        </div>
       </div>
 
-      {notifications.length === 0 ? (
+      {criticalCount > 0 && (
+        <div className="flex items-center gap-3 bg-red-950/50 border border-red-700/60 rounded-xl px-4 py-3">
+          <AlertOctagon className="w-5 h-5 text-red-400 shrink-0 animate-pulse" />
+          <div>
+            <p className="text-red-300 text-sm font-semibold">{criticalCount} critical unread alert{criticalCount !== 1 ? 's' : ''}</p>
+            <p className="text-red-500 text-xs">Threats or extremist content detected — review immediately</p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-1 bg-gray-900 rounded-xl p-1 w-fit">
+        {([
+          { id: 'all', label: `All (${notifications.length})` },
+          { id: 'unread', label: `Unread (${unreadCount})` },
+          { id: 'user', label: 'User Reports' },
+          { id: 'system', label: 'System' },
+        ] as const).map(f => (
+          <button key={f.id} onClick={() => setFilterType(f.id)}
+            className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${filterType === f.id ? 'bg-gray-700 text-white font-medium' : 'text-gray-500 hover:text-gray-300'}`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {filteredNotifications.length === 0 ? (
         <Card className="bg-gray-900 border-gray-800">
-          <CardContent className="p-8 text-center">
-            <Shield className="w-12 h-12 text-green-400 mx-auto mb-3 opacity-50" />
-            <p className="text-gray-400">No alerts yet. All clear!</p>
+          <CardContent className="p-10 text-center">
+            <Shield className="w-12 h-12 text-green-400 mx-auto mb-3 opacity-40" />
+            <p className="text-gray-400 text-sm">
+              {filterType === 'unread' ? 'All caught up — no unread alerts.' : 'No alerts match this filter.'}
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {notifications.map((n) => {
-            const isOutage = n.type === 'system_outage';
+        <div className="space-y-2">
+          {filteredNotifications.map((n) => {
+            const isSystem = n.type === 'system_outage' || n.type === 'system_diagnostic';
+            const severity = getAlertSeverity(n.type);
             return (
               <Card
                 key={n.id}
-                className={`border cursor-pointer transition-colors hover:bg-gray-800/50 ${
-                  n.isRead === 'false'
-                    ? isOutage ? 'bg-red-900/20 border-red-700/50' : 'bg-gray-900 border-red-800/50'
-                    : 'bg-gray-900/50 border-gray-800'
+                className={`border cursor-pointer transition-all hover:border-gray-600 ${
+                  n.isRead === 'false' ? 'bg-gray-900 border-gray-700' : 'bg-gray-950/60 border-gray-800/60'
                 }`}
-                onClick={() => {
-                  onSelectNotification(n);
-                  if (n.isRead === 'false') onMarkRead(n.id);
-                }}
+                onClick={() => { onSelectNotification(n); if (n.isRead === 'false') onMarkRead(n.id); }}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-1 p-2 rounded-full ${
-                      isOutage ? 'bg-red-600/30' :
-                      n.type === 'threat' ? 'bg-red-600/20' : 'bg-yellow-600/20'
-                    }`}>
-                      {isOutage ? <Server className="w-4 h-4 text-red-400" /> :
-                       <ShieldAlert className={`w-4 h-4 ${n.type === 'threat' ? 'text-red-400' : 'text-yellow-400'}`} />}
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg shrink-0 ${isSystem ? 'bg-yellow-900/30 border border-yellow-800/40' : 'bg-red-900/30 border border-red-800/40'}`}>
+                      {getIcon(n.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
                         <span className="text-white text-sm font-medium">
-                          {isOutage ? 'System Alert' : `${n.userFirstName} ${n.userLastName}`}
+                          {isSystem ? (n.type === 'system_outage' ? 'System Outage' : 'System Diagnostic') : `${n.userFirstName} ${n.userLastName}`}
                         </span>
-                        {!isOutage && <span className="text-gray-500 text-xs">{n.userEmail}</span>}
-                        {n.isRead === 'false' && (
-                          <span className="bg-red-600 rounded-full w-2 h-2 flex-shrink-0" />
-                        )}
+                        {!isSystem && <span className="text-gray-500 text-xs">{n.userEmail}</span>}
+                        {n.isRead === 'false' && <span className="bg-blue-500 rounded-full w-1.5 h-1.5 shrink-0" />}
                       </div>
-                      <p className="text-gray-400 text-sm truncate">
-                        {n.flaggedContent.length > 100 ? n.flaggedContent.slice(0, 100) + '...' : n.flaggedContent}
+                      <p className="text-gray-400 text-xs leading-relaxed truncate max-w-xl">
+                        {n.flaggedContent.length > 120 ? n.flaggedContent.slice(0, 120) + '...' : n.flaggedContent}
                       </p>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                        <span className={`px-1.5 py-0.5 rounded ${
-                          isOutage ? 'bg-red-600/30 text-red-400' :
-                          n.type === 'threat' ? 'bg-red-600/20 text-red-400' : 'bg-yellow-600/20 text-yellow-400'
-                        }`}>
-                          {isOutage ? 'OUTAGE' : n.type.toUpperCase()}
-                        </span>
-                        <span>{new Date(n.createdAt).toLocaleString()}</span>
-                      </div>
+                      <p className="text-gray-600 text-xs mt-1">{new Date(n.createdAt).toLocaleString()}</p>
                     </div>
-                    <Eye className="w-4 h-4 text-gray-500 mt-2 flex-shrink-0" />
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${severity.cls}`}>{severity.label}</span>
+                      <span className="text-xs text-gray-600 bg-gray-800/60 px-2 py-0.5 rounded uppercase">{n.type.replace(/_/g, ' ')}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

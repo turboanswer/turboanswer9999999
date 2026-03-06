@@ -6,6 +6,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { ensureSubscriptionPlans } from "./paypal";
 import { pool } from "./db";
 import { stopProactiveDiagnostics } from "./services/proactive-diagnostics";
+import { trackError } from "./services/error-tracker";
 
 const app = express();
 
@@ -89,10 +90,13 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     console.error(`[Error] ${status}: ${message}`);
+    if (status >= 500) {
+      trackError('routeError', message, { stack: err.stack, route: req.path });
+    }
     res.status(status).json({ message });
   });
 
@@ -132,10 +136,13 @@ app.use((req, res, next) => {
 
   process.on('uncaughtException', (err) => {
     console.error('[Server] Uncaught exception:', err.message);
+    trackError('uncaughtException', err.message, { stack: err.stack });
     gracefulShutdown('uncaughtException');
   });
 
   process.on('unhandledRejection', (reason: any) => {
-    console.error('[Server] Unhandled rejection:', reason?.message || reason);
+    const message = reason?.message || String(reason);
+    console.error('[Server] Unhandled rejection:', message);
+    trackError('unhandledRejection', message, { stack: reason?.stack });
   });
 })();

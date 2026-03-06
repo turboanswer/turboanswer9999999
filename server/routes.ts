@@ -22,6 +22,7 @@ import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSu
 
 import widgetRoutes from './routes/widget-routes';
 import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
+import { trackError, getErrorLog, getErrorStats, resolveError, clearResolvedErrors } from './services/error-tracker';
 
 async function sendBrevoEmail(recipientEmail: string, recipientName: string, subject: string, bodyText: string) {
   const brevoApiKey = process.env.BREVO_API_KEY;
@@ -1666,8 +1667,8 @@ function downloadAAB(){
       const overallStatus = [dbStatus, paypalStatus, aiStatus].includes('error') ? 'critical' :
         [dbStatus, paypalStatus, aiStatus].includes('degraded') ? 'degraded' : 'healthy';
 
-      const fiveMinutes = 5 * 60 * 1000;
-      if (overallStatus !== 'healthy' && !systemHealthState.outageDetected && (Date.now() - systemHealthState.lastOutageNotification > fiveMinutes)) {
+      const oneHour = 60 * 60 * 1000;
+      if (overallStatus === 'critical' && !systemHealthState.outageDetected && (Date.now() - systemHealthState.lastOutageNotification > oneHour)) {
         systemHealthState.outageDetected = true;
         systemHealthState.lastOutageNotification = Date.now();
         const failedServices = [];
@@ -1816,6 +1817,36 @@ function downloadAAB(){
       res.json(report);
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to run proactive diagnostics' });
+    }
+  });
+
+  app.get('/api/admin/error-log', isAdmin, async (req: any, res) => {
+    try {
+      const errors = getErrorLog();
+      const stats = getErrorStats();
+      res.json({ errors, stats });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to get error log' });
+    }
+  });
+
+  app.post('/api/admin/error-log/:id/resolve', isAdmin, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { autoFixResult } = req.body;
+      resolveError(id, autoFixResult || 'Manually resolved by admin');
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to resolve error' });
+    }
+  });
+
+  app.delete('/api/admin/error-log/resolved', isAdmin, async (req: any, res) => {
+    try {
+      const cleared = clearResolvedErrors();
+      res.json({ success: true, cleared });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to clear resolved errors' });
     }
   });
 
