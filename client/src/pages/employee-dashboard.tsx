@@ -228,7 +228,12 @@ export default function EmployeeDashboard() {
 
   const unbanMutation = useMutation({
     mutationFn: (userId: string) => apiRequest('POST', `/api/employee/users/${userId}/unban`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] });
+      setActionModal(null);
+      toast({ title: 'User unbanned', description: 'The ban has been lifted and the user can log in again.' });
+    },
+    onError: (err: any) => toast({ title: 'Failed to unban user', description: err?.message || 'Unknown error', variant: 'destructive' }),
   });
 
   const flagMutation = useMutation({
@@ -270,7 +275,12 @@ export default function EmployeeDashboard() {
         employeeId: currentUser?.id || '',
         employeeUsername: currentUser?.email || 'admin',
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] });
+      setActionModal(null);
+      toast({ title: 'User unsuspended', description: 'Suspension lifted — the user can access TurboAnswer again.' });
+    },
+    onError: (err: any) => toast({ title: 'Failed to unsuspend user', description: err?.message || 'Unknown error', variant: 'destructive' }),
   });
 
   const setAdminMutation = useMutation({
@@ -402,8 +412,13 @@ export default function EmployeeDashboard() {
   };
 
   const handleAction = () => {
-    if (!actionModal || !actionReason.trim()) return;
+    if (!actionModal) return;
     const { type, userId } = actionModal;
+    // unban and unsuspend don't need a reason
+    if (type === 'unban') { unbanMutation.mutate(userId); return; }
+    if (type === 'unsuspend') { unsuspendMutation.mutate(userId); return; }
+    // all other actions require a reason
+    if (!actionReason.trim()) return;
     if (type === 'ban') banMutation.mutate({ userId, reason: actionReason.trim(), durationMonths: banDuration || undefined });
     else if (type === 'flag') flagMutation.mutate({ userId, reason: actionReason.trim() });
     else if (type === 'suspend') suspendMutation.mutate({ userId, reason: actionReason.trim() });
@@ -1036,23 +1051,30 @@ export default function EmployeeDashboard() {
                   )}
                 </div>
               )}
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Reason</label>
-                <Input
-                  value={actionReason}
-                  onChange={(e) => setActionReason(e.target.value)}
-                  placeholder={`Enter reason for ${actionModal.type}...`}
-                  className="bg-gray-800 border-gray-700 text-white"
-                />
-              </div>
+              {actionModal.type !== 'unban' && actionModal.type !== 'unsuspend' && (
+                <div>
+                  <label className="text-sm text-gray-400 mb-1 block">Reason</label>
+                  <Input
+                    value={actionReason}
+                    onChange={(e) => setActionReason(e.target.value)}
+                    placeholder={`Enter reason for ${actionModal.type}...`}
+                    className="bg-gray-800 border-gray-700 text-white"
+                  />
+                </div>
+              )}
               <div className="flex gap-2 justify-end">
                 <Button variant="ghost" onClick={() => { setActionModal(null); setActionReason(''); setBanDuration(0); }} className="text-gray-400">
                   Cancel
                 </Button>
                 <Button
                   onClick={handleAction}
-                  disabled={!actionReason.trim() || banMutation.isPending || flagMutation.isPending || suspendMutation.isPending}
+                  disabled={
+                    (actionModal.type !== 'unban' && actionModal.type !== 'unsuspend' && !actionReason.trim()) ||
+                    banMutation.isPending || flagMutation.isPending || suspendMutation.isPending ||
+                    unbanMutation.isPending || unsuspendMutation.isPending
+                  }
                   className={`${
+                    actionModal.type === 'unban' || actionModal.type === 'unsuspend' ? 'bg-green-600 hover:bg-green-700' :
                     actionModal.type === 'ban' ? 'bg-red-600 hover:bg-red-700' :
                     actionModal.type === 'flag' ? 'bg-yellow-600 hover:bg-yellow-700' :
                     'bg-orange-600 hover:bg-orange-700'
