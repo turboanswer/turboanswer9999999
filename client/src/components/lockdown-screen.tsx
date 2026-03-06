@@ -129,10 +129,57 @@ function buildHorrorAlarm(ctx: AudioContext): () => void {
   };
 }
 
+const VOICE_SCRIPT =
+  'Warning. TurboAnswer has experienced a brutal hack, and catastrophic system malfunction. ' +
+  'Critical security breach detected. All systems are now offline. ' +
+  'Emergency protocols have been activated. ' +
+  'Our engineers are responding. Please stand by.';
+
+function speakAlarm(repeat = false) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+
+  function doSpeak() {
+    const utt = new SpeechSynthesisUtterance(VOICE_SCRIPT);
+    utt.rate   = 0.62;   // painfully slow
+    utt.pitch  = 0.1;    // as deep as possible
+    utt.volume = 1.0;
+
+    // Try to grab the deepest available English voice
+    const voices = window.speechSynthesis.getVoices();
+    const deep = voices.find(v =>
+      /daniel|fred|thomas|oliver|google uk english male/i.test(v.name)
+    ) || voices.find(v => /en[-_]?(gb|us|au)/i.test(v.lang) && !v.name.toLowerCase().includes('female'))
+      || voices[0];
+    if (deep) utt.voice = deep;
+
+    if (repeat) {
+      utt.onend = () => {
+        setTimeout(doSpeak, 4000); // pause then repeat
+      };
+    }
+    window.speechSynthesis.speak(utt);
+  }
+
+  // Voices may not be loaded yet on first call
+  if (window.speechSynthesis.getVoices().length === 0) {
+    window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
+  } else {
+    doSpeak();
+  }
+}
+
 export default function LockdownScreen() {
   const playingRef = useRef(false);
   const stopRef = useRef<(() => void) | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);
+  const voiceStartedRef = useRef(false);
+
+  function startVoice() {
+    if (voiceStartedRef.current) return;
+    voiceStartedRef.current = true;
+    speakAlarm(true);
+  }
 
   async function attemptPlay() {
     if (playingRef.current) return;
@@ -145,6 +192,7 @@ export default function LockdownScreen() {
       if (ctx.state === 'running') {
         playingRef.current = true;
         stopRef.current = buildHorrorAlarm(ctx);
+        startVoice();
       } else {
         ctx.close();
       }
@@ -152,12 +200,13 @@ export default function LockdownScreen() {
   }
 
   function handleUserGesture() {
+    // Start voice immediately — speech synthesis is more permissive than AudioContext
+    startVoice();
+
     if (playingRef.current) return;
-    // Called from direct user click — AudioContext will definitely start
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       ctxRef.current = ctx;
-      // resume() inside a click handler is always allowed
       ctx.resume().then(() => {
         if (!playingRef.current && ctx.state === 'running') {
           playingRef.current = true;
@@ -168,14 +217,15 @@ export default function LockdownScreen() {
   }
 
   useEffect(() => {
-    // First attempt — works if user has site interaction history (high MEI)
+    // Try speech immediately — it works without gesture in many browsers
+    startVoice();
+
+    // Try audio immediately (works if user has prior site interaction)
     attemptPlay();
 
-    // Retry a few times in case browser needs a moment
     const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 500);
     const t2 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 1500);
 
-    // Catch ANY user interaction — mousedown fires before click, feels instant
     const onInteract = () => handleUserGesture();
     document.addEventListener('mousedown', onInteract);
     document.addEventListener('touchstart', onInteract);
@@ -190,6 +240,7 @@ export default function LockdownScreen() {
       document.removeEventListener('keydown', onInteract);
       document.removeEventListener('pointerdown', onInteract);
       stopRef.current?.();
+      window.speechSynthesis?.cancel();
     };
   }, []);
 
@@ -322,7 +373,7 @@ export default function LockdownScreen() {
         </h1>
 
         <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '1rem', lineHeight: 1.7 }}>
-          TurboAnswer is experiencing a critical system failure. Our engineering team has been notified and is working urgently to restore service.
+          TurboAnswer has experienced a brutal hack and catastrophic system malfunction. Critical security breach detected. Emergency protocols have been activated.
         </p>
 
         <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', letterSpacing: '0.15em', fontFamily: 'monospace' }}>
