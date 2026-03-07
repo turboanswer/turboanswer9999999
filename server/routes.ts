@@ -1280,7 +1280,7 @@ function downloadAAB(){
       if (!user) return res.status(401).json({ error: 'User not found' });
       if (!user.codeStudioAddon) return res.status(400).json({ error: 'No Code Studio add-on to cancel' });
 
-      if (user.codeStudioAddonSubId) {
+      if (user.codeStudioAddonSubId && !user.codeStudioAddonSubId.startsWith('promo_')) {
         await cancelSubscription(user.codeStudioAddonSubId, 'User cancelled Code Studio add-on').catch(() => {});
       }
       await storage.updateCodeStudioAddon(userId, false, null);
@@ -1288,6 +1288,102 @@ function downloadAAB(){
     } catch (error: any) {
       console.error('[Addon] Cancel error:', error.message);
       res.status(500).json({ error: error.message || 'Failed to cancel add-on' });
+    }
+  });
+
+  // ── Promo Code: Apply to Code Studio (free activation) ──────────────────
+  app.post('/api/apply-code-studio-promo', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      if (user.codeStudioAddon) return res.status(400).json({ error: 'You already have Code Studio active' });
+
+      const { code } = req.body;
+      if (!code) return res.status(400).json({ error: 'Promo code is required' });
+
+      const promo = await storage.getPromoCode(code.trim());
+      if (!promo || !promo.isActive) return res.status(400).json({ error: 'Invalid or inactive promo code' });
+      if (promo.product !== 'code_studio' && promo.product !== 'all') {
+        return res.status(400).json({ error: 'This promo code is not valid for Code Studio' });
+      }
+      if (promo.expiresAt && new Date() > promo.expiresAt) {
+        return res.status(400).json({ error: 'This promo code has expired' });
+      }
+      if (promo.maxUses !== null && promo.usedCount >= promo.maxUses) {
+        return res.status(400).json({ error: 'This promo code has reached its usage limit' });
+      }
+      if (promo.discountPercent < 100) {
+        return res.status(400).json({ error: 'This code provides a partial discount — use it on the checkout page (coming soon)' });
+      }
+
+      await storage.updateCodeStudioAddon(userId, true, `promo_${promo.code}`);
+      await storage.incrementPromoCodeUsage(promo.id);
+      console.log(`[PromoCode] Applied ${promo.code} for Code Studio to user ${userId}`);
+      res.json({ success: true, message: 'Code Studio activated! Enjoy your free access.' });
+    } catch (error: any) {
+      console.error('[PromoCode] Apply error:', error.message);
+      res.status(500).json({ error: error.message || 'Failed to apply promo code' });
+    }
+  });
+
+  // ── Admin: Promo Code CRUD ────────────────────────────────────────────────
+  app.get('/api/admin/promo-codes', isAdmin, async (_req, res) => {
+    try {
+      const codes = await storage.getAllPromoCodes();
+      res.json(codes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/admin/promo-codes', isAdmin, async (req: any, res) => {
+    try {
+      const { code, description, product, discountPercent, maxUses, expiresAt, isActive } = req.body;
+      if (!code || !product) return res.status(400).json({ error: 'Code and product are required' });
+      const promo = await storage.createPromoCode({
+        code: code.trim().toUpperCase(),
+        description: description || '',
+        product,
+        discountPercent: Number(discountPercent) || 100,
+        maxUses: maxUses ? Number(maxUses) : null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        isActive: isActive !== false,
+      });
+      res.json(promo);
+    } catch (error: any) {
+      if (error.message?.includes('unique')) {
+        return res.status(400).json({ error: 'A promo code with this name already exists' });
+      }
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch('/api/admin/promo-codes/:id', isAdmin, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { description, product, discountPercent, maxUses, expiresAt, isActive } = req.body;
+      const updates: any = {};
+      if (description !== undefined) updates.description = description;
+      if (product !== undefined) updates.product = product;
+      if (discountPercent !== undefined) updates.discountPercent = Number(discountPercent);
+      if (maxUses !== undefined) updates.maxUses = maxUses === '' || maxUses === null ? null : Number(maxUses);
+      if (expiresAt !== undefined) updates.expiresAt = expiresAt ? new Date(expiresAt) : null;
+      if (isActive !== undefined) updates.isActive = isActive;
+      const promo = await storage.updatePromoCode(id, updates);
+      res.json(promo);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/admin/promo-codes/:id', isAdmin, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      await storage.deletePromoCode(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   });
 

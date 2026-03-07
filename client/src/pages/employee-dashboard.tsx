@@ -113,7 +113,7 @@ interface ActivityEntry {
   duration: number;
 }
 
-type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'security';
+type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'security' | 'promoCodes';
 
 export default function EmployeeDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -555,6 +555,7 @@ export default function EmployeeDashboard() {
     { id: 'invite' as TabType, icon: Shield, label: 'Admin Invites' },
     { id: 'beta' as TabType, icon: FlaskConical, label: 'Beta Testing' },
     { id: 'security' as TabType, icon: ShieldCheck, label: 'Security' },
+    { id: 'promoCodes' as TabType, icon: Gift, label: 'Promo Codes' },
   ];
 
   const svcStatus = systemHealth?.services;
@@ -1015,6 +1016,9 @@ export default function EmployeeDashboard() {
         )}
         {activeTab === 'security' && (
           <SecurityTab />
+        )}
+        {activeTab === 'promoCodes' && (
+          <PromoCodesTab />
         )}
 
           </div>
@@ -3463,6 +3467,231 @@ function SecurityTab() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function PromoCodesTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [form, setForm] = useState({
+    code: '', description: '', product: 'code_studio',
+    discountPercent: 100, maxUses: '', expiresAt: '', isActive: true,
+  });
+  const [editForm, setEditForm] = useState<any>({});
+
+  const { data: codes = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/admin/promo-codes'],
+    refetchInterval: 30000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/promo-codes', {
+      ...form,
+      discountPercent: Number(form.discountPercent),
+      maxUses: form.maxUses ? Number(form.maxUses) : null,
+      expiresAt: form.expiresAt || null,
+    }),
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      if (data.error) { toast({ title: 'Error', description: data.error, variant: 'destructive' }); return; }
+      toast({ title: 'Promo code created', description: `Code ${data.code} is ready to use` });
+      qc.invalidateQueries({ queryKey: ['/api/admin/promo-codes'] });
+      setShowCreate(false);
+      setForm({ code: '', description: '', product: 'code_studio', discountPercent: 100, maxUses: '', expiresAt: '', isActive: true });
+    },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => apiRequest('PATCH', `/api/admin/promo-codes/${id}`, data),
+    onSuccess: async (_res, vars) => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/promo-codes'] });
+      toast({ title: 'Updated' });
+      if (editId === vars.id) setEditId(null);
+    },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/admin/promo-codes/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/admin/promo-codes'] }); toast({ title: 'Deleted' }); },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const PRODUCTS = [
+    { value: 'code_studio', label: 'Code Studio ($10/mo)' },
+    { value: 'pro', label: 'Pro ($6.99/mo)' },
+    { value: 'research', label: 'Research ($30/mo)' },
+    { value: 'enterprise', label: 'Enterprise ($100/mo)' },
+    { value: 'all', label: 'All products' },
+  ];
+
+  const inputCls = "bg-gray-800 border-gray-700 text-white text-sm placeholder:text-gray-600";
+  const labelCls = "text-xs text-gray-400 block mb-1";
+  const selectCls = "w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white">Promo Codes</h2>
+          <p className="text-gray-400 text-sm mt-1">Create and manage discount codes for your products</p>
+        </div>
+        <Button onClick={() => setShowCreate(!showCreate)} className="bg-green-600 hover:bg-green-700 text-white gap-2">
+          <Plus className="h-4 w-4" /> New Code
+        </Button>
+      </div>
+
+      {showCreate && (
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white text-base">Create Promo Code</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Code *</label>
+                <Input className={inputCls} placeholder="e.g. SUMMER50" value={form.code}
+                  onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} />
+              </div>
+              <div>
+                <label className={labelCls}>Product *</label>
+                <select className={selectCls} value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))}>
+                  {PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Discount % (100 = free)</label>
+                <Input className={inputCls} type="number" min={1} max={100} value={form.discountPercent}
+                  onChange={e => setForm(f => ({ ...f, discountPercent: Number(e.target.value) }))} />
+              </div>
+              <div>
+                <label className={labelCls}>Max Uses (blank = unlimited)</label>
+                <Input className={inputCls} type="number" min={1} placeholder="Unlimited" value={form.maxUses}
+                  onChange={e => setForm(f => ({ ...f, maxUses: e.target.value }))} />
+              </div>
+              <div>
+                <label className={labelCls}>Expires At (blank = never)</label>
+                <Input className={inputCls} type="datetime-local" value={form.expiresAt}
+                  onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))} />
+              </div>
+              <div>
+                <label className={labelCls}>Description</label>
+                <Input className={inputCls} placeholder="Internal note" value={form.description}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button onClick={() => createMutation.mutate()} disabled={!form.code || createMutation.isPending}
+                className="bg-green-600 hover:bg-green-700">
+                {createMutation.isPending ? 'Creating…' : 'Create Code'}
+              </Button>
+              <Button variant="outline" onClick={() => setShowCreate(false)} className="border-gray-700 text-gray-300">Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="bg-gray-900 border-gray-700">
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="text-center py-12 text-gray-500">Loading codes…</div>
+          ) : codes.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">No promo codes yet. Create one above.</div>
+          ) : (
+            <div className="divide-y divide-gray-800">
+              {codes.map((c: any) => (
+                <div key={c.id} className="p-4">
+                  {editId === c.id ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelCls}>Product</label>
+                          <select className={selectCls} value={editForm.product ?? c.product}
+                            onChange={e => setEditForm((f: any) => ({ ...f, product: e.target.value }))}>
+                            {PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className={labelCls}>Discount %</label>
+                          <Input className={inputCls} type="number" min={1} max={100} value={editForm.discountPercent ?? c.discountPercent}
+                            onChange={e => setEditForm((f: any) => ({ ...f, discountPercent: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Max Uses (blank = unlimited)</label>
+                          <Input className={inputCls} type="number" min={1} placeholder="Unlimited"
+                            value={editForm.maxUses !== undefined ? editForm.maxUses : (c.maxUses ?? '')}
+                            onChange={e => setEditForm((f: any) => ({ ...f, maxUses: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className={labelCls}>Expires At (blank = never)</label>
+                          <Input className={inputCls} type="datetime-local"
+                            value={editForm.expiresAt !== undefined ? editForm.expiresAt : (c.expiresAt ? c.expiresAt.slice(0, 16) : '')}
+                            onChange={e => setEditForm((f: any) => ({ ...f, expiresAt: e.target.value }))} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className={labelCls}>Description</label>
+                          <Input className={inputCls} placeholder="Internal note" value={editForm.description ?? c.description}
+                            onChange={e => setEditForm((f: any) => ({ ...f, description: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => updateMutation.mutate({ id: c.id, data: editForm })}
+                          disabled={updateMutation.isPending}>
+                          {updateMutation.isPending ? 'Saving…' : 'Save'}
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-gray-700 text-gray-300"
+                          onClick={() => { setEditId(null); setEditForm({}); }}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="font-mono font-bold text-green-400 text-sm">{c.code}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-400'}`}>
+                            {c.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                          <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">
+                            {c.discountPercent === 100 ? 'FREE' : `${c.discountPercent}% off`}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {PRODUCTS.find(p => p.value === c.product)?.label ?? c.product}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-500 flex-wrap">
+                          <span>Used: <span className="text-gray-300">{c.usedCount}</span>{c.maxUses ? ` / ${c.maxUses}` : ' (unlimited)'}</span>
+                          {c.expiresAt && <span>Expires: {new Date(c.expiresAt).toLocaleDateString()}</span>}
+                          {c.description && <span className="text-gray-600 italic">{c.description}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" variant="outline"
+                          className={`border-gray-700 text-xs h-7 ${c.isActive ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}
+                          onClick={() => updateMutation.mutate({ id: c.id, data: { isActive: !c.isActive } })}>
+                          {c.isActive ? 'Deactivate' : 'Activate'}
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-gray-700 text-gray-300 text-xs h-7"
+                          onClick={() => { setEditId(c.id); setEditForm({}); }}>
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-red-900 text-red-400 hover:bg-red-900/20 text-xs h-7"
+                          onClick={() => { if (confirm(`Delete code ${c.code}?`)) deleteMutation.mutate(c.id); }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

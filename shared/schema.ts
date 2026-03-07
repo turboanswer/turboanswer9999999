@@ -217,3 +217,21 @@ export const codeProjects = pgTable("code_projects", {
 export const insertCodeProjectSchema = createInsertSchema(codeProjects).omit({ id: true, createdAt: true, updatedAt: true, publishedAt: true });
 export type InsertCodeProject = z.infer<typeof insertCodeProjectSchema>;
 export type CodeProject = typeof codeProjects.$inferSelect;
+
+// Promo Codes
+export const promoCodes = pgTable("promo_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  description: text("description").default(""),
+  product: text("product").notNull().default("code_studio"), // 'code_studio' | 'pro' | 'research' | 'enterprise' | 'all'
+  discountPercent: integer("discount_percent").notNull().default(100), // 0-100, 100 = free
+  maxUses: integer("max_uses"), // null = unlimited
+  usedCount: integer("used_count").notNull().default(0),
+  expiresAt: timestamp("expires_at"), // null = never expires
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: true, usedCount: true, createdAt: true });
+export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
+export type PromoCode = typeof promoCodes.$inferSelect;

@@ -1,4 +1,4 @@
-import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage } from "@shared/schema";
+import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -68,6 +68,16 @@ export interface IStorage {
   getCrisisMessagesByConversation(conversationId: number): Promise<CrisisMessage[]>;
   deleteCrisisConversation(id: number, userId: string): Promise<void>;
   deleteAllCrisisData(userId: string): Promise<void>;
+
+  // Promo Codes
+  getAllPromoCodes(): Promise<PromoCode[]>;
+  getPromoCode(code: string): Promise<PromoCode | undefined>;
+  getPromoCodeById(id: number): Promise<PromoCode | undefined>;
+  createPromoCode(data: InsertPromoCode): Promise<PromoCode>;
+  updatePromoCode(id: number, data: Partial<InsertPromoCode>): Promise<PromoCode>;
+  deletePromoCode(id: number): Promise<void>;
+  incrementPromoCodeUsage(id: number): Promise<void>;
+  seedOwnerPromoCode(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -598,6 +608,58 @@ export class DatabaseStorage implements IStorage {
       await db.delete(crisisMessages).where(eq(crisisMessages.conversationId, conv.id));
     }
     await db.delete(crisisConversations).where(eq(crisisConversations.userId, userId));
+  }
+
+  async getAllPromoCodes(): Promise<PromoCode[]> {
+    return await db.select().from(promoCodes).orderBy(desc(promoCodes.createdAt));
+  }
+
+  async getPromoCode(code: string): Promise<PromoCode | undefined> {
+    const [promo] = await db.select().from(promoCodes).where(eq(promoCodes.code, code.toUpperCase()));
+    return promo || undefined;
+  }
+
+  async getPromoCodeById(id: number): Promise<PromoCode | undefined> {
+    const [promo] = await db.select().from(promoCodes).where(eq(promoCodes.id, id));
+    return promo || undefined;
+  }
+
+  async createPromoCode(data: InsertPromoCode): Promise<PromoCode> {
+    const [promo] = await db.insert(promoCodes).values({
+      ...data,
+      code: data.code.toUpperCase(),
+    }).returning();
+    return promo;
+  }
+
+  async updatePromoCode(id: number, data: Partial<InsertPromoCode>): Promise<PromoCode> {
+    const [promo] = await db.update(promoCodes).set(data).where(eq(promoCodes.id, id)).returning();
+    if (!promo) throw new Error("Promo code not found");
+    return promo;
+  }
+
+  async deletePromoCode(id: number): Promise<void> {
+    await db.delete(promoCodes).where(eq(promoCodes.id, id));
+  }
+
+  async incrementPromoCodeUsage(id: number): Promise<void> {
+    await db.update(promoCodes).set({ usedCount: sql`${promoCodes.usedCount} + 1` }).where(eq(promoCodes.id, id));
+  }
+
+  async seedOwnerPromoCode(): Promise<void> {
+    const existing = await this.getPromoCode('TURBOCODE-FOREVER');
+    if (!existing) {
+      await db.insert(promoCodes).values({
+        code: 'TURBOCODE-FOREVER',
+        description: 'Owner lifetime Code Studio access — free forever',
+        product: 'code_studio',
+        discountPercent: 100,
+        maxUses: 1,
+        usedCount: 0,
+        isActive: true,
+      });
+      console.log('[PromoCode] Seeded owner lifetime code: TURBOCODE-FOREVER');
+    }
   }
 }
 

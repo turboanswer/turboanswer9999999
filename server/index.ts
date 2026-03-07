@@ -7,6 +7,7 @@ import { ensureSubscriptionPlans } from "./paypal";
 import { pool } from "./db";
 import { stopProactiveDiagnostics } from "./services/proactive-diagnostics";
 import { trackError } from "./services/error-tracker";
+import { storage } from "./storage";
 
 const app = express();
 
@@ -89,6 +90,7 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  try { await storage.seedOwnerPromoCode(); } catch (e: any) { console.error('[PromoCode] Seed error:', e.message); }
 
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -171,6 +171,19 @@ export default function CodeStudio() {
     },
   });
 
+  const [promoCode, setPromoCode] = useState('');
+  const promoMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/apply-code-studio-promo', { code: promoCode.trim() }),
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      toast({ title: 'Code Studio Activated!', description: data.message || 'Enjoy your free access.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+    },
+    onError: (e: any) => {
+      toast({ title: 'Invalid Code', description: e.message || 'Promo code not valid', variant: 'destructive' });
+    },
+  });
+
   async function loadProjects() {
     try {
       const res = await fetch("/api/code/projects", { credentials: "include" });
@@ -487,11 +500,33 @@ export default function CodeStudio() {
           <Button
             className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold py-3 text-base"
             onClick={() => addonMutation.mutate()}
-            disabled={addonMutation.isPending}
+            disabled={addonMutation.isPending || promoMutation.isPending}
           >
             {addonMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting to PayPal…</> : 'Add Code Studio — $10/mo'}
           </Button>
           <p className={`text-xs mt-3 ${muted}`}>Secure payment via PayPal. Your main subscription is unaffected.</p>
+
+          <div className={`mt-5 pt-5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+            <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Have a promo code?</p>
+            <div className="flex gap-2">
+              <Input
+                value={promoCode}
+                onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                placeholder="ENTER-CODE-HERE"
+                className={`flex-1 font-mono text-sm uppercase ${isDark ? 'bg-white/5 border-white/10 text-white placeholder:text-gray-600' : 'bg-gray-50 border-gray-200'}`}
+                onKeyDown={e => { if (e.key === 'Enter' && promoCode.trim()) promoMutation.mutate(); }}
+                disabled={promoMutation.isPending}
+              />
+              <Button
+                onClick={() => promoMutation.mutate()}
+                disabled={!promoCode.trim() || promoMutation.isPending}
+                variant="outline"
+                className={`shrink-0 ${isDark ? 'border-green-500/40 text-green-400 hover:bg-green-500/10' : 'border-green-500 text-green-600 hover:bg-green-50'}`}
+              >
+                {promoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     );
