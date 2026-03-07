@@ -46,10 +46,10 @@ function EnterpriseLock() {
         <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
           <Lock className="h-10 w-10 text-amber-400" />
         </div>
-        <h2 className="text-2xl font-black text-white mb-3">Enterprise Exclusive</h2>
-        <p className="text-gray-400 mb-6">Photo Editor with Imagen 3 is available exclusively on the Enterprise plan ($70/month).</p>
+        <h2 className="text-2xl font-black text-white mb-3">Research Plan Required</h2>
+        <p className="text-gray-400 mb-6">Photo Editor is available on the Research plan ($25/month) and Enterprise plan ($70/month).</p>
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 mb-6 text-left space-y-2">
-          {["Imagen 3 text-to-image generation","AI photo editing — remove/add anything","Place yourself anywhere in the world","Unlimited generations","All Research features included"].map((f, i) => (
+          {["AI text-to-image generation","AI photo editing — remove/add anything","Place yourself anywhere in the world","Unlimited generations","Available on Research & Enterprise"].map((f, i) => (
             <div key={i} className="flex items-center gap-2 text-sm text-gray-300">
               <div className="w-4 h-4 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
                 <Crown className="h-2.5 w-2.5 text-amber-400" />
@@ -60,7 +60,7 @@ function EnterpriseLock() {
         </div>
         <Link href="/pricing">
           <Button className="w-full h-12 font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black">
-            Upgrade to Enterprise — $70/mo
+            Upgrade to Research — $25/mo
           </Button>
         </Link>
         <Link href="/chat">
@@ -97,7 +97,7 @@ export default function PhotoEditor() {
   const editFileRef = useRef<HTMLInputElement>(null);
   const placeFileRef = useRef<HTMLInputElement>(null);
 
-  const isEnterprise = user?.subscriptionTier === 'enterprise';
+  const isEnterprise = user?.subscriptionTier === 'enterprise' || user?.subscriptionTier === 'research';
 
   const generateMutation = useMutation({
     mutationFn: async () => {

@@ -29,7 +29,6 @@ import EmailTemplates from "@/pages/email-templates";
 import ForgotPassword from "@/pages/forgot-password";
 import ImageStudio from "@/pages/image-studio";
 import PhotoEditor from "@/pages/photo-editor";
-import MusicStudio from "@/pages/music-studio";
 import MediaEditor from "@/pages/media-editor";
 import VideoStudio from "@/pages/video-studio";
 import CodeStudio from "@/pages/code-studio";
@@ -59,7 +58,6 @@ function AuthenticatedRouter() {
       <Route path="/email-templates" component={EmailTemplates} />
       <Route path="/image-studio" component={ImageStudio} />
       <Route path="/photo-editor" component={PhotoEditor} />
-      <Route path="/music-studio" component={MusicStudio} />
       <Route path="/media-editor" component={MediaEditor} />
       <Route path="/video-studio" component={VideoStudio} />
       <Route path="/code-studio" component={CodeStudio} />

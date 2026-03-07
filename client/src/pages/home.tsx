@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { MessageSquare, Settings, Zap, Brain, Shield, LogOut, Heart, HandHeart, Code2, Sparkles, ArrowRight, X, Rocket, Film, ImageIcon, Music, Camera, Scissors } from "lucide-react";
+import { MessageSquare, Settings, Zap, Brain, Shield, LogOut, Heart, HandHeart, Code2, Sparkles, ArrowRight, X, Rocket, Film, ImageIcon, Camera, Scissors } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
@@ -202,19 +202,6 @@ export default function Home() {
               <h3 className="text-lg font-bold text-white mb-1">Photo Editor</h3>
               <p className="text-sm text-gray-400">Generate, edit & place yourself anywhere with AI</p>
               <ArrowRight className="h-4 w-4 mt-3 text-gray-600 group-hover:text-pink-400 transition-colors" />
-            </div>
-          </Link>
-
-          <Link href="/music-studio">
-            <div className="group relative rounded-2xl border border-white/[0.08] p-5 cursor-pointer overflow-hidden transition-all hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/10" style={{ background: "linear-gradient(135deg, #1a0d3e 0%, #0a0a20 100%)" }}>
-              <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-10 blur-2xl" style={{ background: "#7C3AED" }} />
-              <div className="flex items-center gap-2 mb-3">
-                <Music className="h-8 w-8 text-violet-400" />
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(124,58,237,0.15)", color: "#A78BFA", border: "1px solid rgba(124,58,237,0.3)" }}>Lyria</span>
-              </div>
-              <h3 className="text-lg font-bold text-white mb-1">Music Studio</h3>
-              <p className="text-sm text-gray-400">Create original songs with Google Lyria AI</p>
-              <ArrowRight className="h-4 w-4 mt-3 text-gray-600 group-hover:text-violet-400 transition-colors" />
             </div>
           </Link>
 

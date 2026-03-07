@@ -3502,8 +3502,8 @@ Return ONLY valid JSON (no markdown):
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      if (!['enterprise'].includes(user?.subscriptionTier || '')) {
-        return res.status(403).json({ error: 'Enterprise plan required for Photo Editor.' });
+      if (!['enterprise', 'research'].includes(user?.subscriptionTier || '')) {
+        return res.status(403).json({ error: 'Research plan or higher required for Photo Editor.' });
       }
       const { prompt, aspectRatio = '1:1' } = req.body;
       if (!prompt) return res.status(400).json({ error: 'prompt required' });
@@ -3523,8 +3523,8 @@ Return ONLY valid JSON (no markdown):
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      if (!['enterprise'].includes(user?.subscriptionTier || '')) {
-        return res.status(403).json({ error: 'Enterprise plan required for Photo Editor.' });
+      if (!['enterprise', 'research'].includes(user?.subscriptionTier || '')) {
+        return res.status(403).json({ error: 'Research plan or higher required for Photo Editor.' });
       }
       const { instruction, imageData, mimeType = 'image/jpeg' } = req.body;
       if (!instruction || !imageData) return res.status(400).json({ error: 'instruction and imageData required' });
@@ -3542,91 +3542,6 @@ Return ONLY valid JSON (no markdown):
       const b64 = response.data[0]?.b64_json;
       if (!b64) return res.status(500).json({ error: 'No edited image returned' });
       res.json({ imageData: b64, mimeType: 'image/png' });
-    } catch (e: any) { res.status(500).json({ error: e.message }); }
-  });
-
-  // ─── Music Studio — Enterprise exclusive ─────────────────────────────────
-  app.post('/api/music/generate', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!['enterprise'].includes(user?.subscriptionTier || '')) {
-        return res.status(403).json({ error: 'Enterprise plan required for Music Studio.' });
-      }
-      const { idea, genre = 'pop', mood = 'upbeat' } = req.body;
-      if (!idea) return res.status(400).json({ error: 'idea required' });
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
-
-      const genreGuide: Record<string, string> = {
-        rock: 'BPM 130-160. Use power chord progressions: E, A, D, G, C, F, B (no 7ths or extensions). High energy, classic rock feel.',
-        metal: 'BPM 140-180. Heavy power chords: E, A, D, G. Dark keys like E minor or A minor.',
-        punk: 'BPM 150-180. Fast power chords: G, D, A, E. Short sections.',
-        pop: 'BPM 100-130. Classic I-IV-V-vi progressions using C, Am, F, G or G, Em, C, D.',
-        'r&b': 'BPM 80-105. Soulful chord progressions with Am7, Dm7, G7, Cmaj7.',
-        'hip-hop': 'BPM 75-100. Minor progressions: Am, Dm, Em, G. Dark and moody.',
-        rap: 'BPM 80-105. Minor progressions with Am, Dm, G, C.',
-        edm: 'BPM 128-140. Synth-friendly chords: Am, F, C, G or C, G, Am, F.',
-        jazz: 'BPM 100-140. Extended chords: Am7, Dm7, G7, Cmaj7, Fmaj7, E7.',
-        blues: 'BPM 80-120. Classic 12-bar blues: E, A, B7 or A, D, E7.',
-        country: 'BPM 100-130. Country progressions: G, C, D, Em.',
-        'lo-fi': 'BPM 70-90. Chill progressions: Cmaj7, Am7, Fmaj7, G7.',
-        soul: 'BPM 80-110. Soulful: Am7, Dm7, Cmaj7, G7.',
-        classical: 'BPM 60-120. Rich harmonic progressions without drums.',
-      };
-      const genreKey = genre.toLowerCase();
-      const genreInstructions = genreGuide[genreKey] || 'BPM 100-130. Use appropriate chords for the genre.';
-
-      const systemPrompt = `You are Lyria, Google's advanced music AI. Generate a complete original song based on the user's idea.
-IMPORTANT: You MUST follow the genre-specific rules: ${genreInstructions}
-Return ONLY valid JSON (no markdown, no code fences) in this exact structure:
-{
-  "title": "Song Title",
-  "artist": "Turbo x Lyria",
-  "bpm": 140,
-  "key": "E minor",
-  "timeSignature": "4/4",
-  "genre": "${genre}",
-  "mood": "${mood}",
-  "description": "Brief evocative description of the song's feel",
-  "chordProgression": ["E", "A", "D", "G"],
-  "sections": [
-    {"type": "intro", "chords": ["C","G"], "bars": 4},
-    {"type": "verse", "chords": ["C","Am","F","G"], "lyrics": "Line 1 of verse 1\\nLine 2 of verse 1\\nLine 3 of verse 1\\nLine 4 of verse 1"},
-    {"type": "pre-chorus", "chords": ["F","G"], "lyrics": "Pre-chorus line 1\\nPre-chorus line 2"},
-    {"type": "chorus", "chords": ["F","G","Am","C"], "lyrics": "Chorus line 1 (hook)\\nChorus line 2\\nChorus line 3\\nChorus line 4 (hook repeat)"},
-    {"type": "verse", "chords": ["C","Am","F","G"], "lyrics": "Line 1 of verse 2\\nLine 2 of verse 2\\nLine 3 of verse 2\\nLine 4 of verse 2"},
-    {"type": "chorus", "chords": ["F","G","Am","C"], "lyrics": "Chorus line 1 (hook)\\nChorus line 2\\nChorus line 3\\nChorus line 4 (hook repeat)"},
-    {"type": "bridge", "chords": ["Am","F","C","G"], "lyrics": "Bridge line 1\\nBridge line 2\\nBridge line 3"},
-    {"type": "outro", "chords": ["C","G"], "bars": 4}
-  ],
-  "melody": [
-    {"note": "C4", "duration": 0.5},{"note": "E4", "duration": 0.5},{"note": "G4", "duration": 1.0},
-    {"note": "A4", "duration": 0.5},{"note": "G4", "duration": 0.5},{"note": "F4", "duration": 1.0},
-    {"note": "E4", "duration": 0.5},{"note": "D4", "duration": 0.5},{"note": "C4", "duration": 1.0},
-    {"note": "G3", "duration": 0.5},{"note": "A3", "duration": 0.5},{"note": "C4", "duration": 1.0},
-    {"note": "D4", "duration": 0.5},{"note": "E4", "duration": 0.5},{"note": "G4", "duration": 0.5},{"note": "A4", "duration": 0.5}
-  ]
-}`;
-
-      const musicRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            { role: 'user', parts: [{ text: systemPrompt }] },
-            { role: 'model', parts: [{ text: 'I\'ll generate the song now. Here is the JSON:' }] },
-            { role: 'user', parts: [{ text: `Song idea: ${idea}\nGenre: ${genre}\nMood: ${mood}\n\nGenerate the complete song JSON now.` }] },
-          ],
-          generationConfig: { temperature: 1.0, maxOutputTokens: 2048 },
-        }),
-      });
-      const musicData = await musicRes.json();
-      const rawText = musicData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return res.status(500).json({ error: 'Could not generate song data' });
-      const songData = JSON.parse(jsonMatch[0]);
-      res.json(songData);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Music, Scissors } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -380,11 +380,6 @@ export default function Chat() {
                   <Camera className="h-4 w-4 mr-1" /> Photos
                 </Button>
               </Link>
-              <Link href="/music-studio">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-violet-400' : 'text-gray-500 hover:text-violet-600'}`} title="Music Studio — Create original songs with Lyria AI">
-                  <Music className="h-4 w-4 mr-1" /> Music
-                </Button>
-              </Link>
               <Link href="/video-studio">
                 <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-violet-400' : 'text-gray-500 hover:text-violet-600'}`} title="Video Studio — Generate AI videos">
                   <Film className="h-4 w-4 mr-1" /> Videos
@@ -440,11 +435,6 @@ export default function Chat() {
               <Link href="/media-editor">
                 <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-pink-400' : 'text-gray-500 hover:text-pink-500'}`}>
                   <Scissors className="h-4 w-4 mr-1" /> Edit
-                </Button>
-              </Link>
-              <Link href="/music-studio">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-violet-400' : 'text-gray-500 hover:text-violet-600'}`}>
-                  <Music className="h-4 w-4 mr-1" /> Music
                 </Button>
               </Link>
             </div>
@@ -613,11 +603,6 @@ export default function Chat() {
             <Link href="/media-editor">
               <Button variant="ghost" size="sm" className={`h-8 px-2 ${isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-pink-500`} title="Media Editor">
                 <Scissors className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/music-studio">
-              <Button variant="ghost" size="sm" className={`h-8 px-2 ${isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-violet-500`} title="Music Studio">
-                <Music className="h-4 w-4" />
               </Button>
             </Link>
           </div>
