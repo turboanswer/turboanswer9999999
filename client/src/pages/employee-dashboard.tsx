@@ -14,7 +14,7 @@ import {
   Copy, Plus, ExternalLink, Link2, Calendar, FlaskConical, Send, ThumbsUp, ThumbsDown,
   Bug, Terminal, Filter, XCircle, AlertOctagon, CheckSquare, SlidersHorizontal,
   ChevronRight, AlertCircle, Layers, LayoutDashboard, LogOut, ChevronLeft,
-  Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick
+  Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick, ShieldCheck, Siren, Unlock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,7 +113,7 @@ interface ActivityEntry {
   duration: number;
 }
 
-type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta';
+type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'security';
 
 export default function EmployeeDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -554,6 +554,7 @@ export default function EmployeeDashboard() {
     { id: 'notifications' as TabType, icon: Bell, label: 'Alerts', badge: unreadCount },
     { id: 'invite' as TabType, icon: Shield, label: 'Admin Invites' },
     { id: 'beta' as TabType, icon: FlaskConical, label: 'Beta Testing' },
+    { id: 'security' as TabType, icon: ShieldCheck, label: 'Security' },
   ];
 
   const svcStatus = systemHealth?.services;
@@ -1011,6 +1012,9 @@ export default function EmployeeDashboard() {
         )}
         {activeTab === 'beta' && (
           <BetaTestingTab />
+        )}
+        {activeTab === 'security' && (
+          <SecurityTab />
         )}
 
           </div>
@@ -3220,6 +3224,245 @@ function BetaTestingTab() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Security Tab ─────────────────────────────────────────────────────────────
+interface SecurityStats {
+  totalEvents: number; eventsLast1h: number; blockedIPCount: number;
+  requestsLastMinute: number;
+  blockedIPs: { ip: string; blockedAt: string | null }[];
+  threatBreakdown: { ddos: number; brute_force: number; scanning: number; injection: number; simulated: number };
+}
+interface IntrusionEvent {
+  id: number; timestamp: string; type: string; ip: string;
+  details: string; severity: 'low' | 'medium' | 'high' | 'critical';
+  blocked: boolean; simulated: boolean;
+}
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#6b7280',
+};
+const THREAT_LABELS: Record<string, string> = {
+  ddos: 'DDoS Attack', brute_force: 'Brute Force', scanning: 'Dir Scanning',
+  injection: 'SQL/XSS Injection', data_breach: 'Data Breach',
+  security_breach: 'Security Breach', simulated_hack: 'Simulated Hack',
+};
+const SIM_ATTACKS = [
+  { type: 'ddos',        label: 'DDoS Attack',   icon: Wifi,        color: '#ef4444', desc: 'Floods server with 1,200+ req/min' },
+  { type: 'brute_force', label: 'Brute Force',   icon: ShieldAlert, color: '#f97316', desc: 'Credential stuffing on login endpoint' },
+  { type: 'injection',   label: 'SQL Injection', icon: Bug,         color: '#ef4444', desc: 'SQL/XSS injection on /api/auth' },
+  { type: 'data_breach', label: 'Data Breach',   icon: Database,    color: '#ef4444', desc: 'Bulk user record exfiltration attempt' },
+  { type: 'scanning',    label: 'Dir Scanning',  icon: Search,      color: '#eab308', desc: 'Automated vulnerability scanner probe' },
+  { type: 'hack',        label: 'Admin Hack',    icon: Crown,       color: '#ef4444', desc: 'Stolen JWT admin session hijack' },
+];
+
+function SecurityTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [confirmSim, setConfirmSim] = useState<string | null>(null);
+
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<SecurityStats>({
+    queryKey: ['/api/admin/security/stats'],
+    refetchInterval: 15000,
+  });
+
+  const { data: log, isLoading: logLoading, refetch: refetchLog } = useQuery<IntrusionEvent[]>({
+    queryKey: ['/api/admin/security/log'],
+    refetchInterval: 15000,
+  });
+
+  const simulateMutation = useMutation({
+    mutationFn: async ({ type, triggerLockdown }: { type: string; triggerLockdown: boolean }) => {
+      const res = await apiRequest('POST', '/api/admin/security/simulate', { type, triggerLockdown });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      refetchStats(); refetchLog();
+      queryClient.invalidateQueries({ queryKey: ['/api/system/lockdown-status'] });
+      toast({
+        title: `Simulation: ${data.event.type}`,
+        description: data.lockdownTriggered ? `Lockdown triggered (${data.scenario})` : 'Event logged — no lockdown',
+      });
+      setConfirmSim(null);
+    },
+    onError: () => toast({ title: 'Simulation failed', variant: 'destructive' }),
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: async (ip: string) => {
+      const res = await apiRequest('POST', '/api/admin/security/unblock', { ip });
+      return res.json();
+    },
+    onSuccess: (data: any) => { refetchStats(); toast({ title: data.message }); },
+    onError: () => toast({ title: 'Unblock failed', variant: 'destructive' }),
+  });
+
+  const statBox = (label: string, value: string | number, color = '#9ca3af') => (
+    <div style={{ background: '#111', border: '1px solid #222', borderRadius: '8px', padding: '14px 18px', minWidth: 110 }}>
+      <div style={{ fontSize: '1.4rem', fontWeight: 700, color, fontFamily: 'monospace' }}>{value}</div>
+      <div style={{ fontSize: '0.68rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 2 }}>{label}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <ShieldCheck style={{ color: '#22c55e', width: 22, height: 22 }} />
+          <h2 style={{ color: '#fff', fontWeight: 700, fontSize: '1.2rem', margin: 0 }}>Intrusion Detection</h2>
+        </div>
+        <button
+          onClick={() => { refetchStats(); refetchLog(); }}
+          style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '6px', color: '#9ca3af', padding: '6px 14px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <RefreshCw style={{ width: 13, height: 13 }} /> Refresh
+        </button>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        {statsLoading ? <div style={{ color: '#555', fontSize: '0.85rem' }}>Loading…</div> : stats && (<>
+          {statBox('Events (1h)', stats.eventsLast1h, stats.eventsLast1h > 0 ? '#f97316' : '#22c55e')}
+          {statBox('Blocked IPs', stats.blockedIPCount, stats.blockedIPCount > 0 ? '#ef4444' : '#22c55e')}
+          {statBox('Req/min', stats.requestsLastMinute)}
+          {statBox('DDoS', stats.threatBreakdown.ddos, stats.threatBreakdown.ddos > 0 ? '#ef4444' : '#444')}
+          {statBox('Brute Force', stats.threatBreakdown.brute_force, stats.threatBreakdown.brute_force > 0 ? '#f97316' : '#444')}
+          {statBox('Injection', stats.threatBreakdown.injection, stats.threatBreakdown.injection > 0 ? '#ef4444' : '#444')}
+          {statBox('Scanning', stats.threatBreakdown.scanning, stats.threatBreakdown.scanning > 0 ? '#eab308' : '#444')}
+        </>)}
+      </div>
+
+      {/* Blocked IPs */}
+      {stats && stats.blockedIPs.length > 0 && (
+        <div style={{ background: '#0d0d0d', border: '1px solid #2a0000', borderRadius: '8px', padding: '14px 18px', marginBottom: '24px' }}>
+          <div style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.82rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Ban style={{ width: 13, height: 13 }} /> Blocked IPs ({stats.blockedIPs.length})
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {stats.blockedIPs.map(({ ip }) => (
+              <div key={ip} style={{ background: '#1a0000', border: '1px solid #3a0000', borderRadius: '6px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ color: '#ef4444', fontFamily: 'monospace', fontSize: '0.8rem' }}>{ip}</span>
+                <button
+                  onClick={() => unblockMutation.mutate(ip)}
+                  disabled={unblockMutation.isPending}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex' }}
+                  title="Unblock IP"
+                >
+                  <Unlock style={{ width: 12, height: 12 }} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Simulation panel */}
+      <div style={{ background: '#0a0a0a', border: '1px solid #1f1f1f', borderRadius: '10px', padding: '20px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+          <Siren style={{ color: '#f97316', width: 16, height: 16 }} />
+          <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.95rem' }}>Attack Simulator</span>
+          <span style={{ background: '#1a1000', border: '1px solid #3a2000', borderRadius: '4px', padding: '1px 8px', fontSize: '0.62rem', color: '#f97316', letterSpacing: '0.1em' }}>OWNER ONLY</span>
+        </div>
+        <p style={{ color: '#555', fontSize: '0.78rem', marginBottom: '16px', lineHeight: 1.5 }}>
+          Generate a realistic fake security event for testing. Optionally trigger the lockdown screen so you can see exactly what users experience during a real attack.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: confirmSim ? '14px' : 0 }}>
+          {SIM_ATTACKS.map(atk => (
+            <button
+              key={atk.type}
+              onClick={() => setConfirmSim(atk.type)}
+              style={{ background: '#111', border: `1px solid ${atk.color}33`, borderRadius: '8px', padding: '10px 14px', cursor: 'pointer', textAlign: 'left', minWidth: 148 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <atk.icon style={{ width: 13, height: 13, color: atk.color }} />
+                <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 600 }}>{atk.label}</span>
+              </div>
+              <div style={{ color: '#555', fontSize: '0.68rem', lineHeight: 1.4 }}>{atk.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        {confirmSim && (
+          <div style={{ background: '#130800', border: '1px solid #3a1500', borderRadius: '8px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <AlertTriangle style={{ color: '#f97316', width: 15, height: 15, flexShrink: 0 }} />
+            <span style={{ color: '#d97706', fontSize: '0.82rem', flex: 1 }}>
+              Simulate <strong>{SIM_ATTACKS.find(a => a.type === confirmSim)?.label}</strong>?
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                disabled={simulateMutation.isPending}
+                onClick={() => simulateMutation.mutate({ type: confirmSim, triggerLockdown: false })}
+                style={{ background: '#1a1000', border: '1px solid #555', borderRadius: '6px', color: '#9ca3af', padding: '6px 12px', cursor: 'pointer', fontSize: '0.78rem' }}
+              >
+                {simulateMutation.isPending ? '…' : 'Log Only'}
+              </button>
+              <button
+                disabled={simulateMutation.isPending}
+                onClick={() => simulateMutation.mutate({ type: confirmSim, triggerLockdown: true })}
+                style={{ background: '#3a0000', border: '1px solid #ef4444', borderRadius: '6px', color: '#ef4444', padding: '6px 12px', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+              >
+                {simulateMutation.isPending ? '…' : '+ Trigger Lockdown'}
+              </button>
+              <button
+                onClick={() => setConfirmSim(null)}
+                style={{ background: 'none', border: '1px solid #333', borderRadius: '6px', color: '#555', padding: '6px 10px', cursor: 'pointer', fontSize: '0.78rem' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Event log */}
+      <div style={{ background: '#0a0a0a', border: '1px solid #1f1f1f', borderRadius: '10px', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 18px', borderBottom: '1px solid #1a1a1a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Terminal style={{ color: '#6b7280', width: 14, height: 14 }} />
+          <span style={{ color: '#9ca3af', fontWeight: 600, fontSize: '0.85rem' }}>Intrusion Log</span>
+          <span style={{ marginLeft: 'auto', color: '#444', fontSize: '0.72rem', fontFamily: 'monospace' }}>{log?.length ?? 0} events</span>
+        </div>
+        {logLoading ? (
+          <div style={{ padding: '24px', color: '#555', textAlign: 'center', fontSize: '0.85rem' }}>Loading…</div>
+        ) : !log || log.length === 0 ? (
+          <div style={{ padding: '32px', color: '#444', textAlign: 'center', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <ShieldCheck style={{ color: '#22c55e', width: 28, height: 28 }} />
+            <span style={{ color: '#22c55e' }}>No threats detected</span>
+            <span style={{ color: '#333', fontSize: '0.75rem' }}>All clear — system is secure</span>
+          </div>
+        ) : (
+          <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
+            {log.map(ev => (
+              <div key={ev.id} style={{ padding: '10px 18px', borderBottom: '1px solid #0f0f0f', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: SEVERITY_COLOR[ev.severity] ?? '#555', marginTop: '5px', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 600 }}>
+                      {THREAT_LABELS[ev.type] ?? ev.type}
+                    </span>
+                    {ev.simulated && (
+                      <span style={{ background: '#1a1000', border: '1px solid #3a2000', borderRadius: '3px', padding: '0 5px', fontSize: '0.6rem', color: '#d97706' }}>SIMULATED</span>
+                    )}
+                    {ev.blocked && (
+                      <span style={{ background: '#0d1a00', border: '1px solid #1a3a00', borderRadius: '3px', padding: '0 5px', fontSize: '0.6rem', color: '#22c55e' }}>BLOCKED</span>
+                    )}
+                    <span style={{ color: '#333', fontSize: '0.68rem', fontFamily: 'monospace', marginLeft: 'auto' }}>
+                      {new Date(ev.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div style={{ color: '#555', fontSize: '0.72rem', marginTop: '3px', fontFamily: 'monospace' }}>
+                    IP: {ev.ip}
+                  </div>
+                  <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '2px', lineHeight: 1.4 }}>
+                    {ev.details}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

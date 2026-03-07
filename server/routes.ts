@@ -23,6 +23,7 @@ import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSu
 import widgetRoutes from './routes/widget-routes';
 import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
 import { trackError, getErrorLog, getErrorStats, resolveError, clearResolvedErrors } from './services/error-tracker';
+import { applyIntrusionMiddleware, setThreatCallback, getIntrusionLog, getIntrusionStats, unblockIP, simulateThreat } from './services/intrusion-detection';
 
 async function sendBrevoEmail(recipientEmail: string, recipientName: string, subject: string, bodyText: string) {
   const brevoApiKey = process.env.BREVO_API_KEY;
@@ -164,6 +165,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerAuthRoutes(app);
   registerImageRoutes(app);
 
+  // Wire intrusion detection — must be before route handlers
+  setThreatCallback(autoActivateLockdown);
+  applyIntrusionMiddleware(app);
+
   app.use(widgetRoutes);
 
   app.use((req: any, res, next) => {
@@ -247,6 +252,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const scenario = (req.query.scenario as string) || lockdownScenario || 'system_failure';
     const template = SCENARIO_EMAIL_TEMPLATES[scenario] || SCENARIO_EMAIL_TEMPLATES.system_failure;
     res.json({ subject: template.subject, body: template.body('Valued User') });
+  });
+
+  // ── Security / Intrusion Detection ─────────────────────────────────────────
+  app.get('/api/admin/security/stats', isAdmin, (_req, res) => {
+    res.json(getIntrusionStats());
+  });
+
+  app.get('/api/admin/security/log', isAdmin, (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    res.json(getIntrusionLog().slice(0, limit));
+  });
+
+  app.post('/api/admin/security/unblock', isAdmin, (req, res) => {
+    const { ip } = req.body;
+    if (!ip) return res.status(400).json({ error: 'IP required' });
+    const ok = unblockIP(ip);
+    res.json({ success: ok, message: ok ? `${ip} unblocked` : 'IP not found' });
+  });
+
+  app.post('/api/admin/security/simulate', isAdmin, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+    const dbUser = userId ? await storage.getUser(userId) : null;
+    if (!dbUser || dbUser.email?.toLowerCase() !== 'support@turboanswer.it.com') {
+      return res.status(403).json({ error: 'Forbidden — owner account required' });
+    }
+    const { type, triggerLockdown } = req.body;
+    const validTypes = ['ddos', 'brute_force', 'injection', 'data_breach', 'scanning', 'hack'];
+    if (!type || !validTypes.includes(type)) {
+      return res.status(400).json({ error: `type must be one of: ${validTypes.join(', ')}` });
+    }
+    const result = simulateThreat(type);
+    if (triggerLockdown) {
+      if (!lockdownActive) {
+        lockdownActive = true;
+        lockdownActivatedBy = dbUser.email;
+        lockdownActivatedAt = new Date();
+        lockdownScenario = result.scenario;
+        lockdownRestoredAt = null;
+        console.log(`[Security] Simulated ${type} — lockdown triggered: ${result.scenario}`);
+      }
+    }
+    res.json({ success: true, event: result.event, scenario: result.scenario, lockdownTriggered: !!triggerLockdown });
   });
 
   app.get("/download/turbo-answer.aab", async (req, res) => {
