@@ -3071,10 +3071,10 @@ Write production-quality, impressive code.`;
         } catch { return null; }
       }
 
-      // Try fastest first, escalate to higher quality
-      let rawText = await callGemini('gemini-2.0-flash', 8192, 45000)
+      // Lead with Gemini 3.1 Pro (Antigravity's model), fall back to flash on timeout
+      let rawText = await callGemini('gemini-3.1-pro-preview', 8192, 90000)
+        ?? await callGemini('gemini-2.0-flash', 8192, 45000)
         ?? await callGemini('gemini-2.0-flash-lite', 4096, 30000)
-        ?? await callGemini('gemini-3.1-flash-lite-preview', 4096, 45000)
         ?? '';
 
       if (!rawText) return res.status(502).json({ error: 'AI timed out. Please try a shorter description.' });

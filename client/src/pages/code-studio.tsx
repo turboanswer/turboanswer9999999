@@ -27,12 +27,12 @@ const LANGUAGES = [
 ];
 
 const BUILD_PHASES = [
-  "✨ Turbo Code is reading your request...",
-  "🧠 Gemini 3.1 Pro is designing the app...",
+  "✨ Reading your request...",
+  "🧠 Antigravity · Gemini 3.1 Pro is designing the app...",
   "📝 Writing the code files...",
   "🎨 Styling the interface...",
   "⚡ Wiring up functionality...",
-  "🚀 Almost ready...",
+  "🚀 Almost ready — launching preview...",
 ];
 
 function getMonacoLang(language: string): string {
@@ -638,7 +638,7 @@ export default function CodeStudio() {
                   What do you want to build?
                 </h1>
                 <p className={`text-sm ${muted}`}>
-                  Describe your app — Gemini 3.1 Pro writes all the code and builds it live
+                  Describe your app — Antigravity (Gemini 3.1 Pro) writes all the code and builds it live
                 </p>
               </div>
 
@@ -751,7 +751,7 @@ export default function CodeStudio() {
               <div className={`flex items-center gap-2 px-3 py-2 border-b ${border} ${surface} shrink-0`}>
                 <Sparkles className="h-3.5 w-3.5 text-violet-400" />
                 <span className="text-xs font-semibold">Turbo Code AI</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? "bg-violet-500/20 text-violet-300" : "bg-violet-100 text-violet-600"}`}>Gemini 3.1 Pro</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? "bg-violet-500/20 text-violet-300" : "bg-violet-100 text-violet-600"}`}>Antigravity · Gemini 3.1 Pro</span>
                 <div className="flex-1" />
                 <button onClick={() => setAiMessages([{ role: "assistant", content: "Chat cleared. How can I help?" }])} className={`${muted} hover:text-red-400`}><X className="h-3.5 w-3.5" /></button>
               </div>
