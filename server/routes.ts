@@ -3019,6 +3019,330 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
     res.json({ status: 'completed', text: null });
   });
 
+  // ── Code Studio ──────────────────────────────────────────────────────────
+  const { db } = await import('./db');
+  const { codeProjects } = await import('../shared/schema');
+  const { eq, and } = await import('drizzle-orm');
+
+  // List user's projects
+  app.get('/api/code/projects', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const projects = await db.select().from(codeProjects).where(eq(codeProjects.userId, userId));
+      res.json(projects);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Create project
+  app.post('/api/code/projects', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { name, description, files, mainLanguage } = req.body;
+      if (!name?.trim()) return res.status(400).json({ error: 'Project name required' });
+      const [project] = await db.insert(codeProjects).values({
+        userId, name: name.trim(), description: description || '',
+        files: files || getDefaultFiles(mainLanguage || 'html'),
+        mainLanguage: mainLanguage || 'html',
+        isPublished: false,
+      }).returning();
+      res.json(project);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Update project (save)
+  app.put('/api/code/projects/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const { name, description, files, mainLanguage } = req.body;
+      const [project] = await db.update(codeProjects)
+        .set({ name, description, files, mainLanguage, updatedAt: new Date() })
+        .where(and(eq(codeProjects.id, id), eq(codeProjects.userId, userId)))
+        .returning();
+      if (!project) return res.status(404).json({ error: 'Project not found' });
+      res.json(project);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Delete project
+  app.delete('/api/code/projects/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      await db.delete(codeProjects).where(and(eq(codeProjects.id, id), eq(codeProjects.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Execute code via Piston API
+  app.post('/api/code/execute', isAuthenticated, async (req: any, res) => {
+    try {
+      const { language, code, stdin } = req.body;
+      if (!language || !code) return res.status(400).json({ error: 'language and code required' });
+
+      const pistonLang = mapToPistonLanguage(language);
+      const resp = await fetch('https://emkc.org/api/v2/piston/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          language: pistonLang,
+          version: '*',
+          files: [{ name: getFilename(language), content: code }],
+          stdin: stdin || '',
+          run_timeout: 10000,
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        return res.status(502).json({ error: `Execution service error: ${text.slice(0, 200)}` });
+      }
+
+      const data: any = await resp.json();
+      const output = data.run?.output || data.run?.stdout || '';
+      const stderr = data.run?.stderr || '';
+      const exitCode = data.run?.code ?? 0;
+      res.json({ output, stderr, exitCode, language: data.language, version: data.version });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Deploy project (publish with slug)
+  app.post('/api/code/deploy/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const { customDomain } = req.body;
+
+      const existing = await db.select().from(codeProjects)
+        .where(and(eq(codeProjects.id, id), eq(codeProjects.userId, userId)));
+      if (!existing[0]) return res.status(404).json({ error: 'Project not found' });
+
+      const slug = existing[0].slug || generateSlug(existing[0].name, id);
+      const [project] = await db.update(codeProjects)
+        .set({ isPublished: true, publishedAt: new Date(), slug, customDomain: customDomain || null, updatedAt: new Date() })
+        .where(eq(codeProjects.id, id))
+        .returning();
+      res.json({ project, publishUrl: `/p/${slug}` });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Unpublish project
+  app.post('/api/code/undeploy/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      await db.update(codeProjects)
+        .set({ isPublished: false, updatedAt: new Date() })
+        .where(and(eq(codeProjects.id, id), eq(codeProjects.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // AI code assistance
+  app.post('/api/code/ai', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      const { message, code, language, context } = req.body;
+      if (!message) return res.status(400).json({ error: 'message required' });
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
+
+      const systemPrompt = `You are Turbo Code, an expert AI coding assistant powered by Gemini 3.1 Pro inside TurboAnswer Code Studio. You help users write, debug, optimize, and understand code.
+
+Guidelines:
+- Always provide complete, working, runnable code examples
+- When fixing bugs, explain what was wrong and why the fix works
+- Use clear code comments for complex logic
+- Format code blocks properly with the correct language tag
+- For HTML/CSS/JS apps, provide self-contained code that works in a browser
+- Keep explanations clear but concise — show, don't just tell`;
+
+      const contextBlock = code ? `\n\nCurrent ${language || 'code'} in editor:\n\`\`\`${language || ''}\n${code.slice(0, 3000)}\n\`\`\`` : '';
+      const fullPrompt = `${systemPrompt}${contextBlock}\n\nUser: ${message}`;
+
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: fullPrompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+
+      if (!resp.ok) {
+        // Fallback to flash
+        const flashResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!flashResp.ok) return res.status(502).json({ error: 'AI service unavailable' });
+        const flashData: any = await flashResp.json();
+        return res.json({ reply: flashData.candidates?.[0]?.content?.parts?.[0]?.text || 'No response' });
+      }
+
+      const data: any = await resp.json();
+      res.json({ reply: data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response' });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Serve published project
+  app.get('/p/:slug', async (req, res) => {
+    try {
+      const [project] = await db.select().from(codeProjects)
+        .where(and(eq(codeProjects.slug, req.params.slug), eq(codeProjects.isPublished, true)));
+      if (!project) return res.status(404).send('<h1>Project not found</h1><p>This project may have been unpublished or the link is incorrect.</p>');
+
+      const files = project.files as { name: string; content: string; language: string }[];
+      const html = buildProjectHtml(project.name, files, project.mainLanguage);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (e: any) { res.status(500).send('<h1>Error loading project</h1>'); }
+  });
+
+  function getDefaultFiles(lang: string): { name: string; content: string; language: string }[] {
+    if (lang === 'html') return [
+      { name: 'index.html', language: 'html', content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My App</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Hello, World!</h1>
+    <p>Start building your app here.</p>
+    <button onclick="handleClick()">Click me</button>
+    <div id="output"></div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>` },
+      { name: 'style.css', language: 'css', content: `* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.container { text-align: center; padding: 2rem; }
+h1 { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1rem; }
+p { color: #94a3b8; margin-bottom: 1.5rem; }
+button { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-size: 1rem; cursor: pointer; transition: opacity 0.2s; }
+button:hover { opacity: 0.85; }
+#output { margin-top: 1rem; color: #a78bfa; }` },
+      { name: 'script.js', language: 'javascript', content: `let count = 0;
+
+function handleClick() {
+  count++;
+  document.getElementById('output').textContent = \`You clicked \${count} time\${count === 1 ? '' : 's'}!\`;
+}
+
+console.log('App loaded!');` },
+    ];
+    if (lang === 'python') return [
+      { name: 'main.py', language: 'python', content: `# Python Script
+def greet(name):
+    return f"Hello, {name}! Welcome to TurboAnswer Code Studio."
+
+result = greet("World")
+print(result)
+
+# Example: Simple counter
+for i in range(1, 6):
+    print(f"Count: {i}")` },
+    ];
+    if (lang === 'javascript') return [
+      { name: 'index.js', language: 'javascript', content: `// JavaScript / Node.js
+function fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+// Print first 10 Fibonacci numbers
+for (let i = 0; i < 10; i++) {
+  console.log(\`fibonacci(\${i}) = \${fibonacci(i)}\`);
+}` },
+    ];
+    if (lang === 'typescript') return [
+      { name: 'index.ts', language: 'typescript', content: `// TypeScript
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+function createUser(id: number, name: string, email: string): User {
+  return { id, name, email };
+}
+
+const user: User = createUser(1, "Alice", "alice@example.com");
+console.log("User created:", user);
+console.log(\`Welcome, \${user.name}!\`);` },
+    ];
+    return [{ name: 'main.txt', language: 'text', content: '// Start coding here' }];
+  }
+
+  function mapToPistonLanguage(lang: string): string {
+    const map: Record<string, string> = {
+      python: 'python', javascript: 'javascript', typescript: 'typescript',
+      java: 'java', cpp: 'c++', c: 'c', rust: 'rust', go: 'go',
+      php: 'php', ruby: 'ruby', swift: 'swift', kotlin: 'kotlin',
+      bash: 'bash', shell: 'bash',
+    };
+    return map[lang.toLowerCase()] || lang.toLowerCase();
+  }
+
+  function getFilename(lang: string): string {
+    const map: Record<string, string> = {
+      python: 'main.py', javascript: 'index.js', typescript: 'index.ts',
+      java: 'Main.java', cpp: 'main.cpp', c: 'main.c', rust: 'main.rs',
+      go: 'main.go', php: 'index.php', ruby: 'main.rb', swift: 'main.swift',
+      kotlin: 'main.kt', bash: 'main.sh',
+    };
+    return map[lang.toLowerCase()] || 'main.txt';
+  }
+
+  function generateSlug(name: string, id: number): string {
+    const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+    return `${base}-${id}`;
+  }
+
+  function buildProjectHtml(projectName: string, files: { name: string; content: string; language: string }[], mainLang: string): string {
+    if (mainLang !== 'html') {
+      const allCode = files.map(f => `<h3>${f.name}</h3><pre><code class="language-${f.language}">${escapeHtml(f.content)}</code></pre>`).join('\n');
+      return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(projectName)}</title>
+<style>body{font-family:monospace;background:#0f0f1a;color:#e2e8f0;padding:2rem;} h1{color:#a78bfa;margin-bottom:2rem;} h3{color:#6366f1;margin-top:1.5rem;margin-bottom:0.5rem;} pre{background:#1e1e2e;padding:1rem;border-radius:0.5rem;overflow:auto;border:1px solid #2d2d4e;} code{font-size:0.85rem;}</style>
+</head><body><h1>${escapeHtml(projectName)}</h1>${allCode}</body></html>`;
+    }
+
+    const htmlFile = files.find(f => f.name === 'index.html') || files.find(f => f.language === 'html');
+    if (!htmlFile) return `<!DOCTYPE html><html><body><h1>${escapeHtml(projectName)}</h1><p>No HTML file found.</p></body></html>`;
+
+    let html = htmlFile.content;
+    for (const file of files) {
+      if (file.language === 'css') {
+        html = html.replace(`<link rel="stylesheet" href="${file.name}" />`, `<style>${file.content}</style>`)
+                   .replace(`<link rel="stylesheet" href="${file.name}">`, `<style>${file.content}</style>`);
+      }
+      if (file.language === 'javascript') {
+        html = html.replace(`<script src="${file.name}"></script>`, `<script>${file.content}</script>`);
+      }
+    }
+    return html;
+  }
+
+  function escapeHtml(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   startProactiveDiagnostics();
 
   // Auto-lockdown on critical infrastructure failure (DB or AI down — not memory pressure)

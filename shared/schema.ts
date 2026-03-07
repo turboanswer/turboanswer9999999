@@ -197,3 +197,23 @@ export const insertBetaFeedbackSchema = createInsertSchema(betaFeedback).omit({ 
 
 export type BetaApplication = typeof betaApplications.$inferSelect;
 export type BetaFeedback = typeof betaFeedback.$inferSelect;
+
+// Code Studio
+export const codeProjects = pgTable("code_projects", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description").default(""),
+  files: jsonb("files").$type<{ name: string; content: string; language: string }[]>().notNull().default([]),
+  mainLanguage: text("main_language").notNull().default("html"),
+  slug: text("slug").unique(),
+  customDomain: text("custom_domain"),
+  isPublished: boolean("is_published").notNull().default(false),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCodeProjectSchema = createInsertSchema(codeProjects).omit({ id: true, createdAt: true, updatedAt: true, publishedAt: true });
+export type InsertCodeProject = z.infer<typeof insertCodeProjectSchema>;
+export type CodeProject = typeof codeProjects.$inferSelect;
