@@ -380,58 +380,120 @@ export default function LandingPage() {
             </span>
           </div>
 
-          {/* Antigravity full-width showcase card */}
-          <div className="mt-14 max-w-3xl mx-auto relative">
-            <div className={`relative rounded-2xl overflow-hidden border ${isDark ? 'border-white/10 bg-black/50' : 'border-gray-200 bg-white shadow-xl'}`}>
-              {/* Google 4-color top border */}
-              <div className="h-1 flex">
-                <div className="flex-1 bg-[#4285F4]" />
-                <div className="flex-1 bg-[#EA4335]" />
-                <div className="flex-1 bg-[#FBBC05]" />
-                <div className="flex-1 bg-[#34A853]" />
-              </div>
-              <div className="p-6 sm:p-8">
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg ${isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-50 border border-gray-200'}`}>
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                    </svg>
-                  </div>
-                  <div className="text-center sm:text-left flex-1">
-                    <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-                      <h3 className="text-2xl font-black">
-                        <span style={{color:'#4285F4'}}>A</span><span style={{color:'#EA4335'}}>n</span><span style={{color:'#FBBC05'}}>t</span><span style={{color:'#34A853'}}>i</span><span className={isDark ? 'text-white' : 'text-gray-900'}>gravity</span>
-                      </h3>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-blue-100 text-blue-600 border border-blue-200'}`}>NOW LIVE</span>
-                    </div>
-                    <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Google's agent-first AI IDE, powered by Gemini 3.1 Pro. Describe any app — Antigravity builds it in seconds.
-                    </p>
-                    <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-                      {["One-prompt app builder","Live preview","Deploy instantly","Gemini 3.1 Pro"].map((tag,i) => {
-                        const colors = ["#4285F4","#EA4335","#FBBC05","#34A853"];
-                        return (
-                          <span key={i} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{background: colors[i]+'22', color: colors[i], border: `1px solid ${colors[i]}44`}}>{tag}</span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex-shrink-0">
-                    <Link href={isAuthenticated ? "/code-studio" : "/login"}>
-                      <Button className="font-bold px-6 py-5 rounded-xl shadow-lg text-white" style={{background:'linear-gradient(135deg,#4285F4,#34A853)'}}>
-                        Try Antigravity
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </Link>
-                    <p className={`text-xs text-center mt-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Research plan · $25/mo</p>
-                  </div>
-                </div>
-              </div>
+        </div>
+      </section>
+
+      {/* ════ ANTIGRAVITY SHOWCASE SECTION ════ */}
+      <section className="relative py-24 sm:py-36 px-4 overflow-hidden">
+        {/* Multi-color Google glow blobs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-30" style={{background:'#4285F4'}} />
+          <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px] opacity-25" style={{background:'#EA4335'}} />
+          <div className="absolute bottom-0 left-1/3 w-[450px] h-[450px] rounded-full blur-[110px] opacity-20" style={{background:'#FBBC05'}} />
+          <div className="absolute bottom-1/4 right-1/5 w-[380px] h-[380px] rounded-full blur-[100px] opacity-25" style={{background:'#34A853'}} />
+          {/* Dark overlay so text is readable */}
+          <div className="absolute inset-0 bg-black/60" />
+        </div>
+
+        <style>{`
+          @keyframes antigravity-float { 0%,100%{transform:translateY(0px) rotate(-2deg)} 50%{transform:translateY(-24px) rotate(2deg)} }
+          @keyframes antigravity-orbit { from{transform:rotate(0deg) translateX(70px) rotate(0deg)} to{transform:rotate(360deg) translateX(70px) rotate(-360deg)} }
+          @keyframes color-pulse-blue { 0%,100%{box-shadow:0 0 30px #4285F466,0 0 60px #4285F433} 50%{box-shadow:0 0 60px #4285F499,0 0 100px #4285F466} }
+          @keyframes letter-float-1 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+          @keyframes letter-float-2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
+          @keyframes letter-float-3 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+          @keyframes letter-float-4 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+          @keyframes letter-float-5 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+        `}</style>
+
+        <div className="relative z-10 max-w-5xl mx-auto text-center">
+
+          {/* NEW badge */}
+          <div className="flex justify-center mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-black text-white animate-pulse"
+              style={{background:'linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853)', backgroundSize:'200%'}}>
+              ✦ JUST LAUNCHED · RESEARCH EXCLUSIVE
             </div>
           </div>
+
+          {/* Floating Google G logo */}
+          <div className="flex justify-center mb-8">
+            <div className="w-28 h-28 rounded-3xl flex items-center justify-center shadow-2xl" style={{
+              background: 'rgba(255,255,255,0.07)',
+              backdropFilter: 'blur(20px)',
+              border: '2px solid rgba(255,255,255,0.15)',
+              animation: 'antigravity-float 4s ease-in-out infinite, color-pulse-blue 3s ease-in-out infinite',
+            }}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* Giant ANTIGRAVITY title — each letter floats independently */}
+          <h2 className="text-6xl sm:text-8xl lg:text-[10rem] font-black leading-none tracking-tight mb-6 select-none flex items-end justify-center flex-wrap gap-0">
+            {[
+              {l:'A',c:'#4285F4',a:'letter-float-1',d:'0s'},
+              {l:'N',c:'#EA4335',a:'letter-float-3',d:'0.15s'},
+              {l:'T',c:'#FBBC05',a:'letter-float-2',d:'0.3s'},
+              {l:'I',c:'#34A853',a:'letter-float-4',d:'0.45s'},
+              {l:'G',c:'#4285F4',a:'letter-float-5',d:'0.6s'},
+              {l:'R',c:'#EA4335',a:'letter-float-1',d:'0.75s'},
+              {l:'A',c:'#FBBC05',a:'letter-float-3',d:'0.9s'},
+              {l:'V',c:'#34A853',a:'letter-float-2',d:'1.05s'},
+              {l:'I',c:'#4285F4',a:'letter-float-4',d:'1.2s'},
+              {l:'T',c:'#EA4335',a:'letter-float-5',d:'1.35s'},
+              {l:'Y',c:'#FBBC05',a:'letter-float-1',d:'1.5s'},
+            ].map((item,i) => (
+              <span key={i} className="inline-block" style={{color:item.c, animation:`${item.a} 3s ease-in-out infinite`, animationDelay:item.d, textShadow:`0 0 40px ${item.c}99, 0 0 80px ${item.c}55`}}>{item.l}</span>
+            ))}
+          </h2>
+
+          <p className="text-xl sm:text-2xl text-white/70 font-medium mb-4 max-w-2xl mx-auto">
+            Describe any app. Watch it appear.
+          </p>
+          <p className="text-base text-white/50 mb-12 max-w-xl mx-auto">
+            Google's agent-first AI IDE, powered by Gemini 3.1 Pro — now inside TurboAnswer Research.
+          </p>
+
+          {/* Feature cards — bright colored, floating */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12 max-w-3xl mx-auto">
+            {[
+              {icon:'🚀', label:'One-Prompt Build', sub:'Describe → Done', color:'#4285F4'},
+              {icon:'⚡', label:'Live Preview', sub:'Instant feedback', color:'#EA4335'},
+              {icon:'🌐', label:'Deploy Instantly', sub:'Public URL in 1 click', color:'#FBBC05'},
+              {icon:'🧠', label:'Gemini 3.1 Pro', sub:'Maximum intelligence', color:'#34A853'},
+            ].map((f,i) => (
+              <div key={i} className="rounded-2xl p-4 text-center" style={{
+                background: `${f.color}18`,
+                border: `1px solid ${f.color}55`,
+                boxShadow: `0 0 30px ${f.color}33`,
+                animation: `letter-float-${(i%5)+1} ${3+i*0.4}s ease-in-out infinite`,
+                animationDelay: `${i*0.3}s`,
+              }}>
+                <div className="text-3xl mb-2">{f.icon}</div>
+                <div className="text-white font-bold text-sm">{f.label}</div>
+                <div className="text-white/50 text-xs mt-1">{f.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Giant CTA */}
+          <Link href={isAuthenticated ? "/code-studio" : "/login"}>
+            <button className="group relative inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-black text-xl text-white shadow-2xl overflow-hidden transition-transform duration-200 hover:scale-105" style={{
+              background: 'linear-gradient(135deg, #4285F4 0%, #EA4335 33%, #FBBC05 66%, #34A853 100%)',
+              backgroundSize: '200% 200%',
+              animation: 'text-shimmer 3s linear infinite',
+              boxShadow: '0 0 40px rgba(66,133,244,0.5), 0 0 80px rgba(234,67,53,0.3)',
+            }}>
+              <span>Try Antigravity Free</span>
+              <ArrowRight className="h-6 w-6 transition-transform group-hover:translate-x-1" />
+            </button>
+          </Link>
+          <p className="text-white/40 text-sm mt-4">Included with Research plan · $25/month · 7-day free trial</p>
 
         </div>
       </section>
@@ -679,13 +741,14 @@ export default function LandingPage() {
             </div>
 
             {/* Research — FEATURED */}
-            <div className={`card-hologram rounded-2xl border-2 relative overflow-hidden md:-mt-4 md:-mb-4 ${isDark ? 'border-indigo-500/60 bg-gradient-to-b from-indigo-950/40 to-slate-950/60 shadow-2xl shadow-indigo-500/20' : 'border-indigo-400 bg-gradient-to-b from-indigo-50/60 to-white shadow-2xl shadow-indigo-200'}`}>
-              {/* Animated shimmer top border */}
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-cyan-400 to-violet-500" />
-              {/* Badge */}
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 rounded-full text-xs font-black text-white tracking-wide shadow-lg shadow-indigo-500/40 flex items-center gap-1.5">
+            <div className="relative pt-5 md:-mt-4 md:-mb-4">
+              {/* Badge sits OUTSIDE overflow-hidden card so it's always visible */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap px-4 py-1.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 rounded-full text-xs font-black text-white tracking-wide shadow-lg shadow-indigo-500/40 flex items-center gap-1.5">
                 <Star className="h-3 w-3 fill-white" /> MOST POWERFUL
               </div>
+            <div className={`card-hologram rounded-2xl border-2 relative overflow-hidden ${isDark ? 'border-indigo-500/60 bg-gradient-to-b from-indigo-950/40 to-slate-950/60 shadow-2xl shadow-indigo-500/20' : 'border-indigo-400 bg-gradient-to-b from-indigo-50/60 to-white shadow-2xl shadow-indigo-200'}`}>
+              {/* Animated shimmer top border */}
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-cyan-400 to-violet-500" />
               {/* Glow behind card in dark mode */}
               {isDark && <div className="absolute -inset-px rounded-2xl pointer-events-none" style={{boxShadow: '0 0 60px rgba(99,102,241,0.15) inset'}} />}
               <div className="p-8 pt-10">
@@ -764,13 +827,16 @@ export default function LandingPage() {
                 <p className={`text-center text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Cancel anytime · No charge for 7 days</p>
               </div>
             </div>
+            </div>{/* end Research wrapper */}
 
             {/* Pro */}
-            <div className={`card-hologram rounded-2xl p-7 border-2 relative overflow-hidden ${isDark ? 'border-purple-500/40 bg-purple-500/[0.03]' : 'border-purple-400 bg-purple-50/30 shadow-lg shadow-purple-100'}`}>
-              <div className="absolute -top-px left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500" />
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-xs font-bold text-white tracking-wide shadow-lg shadow-purple-500/30">
+            <div className="relative pt-5">
+              {/* Badge outside overflow-hidden so it's fully visible */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap px-4 py-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full text-xs font-bold text-white tracking-wide shadow-lg shadow-purple-500/30">
                 POPULAR
               </div>
+            <div className={`card-hologram rounded-2xl p-7 border-2 relative overflow-hidden ${isDark ? 'border-purple-500/40 bg-purple-500/[0.03]' : 'border-purple-400 bg-purple-50/30 shadow-lg shadow-purple-100'}`}>
+              <div className="absolute -top-px left-0 right-0 h-0.5 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500" />
               <div className="mb-5 mt-2">
                 <h3 className={`text-xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   <Crown className="h-5 w-5 text-purple-400" /> Pro
@@ -800,6 +866,7 @@ export default function LandingPage() {
                 </Button>
               </Link>
             </div>
+            </div>{/* end Pro wrapper */}
 
           </div>
         </div>
