@@ -2877,6 +2877,94 @@ ${template.bodyText.split('\n').map(line => {
     }
   });
 
+  // ── Deep Research (Gemini 3.1 Pro / Interactions API) ──────────────────────
+  const DEEP_RESEARCH_AGENT = 'deep-research-pro-preview-12-2025';
+  const INTERACTIONS_BASE    = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+
+  app.post('/api/deep-research/start', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user   = await storage.getUser(userId);
+      const tier   = user?.subscriptionTier || 'free';
+      if (!['research', 'enterprise'].includes(tier)) {
+        return res.status(403).json({ error: 'Deep Research requires a Research or Enterprise subscription.' });
+      }
+
+      const { message, conversationId } = req.body;
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: 'message is required' });
+      }
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+
+      // Save the user message to the conversation
+      let userMessageId: number | undefined;
+      if (conversationId) {
+        const userMsg = await storage.createMessage({ conversationId, content: message, role: 'user' });
+        userMessageId = userMsg.id;
+      }
+
+      const resp = await fetch(INTERACTIONS_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({ input: message, agent: DEEP_RESEARCH_AGENT, background: true }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        console.error('[DeepResearch] start error:', err);
+        return res.status(502).json({ error: 'Failed to start Deep Research', detail: err });
+      }
+
+      const data: any = await resp.json();
+      res.json({ interactionId: data.id, userMessageId });
+    } catch (e: any) {
+      console.error('[DeepResearch] start exception:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/deep-research/status/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+
+      const resp = await fetch(`${INTERACTIONS_BASE}/${req.params.id}`, {
+        headers: { 'x-goog-api-key': apiKey },
+      });
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        return res.status(502).json({ error: 'Failed to poll Deep Research', detail: err });
+      }
+
+      const data: any = await resp.json();
+      const status: string = data.status;   // 'running' | 'completed' | 'failed'
+      const text: string | null =
+        status === 'completed' && Array.isArray(data.outputs) && data.outputs.length > 0
+          ? data.outputs[data.outputs.length - 1].text ?? null
+          : null;
+
+      // When complete, save the AI response to the conversation if conversationId provided
+      let aiMessageId: number | undefined;
+      const { conversationId } = req.query;
+      if (status === 'completed' && text && conversationId) {
+        const aiMsg = await storage.createMessage({
+          conversationId: parseInt(conversationId as string),
+          content: text,
+          role: 'assistant',
+        });
+        aiMessageId = aiMsg.id;
+      }
+
+      res.json({ status, text, error: data.error ?? null, aiMessageId });
+    } catch (e: any) {
+      console.error('[DeepResearch] poll exception:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   startProactiveDiagnostics();
 
   // Auto-lockdown on critical infrastructure failure (DB or AI down — not memory pressure)
