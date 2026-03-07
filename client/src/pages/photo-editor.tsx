@@ -200,7 +200,7 @@ export default function PhotoEditor() {
           </div>
           <div>
             <h1 className="text-base font-black text-white leading-none">Photo Editor</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Powered by Google Imagen 3</p>
+            <p className="text-xs text-gray-500 mt-0.5">Powered by GPT Image · Gemini AI</p>
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400">
@@ -275,7 +275,7 @@ export default function PhotoEditor() {
                 disabled={!genPrompt.trim() || generateMutation.isPending}
                 className="w-full h-12 font-bold text-base bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500"
               >
-                {generateMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Generating with Imagen 3...</> : <><Wand2 className="h-5 w-5 mr-2" />Generate Image</>}
+                {generateMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Generating image...</> : <><Wand2 className="h-5 w-5 mr-2" />Generate Image</>}
               </Button>
             </div>
 
@@ -357,7 +357,7 @@ export default function PhotoEditor() {
                 disabled={!editFile || !editInstruction.trim() || editMutation.isPending}
                 className="w-full h-12 font-bold text-base bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500"
               >
-                {editMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Editing with Gemini...</> : <><Pencil className="h-5 w-5 mr-2" />Edit Photo</>}
+                {editMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Editing photo...</> : <><Pencil className="h-5 w-5 mr-2" />Edit Photo</>}
               </Button>
             </div>
 

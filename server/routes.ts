@@ -3507,22 +3507,15 @@ Return ONLY valid JSON (no markdown):
       }
       const { prompt, aspectRatio = '1:1' } = req.body;
       if (!prompt) return res.status(400).json({ error: 'prompt required' });
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
 
-      const imgRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: { sampleCount: 1, aspectRatio },
-        }),
-      });
-      const imgData = await imgRes.json();
-      if (imgData.error) return res.status(500).json({ error: imgData.error.message || 'Image generation failed' });
-      const b64 = imgData.predictions?.[0]?.bytesBase64Encoded;
-      if (!b64) return res.status(500).json({ error: 'No image returned from Imagen 3' });
-      res.json({ imageData: b64, mimeType: 'image/png' });
+      const { generateImageBuffer } = await import('./replit_integrations/image/client');
+      const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024' | 'auto'> = {
+        '1:1': '1024x1024', '9:16': '1024x1536', '16:9': '1536x1024',
+        '3:4': '1024x1536', '4:3': '1536x1024',
+      };
+      const size = sizeMap[aspectRatio] || 'auto';
+      const buffer = await generateImageBuffer(prompt, size, 'medium');
+      res.json({ imageData: buffer.toString('base64'), mimeType: 'image/png' });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -3535,31 +3528,20 @@ Return ONLY valid JSON (no markdown):
       }
       const { instruction, imageData, mimeType = 'image/jpeg' } = req.body;
       if (!instruction || !imageData) return res.status(400).json({ error: 'instruction and imageData required' });
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
 
-      const editRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [
-              { text: `Edit this image as requested: ${instruction}. Return the modified image.` },
-              { inlineData: { mimeType, data: imageData } },
-            ],
-          }],
-          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
-        }),
+      const { openai } = await import('./replit_integrations/image/client');
+      const { toFile } = await import('openai');
+
+      const imageBuffer = Buffer.from(imageData, 'base64');
+      const imageFile = await toFile(imageBuffer, 'image.png', { type: 'image/png' });
+      const response = await openai.images.edit({
+        model: 'gpt-image-1',
+        image: imageFile,
+        prompt: instruction,
       });
-      const editData = await editRes.json();
-      const parts = editData.candidates?.[0]?.content?.parts || [];
-      const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image/'));
-      if (!imagePart) {
-        const textPart = parts.find((p: any) => p.text);
-        return res.status(500).json({ error: textPart?.text || 'No edited image returned' });
-      }
-      res.json({ imageData: imagePart.inlineData.data, mimeType: imagePart.inlineData.mimeType });
+      const b64 = response.data[0]?.b64_json;
+      if (!b64) return res.status(500).json({ error: 'No edited image returned' });
+      res.json({ imageData: b64, mimeType: 'image/png' });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
