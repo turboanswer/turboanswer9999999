@@ -97,7 +97,9 @@ export async function generateAIResponse(
       enhancedMessage = `${userMessage}\n\n[Time zone reference provided]`;
     }
 
-    const isSimple = userMessage.length < 50 || /\b(hi|hello|hey|thanks|ok|yes|no|turbo)\b/i.test(userMessage);
+    // Code/build requests must never be treated as "simple" — they always need full responses
+    const isCodeRequest = /\b(code|program|function|app|build|create|write|make|implement|script|html|css|javascript|typescript|python|java|swift|kotlin|sql|api|component|class|algorithm|snippet|example|demo|template|stopwatch|timer|clock|counter|calculator|form|button|navbar|sidebar|modal|animation|loop|array|object|method|hook|endpoint|route|database|query|sort|search|fetch|async|promise)\b/i.test(userMessage);
+    const isSimple = !isCodeRequest && (userMessage.length < 50 || /\b(hi|hello|hey|thanks|ok|yes|no|turbo)\b/i.test(userMessage));
     const languageInstruction = userLanguage !== "en" ? 
       `CRITICAL: Respond in ${userLanguage} language. ALL responses must be in ${userLanguage}.` : "";
 
@@ -128,15 +130,15 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
       temperature = 0.3;
       systemPrompt = isSimple
         ? `You are Turbo. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. Be concise and direct.${languageInstruction ? ' ' + languageInstruction : ''}`
-        : `You are Turbo Answer, a premium assistant. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. Give clear, detailed responses.${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+        : `You are Turbo Answer, a premium assistant. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. ${isCodeRequest ? 'For code requests: always provide complete, working code with a brief explanation. Never give partial snippets when a full working example is possible.' : 'Give clear, detailed responses.'}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
     } else {
       // Free tier → Gemini 3.1 Flash Lite
       geminiModel = 'gemini-3.1-flash-lite-preview';
-      maxTokens = isSimple ? 200 : 1500;
+      maxTokens = isSimple ? 200 : 2000;
       temperature = 0.4;
       systemPrompt = isSimple
         ? `You are Turbo. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. Answer in 1-2 sentences max.${languageInstruction ? ' ' + languageInstruction : ''}`
-        : `You are Turbo Answer. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. Give clear, helpful responses.${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+        : `You are Turbo Answer. Only if someone specifically asks who made, created, or developed TurboAnswer, say it was developed by Tiago Tschantret — otherwise never mention it. ${isCodeRequest ? 'For code requests: always provide complete, working code with a brief explanation. Never give partial snippets when a full working example is possible.' : 'Give clear, helpful responses.'}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
     }
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
