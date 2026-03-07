@@ -71,8 +71,8 @@ export default function VideoStudio() {
   const { user } = useAuth();
   const isDark = theme === "dark";
 
-  const { data: subscriptionData } = useQuery<{ tier: string }>({
-    queryKey: ["/api/subscription/status"],
+  const { data: subscriptionData, isLoading: subLoading } = useQuery<{ tier: string }>({
+    queryKey: ["/api/subscription-status"],
   });
 
   const isResearch = ['research', 'enterprise'].includes(subscriptionData?.tier || '');
@@ -201,14 +201,14 @@ export default function VideoStudio() {
       </div>
 
       {/* Loading state while subscription is being fetched */}
-      {!subscriptionData && (
+      {subLoading && (
         <div className="flex items-center justify-center py-32">
           <Loader2 className={`h-8 w-8 animate-spin ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`} />
         </div>
       )}
 
       {/* Upgrade gate — shown for non-Research/Enterprise users */}
-      {subscriptionData && !isResearch && (
+      {!subLoading && !isResearch && (
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <div className={`rounded-3xl border-2 p-10 ${isDark ? 'border-indigo-500/30 bg-gradient-to-b from-indigo-950/40 to-slate-950/60' : 'border-indigo-300 bg-gradient-to-b from-indigo-50 to-white shadow-2xl shadow-indigo-100'}`}>
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/30">
@@ -258,7 +258,7 @@ export default function VideoStudio() {
       )}
 
       {/* Main studio — only shown for Research/Enterprise users */}
-      {isResearch && <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6">
+      {!subLoading && isResearch && <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6">
 
         {/* Left: controls */}
         <div className="space-y-4">
