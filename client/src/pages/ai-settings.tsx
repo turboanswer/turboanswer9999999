@@ -36,7 +36,7 @@ const AI_MODELS = {
   "claude-research": {
     name: "Gemini 3.1 Pro Research",
     description: "Maximum intelligence on every response — Gemini 3.1 Pro at full power, always.",
-    tier: "Research - $15/mo",
+    tier: "Research - $30/mo",
     icon: FlaskConical,
     color: "from-blue-500 to-cyan-600",
     borderColor: "border-blue-600 hover:border-blue-500",
@@ -180,7 +180,7 @@ export default function AISettings() {
   }, [selectedModel]);
 
   const hasPaidSubscription = subscriptionData?.tier === 'pro' || subscriptionData?.tier === 'research' || subscriptionData?.tier === 'enterprise';
-  const tierLabel = subscriptionData?.tier === 'enterprise' ? 'Enterprise ($50/mo)' : subscriptionData?.tier === 'research' ? 'Research ($15/mo)' : 'Pro ($6.99/mo)';
+  const tierLabel = subscriptionData?.tier === 'enterprise' ? 'Enterprise ($100/mo)' : subscriptionData?.tier === 'research' ? 'Research ($30/mo)' : 'Pro ($6.99/mo)';
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'}`}>

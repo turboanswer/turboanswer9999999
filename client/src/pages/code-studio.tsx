@@ -162,7 +162,8 @@ export default function CodeStudio() {
 
   const addonMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/create-addon-subscription'),
-    onSuccess: (data: any) => {
+    onSuccess: async (res: any) => {
+      const data = await res.json();
       if (data.url) window.location.href = data.url;
     },
     onError: (e: any) => {
@@ -525,8 +526,9 @@ export default function CodeStudio() {
 
       {/* ── Top Toolbar ── */}
       <div className={`flex items-center gap-2 px-3 py-2 border-b ${border} ${surface} shrink-0`}>
-        <button onClick={() => navigate("/chat")} className={`flex items-center gap-1 text-xs ${muted} hover:text-violet-400 transition-colors`}>
+        <button onClick={() => navigate("/chat")} className={`flex items-center gap-1 text-xs font-medium ${muted} hover:text-violet-400 transition-colors pr-1`}>
           <ChevronLeft className="h-4 w-4" />
+          <span>Chat</span>
         </button>
 
         <div className="flex items-center gap-1.5 mr-2">

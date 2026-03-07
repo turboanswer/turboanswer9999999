@@ -1187,8 +1187,8 @@ export default function EmployeeDashboard() {
                   >
                     {subModalAction === 'modify' && <option value="free">Free</option>}
                     <option value="pro">Pro ($6.99/mo)</option>
-                    <option value="research">Research ($15/mo)</option>
-                    <option value="enterprise">Enterprise ($50/mo)</option>
+                    <option value="research">Research ($30/mo)</option>
+                    <option value="enterprise">Enterprise ($100/mo)</option>
                   </select>
                 </div>
               )}
@@ -1939,13 +1939,13 @@ function SubscriptionsTab({ users, searchTerm, setSearchTerm, onModify, onCancel
         <Card className="bg-gray-900 border-gray-800">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-purple-400">{adminStats?.subscriptions?.research || 0}</div>
-            <div className="text-xs text-gray-400">Research ($15/mo)</div>
+            <div className="text-xs text-gray-400">Research ($30/mo)</div>
           </CardContent>
         </Card>
         <Card className="bg-gray-900 border-gray-800">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-amber-400">{adminStats?.subscriptions?.enterprise || 0}</div>
-            <div className="text-xs text-gray-400">Enterprise ($50/mo)</div>
+            <div className="text-xs text-gray-400">Enterprise ($100/mo)</div>
           </CardContent>
         </Card>
         <Card className="bg-gray-900 border-gray-800">

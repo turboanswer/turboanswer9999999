@@ -1078,7 +1078,7 @@ export default function Chat() {
                       <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><Brain className="w-4 h-4 text-blue-400" /></div>
                       <div>
                         <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Gemini 3.1 Pro Research</p>
-                        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Research $15" to unlock maximum depth on every response</p>
+                        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Research $30" to unlock maximum depth on every response</p>
                       </div>
                     </div>
                   </div>

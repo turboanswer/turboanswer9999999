@@ -258,7 +258,7 @@ export default function VideoStudio() {
               <Link href="/subscribe">
                 <Button className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 hover:from-indigo-500 hover:via-violet-500 hover:to-cyan-500 shadow-xl shadow-indigo-500/30">
                   <Sparkles className="h-4 w-4 mr-2" />
-                  Upgrade to Research — $15/mo
+                  Upgrade to Research — $30/mo
                 </Button>
               </Link>
               <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>7-day free trial · Cancel anytime · No charge during trial</p>
