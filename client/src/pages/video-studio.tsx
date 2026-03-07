@@ -64,7 +64,6 @@ export default function VideoStudio() {
   const [pollModel, setPollModel] = useState<string>("");
   const [currentVideo, setCurrentVideo] = useState<HistoryItem | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [generateAudio, setGenerateAudio] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,7 +142,7 @@ export default function VideoStudio() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, durationSeconds: duration, generateAudio }),
+        body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, durationSeconds: duration }),
       });
       const data = await resp.json();
 
@@ -369,34 +368,15 @@ export default function VideoStudio() {
             </div>
           </div>
 
-          {/* Audio toggle */}
-          <div>
-            <button
-              onClick={() => setGenerateAudio(v => !v)}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-                generateAudio
-                  ? isDark ? 'bg-green-500/10 border-green-500/30' : 'bg-green-50 border-green-300'
-                  : isDark ? 'bg-white/[0.03] border-white/10' : 'bg-gray-50 border-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                {generateAudio
-                  ? <Volume2 className="h-4 w-4 text-green-400" />
-                  : <VolumeX className={`h-4 w-4 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                }
-                <div className="text-left">
-                  <div className={`text-xs font-semibold ${generateAudio ? isDark ? 'text-green-300' : 'text-green-700' : isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {generateAudio ? 'Audio generation ON' : 'Audio generation OFF'}
-                  </div>
-                  <div className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                    {generateAudio ? 'Uses Veo 3.1 — dialogue, sound effects & ambience' : 'Uses Veo 2.0 — silent video'}
-                  </div>
-                </div>
+          {/* Audio info banner */}
+          <div className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${isDark ? 'bg-green-500/10 border-green-500/30' : 'bg-green-50 border-green-300'}`}>
+            <Volume2 className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
+            <div>
+              <div className={`text-xs font-semibold ${isDark ? 'text-green-300' : 'text-green-700'}`}>Audio always included with Veo 3.1</div>
+              <div className={`text-[10px] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                Describe sounds in your prompt — e.g. "with upbeat music", "waves crashing", "city ambience"
               </div>
-              <div className={`w-8 h-4.5 rounded-full transition-colors flex items-center px-0.5 ${generateAudio ? 'bg-green-500' : isDark ? 'bg-white/20' : 'bg-gray-300'}`}>
-                <div className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${generateAudio ? 'translate-x-3.5' : ''}`} />
-              </div>
-            </button>
+            </div>
           </div>
 
           {/* Generate button */}

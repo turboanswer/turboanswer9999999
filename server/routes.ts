@@ -2186,7 +2186,7 @@ function downloadAAB(){
         return res.status(403).json({ error: 'Video generation requires a Research or Enterprise subscription.' });
       }
 
-      const { prompt, aspectRatio = '16:9', durationSeconds = 5, generateAudio = true } = req.body;
+      const { prompt, aspectRatio = '16:9', durationSeconds = 5 } = req.body;
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5) {
         return res.status(400).json({ error: 'A descriptive prompt is required.' });
       }
@@ -2196,10 +2196,10 @@ function downloadAAB(){
         prompt: prompt.trim(),
         aspectRatio: ['16:9', '9:16'].includes(aspectRatio) ? aspectRatio : '16:9',
         durationSeconds: [5, 8].includes(durationSeconds) ? durationSeconds : 5,
-        generateAudio: generateAudio !== false,
       });
 
-      res.json({ jobId: result.jobId, model: result.model, hasAudio: result.hasAudio });
+      // Veo 3.1 always generates audio from the prompt — no separate flag needed
+      res.json({ jobId: result.jobId, model: result.model, hasAudio: true });
     } catch (e: any) {
       console.error('[Veo] start error:', e.message);
       res.status(502).json({ error: e.message });
