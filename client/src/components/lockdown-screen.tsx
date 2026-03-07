@@ -167,50 +167,80 @@ interface Props { scenario?: string; }
 export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
   const sc = (SCENARIOS[scenario as LockdownScenario] ?? SCENARIOS.system_failure);
 
-  const playingRef    = useRef(false);
-  const stopRef       = useRef<(() => void) | null>(null);
-  const voiceActive   = useRef(false);
-  const speakingText  = useRef(sc.voice);
+  const playingRef   = useRef(false);
+  const stopRef      = useRef<(() => void) | null>(null);
+  const ttsActive    = useRef(false);   // true while any chunk is speaking
+  const ttsEnabled   = useRef(false);   // true once user gesture has unlocked TTS
+  const chunkIdxRef  = useRef(0);
+  const chunksRef    = useRef<string[]>([]);
+  const loopTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [soundActive, setSoundActive] = useState(false);
 
-  // Keep speakingText in sync if scenario changes
-  speakingText.current = sc.voice;
+  // ── Split voice text into short sentences (each << Chrome's 15s limit) ──
+  function getChunks(): string[] {
+    // Split on sentence-ending punctuation + whitespace
+    return sc.voice
+      .split(/(?<=[.!?,])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+  }
 
-  // ── Voice ─────────────────────────────────────────────────────────────
-  // IMPORTANT: Do NOT call speechSynthesis.cancel() before speak() inside a
-  // gesture handler — Chrome breaks the gesture connection and silently drops
-  // the speak() call. Only cancel during an explicit restart (no gesture chain).
+  // ── Speak a single chunk by index, then chain to the next ────────────────
+  function speakChunk(idx: number) {
+    if (!window.speechSynthesis) return;
+    const chunks = chunksRef.current;
 
-  function buildUtterance() {
-    const utt = new SpeechSynthesisUtterance(speakingText.current);
-    utt.rate   = 0.62;
-    utt.pitch  = 0.0;   // deepest possible
+    // All chunks done → pause then loop
+    if (idx >= chunks.length) {
+      ttsActive.current = false;
+      loopTimer.current = setTimeout(() => speakAll(false), 6000);
+      return;
+    }
+
+    const utt = new SpeechSynthesisUtterance(chunks[idx]);
+    utt.rate   = 0.72;   // slightly faster = less likely to hit 15s cutoff
+    utt.pitch  = 0.0;
     utt.volume = 1.0;
     const voice = pickMaleVoice();
     if (voice) utt.voice = voice;
-    utt.onstart = () => { voiceActive.current = true; };
-    utt.onend   = () => { voiceActive.current = false; setTimeout(speakNow, 5000); };
+
+    utt.onstart = () => { ttsActive.current = true; };
+    utt.onend   = () => { speakChunk(idx + 1); };
     utt.onerror = (e: any) => {
-      voiceActive.current = false;
-      // "interrupted" = we cancelled it ourselves — don't retry immediately
-      if (e?.error !== 'interrupted') setTimeout(speakNow, 2000);
+      // "interrupted" means we cancelled it ourselves — don't retry
+      if (e?.error === 'interrupted') return;
+      // Any other error: wait a beat then retry the same chunk
+      setTimeout(() => speakChunk(idx), 800);
     };
-    return utt;
-  }
 
-  // speakNow: safe to call any time — resumes stalled engine then speaks
-  function speakNow() {
-    if (!window.speechSynthesis || voiceActive.current) return;
     try { window.speechSynthesis.resume(); } catch {}
-    window.speechSynthesis.speak(buildUtterance());
+    window.speechSynthesis.speak(utt);
   }
 
-  // forceRestartVoice: cancel current then re-speak after a beat
-  // (NOT called inside a gesture handler — the delay breaks the gesture chain)
-  function forceRestartVoice() {
-    voiceActive.current = false;
+  // speakAll: kick off a full announcement from the beginning
+  // fromGesture=true → called synchronously inside a user event (no cancel allowed)
+  // fromGesture=false → safe to cancel first
+  function speakAll(fromGesture: boolean) {
+    if (!window.speechSynthesis) return;
+    if (ttsActive.current) return;
+
+    chunksRef.current = getChunks();
+    chunkIdxRef.current = 0;
+
+    if (!fromGesture) {
+      try { window.speechSynthesis.cancel(); } catch {}
+      setTimeout(() => speakChunk(0), 50);
+    } else {
+      // Inside gesture: no cancel, just speak directly
+      try { window.speechSynthesis.resume(); } catch {}
+      speakChunk(0);
+    }
+  }
+
+  function stopTTS() {
+    ttsActive.current = false;
+    if (loopTimer.current) { clearTimeout(loopTimer.current); loopTimer.current = null; }
     try { window.speechSynthesis?.cancel(); } catch {}
-    setTimeout(speakNow, 200);
   }
 
   // ── Audio ──────────────────────────────────────────────────────────────
@@ -229,19 +259,15 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
     } catch {}
   }
 
-  // handleUserGesture: called synchronously from within a real user event
-  // — both audio resume AND speak() must happen without any async/setTimeout
-  //   so Chrome recognises them as gesture-driven
+  // handleUserGesture: must stay synchronous inside the gesture event so
+  // Chrome recognises speak() as gesture-triggered
   function handleUserGesture() {
-    // ── Voice ────────────────────────────────────────────────────────────
-    if (!voiceActive.current && window.speechSynthesis) {
-      try { window.speechSynthesis.resume(); } catch {}
-      // Only speak if nothing is queued — avoid duplicates
-      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-        window.speechSynthesis.speak(buildUtterance());
-      }
+    // ── Voice ──────────────────────────────────────────────────────────────
+    if (!ttsEnabled.current) {
+      ttsEnabled.current = true;
+      speakAll(true);   // fromGesture=true — no cancel, direct speak
     }
-    // ── Audio ─────────────────────────────────────────────────────────────
+    // ── Audio ──────────────────────────────────────────────────────────────
     if (!playingRef.current) {
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -257,60 +283,54 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
   }
 
   useEffect(() => {
-    // Try speaking immediately (works on Firefox/Safari; Chrome needs gesture)
-    const tryVoice = () => {
+    // Try voice immediately — works on Firefox/Safari without gesture
+    const tryVoiceImmediate = () => {
       if (!window.speechSynthesis) return;
+      const go = () => { ttsEnabled.current = true; speakAll(false); };
       if (window.speechSynthesis.getVoices().length === 0) {
-        window.speechSynthesis.addEventListener('voiceschanged', speakNow, { once: true });
+        window.speechSynthesis.addEventListener('voiceschanged', go, { once: true });
       } else {
-        speakNow();
+        go();
       }
     };
-    tryVoice();
+    tryVoiceImmediate();
 
-    // Try audio immediately — will silently fail until user clicks on Chrome
+    // Try audio immediately — silently fails on Chrome until user clicks
     attemptPlay();
     const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 500);
     const t2 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 1500);
 
     const onInteract = () => handleUserGesture();
-    document.addEventListener('click',       onInteract);
-    document.addEventListener('mousedown',   onInteract);
-    document.addEventListener('touchend',    onInteract);
-    document.addEventListener('keydown',     onInteract);
+    document.addEventListener('click',     onInteract);
+    document.addEventListener('mousedown', onInteract);
+    document.addEventListener('touchend',  onInteract);
+    document.addEventListener('keydown',   onInteract);
 
-    // Re-trigger on tab return
+    // Tab return — no gesture available, use forceRestart path
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         // Restart audio
         try { stopRef.current?.(); } catch {}
-        stopRef.current = null;
-        playingRef.current = false;
-        setSoundActive(false);
+        stopRef.current = null; playingRef.current = false; setSoundActive(false);
         attemptPlay();
-        // Restart voice via forceRestart (no gesture chain needed here)
-        forceRestartVoice();
+        // Restart TTS (non-gesture path is fine here)
+        ttsActive.current = false;
+        ttsEnabled.current = false;   // reset so next gesture triggers again
+        if (loopTimer.current) clearTimeout(loopTimer.current);
+        speakAll(false);
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
-    // Chrome TTS keep-alive: Chrome pauses synthesis engine after ~15 s
-    const keepAlive = setInterval(() => {
-      if (!window.speechSynthesis?.speaking) return;
-      window.speechSynthesis.pause();
-      window.speechSynthesis.resume();
-    }, 12000);
-
     return () => {
       clearTimeout(t1); clearTimeout(t2);
-      clearInterval(keepAlive);
-      document.removeEventListener('click',       onInteract);
-      document.removeEventListener('mousedown',   onInteract);
-      document.removeEventListener('touchend',    onInteract);
-      document.removeEventListener('keydown',     onInteract);
+      document.removeEventListener('click',     onInteract);
+      document.removeEventListener('mousedown', onInteract);
+      document.removeEventListener('touchend',  onInteract);
+      document.removeEventListener('keydown',   onInteract);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       try { stopRef.current?.(); } catch {}
-      try { window.speechSynthesis?.cancel(); } catch {}
+      stopTTS();
     };
   }, [scenario]);
 
