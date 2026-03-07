@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // ── Scenario definitions ────────────────────────────────────────────────────
 export type LockdownScenario = 'system_failure' | 'security_breach' | 'public_safety' | 'malfunction';
@@ -170,15 +170,18 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
   const playingRef  = useRef(false);
   const stopRef     = useRef<(() => void) | null>(null);
   const voiceActive = useRef(false);
+  const [soundActive, setSoundActive] = useState(false);
 
   // ── Voice ─────────────────────────────────────────────────────────────
   function doSpeak() {
     if (!window.speechSynthesis || voiceActive.current) return;
+    // Chrome bug: cancel any stalled speech, then resume the synthesis engine
     window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
 
     const utt = new SpeechSynthesisUtterance(sc.voice);
-    utt.rate   = 0.6;
-    utt.pitch  = 0.05;   // as deep as the browser allows
+    utt.rate   = 0.62;
+    utt.pitch  = 0.05;
     utt.volume = 1.0;
 
     const voice = pickMaleVoice();
@@ -186,7 +189,7 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
 
     utt.onstart = () => { voiceActive.current = true; };
     utt.onend   = () => { voiceActive.current = false; setTimeout(doSpeak, 5000); };
-    utt.onerror = () => { voiceActive.current = false; };
+    utt.onerror = () => { voiceActive.current = false; setTimeout(doSpeak, 3000); };
 
     window.speechSynthesis.speak(utt);
   }
@@ -196,16 +199,27 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
     if (playingRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (ctx.state === 'suspended') await ctx.resume();
+      // Try to resume — only works after a user gesture on Chrome
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
+      }
       if (ctx.state === 'running') {
         playingRef.current = true;
         stopRef.current = buildHorrorAlarm(ctx);
-      } else { ctx.close(); }
+        setSoundActive(true);
+      } else {
+        try { ctx.close(); } catch {}
+      }
     } catch {}
   }
 
   function handleUserGesture() {
-    doSpeak();
+    // Try voice first (needs user gesture in Chrome)
+    if (!voiceActive.current) {
+      window.speechSynthesis?.resume();
+      doSpeak();
+    }
+    // Try audio
     if (playingRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -213,22 +227,24 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
         if (!playingRef.current && ctx.state === 'running') {
           playingRef.current = true;
           stopRef.current = buildHorrorAlarm(ctx);
+          setSoundActive(true);
         }
-      });
+      }).catch(() => {});
     } catch {}
   }
 
   function restartAudio() {
-    // Stop any existing audio, reset flag, restart immediately
     try { stopRef.current?.(); } catch {}
     stopRef.current = null;
     playingRef.current = false;
+    setSoundActive(false);
     attemptPlay();
   }
 
   useEffect(() => {
-    // Attempt immediately — voice often works without gesture, audio needs it
+    // Voice: wait for voices to load, then speak
     const tryVoice = () => {
+      if (!window.speechSynthesis) return;
       if (window.speechSynthesis.getVoices().length === 0) {
         window.speechSynthesis.addEventListener('voiceschanged', doSpeak, { once: true });
       } else {
@@ -236,35 +252,45 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
       }
     };
     tryVoice();
-    attemptPlay();
 
-    const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 300);
-    const t2 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 800);
+    // Audio: try immediately then retry — will silently fail until user clicks
+    attemptPlay();
+    const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 400);
+    const t2 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 1200);
 
     const onInteract = () => handleUserGesture();
-    document.addEventListener('mousedown',   onInteract);
-    document.addEventListener('pointerdown', onInteract);
-    document.addEventListener('touchstart',  onInteract);
-    document.addEventListener('keydown',     onInteract);
+    document.addEventListener('mousedown',   onInteract, { passive: true });
+    document.addEventListener('pointerdown', onInteract, { passive: true });
+    document.addEventListener('touchstart',  onInteract, { passive: true });
+    document.addEventListener('keydown',     onInteract, { passive: true });
 
-    // Re-sound alarm immediately when user returns to the tab/page
+    // Re-trigger when returning to tab
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         restartAudio();
         voiceActive.current = false;
+        window.speechSynthesis?.resume();
         doSpeak();
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
 
+    // Chrome speech synthesis keep-alive: Chrome pauses synth after ~15s
+    const keepAlive = setInterval(() => {
+      if (window.speechSynthesis && !window.speechSynthesis.speaking) return;
+      window.speechSynthesis?.pause();
+      window.speechSynthesis?.resume();
+    }, 10000);
+
     return () => {
       clearTimeout(t1); clearTimeout(t2);
+      clearInterval(keepAlive);
       document.removeEventListener('mousedown',   onInteract);
       document.removeEventListener('pointerdown', onInteract);
       document.removeEventListener('touchstart',  onInteract);
       document.removeEventListener('keydown',     onInteract);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      stopRef.current?.();
+      try { stopRef.current?.(); } catch {}
       window.speechSynthesis?.cancel();
     };
   }, [scenario]);
@@ -395,6 +421,14 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
           <circle cx="74" cy="271" r="2.5" fill="#FFD700" opacity="0.7" />
         </g>
       </svg>
+
+      {/* Tap to unmute prompt — shown until audio starts */}
+      {!soundActive && (
+        <div style={{ position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'999px', padding:'8px 20px', display:'flex', alignItems:'center', gap:'8px', backdropFilter:'blur(8px)', animation:'redPulse 2s ease-in-out infinite' }}>
+          <span style={{ fontSize:'1rem' }}>🔇</span>
+          <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'0.78rem', letterSpacing:'0.08em' }}>Tap anywhere to activate sound</span>
+        </div>
+      )}
 
       {/* Text block */}
       <div className="flex flex-col items-center text-center px-8 max-w-lg mx-auto gap-4" style={{ position:'relative', zIndex:1 }}>

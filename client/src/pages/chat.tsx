@@ -574,15 +574,7 @@ export default function Chat() {
               <div className="absolute top-1/3 right-1/5 w-56 h-56 bg-purple-600/[0.04] rounded-full blur-[80px]" />
               <div className="absolute bottom-1/4 left-1/3 w-64 h-64 bg-pink-600/[0.03] rounded-full blur-[90px]" />
             </>
-          ) : (
-            <>
-              <div className="bubble" />
-              <div className="bubble" />
-              <div className="bubble" />
-              <div className="bubble" />
-              <div className="bubble" />
-            </>
-          )}
+          ) : null}
         </div>
 
         <div className="px-3 sm:px-6 py-4 sm:py-6 max-w-3xl mx-auto relative z-10">
