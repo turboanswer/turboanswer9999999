@@ -286,15 +286,34 @@ export default function Chat() {
     }
   };
 
+  // Only send to the Deep Research agent if the query actually needs it.
+  // Short/simple queries (code snippets, quick facts, greetings, single-line tasks)
+  // get routed through the fast Gemini path even when Deep Research mode is on.
+  const needsDeepResearch = (text: string): boolean => {
+    const words = text.trim().split(/\s+/);
+    if (words.length < 12) return false; // very short → always fast
+    const researchKeywords = [
+      'research', 'analyze', 'analyse', 'investigate', 'compare', 'contrast',
+      'summarize', 'summarise', 'overview', 'deep dive', 'in depth', 'in-depth',
+      'comprehensive', 'detailed report', 'find out', 'what are the latest',
+      'latest news', 'recent', 'history of', 'evolution of', 'trends in',
+      'survey', 'review all', 'gather information', 'cite', 'sources',
+      'literature', 'academic', 'study', 'findings', 'data on',
+    ];
+    const lower = text.toLowerCase();
+    return researchKeywords.some(kw => lower.includes(kw));
+  };
+
   const handleSendMessage = async () => {
     if (!messageContent.trim() || sendMessageMutation.isPending || isDeepResearching) return;
     const convId = await getOrCreateConversationId();
     if (!convId) return;
-    if (deepResearchMode) {
-      await startDeepResearch(messageContent.trim(), convId);
+    const content = messageContent.trim();
+    if (deepResearchMode && needsDeepResearch(content)) {
+      await startDeepResearch(content, convId);
     } else {
       setIsTyping(true);
-      sendMessageMutation.mutate({ content: messageContent.trim(), convId });
+      sendMessageMutation.mutate({ content, convId });
     }
   };
 
@@ -395,11 +414,12 @@ export default function Chat() {
     if (!messageContent.trim() || sendMessageMutation.isPending || isDeepResearching) return;
     const convId = await getOrCreateConversationId();
     if (!convId) return;
-    if (deepResearchMode) {
-      await startDeepResearch(messageContent.trim(), convId);
+    const content = messageContent.trim();
+    if (deepResearchMode && needsDeepResearch(content)) {
+      await startDeepResearch(content, convId);
     } else {
       setIsTyping(true);
-      sendMessageMutation.mutate({ content: messageContent.trim(), convId });
+      sendMessageMutation.mutate({ content, convId });
     }
   };
 
@@ -449,7 +469,7 @@ export default function Chat() {
               <button
                 onClick={() => setDeepResearchMode(v => !v)}
                 disabled={isDeepResearching}
-                title={deepResearchMode ? 'Deep Research ON — click to switch back to Fast Chat' : 'Switch to Deep Research (Gemini 3.1 Pro · takes a few minutes)'}
+                title={deepResearchMode ? 'Deep Research ON — simple questions use fast mode automatically' : 'Switch to Deep Research (Gemini 3.1 Pro · auto-detects complex queries)'}
                 className={`h-8 px-2 flex items-center gap-1 rounded-lg text-[10px] sm:text-xs font-medium border transition-colors
                   ${deepResearchMode
                     ? 'bg-violet-600 border-violet-500 text-white'
@@ -819,7 +839,7 @@ export default function Chat() {
                 value={messageContent}
                 onChange={(e) => setMessageContent(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={deepResearchMode ? "What would you like me to research in depth?" : "Ask me anything across the universe..."}
+                placeholder={deepResearchMode ? "Ask anything — deep research activates automatically for complex queries..." : "Ask me anything across the universe..."}
                 disabled={isDeepResearching}
                 className={`w-full px-4 py-3 pr-12 rounded-2xl text-sm sm:text-base resize-none min-h-[44px] max-h-28 transition-all duration-300 ${
                   deepResearchMode
