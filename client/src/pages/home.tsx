@@ -220,10 +220,10 @@ export default function Home() {
               <div className="absolute top-0 right-0 w-24 h-24 rounded-full opacity-15 blur-2xl" style={{ background: "#34A853" }} />
               <div className="flex items-center gap-2 mb-3">
                 <Code2 className="h-8 w-8" style={{ color: "#34A853" }} />
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(52,168,83,0.15)", color: "#34A853", border: "1px solid rgba(52,168,83,0.3)" }}>Antigravity</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(52,168,83,0.15)", color: "#34A853", border: "1px solid rgba(52,168,83,0.3)" }}>+$10/mo add-on</span>
               </div>
               <h3 className="text-lg font-bold text-white mb-1">Code Studio</h3>
-              <p className="text-sm text-gray-400">Build full apps with one prompt — Gemini 3.1 Pro</p>
+              <p className="text-sm text-gray-400">Full AI IDE — build, run & deploy apps with one prompt</p>
               <ArrowRight className="h-4 w-4 mt-3 text-gray-600 group-hover:text-green-400 transition-colors" />
             </div>
           </Link>

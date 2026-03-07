@@ -18,7 +18,7 @@ import {
 } from "./services/document-analysis";
 import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture } from "./paypal";
+import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription } from "./paypal";
 
 import widgetRoutes from './routes/widget-routes';
 import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
@@ -1227,6 +1227,67 @@ function downloadAAB(){
     } catch (error: any) {
       console.error('[Cancel Subscription] Error:', error.message);
       res.status(500).json({ error: 'Failed to cancel subscription. Please try again.' });
+    }
+  });
+
+  // Create Code Studio add-on subscription
+  app.post('/api/create-addon-subscription', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      if (user.codeStudioAddon) return res.status(400).json({ error: 'You already have Code Studio active' });
+
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || req.get('host')}`;
+      const result = await createAddonSubscription(
+        user.email,
+        userId,
+        `${baseUrl}/code-studio?addon=activated`,
+        `${baseUrl}/code-studio?addon=cancelled`,
+      );
+      res.json({ url: result.approvalUrl, subscriptionId: result.subscriptionId });
+    } catch (error: any) {
+      console.error('[Addon] Create subscription error:', error.message);
+      res.status(500).json({ error: error.message || 'Failed to create add-on subscription' });
+    }
+  });
+
+  // Confirm Code Studio add-on after PayPal redirect
+  app.post('/api/confirm-addon-subscription', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { subscriptionId } = req.body || {};
+      if (!subscriptionId) return res.status(400).json({ error: 'subscriptionId required' });
+
+      const details = await getSubscriptionDetails(subscriptionId);
+      if (details.status === 'ACTIVE' || details.status === 'APPROVED') {
+        await storage.updateCodeStudioAddon(userId, true, subscriptionId);
+        console.log(`[Addon] Code Studio activated for user ${userId}, sub ${subscriptionId}`);
+        return res.json({ success: true });
+      }
+      res.status(400).json({ error: `Subscription not active (status: ${details.status})` });
+    } catch (error: any) {
+      console.error('[Addon] Confirm subscription error:', error.message);
+      res.status(500).json({ error: error.message || 'Failed to confirm add-on subscription' });
+    }
+  });
+
+  // Cancel Code Studio add-on
+  app.post('/api/cancel-addon', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      if (!user.codeStudioAddon) return res.status(400).json({ error: 'No Code Studio add-on to cancel' });
+
+      if (user.codeStudioAddonSubId) {
+        await cancelSubscription(user.codeStudioAddonSubId, 'User cancelled Code Studio add-on').catch(() => {});
+      }
+      await storage.updateCodeStudioAddon(userId, false, null);
+      res.json({ success: true, message: 'Code Studio add-on cancelled.' });
+    } catch (error: any) {
+      console.error('[Addon] Cancel error:', error.message);
+      res.status(500).json({ error: error.message || 'Failed to cancel add-on' });
     }
   });
 
@@ -3020,6 +3081,14 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
   });
 
   // ── Code Studio ──────────────────────────────────────────────────────────
+
+  // Gate: all /api/code/* routes require the Code Studio add-on
+  app.use('/api/code', async (req: any, res, next) => {
+    if (!req.user?.claims?.sub) return res.status(401).json({ error: 'Not authenticated' });
+    const u = await storage.getUser(req.user.claims.sub).catch(() => null);
+    if (!u?.codeStudioAddon) return res.status(403).json({ error: 'Code Studio add-on required', requiresAddon: true });
+    next();
+  });
 
   // AI-generate a complete project from a single prompt
   app.post('/api/code/ai-generate', isAuthenticated, async (req: any, res) => {

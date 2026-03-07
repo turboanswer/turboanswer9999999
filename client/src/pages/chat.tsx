@@ -386,8 +386,9 @@ export default function Chat() {
                 </Button>
               </Link>
               <Link href="/code-studio">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-cyan-400' : 'text-gray-500 hover:text-cyan-600'}`} title="Code Studio — Build & run apps with AI">
+                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs relative ${isDark ? 'text-gray-400 hover:text-cyan-400' : 'text-gray-500 hover:text-cyan-600'}`} title={user?.codeStudioAddon ? "Code Studio — Build & run apps with AI" : "Code Studio — $10/mo add-on"}>
                   <Code2 className="h-4 w-4 mr-1" /> Code
+                  {!user?.codeStudioAddon && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-yellow-400" />}
                 </Button>
               </Link>
               <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 ${showQR ? 'text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-blue-500`} title="QR Code">

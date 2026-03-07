@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Brain, Zap, CheckCircle, Star, FlaskConical, XCircle, AlertTriangle, Gift, Building2, Trash2, Copy, Users } from "lucide-react";
+import { ArrowLeft, Brain, Zap, CheckCircle, Star, FlaskConical, XCircle, AlertTriangle, Gift, Building2, Trash2, Copy, Users, Code2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 const AI_MODELS = {
   "gemini-flash": {
@@ -56,6 +57,7 @@ export default function AISettings() {
   const isDark = theme === "dark";
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({
     queryKey: ["/api/subscription-status"],
@@ -138,6 +140,20 @@ export default function AISettings() {
         description: error.message || "Failed to cancel subscription",
         variant: "destructive",
       });
+    },
+  });
+
+  const cancelAddonMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/cancel-addon");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Code Studio Cancelled", description: "Your Code Studio add-on has been cancelled." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to cancel add-on", variant: "destructive" });
     },
   });
 
@@ -394,6 +410,30 @@ export default function AISettings() {
                   </CardContent>
                 </Card>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Code Studio Add-on Management */}
+        {user?.codeStudioAddon && (
+          <div className="mt-10">
+            <div className={`border-t ${isDark ? 'border-gray-800' : 'border-gray-200'} pt-8`}>
+              <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                <Code2 className="h-5 w-5 text-green-400" />
+                Code Studio Add-on
+              </h3>
+              <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                You have an active Code Studio add-on ($10/month). Cancel to stop future billing — your access remains until the billing period ends.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => cancelAddonMutation.mutate()}
+                disabled={cancelAddonMutation.isPending}
+                className={`${isDark ? 'border-orange-800 text-orange-400 hover:bg-orange-950 hover:text-orange-300' : 'border-orange-300 text-orange-600 hover:bg-orange-50'}`}
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                {cancelAddonMutation.isPending ? "Cancelling..." : "Cancel Code Studio Add-on"}
+              </Button>
             </div>
           </div>
         )}

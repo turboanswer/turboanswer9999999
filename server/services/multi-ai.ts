@@ -50,6 +50,28 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   },
 };
 
+function classifyQueryComplexity(message: string): 'simple' | 'complex' {
+  const msg = message.trim();
+  const msgLower = msg.toLowerCase();
+  const len = msg.length;
+
+  if (len < 25) return 'simple';
+
+  if (/```|`[^`]{10,}`|\bfunction\s*[\w(]|\bconst\s+\w+\s*=\s*(async\s*)?\(|\bdef\s+\w|\bclass\s+\w|\b#include|\bfor\s*\(|\bwhile\s*\(/.test(msg)) return 'complex';
+
+  if (/\b(?:1\.|2\.|3\.|first[,\s]|second[,\s]|step\s+1\b|and\s+also\b|furthermore\b|additionally\b|moreover\b)/.test(msgLower)) return 'complex';
+
+  if (/\b(?:implement|algorithm|architecture|optimize|refactor|debug\s+(?:this|my)|analyze|analyse|compare\s+and|explain\s+(?:in\s+detail|how|why|the\s+difference)|write\s+a\s+(?:function|class|program|script|app|test)|design\s+(?:a|the|an))\b/.test(msgLower)) return 'complex';
+
+  if (len > 220) return 'complex';
+
+  if (/^(?:what\s+is\b|what'?s\b|who\s+(?:is|was)\b|where\s+is\b|when\s+(?:is|did|was)\b|how\s+(?:much|many|old)\b|define\b|capital\s+of\b|meaning\s+of\b|translate\b)/.test(msgLower)) return 'simple';
+
+  if (/^(?:hi\b|hello\b|hey\b|thanks\b|thank\s+you\b|ok\b|okay\b|sure\b|yes\b|no\b|bye\b|good\s+(?:morning|afternoon|evening)\b|how\s+are\s+you\b|can\s+you\s+help\b)/.test(msgLower)) return 'simple';
+
+  return 'simple';
+}
+
 export async function generateAIResponse(
   userMessage: string,
   conversationHistory: Array<{role: string, content: string}> = [],
@@ -106,11 +128,19 @@ export async function generateAIResponse(
     let temperature: number;
 
     if (selectedModel === 'claude-research' || selectedModel === 'enterprise-research') {
-      // Research / Enterprise tier → Gemini 3.1 Pro, always maximum depth
-      geminiModel = 'gemini-3.1-pro-preview';
-      maxTokens = 8192;
-      temperature = 0.1;
-      systemPrompt = `You are Turbo Answer Research, powered by Gemini 3.1 Pro — the most capable AI on this platform. Give thorough, expert-level responses on every topic. Always:
+      const complexity = classifyQueryComplexity(userMessage);
+      if (complexity === 'simple') {
+        // Simple queries get Flash Lite — same answer quality, much lower cost
+        geminiModel = 'gemini-3.1-flash-lite-preview';
+        maxTokens = 2000;
+        temperature = 0.4;
+        systemPrompt = `You are Turbo Answer Research. Give clear, direct, helpful responses. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+      } else {
+        // Complex queries → Gemini 3.1 Pro, full depth
+        geminiModel = 'gemini-3.1-pro-preview';
+        maxTokens = 8192;
+        temperature = 0.1;
+        systemPrompt = `You are Turbo Answer Research, powered by Gemini 3.1 Pro — the most capable AI on this platform. Give thorough, expert-level responses on every topic. Always:
 - Answer the question directly and completely
 - Use clear structure (headings, bullets) for complex topics
 - For code: provide working, well-commented examples with explanations
@@ -118,6 +148,7 @@ export async function generateAIResponse(
 - For analysis: go in depth, cover edge cases, provide actionable insights
 - Calibrate response length to the question — detailed for complex topics, concise for simple ones
 Only mention that TurboAnswer was developed by Tiago Tschantret if directly asked.${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+      }
     } else if (selectedModel === 'gemini-pro') {
       // Pro tier ($6.99) → Gemini 3.1 Flash
       geminiModel = 'gemini-3.1-flash-lite-preview';

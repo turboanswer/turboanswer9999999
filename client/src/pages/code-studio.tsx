@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Editor from "@monaco-editor/react";
 import { useLocation } from "wouter";
 import { useTheme } from "@/hooks/use-theme";
@@ -9,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Play, Save, Rocket, ChevronLeft, Plus, Trash2, Globe, Copy,
   Code2, Eye, Terminal, Loader2, FileCode, FolderOpen, Sparkles,
-  Send, RefreshCw, X, ExternalLink, Check, Monitor, Wand2, Zap,
+  Send, RefreshCw, X, ExternalLink, Check, Monitor, Wand2, Zap, Lock,
 } from "lucide-react";
 import type { CodeProject } from "@shared/schema";
 
@@ -67,7 +69,7 @@ type AiMsg = { role: "user" | "assistant"; content: string };
 export default function CodeStudio() {
   const [, navigate] = useLocation();
   const { theme } = useTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const isDark = theme === "dark";
 
@@ -131,6 +133,42 @@ export default function CodeStudio() {
   }, [files, mainLang]);
 
   useEffect(() => { aiEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
+
+  // Handle addon activation redirect from PayPal
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('addon') === 'activated') {
+      const subId = params.get('subscription_id');
+      if (subId) {
+        fetch('/api/confirm-addon-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscriptionId: subId }),
+          credentials: 'include',
+        }).then(r => r.json()).then(d => {
+          if (d.success) {
+            queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+            toast({ title: 'Code Studio Activated!', description: 'Your add-on is now active. Enjoy building!' });
+          } else {
+            toast({ title: 'Activation issue', description: d.error || 'Please contact support.', variant: 'destructive' });
+          }
+          window.history.replaceState({}, '', '/code-studio');
+        }).catch(() => {});
+      } else {
+        window.history.replaceState({}, '', '/code-studio');
+      }
+    }
+  }, []);
+
+  const addonMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/create-addon-subscription'),
+    onSuccess: (data: any) => {
+      if (data.url) window.location.href = data.url;
+    },
+    onError: (e: any) => {
+      toast({ title: 'Error', description: e.message || 'Could not start checkout', variant: 'destructive' });
+    },
+  });
 
   async function loadProjects() {
     try {
@@ -400,6 +438,59 @@ export default function CodeStudio() {
           <Code2 className="h-12 w-12 text-violet-500 mx-auto mb-4" />
           <h2 className={`text-xl font-bold mb-4 ${text}`}>Sign in to use Code Studio</h2>
           <Button onClick={() => navigate("/login")} className="bg-violet-600 hover:bg-violet-700">Sign In</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authLoading && !user?.codeStudioAddon) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-4 ${bg}`}>
+        <div className="max-w-md w-full text-center">
+          <div className="relative mb-6 inline-block">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center mx-auto shadow-2xl shadow-green-500/30">
+              <Code2 className="h-10 w-10 text-white" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-yellow-500 flex items-center justify-center border-2 border-[#0d1117]">
+              <Lock className="h-3.5 w-3.5 text-black" />
+            </div>
+          </div>
+          <h1 className={`text-2xl font-bold mb-2 ${text}`}>Code Studio</h1>
+          <p className={`text-sm mb-6 ${muted}`}>Full-featured AI IDE — build, run, and deploy apps with one prompt</p>
+          <div className={`rounded-xl border p-5 mb-6 text-left ${isDark ? 'bg-[#111120] border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+            <div className="text-xs font-semibold uppercase tracking-widest text-green-400 mb-3">What you get</div>
+            {[
+              "AI generates full apps from a single prompt",
+              "Monaco editor (VS Code engine) with multi-file support",
+              "Live preview for HTML/CSS/JS projects",
+              "Run Python, JS, TypeScript, Java, Go, Rust & more",
+              "Deploy projects to a public shareable URL",
+              "Gemini 3.1 Pro AI for code generation & debugging",
+            ].map(f => (
+              <div key={f} className="flex items-start gap-2 mb-2">
+                <Check className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
+                <span className={`text-sm ${text}`}>{f}</span>
+              </div>
+            ))}
+          </div>
+          <div className={`rounded-xl border p-4 mb-5 flex items-center justify-between ${isDark ? 'bg-[#0d1a0d] border-green-500/20' : 'bg-green-50 border-green-200'}`}>
+            <div>
+              <div className={`text-xs ${muted} mb-0.5`}>Add-on for any plan</div>
+              <div className={`text-2xl font-bold ${text}`}>$10 <span className={`text-sm font-normal ${muted}`}>/ month</span></div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-green-400 font-medium">Cancel anytime</div>
+              <div className={`text-xs ${muted}`}>Separate from main plan</div>
+            </div>
+          </div>
+          <Button
+            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold py-3 text-base"
+            onClick={() => addonMutation.mutate()}
+            disabled={addonMutation.isPending}
+          >
+            {addonMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting to PayPal…</> : 'Add Code Studio — $10/mo'}
+          </Button>
+          <p className={`text-xs mt-3 ${muted}`}>Secure payment via PayPal. Your main subscription is unaffected.</p>
         </div>
       </div>
     );

@@ -55,6 +55,8 @@ export const users = pgTable("users", {
   passwordResetVerified: boolean("password_reset_verified").default(false),
   passwordResetVerifiedExpires: timestamp("password_reset_verified_expires"),
   isBetaTester: boolean("is_beta_tester").default(false),
+  codeStudioAddon: boolean("code_studio_addon").default(false),
+  codeStudioAddonSubId: text("code_studio_addon_sub_id"),
 });
 
 export type UpsertUser = typeof users.$inferInsert;

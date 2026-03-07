@@ -346,6 +346,106 @@ export async function refundCapture(captureId: string, amount?: { value: string;
   return res.json();
 }
 
+let codeStudioAddonPlanId: string | null = null;
+
+export async function getOrCreateAddonPlan(): Promise<string> {
+  if (codeStudioAddonPlanId) return codeStudioAddonPlanId;
+
+  const plans = await paypalRequest("GET", "/v1/billing/plans?page_size=20&page=1&total_required=true");
+
+  for (const plan of plans.plans || []) {
+    if (plan.status !== "ACTIVE" || plan.name !== "Turbo Answer Code Studio") continue;
+    try {
+      const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
+      const regularCycle = details?.billing_cycles?.find((c: any) => c.tenure_type === "REGULAR");
+      const price = regularCycle?.pricing_scheme?.fixed_price?.value;
+      if (price && parseFloat(price) === 10) {
+        codeStudioAddonPlanId = plan.id;
+        console.log("[PayPal] Found existing Code Studio add-on plan:", codeStudioAddonPlanId);
+        return codeStudioAddonPlanId;
+      } else {
+        await paypalRequest("POST", `/v1/billing/plans/${plan.id}/deactivate`, {}).catch(() => {});
+      }
+    } catch {
+      codeStudioAddonPlanId = plan.id;
+      return codeStudioAddonPlanId;
+    }
+  }
+
+  let productId: string | null = null;
+  const products = await paypalRequest("GET", "/v1/catalogs/products?page_size=20&page=1&total_required=true");
+  for (const product of products.products || []) {
+    if (product.name === "TurboAnswer AI") { productId = product.id; break; }
+  }
+  if (!productId) {
+    const product = await paypalRequest("POST", "/v1/catalogs/products", {
+      name: "TurboAnswer AI",
+      description: "AI-powered assistant with multiple subscription tiers",
+      type: "SERVICE",
+      category: "SOFTWARE",
+    });
+    productId = product.id;
+  }
+
+  const plan = await paypalRequest("POST", "/v1/billing/plans", {
+    product_id: productId,
+    name: "Turbo Answer Code Studio",
+    description: "Code Studio add-on — Full AI-powered IDE. $10/month add-on for any plan.",
+    status: "ACTIVE",
+    billing_cycles: [
+      {
+        frequency: { interval_unit: "MONTH", interval_count: 1 },
+        tenure_type: "REGULAR",
+        sequence: 1,
+        total_cycles: 0,
+        pricing_scheme: { fixed_price: { value: "10.00", currency_code: "USD" } },
+      },
+    ],
+    payment_preferences: {
+      auto_bill_outstanding: true,
+      payment_failure_threshold: 3,
+      setup_fee: { value: "0", currency_code: "USD" },
+      setup_fee_failure_action: "CONTINUE",
+    },
+  });
+  codeStudioAddonPlanId = plan.id;
+  console.log("[PayPal] Created Code Studio add-on plan:", codeStudioAddonPlanId);
+  return codeStudioAddonPlanId;
+}
+
+export async function createAddonSubscription(
+  userEmail: string | null,
+  userId: string,
+  returnUrl: string,
+  cancelUrl: string,
+): Promise<{ subscriptionId: string; approvalUrl: string }> {
+  const planId = await getOrCreateAddonPlan();
+
+  const body: any = {
+    plan_id: planId,
+    application_context: {
+      brand_name: "TurboAnswer",
+      locale: "en-US",
+      shipping_preference: "NO_SHIPPING",
+      user_action: "SUBSCRIBE_NOW",
+      payment_method: {
+        payer_selected: "PAYPAL",
+        payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED",
+      },
+      return_url: returnUrl,
+      cancel_url: cancelUrl,
+    },
+    custom_id: JSON.stringify({ userId, tier: "code-studio-addon" }),
+  };
+
+  if (userEmail) body.subscriber = { email_address: userEmail };
+
+  const subscription = await paypalRequest("POST", "/v1/billing/subscriptions", body);
+  const approvalUrl = subscription.links?.find((l: any) => l.rel === "approve")?.href;
+  if (!approvalUrl) throw new Error("No approval URL returned from PayPal for add-on");
+  return { subscriptionId: subscription.id, approvalUrl };
+}
+
 export function getPayPalClientId(): string {
   return PAYPAL_CLIENT_ID;
 }
