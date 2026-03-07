@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import lockdownRobotImg from '@assets/lockdown-robot.png';
 
 // ── Scenario definitions ────────────────────────────────────────────────────
 export type LockdownScenario = 'system_failure' | 'security_breach' | 'public_safety' | 'malfunction';
@@ -144,20 +143,22 @@ function buildHorrorAlarm(ctx: AudioContext): () => void {
 }
 
 // ── Pick the deepest male voice available ──────────────────────────────────
+const FEMALE_NAMES = /female|samantha|victoria|karen|moira|tessa|fiona|veena|susan|allison|ava|evelyn|sara|siri|zira|cortana|hazel|kate|serena|amelie|anna|laura|alice|nora|sarah|joana|helena|sandy|ellen/i;
+const MALE_PRIORITY = /google uk english male|google us english|microsoft david|microsoft mark|microsoft james|microsoft richard|daniel|fred|thomas|alex|oliver|bruce|albert|ralph|aaron|arthur|lee|rishi|luca|reed/i;
+
 function pickMaleVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
-  // Named male voices (most reliable)
-  const named = voices.find(v =>
-    /google uk english male|daniel|fred|thomas|alex|oliver|bruce|albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|junior|kathy|pipe organ|ralph|trinoids|whisper|zarvox/i.test(v.name)
-    && !/female/i.test(v.name)
-  );
-  if (named) return named;
-  // Any English voice that isn't explicitly female
-  const english = voices.find(v =>
-    /en[-_]/i.test(v.lang) &&
-    !/female|samantha|victoria|karen|moira|tessa|fiona|veena|susan|allison|ava|evelyn|sara|siri/i.test(v.name)
-  );
-  return english || voices[0] || null;
+  // Priority 1: explicitly named male voices
+  const priority = voices.find(v => MALE_PRIORITY.test(v.name) && !FEMALE_NAMES.test(v.name));
+  if (priority) return priority;
+  // Priority 2: any voice with "male" in name
+  const namedMale = voices.find(v => /\bmale\b/i.test(v.name));
+  if (namedMale) return namedMale;
+  // Priority 3: any English voice that isn't on the female list
+  const english = voices.find(v => /^en[-_]/i.test(v.lang) && !FEMALE_NAMES.test(v.name));
+  if (english) return english;
+  // Fallback: any voice that isn't on the female list
+  return voices.find(v => !FEMALE_NAMES.test(v.name)) || voices[0] || null;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -270,44 +271,154 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-      style={{ background: '#000000' }}
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
+      style={{ background: 'radial-gradient(ellipse at 50% 0%, #1a0000 0%, #000000 60%)' }}
       onClick={handleUserGesture}
     >
-      {/* Fallen robot illustration */}
-      <div style={{ position: 'relative', marginBottom: '2rem' }}>
-        <img
-          src={lockdownRobotImg}
-          alt="System failure"
-          style={{
-            width: 'min(320px, 70vw)',
-            borderRadius: '12px',
-            boxShadow: '0 0 60px rgba(200,0,0,0.4), 0 0 120px rgba(180,0,0,0.2)',
-            filter: 'brightness(0.9) contrast(1.1)',
-          }}
-        />
-        {/* Red pulsing glow overlay */}
-        <div style={{
-          position: 'absolute', inset: 0, borderRadius: '12px',
-          background: 'radial-gradient(ellipse at center, rgba(200,0,0,0.15) 0%, transparent 70%)',
-          animation: 'pulse 2s ease-in-out infinite',
-        }} />
-      </div>
-      <style>{`@keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }`}</style>
+      <style>{`
+        @keyframes tearDrip { 0%{opacity:0;transform:scaleY(0.2) translateY(0)} 20%{opacity:0.9} 80%{opacity:0.7} 100%{opacity:0;transform:scaleY(1.2) translateY(18px)} }
+        @keyframes tearDrip2 { 0%{opacity:0;transform:scaleY(0.2) translateY(0)} 15%{opacity:0.8} 85%{opacity:0.5} 100%{opacity:0;transform:scaleY(1.4) translateY(22px)} }
+        @keyframes redPulse { 0%,100%{opacity:0.25} 50%{opacity:0.55} }
+        @keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+        @keyframes blinkDot { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+      `}</style>
 
-      {/* Text */}
-      <div className="flex flex-col items-center text-center px-8 max-w-lg mx-auto gap-5">
+      {/* Scanline overlay for CRT/emergency feel */}
+      <div style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none', background:'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)' }} />
+
+      {/* Top emergency bar */}
+      <div style={{ position:'fixed', top:0, left:0, right:0, zIndex:10, padding:'10px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(180,0,0,0.12)', borderBottom:'1px solid rgba(180,0,0,0.3)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+          <span style={{ display:'inline-block', width:'8px', height:'8px', borderRadius:'50%', background:'#cc0000', animation:'blinkDot 1s step-end infinite' }} />
+          <span style={{ fontFamily:'monospace', fontSize:'0.65rem', color:'rgba(200,0,0,0.8)', letterSpacing:'0.2em', textTransform:'uppercase' }}>Emergency Alert System — TurboAnswer Platform</span>
+        </div>
+        <span style={{ fontFamily:'monospace', fontSize:'0.6rem', color:'rgba(180,0,0,0.5)', letterSpacing:'0.15em' }}>INCIDENT ACTIVE</span>
+      </div>
+
+      {/* Robot SVG */}
+      <svg
+        viewBox="0 0 420 340"
+        style={{ width: 'min(400px, 78vw)', marginBottom: '1.5rem', overflow: 'visible', position:'relative', zIndex:1 }}
+        aria-hidden="true"
+      >
+        {/* Floor shadow */}
+        <ellipse cx="210" cy="330" rx="130" ry="10" fill="rgba(200,0,0,0.07)" />
+
+        <g transform="rotate(28, 210, 200)">
+          {/* Legs */}
+          <rect x="148" y="258" width="30" height="72" rx="7" fill="#1c1c1c" stroke="#333" strokeWidth="1.5" transform="rotate(-18, 163, 294)" />
+          <rect x="148" y="322" width="30" height="14" rx="4" fill="#222" stroke="#3a3a3a" strokeWidth="1.5" transform="rotate(-18, 163, 329)" />
+          <rect x="182" y="260" width="30" height="72" rx="7" fill="#1c1c1c" stroke="#333" strokeWidth="1.5" transform="rotate(22, 197, 296)" />
+          <rect x="182" y="324" width="30" height="14" rx="4" fill="#222" stroke="#3a3a3a" strokeWidth="1.5" transform="rotate(22, 197, 331)" />
+          {/* Hip joints */}
+          <circle cx="162" cy="262" r="9" fill="#131313" stroke="#333" strokeWidth="1.5" />
+          <circle cx="198" cy="264" r="9" fill="#131313" stroke="#333" strokeWidth="1.5" />
+
+          {/* Torso */}
+          <rect x="130" y="155" width="100" height="108" rx="12" fill="#181818" stroke="#353535" strokeWidth="2" />
+          {/* Open chest panel */}
+          <rect x="136" y="165" width="82" height="86" rx="5" fill="#040c04" stroke="#1a3a1a" strokeWidth="1" />
+          {/* Circuit traces */}
+          <line x1="146" y1="178" x2="208" y2="178" stroke="#00bb4d" strokeWidth="1.2" opacity="0.65" />
+          <line x1="146" y1="188" x2="190" y2="188" stroke="#00bb4d" strokeWidth="1" opacity="0.45" />
+          <line x1="158" y1="178" x2="158" y2="238" stroke="#00bb4d" strokeWidth="1" opacity="0.55" />
+          <line x1="178" y1="188" x2="178" y2="235" stroke="#00bb4d" strokeWidth="1" opacity="0.38" />
+          <line x1="195" y1="178" x2="195" y2="220" stroke="#00bb4d" strokeWidth="1" opacity="0.48" />
+          <rect x="165" y="198" width="22" height="14" rx="2" fill="#001a00" stroke="#00bb4d" strokeWidth="1" opacity="0.65" />
+          <circle cx="158" cy="178" r="3.5" fill="#00bb4d" opacity="0.85" />
+          <circle cx="178" cy="188" r="3.5" fill="#00bb4d" opacity="0.65" />
+          <circle cx="195" cy="178" r="3" fill="#00bb4d" opacity="0.75" />
+          {/* Damaged indicator — red */}
+          <circle cx="200" cy="215" r="5" fill="#cc0000" opacity="0.9" />
+          <circle cx="200" cy="215" r="8" fill="none" stroke="#cc0000" strokeWidth="1" opacity="0.3" style={{animation:'redPulse 1.8s ease-in-out infinite'}} />
+
+          {/* Arms */}
+          <rect x="52" y="148" width="78" height="24" rx="9" fill="#1c1c1c" stroke="#333" strokeWidth="1.5" transform="rotate(-30, 130, 160)" />
+          <rect x="40" y="138" width="18" height="24" rx="6" fill="#222" stroke="#3a3a3a" strokeWidth="1.5" transform="rotate(-30, 49, 150)" />
+          <rect x="230" y="158" width="78" height="24" rx="9" fill="#1c1c1c" stroke="#333" strokeWidth="1.5" transform="rotate(18, 230, 170)" />
+          <rect x="304" y="160" width="18" height="24" rx="6" fill="#222" stroke="#3a3a3a" strokeWidth="1.5" transform="rotate(18, 313, 172)" />
+          {/* Shoulder joints */}
+          <circle cx="130" cy="162" r="11" fill="#131313" stroke="#3a3a3a" strokeWidth="1.5" />
+          <circle cx="230" cy="170" r="11" fill="#131313" stroke="#3a3a3a" strokeWidth="1.5" />
+
+          {/* Neck */}
+          <rect x="153" y="144" width="28" height="14" rx="5" fill="#181818" stroke="#333" strokeWidth="1.5" />
+
+          {/* Head */}
+          <rect x="133" y="80" width="94" height="68" rx="12" fill="#181818" stroke="#353535" strokeWidth="2" />
+          {/* Eye visor bar */}
+          <rect x="142" y="98" width="76" height="22" rx="6" fill="#180000" stroke="#2a0000" strokeWidth="1" />
+          {/* Left eye — dead/off */}
+          <rect x="146" y="101" width="22" height="16" rx="4" fill="#1a0000" opacity="0.6" />
+          {/* Right eye — glowing red */}
+          <rect x="192" y="101" width="22" height="16" rx="4" fill="#5a0000" opacity="0.9" />
+          <rect x="196" y="104" width="14" height="10" rx="2" fill="#cc0000" opacity="0.7" />
+          {/* Right eye glow */}
+          <rect x="192" y="101" width="22" height="16" rx="4" fill="none" stroke="#ff2200" strokeWidth="1" opacity="0.5" style={{animation:'redPulse 2s ease-in-out infinite'}} />
+
+          {/* RED TEARS — left eye (dim, barely alive) */}
+          <ellipse cx="157" cy="120" rx="2.5" ry="4" fill="#8b0000" opacity="0.7" style={{animation:'tearDrip 3.2s ease-in 1.4s infinite'}} />
+          <ellipse cx="155" cy="128" rx="1.8" ry="3" fill="#8b0000" opacity="0.5" style={{animation:'tearDrip 3.2s ease-in 2.1s infinite'}} />
+          {/* RED TEARS — right eye (brighter, active) */}
+          <ellipse cx="203" cy="119" rx="3" ry="5" fill="#cc0000" opacity="0.85" style={{animation:'tearDrip 2.8s ease-in 0s infinite'}} />
+          <ellipse cx="206" cy="127" rx="2" ry="3.5" fill="#cc0000" opacity="0.65" style={{animation:'tearDrip2 2.8s ease-in 0.7s infinite'}} />
+          <ellipse cx="201" cy="130" rx="1.5" ry="2.5" fill="#aa0000" opacity="0.5" style={{animation:'tearDrip2 3.5s ease-in 1.8s infinite'}} />
+
+          {/* Mouth — flat grim line */}
+          <rect x="155" y="130" width="50" height="8" rx="3" fill="#101010" stroke="#2a2a2a" strokeWidth="1" />
+          <line x1="165" y1="130" x2="165" y2="138" stroke="#181818" strokeWidth="1.5" />
+          <line x1="175" y1="130" x2="175" y2="138" stroke="#181818" strokeWidth="1.5" />
+          <line x1="185" y1="130" x2="185" y2="138" stroke="#181818" strokeWidth="1.5" />
+          <line x1="195" y1="130" x2="195" y2="138" stroke="#181818" strokeWidth="1.5" />
+
+          {/* Antenna — bent/broken */}
+          <line x1="180" y1="80" x2="176" y2="58" stroke="#333" strokeWidth="3.5" strokeLinecap="round" />
+          <line x1="176" y1="58" x2="160" y2="44" stroke="#2a2a2a" strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="160" cy="43" r="5" fill="#222" stroke="#444" strokeWidth="1.5" />
+          {/* Broken antenna spark */}
+          <circle cx="176" cy="58" r="3" fill="#cc0000" opacity="0.6" style={{animation:'blinkDot 0.9s step-end infinite'}} />
+        </g>
+
+        {/* Electric bolt — outside rotation */}
+        <g>
+          <polyline points="108,188 88,205 112,216 85,238 114,234 92,262" stroke="#FFD700" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.12" />
+          <polyline points="108,188 88,205 112,216 85,238 114,234 92,262" stroke="#FFD700" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.3" />
+          <polyline points="108,188 88,205 112,216 85,238 114,234 92,262" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.9" />
+          <polyline points="108,188 88,205 112,216 85,238 114,234 92,262" stroke="#FFD700" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.75" />
+          <line x1="88" y1="205" x2="72" y2="196" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+          <line x1="88" y1="205" x2="74" y2="218" stroke="#FFD700" strokeWidth="1.5" strokeLinecap="round" opacity="0.65" />
+          <line x1="85" y1="238" x2="66" y2="232" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+          <line x1="85" y1="238" x2="70" y2="250" stroke="#FFE066" strokeWidth="1.5" strokeLinecap="round" opacity="0.55" />
+          <line x1="92" y1="262" x2="76" y2="270" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" opacity="0.75" />
+          <circle cx="70" cy="196" r="2.5" fill="#FFD700" opacity="0.9" />
+          <circle cx="63" cy="233" r="2" fill="#FFE066" opacity="0.8" />
+          <circle cx="74" cy="271" r="2.5" fill="#FFD700" opacity="0.7" />
+        </g>
+      </svg>
+
+      {/* Text block */}
+      <div className="flex flex-col items-center text-center px-8 max-w-lg mx-auto gap-4" style={{ position:'relative', zIndex:1 }}>
+        {/* Scenario label */}
+        <div style={{ fontFamily:'monospace', fontSize:'0.65rem', color:'rgba(200,0,0,0.7)', letterSpacing:'0.25em', textTransform:'uppercase', padding:'4px 12px', border:'1px solid rgba(180,0,0,0.3)', borderRadius:'3px' }}>
+          {(SCENARIOS[scenario as LockdownScenario] ?? SCENARIOS.system_failure).label}
+        </div>
+
         <h1
           className="font-black uppercase tracking-widest"
-          style={{ fontSize: 'clamp(1.8rem, 4.5vw, 3rem)', color: '#ffffff', lineHeight: 1.1 }}
+          style={{ fontSize: 'clamp(1.6rem, 4vw, 2.6rem)', color: '#ffffff', lineHeight: 1.1, textShadow: '0 0 40px rgba(200,0,0,0.5)' }}
         >
           {sc.heading}
         </h1>
-        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '1rem', lineHeight: 1.7 }}>
+
+        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.95rem', lineHeight: 1.75, maxWidth: '420px' }}>
           {sc.body}
         </p>
-        <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: '0.75rem', letterSpacing: '0.15em', fontFamily: 'monospace' }}>
-          support@turboanswer.it.com · 866-467-7269
+
+        {/* Divider */}
+        <div style={{ width:'100%', maxWidth:'320px', height:'1px', background:'linear-gradient(90deg, transparent, rgba(180,0,0,0.4), transparent)' }} />
+
+        <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: '0.72rem', letterSpacing: '0.14em', fontFamily: 'monospace' }}>
+          support@turboanswer.it.com &nbsp;·&nbsp; 866-467-7269
         </p>
       </div>
     </div>
