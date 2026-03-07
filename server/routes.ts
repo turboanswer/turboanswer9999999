@@ -3020,6 +3020,108 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
   });
 
   // ── Code Studio ──────────────────────────────────────────────────────────
+
+  // AI-generate a complete project from a single prompt
+  app.post('/api/code/ai-generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { prompt } = req.body;
+      if (!prompt?.trim()) return res.status(400).json({ error: 'Prompt required' });
+
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
+
+      const systemPrompt = `You are Turbo Code, an expert full-stack developer. Given a user's idea, you generate a complete, fully working, beautiful app.
+
+CRITICAL: You must respond with ONLY valid JSON. No markdown, no explanation, just the JSON object.
+
+Decide the best technology:
+- Use "html" (mainLanguage) for visual apps, games, UI tools, dashboards, calculators, clocks, timers, etc. → produce index.html + style.css + script.js
+- Use "python" for data processing, algorithms, scripts, math tools
+- Use "javascript" for Node.js CLIs or utility scripts
+
+JSON format:
+{
+  "projectName": "Short descriptive name",
+  "mainLanguage": "html",
+  "description": "One-line description",
+  "files": [
+    { "name": "index.html", "language": "html", "content": "full file content" },
+    { "name": "style.css", "language": "css", "content": "full file content" },
+    { "name": "script.js", "language": "javascript", "content": "full file content" }
+  ]
+}
+
+Requirements for HTML/CSS/JS apps:
+- Use a stunning dark theme by default with gradients, glassmorphism, and smooth animations
+- Make the app fully functional — every button/feature must work
+- Write clean, well-commented JavaScript
+- CSS: use CSS custom properties, flexbox/grid, keyframe animations, hover effects
+- HTML: proper semantic structure, link style.css and script.js as separate files
+- Do NOT inline CSS or JS in the HTML — keep them as separate files and use <link> and <script src=""> tags
+
+Make the code production-quality and impressive. The user is building a real app.`;
+
+      const userPrompt = `Build this app: ${prompt.trim()}`;
+
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${systemPrompt}\n\nUser request: ${userPrompt}` }] }],
+          generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+
+      let rawText = '';
+      if (!resp.ok) {
+        // Fallback to flash
+        const fr = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${systemPrompt}\n\nUser request: ${userPrompt}` }] }],
+            generationConfig: { temperature: 0.4, maxOutputTokens: 4096 },
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+        const fd: any = await fr.json();
+        rawText = fd.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      } else {
+        const d: any = await resp.json();
+        rawText = d.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      }
+
+      // Clean and parse JSON (strip markdown code fences if present)
+      const cleaned = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      let generated: any;
+      try {
+        generated = JSON.parse(cleaned);
+      } catch {
+        return res.status(502).json({ error: 'AI returned invalid JSON. Please try again.' });
+      }
+
+      if (!generated.files?.length) return res.status(502).json({ error: 'AI did not return any files. Please try again.' });
+
+      // Save as new project
+      const { db } = await import('./db');
+      const { codeProjects } = await import('../shared/schema');
+      const [project] = await db.insert(codeProjects).values({
+        userId,
+        name: generated.projectName || prompt.slice(0, 40),
+        description: generated.description || '',
+        files: generated.files,
+        mainLanguage: generated.mainLanguage || 'html',
+        isPublished: false,
+      }).returning();
+
+      res.json({ project, files: generated.files });
+    } catch (e: any) {
+      console.error('[CodeAI] Generate error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
   const { db } = await import('./db');
   const { codeProjects } = await import('../shared/schema');
   const { eq, and } = await import('drizzle-orm');
