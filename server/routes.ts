@@ -330,18 +330,29 @@ After downloading, verify the file is exactly 4,041,426 bytes</p>
 </div></body></html>`);
   });
 
-  app.get("/robots.txt", (req, res) => {
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const robotsTxt = `User-agent: *
-Allow: /
+  function getSiteBaseUrl(req: Request): string {
+    const forwarded = req.get('x-forwarded-proto');
+    const proto = forwarded ? forwarded.split(',')[0].trim() : req.protocol;
+    const host = req.get('x-forwarded-host') || req.get('host') || '';
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1') && !host.includes('riker.replit.dev')) {
+      return `${proto}://${host}`;
+    }
+    const replitDomain = process.env.REPLIT_DOMAINS?.split(',')[0]?.trim();
+    if (replitDomain && !replitDomain.includes('riker.replit.dev')) {
+      return `https://${replitDomain}`;
+    }
+    return 'https://turbo-answer.replit.app';
+  }
 
-Sitemap: ${baseUrl}/sitemap.xml`;
+  app.get("/robots.txt", (req, res) => {
+    const baseUrl = getSiteBaseUrl(req);
+    const robotsTxt = `User-agent: *\nAllow: /\n\nSitemap: ${baseUrl}/sitemap.xml`;
     res.set("Content-Type", "text/plain");
     res.send(robotsTxt);
   });
 
   app.get("/sitemap.xml", (req, res) => {
-    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const baseUrl = getSiteBaseUrl(req);
     const today = new Date().toISOString().split("T")[0];
     const pages = [
       { loc: "/", priority: "1.0", changefreq: "daily" },
@@ -354,16 +365,10 @@ Sitemap: ${baseUrl}/sitemap.xml`;
       { loc: "/widget-demo", priority: "0.6", changefreq: "monthly" },
       { loc: "/crisis-info", priority: "0.7", changefreq: "monthly" },
     ];
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${pages.map(p => `  <url>
-    <loc>${baseUrl}${p.loc}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>${p.changefreq}</changefreq>
-    <priority>${p.priority}</priority>
-  </url>`).join("\n")}
-</urlset>`;
-    res.set("Content-Type", "application/xml");
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map(p => `  <url>\n    <loc>${baseUrl}${p.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${p.changefreq}</changefreq>\n    <priority>${p.priority}</priority>\n  </url>`).join("\n")}\n</urlset>`;
+    res.set("Content-Type", "application/xml; charset=utf-8");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("Cache-Control", "public, max-age=3600");
     res.send(xml);
   });
 
