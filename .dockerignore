@@ -7,7 +7,6 @@ dist
 android
 ios
 aab-output
-attached_assets
 *.aab
 *.apk
 *.md
