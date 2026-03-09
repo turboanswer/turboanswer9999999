@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Code, Copy, ExternalLink, MessageSquare, Zap } from 'lucide-react';
+import { ArrowLeft, Code, Copy, ExternalLink, MessageSquare, Zap } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'wouter';
 
 export default function WidgetDemo() {
   const [copied, setCopied] = useState(false);
@@ -28,8 +29,17 @@ export default function WidgetDemo() {
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* Back button */}
+        <div className="pt-4">
+          <Link href="/">
+            <Button variant="ghost" className="text-gray-400 hover:text-white gap-2">
+              <ArrowLeft className="w-4 h-4" /> Back
+            </Button>
+          </Link>
+        </div>
+
         {/* Header */}
-        <div className="text-center py-8">
+        <div className="text-center py-4">
           <h1 className="text-4xl font-bold mb-4">Turbo Answer Widget</h1>
           <p className="text-xl text-gray-400">Add AI Assistant to Any Website in 30 Seconds</p>
         </div>

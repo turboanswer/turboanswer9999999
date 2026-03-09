@@ -1,4 +1,4 @@
-import { Mail, Phone, Clock, HelpCircle } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Clock, HelpCircle } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Support() {
@@ -12,8 +12,24 @@ export default function Support() {
       <div style={{
         maxWidth: '800px',
         margin: '0 auto',
-        paddingTop: '40px'
+        paddingTop: '20px'
       }}>
+        <div style={{ marginBottom: '24px' }}>
+          <Link href="/">
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: '#9ca3af',
+              fontSize: '14px',
+              cursor: 'pointer',
+              textDecoration: 'none'
+            }}>
+              <ArrowLeft size={16} /> Back
+            </span>
+          </Link>
+        </div>
+
         <div style={{
           textAlign: 'center',
           marginBottom: '48px'
