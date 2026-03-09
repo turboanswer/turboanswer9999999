@@ -36,10 +36,12 @@ import BetaApply from "@/pages/beta-apply";
 import LockdownScreen from "@/components/lockdown-screen";
 import { primeAudioContext } from "@/lib/audio-manager";
 
+const isNativeMobile = !!(window as any).Capacitor?.isNativePlatform?.();
+
 function AuthenticatedRouter() {
   return (
     <Switch>
-      <Route path="/" component={LandingPage} />
+      <Route path="/" component={isNativeMobile ? Chat : LandingPage} />
       <Route path="/home" component={LandingPage} />
       <Route path="/chat" component={Chat} />
       <Route path="/ai-settings" component={AISettings} />
@@ -70,7 +72,7 @@ function AuthenticatedRouter() {
 function UnauthenticatedRouter() {
   return (
     <Switch>
-      <Route path="/" component={LandingPage} />
+      <Route path="/" component={isNativeMobile ? Login : LandingPage} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/pricing" component={Pricing} />

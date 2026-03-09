@@ -1,17 +1,21 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+const PRODUCTION_URL = 'https://turbo-answer.replit.app';
+
 const config: CapacitorConfig = {
   appId: 'com.turboanswer.app',
   appName: 'Turbo Answer',
   webDir: 'dist/public',
   bundledWebRuntime: false,
   server: {
+    url: PRODUCTION_URL,
     androidScheme: 'https',
-    iosScheme: 'https'
+    iosScheme: 'https',
+    cleartext: false,
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 3000,
+      launchShowDuration: 2000,
       launchAutoHide: true,
       backgroundColor: "#000000",
       androidSplashResourceName: "splash",
