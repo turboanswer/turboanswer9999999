@@ -29,12 +29,13 @@ const LANGUAGES = [
 ];
 
 const BUILD_PHASES = [
-  "✨ Reading your request...",
-  "🧠 Antigravity · Gemini 3.1 Pro is designing the app...",
-  "📝 Writing the code files...",
-  "🎨 Styling the interface...",
-  "⚡ Wiring up functionality...",
-  "🚀 Almost ready — launching preview...",
+  "🌐 Analyzing design reference...",
+  "🧠 Gemini 3.1 Pro is architecting your app...",
+  "📝 Writing code files...",
+  "🎨 Crafting the UI & animations...",
+  "⚡ Wiring up all functionality...",
+  "🚀 Auto-deploying to the web...",
+  "✅ Live and ready!",
 ];
 
 function getMonacoLang(language: string): string {
@@ -91,6 +92,7 @@ export default function CodeStudio() {
 
   // Build with AI
   const [buildPrompt, setBuildPrompt] = useState("");
+  const [referenceUrl, setReferenceUrl] = useState("");
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildPhase, setBuildPhase] = useState(0);
   const [buildingFileName, setBuildingFileName] = useState("");
@@ -206,63 +208,70 @@ export default function CodeStudio() {
     setRightPanel(isWebProject(project.mainLanguage) ? "preview" : "output");
   }
 
-  // ── One-prompt AI Build ──────────────────────────────────────────────────
-  async function buildWithAI(prompt: string) {
+  // ── One-prompt AI Build + Auto-Deploy ───────────────────────────────────
+  async function buildWithAI(prompt: string, refUrl?: string) {
     if (!prompt.trim() || isBuilding) return;
     setIsBuilding(true);
     setBuildPhase(0);
     setBuildingFileName("");
     setJustBuiltFiles(new Set());
 
-    // Cycle through build phases for visual feedback
+    // Cycle through build phases (faster when no reference URL)
+    const intervalMs = refUrl?.trim() ? 2800 : 2400;
     let phase = 0;
     buildPhaseRef.current = setInterval(() => {
       phase = Math.min(phase + 1, BUILD_PHASES.length - 1);
       setBuildPhase(phase);
-    }, 2200);
+    }, intervalMs);
 
     try {
       const res = await fetch("/api/code/ai-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ prompt: prompt.trim(), projectId: currentProject?.id }),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          projectId: currentProject?.id,
+          referenceUrl: refUrl?.trim() || undefined,
+        }),
       });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || "Build failed");
 
       clearInterval(buildPhaseRef.current!);
+      setBuildPhase(BUILD_PHASES.length - 1); // "Live and ready!"
 
       const generatedFiles: CodeFile[] = data.files;
       const project: CodeProject = data.project;
+      const liveUrl: string | null = data.publishUrl || null;
 
       setCurrentProject(project);
       setProjects(p => [project, ...p.filter(pr => pr.id !== project.id)]);
       setFiles([]);
       setActiveFile(generatedFiles[0]?.name || "");
-      setDeployUrl(null);
+      setDeployUrl(liveUrl);
       setRightPanel(isWebProject(project.mainLanguage) ? "preview" : "output");
 
       // Animate files appearing one by one
       for (let i = 0; i < generatedFiles.length; i++) {
         const file = generatedFiles[i];
         setBuildingFileName(file.name);
-        await delay(350);
+        await delay(300);
         setFiles(prev => {
           const exists = prev.find(f => f.name === file.name);
           return exists ? prev.map(f => f.name === file.name ? file : f) : [...prev, file];
         });
         setJustBuiltFiles(prev => new Set([...prev, file.name]));
-        await delay(200);
+        await delay(150);
       }
 
       setActiveFile(generatedFiles[0]?.name || "");
       setBuildingFileName("");
+      await delay(600);
       setIsBuilding(false);
 
-      // Auto-run after a short pause
-      await delay(400);
+      // Auto-run / preview
       if (isWebProject(project.mainLanguage)) {
         setLivePreview(buildSrcdoc(generatedFiles));
         setPreviewKey(k => k + 1);
@@ -272,7 +281,11 @@ export default function CodeStudio() {
       }
 
       setUnsaved(false);
-      toast({ title: "App built!", description: `"${project.name}" is ready` });
+      if (liveUrl) {
+        toast({ title: "✅ Built & Deployed!", description: `Live at ${window.location.origin}${liveUrl}` });
+      } else {
+        toast({ title: "App built!", description: `"${project.name}" is ready` });
+      }
     } catch (e: any) {
       clearInterval(buildPhaseRef.current!);
       setIsBuilding(false);
@@ -537,24 +550,28 @@ export default function CodeStudio() {
 
       {/* ── AI Build Loading Overlay ── */}
       {isBuilding && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }}>
-          <div className="text-center max-w-md px-6">
-            <div className="relative mb-6 flex items-center justify-center">
-              <div className="absolute w-24 h-24 rounded-full border-2 border-violet-500/30 animate-ping" />
-              <div className="absolute w-16 h-16 rounded-full border-2 border-violet-400/50 animate-pulse" />
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-2xl shadow-violet-500/40">
-                <Wand2 className="h-6 w-6 text-white" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}>
+          <div className="text-center max-w-lg px-8">
+            <div className="relative mb-8 flex items-center justify-center">
+              <div className="absolute w-28 h-28 rounded-full border border-violet-500/20 animate-ping" />
+              <div className="absolute w-20 h-20 rounded-full border border-cyan-400/30 animate-pulse" />
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/40">
+                <Rocket className="h-7 w-7 text-white" />
               </div>
             </div>
-            <p className="text-violet-300 font-semibold text-lg mb-2">{BUILD_PHASES[buildPhase]}</p>
+            <p className="text-white font-bold text-xl mb-2">{BUILD_PHASES[buildPhase]}</p>
             {buildingFileName && (
-              <p className="text-gray-400 text-sm">Writing <code className="text-cyan-400">{buildingFileName}</code>...</p>
+              <p className="text-gray-400 text-sm mb-2">Writing <code className="text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">{buildingFileName}</code></p>
             )}
-            <div className="mt-6 flex justify-center gap-1">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
+            {referenceUrl && buildPhase === 0 && (
+              <p className="text-cyan-400/70 text-xs mb-4">Fetching design data from {new URL(referenceUrl.startsWith('http') ? referenceUrl : 'https://' + referenceUrl).hostname}...</p>
+            )}
+            <div className="mt-4 flex items-center gap-2 justify-center">
+              {BUILD_PHASES.map((_, i) => (
+                <div key={i} className={`rounded-full transition-all duration-500 ${i <= buildPhase ? "w-2 h-2 bg-violet-400" : "w-1.5 h-1.5 bg-gray-700"}`} />
               ))}
             </div>
+            <p className="mt-4 text-gray-600 text-xs">Powered by Gemini 3.1 Pro · Auto-deploys when done</p>
           </div>
         </div>
       )}
@@ -619,12 +636,12 @@ export default function CodeStudio() {
                 <p className={`text-xs ${muted} mb-2`}>Describe changes or a new version:</p>
                 <div className="flex gap-2">
                   <Input value={rebuildPrompt} onChange={e => setRebuildPrompt(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { setShowRebuildInput(false); buildWithAI(rebuildPrompt); setRebuildPrompt(""); } }}
+                    onKeyDown={e => { if (e.key === "Enter") { setShowRebuildInput(false); buildWithAI(rebuildPrompt, referenceUrl); setRebuildPrompt(""); } }}
                     placeholder="Make it a dark theme stopwatch..."
                     className={`text-xs h-8 ${isDark ? "bg-black/20 border-white/10" : ""}`} autoFocus />
-                  <Button size="sm" onClick={() => { setShowRebuildInput(false); buildWithAI(rebuildPrompt); setRebuildPrompt(""); }}
+                  <Button size="sm" onClick={() => { setShowRebuildInput(false); buildWithAI(rebuildPrompt, referenceUrl); setRebuildPrompt(""); }}
                     className="h-8 w-8 p-0 bg-violet-600 hover:bg-violet-500 shrink-0">
-                    <Wand2 className="h-3.5 w-3.5" />
+                    <Rocket className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -642,18 +659,31 @@ export default function CodeStudio() {
           {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />} Run
         </Button>
 
-        {deployUrl && (
-          <a href={deployUrl} target="_blank" rel="noopener noreferrer"
-            className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${isDark ? "border-green-500/30 text-green-400 hover:bg-green-500/10" : "border-green-300 text-green-600 hover:bg-green-50"}`}>
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            Live
-            <ExternalLink className="h-3 w-3" />
-          </a>
+        {deployUrl ? (
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-green-500/10 border border-green-500/25">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-xs text-green-400 font-medium">Live</span>
+            </div>
+            <button onClick={copyDeployUrl} className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${isDark ? "border-white/10 text-gray-400 hover:text-white hover:bg-white/05" : "border-gray-200 text-gray-500 hover:text-gray-800"}`}>
+              {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+              <span className="max-w-[120px] truncate">{window.location.origin}{deployUrl}</span>
+            </button>
+            <a href={deployUrl} target="_blank" rel="noopener noreferrer"
+              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${isDark ? "border-white/10 text-gray-400 hover:text-violet-300" : "border-gray-200 text-gray-500 hover:text-violet-600"}`}>
+              <ExternalLink className="h-3 w-3" />
+            </a>
+            <Button size="sm" onClick={() => setShowDeploy(true)} disabled={!hasProject}
+              className="h-7 gap-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white">
+              <RefreshCw className="h-3 w-3" /> Redeploy
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" onClick={() => setShowDeploy(true)} disabled={!hasProject}
+            className="h-8 gap-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white">
+            <Rocket className="h-3.5 w-3.5" /> Deploy
+          </Button>
         )}
-        <Button size="sm" onClick={() => setShowDeploy(true)} disabled={!hasProject}
-          className="h-8 gap-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white">
-          <Rocket className="h-3.5 w-3.5" /> {deployUrl ? "Redeploy" : "Deploy"}
-        </Button>
       </div>
 
       {/* ── Main Layout ── */}
@@ -758,56 +788,77 @@ export default function CodeStudio() {
             <div className={`flex-1 flex flex-col items-center justify-center p-8 ${isDark ? "bg-[#0d0d1a]" : "bg-gray-50"}`}>
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/30">
-                    <Wand2 className="h-6 w-6 text-white" />
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 blur-xl opacity-40" />
+                    <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/40">
+                      <Wand2 className="h-7 w-7 text-white" />
+                    </div>
                   </div>
                 </div>
                 <h1 className={`text-3xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  What do you want to build?
+                  One prompt. Full app. Auto-deployed.
                 </h1>
                 <p className={`text-sm ${muted}`}>
-                  Describe your app — Antigravity (Gemini 3.1 Pro) writes all the code and builds it live
+                  Gemini 3.1 Pro writes every file, launches a live preview, and deploys it instantly
                 </p>
               </div>
 
-              <div className="w-full max-w-xl">
+              <div className="w-full max-w-2xl space-y-3">
+                {/* Main prompt */}
                 <div className={`flex gap-2 p-2 rounded-2xl border ${isDark ? "bg-white/[0.04] border-white/10" : "bg-white border-gray-200 shadow-lg"}`}>
                   <input
                     value={buildPrompt}
                     onChange={e => setBuildPrompt(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { buildWithAI(buildPrompt); setBuildPrompt(""); } }}
-                    placeholder="a stopwatch app with dark theme and animations..."
+                    onKeyDown={e => { if (e.key === "Enter" && buildPrompt.trim()) { buildWithAI(buildPrompt, referenceUrl); setBuildPrompt(""); } }}
+                    placeholder="a portfolio site with animated hero, project cards, and dark mode..."
                     className={`flex-1 bg-transparent text-sm outline-none px-2 ${isDark ? "text-gray-200 placeholder-gray-600" : "text-gray-800 placeholder-gray-400"}`}
                     autoFocus
                   />
                   <Button
-                    onClick={() => { buildWithAI(buildPrompt); setBuildPrompt(""); }}
+                    onClick={() => { buildWithAI(buildPrompt, referenceUrl); setBuildPrompt(""); }}
                     disabled={!buildPrompt.trim()}
-                    className="bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl px-4 gap-2 shrink-0">
-                    <Wand2 className="h-4 w-4" /> Build
+                    className="bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl px-5 gap-2 shrink-0 font-semibold">
+                    <Rocket className="h-4 w-4" /> Build & Deploy
                   </Button>
                 </div>
 
+                {/* Reference URL */}
+                <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${isDark ? "bg-white/[0.02] border-white/[0.06]" : "bg-white/80 border-gray-200"}`}>
+                  <Globe className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                  <input
+                    value={referenceUrl}
+                    onChange={e => setReferenceUrl(e.target.value)}
+                    placeholder="Optional: paste a website URL to copy its design (e.g. https://stripe.com)"
+                    className={`flex-1 bg-transparent text-xs outline-none ${isDark ? "text-gray-300 placeholder-gray-600" : "text-gray-600 placeholder-gray-400"}`}
+                  />
+                  {referenceUrl && (
+                    <button onClick={() => setReferenceUrl("")} className="text-gray-500 hover:text-gray-300 shrink-0">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
                 {/* Example prompts */}
-                <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                <div className="flex flex-wrap gap-2 justify-center pt-1">
                   {[
-                    "a stopwatch with laps",
+                    "a stopwatch with lap timer",
                     "a to-do list app",
                     "a snake game",
                     "a weather dashboard",
-                    "a calculator app",
+                    "a SaaS landing page",
                     "a budget tracker",
                     "a markdown preview editor",
                     "a quiz app",
+                    "a music player UI",
                   ].map(ex => (
-                    <button key={ex} onClick={() => { buildWithAI(ex); }}
+                    <button key={ex} onClick={() => buildWithAI(ex, referenceUrl)}
                       className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${isDark ? "border-white/10 text-gray-400 hover:border-violet-500/40 hover:text-violet-300 hover:bg-violet-500/10" : "border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50"}`}>
                       {ex}
                     </button>
                   ))}
                 </div>
 
-                <div className={`mt-6 text-center text-xs ${muted} flex items-center justify-center gap-2`}>
+                <div className={`pt-2 text-center text-xs ${muted} flex items-center justify-center gap-2`}>
                   <span>or</span>
                   <button onClick={() => setShowNewModal(true)} className="text-violet-400 hover:text-violet-300 underline underline-offset-2">
                     start with a blank project

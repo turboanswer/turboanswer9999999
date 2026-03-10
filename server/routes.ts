@@ -3186,36 +3186,69 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
 
   // AI-generate a complete project from a single prompt
   app.post('/api/code/ai-generate', isAuthenticated, async (req: any, res) => {
-    // Extend timeout for this heavy AI endpoint
-    res.setTimeout(115000);
+    res.setTimeout(120000);
     try {
       const userId = req.user.claims.sub;
-      const { prompt, projectId } = req.body;
+      const { prompt, projectId, referenceUrl } = req.body;
       if (!prompt?.trim()) return res.status(400).json({ error: 'Prompt required' });
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
 
-      const systemPrompt = `You are Turbo Code, an expert full-stack developer. Given a user's idea, generate a complete, fully working, beautiful app.
+      // Fetch reference website for design inspiration (best-effort, 6s timeout)
+      let designContext = '';
+      if (referenceUrl?.trim()) {
+        try {
+          const refRes = await fetch(referenceUrl.trim(), {
+            signal: AbortSignal.timeout(6000),
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TurboCode/1.0)' },
+          });
+          if (refRes.ok) {
+            const html = await refRes.text();
+            // Extract title and meta description
+            const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+            const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)/i);
+            // Extract color hints from CSS variables and inline styles
+            const colorMatches = html.match(/#[0-9a-f]{3,6}|rgb\([^)]+\)|hsl\([^)]+\)/gi) || [];
+            const uniqueColors = [...new Set(colorMatches)].slice(0, 12);
+            // Extract primary fonts
+            const fontMatches = html.match(/font-family:\s*([^;}"']+)/gi) || [];
+            const fonts = fontMatches.slice(0, 3).map(f => f.replace('font-family:', '').trim());
+            designContext = `\n\nDESIGN REFERENCE: The user wants a design inspired by: ${referenceUrl}
+Site title: ${titleMatch?.[1] || 'unknown'}
+Site description: ${descMatch?.[1] || 'unknown'}
+Dominant colors from the site: ${uniqueColors.join(', ') || 'not found'}
+Fonts used: ${fonts.join(', ') || 'not found'}
+IMPORTANT: Study these colors and replicate the visual identity, color palette, and overall feel of this reference site in your design. Match the aesthetic closely.`;
+          }
+        } catch {
+          designContext = `\n\nDESIGN REFERENCE: User wants design inspired by ${referenceUrl}. Replicate the general look, feel and color scheme you know this site has.`;
+        }
+      }
+
+      const systemPrompt = `You are Turbo Code, an elite full-stack developer and UI designer. Given a user's idea, generate a COMPLETE, fully working, visually stunning app that looks like it was built by a top design team.
 
 CRITICAL: You MUST respond with ONLY a valid JSON object. No markdown fences, no explanation text outside the JSON.
 
 Technology decision:
-- Use "html" for visual apps, games, UI tools, dashboards, calculators, clocks, timers, drawing tools, etc.
+- Use "html" for visual apps, games, UI tools, dashboards, calculators, clocks, timers, drawing tools, landing pages, portfolios, etc.
 - Use "python" for data processing, algorithms, scripts, math
 - Use "javascript" for Node.js utilities/CLIs
 
 Return this exact JSON structure:
 {"projectName":"Short name","mainLanguage":"html","description":"One line","files":[{"name":"index.html","language":"html","content":"..."},{"name":"style.css","language":"css","content":"..."},{"name":"script.js","language":"javascript","content":"..."}]}
 
-HTML/CSS/JS requirements:
-- Stunning dark theme: deep navy/purple background, neon accents, glassmorphism cards
-- Every button and feature must be fully functional
-- CSS: variables, grid/flex, keyframe animations, smooth transitions, hover effects
-- Keep CSS and JS in separate files — link via <link href="style.css"> and <script src="script.js">
-- Do NOT inline styles or scripts in the HTML file
+HTML/CSS/JS REQUIREMENTS (MANDATORY — no shortcuts):
+- ULTRA-polished design: smooth gradients, glassmorphism, neumorphism, or flat design — pick the best for the context
+- Advanced CSS: custom properties (--vars), clamp() for responsive sizing, grid + flex layouts, keyframe animations, hover/focus transitions
+- Typography: varied font weights, tracking, line-height — use Google Fonts via @import if suitable
+- Rich interactions: JavaScript must make the app fully interactive — no placeholder buttons
+- Mobile responsive: works on all screen sizes using CSS media queries or clamp()
+- Micro-animations: subtle entrance animations (fade-in, slide-up, scale) for all key elements
+- Separate files: CSS in style.css (link via <link href="style.css">), JS in script.js (link via <script src="script.js"></script>)
+- DO NOT inline styles or scripts in HTML
 
-Write production-quality, impressive code.`;
+Write world-class, production-quality code that impresses immediately.${designContext}`;
 
       async function callGemini(model: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
         try {
@@ -3223,8 +3256,8 @@ Write production-quality, impressive code.`;
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: `${systemPrompt}\n\nBuild: ${prompt.trim()}` }] }],
-              generationConfig: { temperature: 0.35, maxOutputTokens: maxTokens },
+              contents: [{ parts: [{ text: `${systemPrompt}\n\nBuild this app: ${prompt.trim()}` }] }],
+              generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens },
             }),
             signal: AbortSignal.timeout(timeoutMs),
           });
@@ -3234,7 +3267,7 @@ Write production-quality, impressive code.`;
         } catch { return null; }
       }
 
-      let rawText = await callGemini('gemini-3.1-pro-preview', 8192, 90000)
+      let rawText = await callGemini('gemini-3.1-pro-preview', 8192, 95000)
         ?? await callGemini('gemini-2.0-flash', 8192, 45000)
         ?? await callGemini('gemini-2.0-flash-lite', 4096, 30000)
         ?? '';
@@ -3290,7 +3323,21 @@ Write production-quality, impressive code.`;
         project = inserted;
       }
 
-      res.json({ project, files: generated.files });
+      // Auto-deploy the project immediately after generation
+      let publishUrl: string | null = null;
+      try {
+        const slug = project.slug || generateSlug(project.name, project.id);
+        const [deployed] = await db.update(codeProjects)
+          .set({ isPublished: true, publishedAt: new Date(), slug, updatedAt: new Date() })
+          .where(eq(codeProjects.id, project.id))
+          .returning();
+        project = deployed;
+        publishUrl = `/p/${slug}`;
+      } catch (e: any) {
+        console.log('[CodeAI] Auto-deploy skipped:', e.message);
+      }
+
+      res.json({ project, files: generated.files, publishUrl });
     } catch (e: any) {
       console.error('[CodeAI] Generate error:', e.message);
       res.status(500).json({ error: e.message });
