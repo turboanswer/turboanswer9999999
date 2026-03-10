@@ -139,19 +139,9 @@ process.on('unhandledRejection', (reason: any) => {
   });
 
   const gracefulShutdown = (signal: string) => {
-    console.log(`[Server] ${signal} received, shutting down gracefully...`);
+    console.log(`[Server] ${signal} received, exiting...`);
     stopProactiveDiagnostics();
-    server.close(() => {
-      console.log('[Server] HTTP server closed');
-      pool.end().then(() => {
-        console.log('[Server] Database pool closed');
-        process.exit(0);
-      }).catch(() => process.exit(1));
-    });
-    setTimeout(() => {
-      console.error('[Server] Forced shutdown after timeout');
-      process.exit(1);
-    }, 10000);
+    process.exit(0);
   };
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

@@ -3230,97 +3230,83 @@ IMPORTANT: Study these colors and replicate the visual identity, color palette, 
       const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const anthropicBase = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
 
-      // Build prompt — produces a SINGLE self-contained HTML file (no separate CSS/JS files needed)
-      const buildPrompt = `You are Turbo Code — a world-class UI engineer and product designer who builds apps that look like Stripe, Linear, Notion, or Apple. Every app you make is STUNNING, modern, and fully functional.
-
-RESPOND WITH ONLY VALID JSON — no markdown fences, no explanation text.
-
-JSON FORMAT:
-{"projectName":"Short App Name","mainLanguage":"html","description":"One line","files":[{"name":"index.html","language":"html","content":"<FULL SELF-CONTAINED HTML HERE>"}]}
-
-════════════════════════════════════════
-THE SINGLE index.html MUST CONTAIN:
-════════════════════════════════════════
-
-1. A <style> tag inside <head> with ALL CSS
-2. A <script> tag at end of <body> with ALL JavaScript
-3. NO external file references (no <link href>, no <script src>)
-4. Google Fonts imported inside the <style> tag:
-   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
-
-════════════════════════════════════════
-MANDATORY DESIGN SYSTEM (no exceptions):
-════════════════════════════════════════
-
-CSS VARIABLES — always define in :root:
-:root {
-  --bg: #0a0a0f;
-  --surface: #111118;
-  --surface-2: #1a1a26;
-  --border: rgba(255,255,255,0.07);
-  --border-hover: rgba(255,255,255,0.14);
-  --text: #e8e8ff;
-  --text-2: #8888aa;
-  --text-3: #55556a;
-  --accent: #7c3aed;
-  --accent-hover: #6d28d9;
-  --accent-glow: rgba(124,58,237,0.25);
-  --cyan: #06b6d4;
-  --green: #10b981;
-  --red: #ef4444;
-  --yellow: #f59e0b;
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 20px;
-  --shadow: 0 4px 24px rgba(0,0,0,0.5);
-  --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+      // CSS foundation that gets injected into every build — guarantees design system is present
+      const CSS_FOUNDATION = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#111118;--surface-2:#1a1a26;--surface-3:#222233;
+  --border:rgba(255,255,255,0.07);--border-hover:rgba(255,255,255,0.15);
+  --text:#e8e8ff;--text-2:#9999bb;--text-3:#55556a;
+  --accent:#7c3aed;--accent-2:#6d28d9;--cyan:#06b6d4;
+  --green:#10b981;--red:#ef4444;--yellow:#f59e0b;--orange:#f97316;
+  --glow:rgba(124,58,237,0.3);--glow-cyan:rgba(6,182,212,0.2);
+  --radius:12px;--radius-sm:8px;--radius-lg:20px;--radius-xl:28px;
+  --shadow:0 4px 24px rgba(0,0,0,0.5);--shadow-lg:0 20px 60px rgba(0,0,0,0.6);
+  --transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
 }
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;font-size:15px;-webkit-font-smoothing:antialiased}
+h1{font-size:clamp(2rem,5vw,3.5rem);font-weight:800;line-height:1.1;letter-spacing:-0.02em}
+h2{font-size:clamp(1.5rem,3vw,2rem);font-weight:700;line-height:1.2}
+h3{font-size:1.25rem;font-weight:600}
+h4{font-size:1rem;font-weight:600}
+button{cursor:pointer;font-family:inherit;font-size:0.9rem;font-weight:600;border:none;outline:none;transition:var(--transition)}
+input,textarea,select{font-family:inherit;font-size:0.9rem;outline:none;transition:var(--transition)}
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);transition:var(--transition)}
+.card:hover{border-color:var(--border-hover);transform:translateY(-2px);box-shadow:0 8px 40px rgba(0,0,0,0.6)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:var(--radius-sm);font-weight:600;font-size:0.875rem;transition:var(--transition);letter-spacing:0.01em}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--cyan));color:#fff;box-shadow:0 0 20px var(--glow)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 0 30px var(--glow),0 4px 20px rgba(0,0,0,0.4)}
+.btn-secondary{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--surface-3);border-color:var(--border-hover)}
+.input-field{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-size:0.9rem}
+.input-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.input-field::placeholder{color:var(--text-3)}
+.badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:600;letter-spacing:0.04em}
+.badge-accent{background:rgba(124,58,237,0.15);color:#a78bfa;border:1px solid rgba(124,58,237,0.25)}
+.badge-green{background:rgba(16,185,129,0.12);color:#34d399;border:1px solid rgba(16,185,129,0.2)}
+.badge-red{background:rgba(239,68,68,0.12);color:#f87171;border:1px solid rgba(239,68,68,0.2)}
+.gradient-text{background:linear-gradient(135deg,#a78bfa,#67e8f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.glow-line{height:1px;background:linear-gradient(90deg,transparent,var(--accent),var(--cyan),transparent)}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.animate-fadeInUp{animation:fadeInUp 0.5s ease forwards}
+.animate-scaleIn{animation:scaleIn 0.3s ease forwards}
+@media(max-width:768px){.container{padding:0 16px}h1{font-size:2rem}h2{font-size:1.5rem}}`;
 
-REQUIRED VISUAL ELEMENTS:
-• body: background var(--bg), color var(--text), font-family Inter
-• Cards: background var(--surface), border 1px solid var(--border), border-radius var(--radius), box-shadow var(--shadow)
-• Gradient hero/header: background: linear-gradient(135deg, #0a0a0f 0%, #1a0a2e 50%, #0a1a2e 100%)
-• Accent buttons: background linear-gradient(135deg, var(--accent), var(--cyan)), color white, font-weight 600, border-radius var(--radius-sm), padding 10px 20px
-• ALL transitions: transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1)
-• Hover lifts: transform translateY(-2px) + box-shadow glow
-• Entrance animations: @keyframes fadeInUp + @keyframes scaleIn on key elements
-• Radial glow behind hero: radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.15) 0%, transparent 70%)
+      // The HTML prefix we inject — contains the full design system CSS guaranteed
+      const HTML_PREFIX = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+${CSS_FOUNDATION}
+  </style>
+  <title>`;
 
-TYPOGRAPHY HIERARCHY:
-• h1: clamp(2rem, 5vw, 3.5rem), font-weight 800, line-height 1.1
-• h2: 1.75rem, font-weight 700
-• h3: 1.25rem, font-weight 600
-• body: 0.9375rem (15px), line-height 1.65
-• labels/caps: 0.75rem, font-weight 700, letter-spacing 0.08em, uppercase
+      const systemPrompt = `You are Turbo Code, an elite UI engineer who builds stunning, fully-functional web apps. You are completing an HTML document that has already started. Your output will be appended directly after "<title>". 
 
-LAYOUT:
-• max-width container: 1200px, margin auto, padding 0 24px
-• CSS Grid for card layouts: grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))
-• Flexbox for navbars/rows
-• Mobile: @media (max-width: 768px) with stacked layout
+You must output ONLY the continuation of the HTML — starting with the app title, then </title>, then complete <style>, complete <body>, and closing </html>. No markdown, no explanation, just HTML code.
 
-JAVASCRIPT — 100% FUNCTIONAL:
-• Every button/input/interaction MUST work
-• localStorage for persistence (todos, scores, notes, settings)
-• Smooth DOM manipulation (no page reloads)
-• Error states + empty states
-• For games: full game loop, scores, restart, animations
-• Real-time feedback on user actions (ripples, state updates)
+The <style> tag MUST NOT redefine what is already in the foundation CSS. You add ONLY the app-specific styles that extend the foundation classes. Use the CSS variables and utility classes already defined: .card, .btn, .btn-primary, .btn-secondary, .input-field, .container, .badge, .gradient-text, .animate-fadeInUp, .animate-scaleIn.
 
-QUALITY RULES:
-✗ NEVER placeholder text like "Lorem ipsum" or "Content here"
-✗ NEVER TODO comments or unfinished sections
-✗ NEVER blank/empty areas
-✗ NEVER basic blue buttons or default browser styles
-✓ EVERY pixel looks intentional
-✓ Feels like a $10,000 product${designContext}
+Build the app to be visually stunning — dark glassmorphism aesthetic, gradient accents, smooth animations, completely working JavaScript. Every feature must work. Use localStorage for data persistence.${designContext}`;
 
-════════════════════════════════════════
-BUILD THIS APP NOW:
-════════════════════════════════════════
-${prompt.trim()}
+      const userMessage = `Build this app: ${prompt.trim()}
 
-Make it professional, beautiful, and fully functional. The complete app in one index.html file.`;
+IMPORTANT:
+- Output starts immediately with the app title text (e.g. "Todo App</title>") 
+- Then add </title> and complete the rest of the HTML
+- The foundation CSS is already loaded — use its classes and variables
+- Add app-specific styles in a <style> tag after </title> in <head>
+- All JavaScript goes in a <script> tag before </body>
+- Make it beautiful, complete, and fully working`;
 
       async function callClaude(maxTokens: number, timeoutMs: number): Promise<string | null> {
         if (!anthropicKey) return null;
@@ -3331,23 +3317,50 @@ Make it professional, beautiful, and fully functional. The complete app in one i
             body: JSON.stringify({
               model: 'claude-opus-4-5',
               max_tokens: maxTokens,
-              messages: [{ role: 'user', content: buildPrompt }],
+              system: systemPrompt,
+              // Prefill the assistant response to force raw HTML output — Claude continues from here
+              messages: [
+                { role: 'user', content: userMessage },
+                { role: 'assistant', content: HTML_PREFIX },
+              ],
             }),
             signal: AbortSignal.timeout(timeoutMs),
           });
           if (!r.ok) { console.error('[CodeAI] Claude error:', r.status, await r.text()); return null; }
           const d: any = await r.json();
-          return d.content?.[0]?.text || null;
+          const continuation = d.content?.[0]?.text || null;
+          // Prepend our injected prefix + foundation CSS
+          if (!continuation) return null;
+          return HTML_PREFIX + continuation;
         } catch (e: any) { console.error('[CodeAI] Claude exception:', e.message); return null; }
       }
 
       async function callGemini(model: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
+        const geminiPrompt = `You are Turbo Code. Build a complete, stunning web app as a single self-contained HTML file.
+
+IMPORTANT: Output ONLY the raw HTML. Start with <!DOCTYPE html>. No markdown fences, no explanation.
+
+The HTML MUST include this exact CSS at the top of the <style> tag:
+<style>
+${CSS_FOUNDATION}
+/* YOUR APP-SPECIFIC STYLES BELOW — use the variables and classes above */
+
+</style>
+
+Build this: ${prompt.trim()}${designContext}
+
+Requirements:
+- Use Inter font (already imported above), CSS variables (--bg, --accent, --cyan etc), utility classes (.card, .btn-primary etc)
+- All JavaScript in <script> before </body>, fully working with localStorage
+- Glassmorphism cards, gradient buttons, smooth animations
+- Start output with <!DOCTYPE html> immediately`;
+
         try {
           const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: buildPrompt }] }],
+              contents: [{ parts: [{ text: geminiPrompt }] }],
               generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens },
             }),
             signal: AbortSignal.timeout(timeoutMs),
@@ -3358,8 +3371,8 @@ Make it professional, beautiful, and fully functional. The complete app in one i
         } catch { return null; }
       }
 
-      // Claude first (much better design quality), then Gemini fallbacks
-      let rawText = await callClaude(8192, 100000)
+      // Claude first (prefill technique forces correct output), then Gemini fallbacks
+      let rawText = await callClaude(10000, 110000)
         ?? await callGemini('gemini-3.1-pro-preview', 8192, 95000)
         ?? await callGemini('gemini-2.0-flash', 8192, 45000)
         ?? await callGemini('gemini-2.0-flash-lite', 4096, 30000)
@@ -3367,24 +3380,37 @@ Make it professional, beautiful, and fully functional. The complete app in one i
 
       if (!rawText) return res.status(502).json({ error: 'AI timed out. Please try a shorter description.' });
 
-      // Strip any markdown fences Gemini might add
-      const cleaned = rawText
-        .replace(/^```(?:json)?\s*/im, '')
+      // Strip any markdown fences
+      let htmlContent = rawText
+        .replace(/^```(?:html)?\s*/im, '')
         .replace(/\s*```\s*$/im, '')
         .trim();
 
-      // Extract JSON object from text in case there's leading/trailing prose
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return res.status(502).json({ error: 'AI returned unreadable output. Please try again.' });
-
-      let generated: any;
-      try {
-        generated = JSON.parse(jsonMatch[0]);
-      } catch {
-        return res.status(502).json({ error: 'AI returned malformed JSON. Please try again.' });
+      // Make sure it starts with <!DOCTYPE html> — extract if buried in prose
+      const doctypeIdx = htmlContent.indexOf('<!DOCTYPE html>');
+      if (doctypeIdx > 0) htmlContent = htmlContent.slice(doctypeIdx);
+      else if (!htmlContent.startsWith('<!DOCTYPE')) {
+        const htmlTagIdx = htmlContent.indexOf('<html');
+        if (htmlTagIdx > 0) htmlContent = htmlContent.slice(htmlTagIdx);
       }
 
-      if (!generated.files?.length) return res.status(502).json({ error: 'AI did not return any files. Please try again.' });
+      // For Gemini output, inject the CSS foundation into <head> if not already present
+      if (!htmlContent.includes('--accent:#7c3aed') && !htmlContent.includes('--accent: #7c3aed')) {
+        htmlContent = htmlContent.replace(
+          /<head([^>]*)>/i,
+          `<head$1>\n  <style>\n${CSS_FOUNDATION}\n  </style>`
+        );
+      }
+
+      if (!htmlContent || htmlContent.length < 200) {
+        return res.status(502).json({ error: 'AI returned incomplete output. Please try again.' });
+      }
+
+      // Extract project name from <title> tag
+      const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const projectName = titleMatch?.[1]?.trim() || prompt.slice(0, 50);
+
+      const generatedFiles = [{ name: 'index.html', language: 'html', content: htmlContent }];
 
       const { db } = await import('./db');
       const { codeProjects } = await import('../shared/schema');
@@ -3394,24 +3420,14 @@ Make it professional, beautiful, and fully functional. The complete app in one i
       // If projectId supplied → update existing project (rebuild)
       if (projectId) {
         const [updated] = await db.update(codeProjects)
-          .set({
-            name: generated.projectName || project?.name || prompt.slice(0, 40),
-            description: generated.description || '',
-            files: generated.files,
-            mainLanguage: generated.mainLanguage || 'html',
-            updatedAt: new Date(),
-          })
+          .set({ name: projectName, description: '', files: generatedFiles, mainLanguage: 'html', updatedAt: new Date() })
           .where(eq(codeProjects.id, parseInt(projectId)))
           .returning();
         project = updated;
       } else {
         const [inserted] = await db.insert(codeProjects).values({
-          userId,
-          name: generated.projectName || prompt.slice(0, 40),
-          description: generated.description || '',
-          files: generated.files,
-          mainLanguage: generated.mainLanguage || 'html',
-          isPublished: false,
+          userId, name: projectName, description: '',
+          files: generatedFiles, mainLanguage: 'html', isPublished: false,
         }).returning();
         project = inserted;
       }
@@ -3430,7 +3446,7 @@ Make it professional, beautiful, and fully functional. The complete app in one i
         console.log('[CodeAI] Auto-deploy skipped:', e.message);
       }
 
-      res.json({ project, files: generated.files, publishUrl });
+      res.json({ project, files: generatedFiles, publishUrl });
     } catch (e: any) {
       console.error('[CodeAI] Generate error:', e.message);
       res.status(500).json({ error: e.message });
