@@ -3697,11 +3697,6 @@ Return ONLY valid JSON (no markdown):
   // ─── Photo Editor — Enterprise exclusive ─────────────────────────────────
   app.post('/api/photo-editor/generate', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!['enterprise', 'research'].includes(user?.subscriptionTier || '')) {
-        return res.status(403).json({ error: 'Research plan or higher required for Photo Editor.' });
-      }
       const { prompt, aspectRatio = '1:1' } = req.body;
       if (!prompt) return res.status(400).json({ error: 'prompt required' });
 
@@ -3718,11 +3713,6 @@ Return ONLY valid JSON (no markdown):
 
   app.post('/api/photo-editor/edit', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!['enterprise', 'research'].includes(user?.subscriptionTier || '')) {
-        return res.status(403).json({ error: 'Research plan or higher required for Photo Editor.' });
-      }
       const { instruction, imageData, mimeType = 'image/jpeg' } = req.body;
       if (!instruction || !imageData) return res.status(400).json({ error: 'instruction and imageData required' });
 

@@ -115,21 +115,30 @@ export function applyIntrusionMiddleware(app: any) {
     data.notFounds = prune(data.notFounds, 60_000);
     data.failedAuths = prune(data.failedAuths, 300_000);
 
-    // Already blocked
+    // Already blocked — auto-unblock after 10 minutes to prevent false-positive lockouts
     if (data.blocked) {
-      res.status(429).json({ error: 'Your IP has been blocked due to suspicious activity.' });
-      return;
+      const blockedMs = data.blockedAt ? (Date.now() - data.blockedAt.getTime()) : Infinity;
+      if (blockedMs > 10 * 60 * 1000) {
+        data.blocked = false;
+        data.blockedAt = undefined;
+        data.requests = [];
+        data.failedAuths = [];
+        data.notFounds = [];
+      } else {
+        res.status(429).json({ error: 'Your IP has been blocked due to suspicious activity. Please try again in a few minutes.' });
+        return;
+      }
     }
 
     data.requests.push(t);
 
-    // ── DDoS: >100 req/min ────────────────────────────────────────────────────
-    if (data.requests.length > 100) {
+    // ── DDoS: >300 req/min ────────────────────────────────────────────────────
+    if (data.requests.length > 300) {
       data.blocked = true;
       data.blockedAt = new Date();
       addEvent({
         timestamp: new Date(), type: 'ddos', ip,
-        details: `${data.requests.length} requests in 60s — DDoS threshold exceeded`,
+        details: `${data.requests.length} requests in 60s — DDoS threshold (300/min) exceeded`,
         severity: 'critical', blocked: true, simulated: false,
       });
       if (onCriticalThreat) onCriticalThreat('system_failure', `DDoS from ${ip}`);
@@ -138,7 +147,11 @@ export function applyIntrusionMiddleware(app: any) {
     }
 
     // ── Injection: SQL/XSS patterns ───────────────────────────────────────────
-    const skipInjectionPaths = ['/api/upload', '/api/image', '/api/admin/chat', '/api/chat'];
+    const skipInjectionPaths = [
+      '/api/upload', '/api/image', '/api/admin/chat', '/api/chat',
+      '/api/conversations', '/api/messages', '/api/ai', '/api/photo-editor',
+      '/api/video', '/api/code', '/api/crisis', '/api/media',
+    ];
     const skipInjection = skipInjectionPaths.some(p => req.path.startsWith(p)) || req.method === 'OPTIONS';
     if (!skipInjection && scanRequest(req)) {
       data.blocked = true;

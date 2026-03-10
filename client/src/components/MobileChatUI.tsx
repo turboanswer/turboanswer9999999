@@ -259,9 +259,6 @@ export default function MobileChatUI({
                 <><ImagePlus className="h-4 w-4" /> Edit with AI</>
               )}
             </button>
-            {!isFreeTier && subscriptionData?.tier !== 'research' && subscriptionData?.tier !== 'enterprise' && (
-              <p className="text-center text-xs mt-2" style={{ color: TEXT_MUTED }}>Requires Research plan</p>
-            )}
           </div>
         </div>
       )}

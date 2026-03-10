@@ -97,7 +97,6 @@ export default function PhotoEditor() {
   const editFileRef = useRef<HTMLInputElement>(null);
   const placeFileRef = useRef<HTMLInputElement>(null);
 
-  const isEnterprise = user?.subscriptionTier === 'enterprise' || user?.subscriptionTier === 'research';
 
   const generateMutation = useMutation({
     mutationFn: async () => {
@@ -177,7 +176,6 @@ export default function PhotoEditor() {
     link.click();
   };
 
-  if (!isEnterprise) return <EnterpriseLock />;
 
   const TABS = [
     { id: 'generate', label: 'Generate', icon: <Sparkles className="h-4 w-4" /> },
@@ -203,8 +201,8 @@ export default function PhotoEditor() {
             <p className="text-xs text-gray-500 mt-0.5">Powered by GPT Image · Gemini AI</p>
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400">
-          <Crown className="h-3 w-3" /> Enterprise
+        <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 border border-blue-500/30 text-blue-400">
+          <Sparkles className="h-3 w-3" /> Free for All
         </div>
       </div>
 
