@@ -3234,8 +3234,7 @@ Write production-quality, impressive code.`;
         } catch { return null; }
       }
 
-      // Lead with Gemini 3.1 Pro (Antigravity's model), fall back to flash on timeout
-      let rawText = await callGemini('gemini-3.1-pro-preview', 8192, 90000)
+      let rawText = await callGemini('gemini-2.5-pro', 8192, 90000)
         ?? await callGemini('gemini-2.0-flash', 8192, 45000)
         ?? await callGemini('gemini-2.0-flash-lite', 4096, 30000)
         ?? '';
@@ -3442,34 +3441,29 @@ Guidelines:
       const contextBlock = code ? `\n\nCurrent ${language || 'code'} in editor:\n\`\`\`${language || ''}\n${code.slice(0, 3000)}\n\`\`\`` : '';
       const fullPrompt = `${systemPrompt}${contextBlock}\n\nUser: ${message}`;
 
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 8192 },
-        }),
-        signal: AbortSignal.timeout(60000),
-      });
-
-      if (!resp.ok) {
-        // Fallback to flash
-        const flashResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
-          }),
-          signal: AbortSignal.timeout(30000),
-        });
-        if (!flashResp.ok) return res.status(502).json({ error: 'AI service unavailable' });
-        const flashData: any = await flashResp.json();
-        return res.json({ reply: flashData.candidates?.[0]?.content?.parts?.[0]?.text || 'No response' });
+      async function tryModel(model: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
+        try {
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: fullPrompt }] }],
+              generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens },
+            }),
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          if (!r.ok) return null;
+          const d: any = await r.json();
+          return d.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        } catch { return null; }
       }
 
-      const data: any = await resp.json();
-      res.json({ reply: data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response' });
+      const reply = await tryModel('gemini-2.5-pro', 8192, 60000)
+        ?? await tryModel('gemini-2.0-flash', 4096, 30000)
+        ?? await tryModel('gemini-2.0-flash-lite', 4096, 15000);
+
+      if (!reply) return res.status(502).json({ error: 'AI service unavailable. Please try again.' });
+      res.json({ reply });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
