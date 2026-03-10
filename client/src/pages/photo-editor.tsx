@@ -385,7 +385,7 @@ export default function PhotoEditor() {
                 disabled={!editFile || !editInstruction.trim() || editMutation.isPending}
                 className="w-full h-12 font-bold text-base bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-500 hover:to-pink-500"
               >
-                {editMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Editing photo...</> : <><Pencil className="h-5 w-5 mr-2" />Edit Photo</>}
+                {editMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Analyzing &amp; editing photo...</> : <><Pencil className="h-5 w-5 mr-2" />Edit Photo</>}
               </Button>
             </div>
 
@@ -474,7 +474,7 @@ export default function PhotoEditor() {
                 disabled={!placeFile || !placeScene.trim() || placeMutation.isPending}
                 className="w-full h-12 font-bold text-base bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500"
               >
-                {placeMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Placing you there...</> : <><ZoomIn className="h-5 w-5 mr-2" />Place Me There</>}
+                {placeMutation.isPending ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Analyzing &amp; placing you there...</> : <><ZoomIn className="h-5 w-5 mr-2" />Place Me There</>}
               </Button>
             </div>
 

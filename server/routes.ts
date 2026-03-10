@@ -3768,18 +3768,30 @@ Return ONLY valid JSON (no markdown):
       console.log(`[PhotoEditor] Editing image with Gemini: "${instruction.slice(0, 80)}"`);
       const start = Date.now();
 
+      // Step 1: Use Gemini Vision to describe the image in detail
+      console.log(`[PhotoEditor] Step 1 — analyzing image with Gemini Vision...`);
+      const describeResp = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: mimeType || 'image/jpeg', data: imageData } },
+            { text: 'Describe this image in extreme detail: every person (appearance, clothing, pose, expression), objects, colors, lighting, background, textures, composition, and atmosphere. Be very specific and thorough.' },
+          ],
+        }],
+      });
+      const imageDescription = describeResp.candidates?.[0]?.content?.parts?.[0]?.text || 'A photo';
+      console.log(`[PhotoEditor] Image described (${imageDescription.length} chars). Step 2 — generating edited version...`);
+
+      // Step 2: Generate a new image applying the edit instruction to the description
+      const editPrompt = `Create a photorealistic image based on this scene: ${imageDescription}\n\nNow apply this change: ${instruction}\n\nMake it look completely natural and photorealistic. High quality, sharp, 4K.`;
+
       let imgPart: any = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
         const response = await ai.models.generateContent({
           model: 'gemini-2.0-flash-exp-image-generation',
-          contents: [{
-            role: 'user',
-            parts: [
-              { inlineData: { mimeType: mimeType || 'image/jpeg', data: imageData } },
-              { text: `Edit this image: ${instruction}. Return only the edited image with no text or explanation.` },
-            ],
-          }],
-          config: { responseModalities: ['IMAGE', 'TEXT'], temperature: 1 },
+          contents: [{ role: 'user', parts: [{ text: editPrompt }] }],
+          config: { responseModalities: ['TEXT', 'IMAGE'], temperature: 1 },
         });
         const parts = response.candidates?.[0]?.content?.parts || [];
         imgPart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image'));
@@ -3787,7 +3799,7 @@ Return ONLY valid JSON (no markdown):
         console.log(`[PhotoEditor] Edit attempt ${attempt}: no image returned, retrying...`);
         if (attempt < 3) await new Promise(r => setTimeout(r, 800));
       }
-      if (!imgPart?.inlineData?.data) return res.status(500).json({ error: 'Image edit failed after 3 attempts. Please try again.' });
+      if (!imgPart?.inlineData?.data) return res.status(500).json({ error: 'Image edit failed. Please try again with a different instruction.' });
 
       console.log(`[PhotoEditor] Edit complete in ${Date.now() - start}ms`);
       res.json({ imageData: imgPart.inlineData.data, mimeType: imgPart.inlineData.mimeType || 'image/png' });
