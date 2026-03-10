@@ -3,39 +3,40 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Editor from "@monaco-editor/react";
 import { useLocation } from "wouter";
-import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Play, Save, Rocket, ChevronLeft, Plus, Trash2, Globe, Copy,
-  Code2, Eye, Terminal, Loader2, FileCode, FolderOpen, Sparkles,
-  Send, RefreshCw, X, ExternalLink, Check, Monitor, Wand2, Zap, Lock,
+  Code2, Terminal, Loader2, FileCode, Send, RefreshCw, X,
+  ExternalLink, Check, Monitor, Wand2, Zap, Lock, FolderOpen,
+  ChevronRight, Bot, User, Sparkles,
 } from "lucide-react";
 import type { CodeProject } from "@shared/schema";
 
 type CodeFile = { name: string; content: string; language: string };
+type MsgRole = "user" | "assistant" | "system" | "building";
 
-const LANGUAGES = [
-  { id: "html", label: "HTML / CSS / JS", icon: "🌐" },
-  { id: "python", label: "Python", icon: "🐍" },
-  { id: "javascript", label: "JavaScript", icon: "📜" },
-  { id: "typescript", label: "TypeScript", icon: "🔷" },
-  { id: "java", label: "Java", icon: "☕" },
-  { id: "cpp", label: "C++", icon: "⚙️" },
-  { id: "rust", label: "Rust", icon: "🦀" },
-  { id: "go", label: "Go", icon: "🐹" },
-];
+interface ChatMsg {
+  id: string;
+  role: MsgRole;
+  content: string;
+  buildPrompt?: string;
+  buildPhase?: number;
+  buildDone?: boolean;
+  deployUrl?: string;
+  files?: string[];
+}
 
 const BUILD_PHASES = [
-  "🌐 Analyzing design reference...",
-  "🧠 Gemini 3.1 Pro is architecting your app...",
-  "📝 Writing code files...",
-  "🎨 Crafting the UI & animations...",
-  "⚡ Wiring up all functionality...",
-  "🚀 Auto-deploying to the web...",
-  "✅ Live and ready!",
+  "Analyzing your request...",
+  "Architecting the app with Gemini 3.1 Pro...",
+  "Writing HTML structure...",
+  "Crafting CSS & animations...",
+  "Building JavaScript logic...",
+  "Auto-deploying to the web...",
+  "Done!",
 ];
 
 function getMonacoLang(language: string): string {
@@ -47,20 +48,16 @@ function getMonacoLang(language: string): string {
   return map[language] || "plaintext";
 }
 
-function isWebProject(lang: string) { return lang === "html"; }
-
 function buildSrcdoc(files: CodeFile[]): string {
   const htmlFile = files.find(f => f.name === "index.html") || files.find(f => f.language === "html");
   if (!htmlFile) return "<p style='font-family:sans-serif;padding:2rem;color:#888'>No HTML file found.</p>";
   let html = htmlFile.content;
   for (const file of files) {
     if (file.language === "css") {
-      // Match any <link> tag referencing this file regardless of attribute order
       const cssRegex = new RegExp(`<link[^>]*href=["']${file.name}["'][^>]*>`, "gi");
       html = html.replace(cssRegex, `<style>${file.content}</style>`);
     }
     if (file.language === "javascript") {
-      // Match any <script src="..."> tag regardless of other attributes (defer, type, etc.)
       const jsRegex = new RegExp(`<script[^>]*src=["']${file.name}["'][^>]*>\\s*</script>`, "gi");
       html = html.replace(jsRegex, `<script>${file.content}</script>`);
     }
@@ -68,135 +65,139 @@ function buildSrcdoc(files: CodeFile[]): string {
   return html;
 }
 
-type AiMsg = { role: "user" | "assistant"; content: string };
+function uid() { return Math.random().toString(36).slice(2); }
+function delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div style={{ position: "relative", margin: "8px 0", borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 12px", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <span style={{ fontSize: 11, color: "#7c3aed", fontFamily: "monospace" }}>{lang || "code"}</span>
+        <button onClick={() => { navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+          style={{ fontSize: 11, color: copied ? "#10b981" : "#666", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+          {copied ? <><Check style={{ width: 11, height: 11 }} /> Copied</> : <><Copy style={{ width: 11, height: 11 }} /> Copy</>}
+        </button>
+      </div>
+      <pre style={{ margin: 0, padding: "12px 16px", background: "#0d0d14", overflowX: "auto", fontSize: 12.5, lineHeight: 1.6, fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}>
+        <code style={{ color: "#a5f3fc" }}>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function renderMessage(content: string) {
+  const parts = content.split(/(```[\s\S]*?```)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("```")) {
+      const lines = part.slice(3, -3).split("\n");
+      const lang = lines[0]?.trim() || "";
+      const code = lines.slice(1).join("\n");
+      return <CodeBlock key={i} code={code} lang={lang} />;
+    }
+    return (
+      <span key={i} style={{ whiteSpace: "pre-wrap", lineHeight: 1.65 }}>
+        {part.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((chunk, j) => {
+          if (chunk.startsWith("**") && chunk.endsWith("**")) return <strong key={j} style={{ color: "#e0e0ff" }}>{chunk.slice(2, -2)}</strong>;
+          if (chunk.startsWith("`") && chunk.endsWith("`")) return <code key={j} style={{ background: "rgba(124,58,237,0.15)", color: "#a78bfa", padding: "1px 5px", borderRadius: 4, fontSize: "0.9em", fontFamily: "monospace" }}>{chunk.slice(1, -1)}</code>;
+          return chunk;
+        })}
+      </span>
+    );
+  });
+}
 
 export default function CodeStudio() {
   const [, navigate] = useLocation();
-  const { theme } = useTheme();
   const { isAuthenticated, user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-  const isDark = theme === "dark";
 
   // Projects
   const [projects, setProjects] = useState<CodeProject[]>([]);
   const [currentProject, setCurrentProject] = useState<CodeProject | null>(null);
   const [showProjects, setShowProjects] = useState(false);
-  const [showNewModal, setShowNewModal] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newLang, setNewLang] = useState("html");
 
   // Editor
   const [files, setFiles] = useState<CodeFile[]>([]);
   const [activeFile, setActiveFile] = useState("");
   const [unsaved, setUnsaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [showAddFile, setShowAddFile] = useState(false);
-  const [newFileName, setNewFileName] = useState("");
-
-  // Build with AI
-  const [buildPrompt, setBuildPrompt] = useState("");
-  const [referenceUrl, setReferenceUrl] = useState("");
-  const [isBuilding, setIsBuilding] = useState(false);
-  const [buildPhase, setBuildPhase] = useState(0);
-  const [buildingFileName, setBuildingFileName] = useState("");
-  const [justBuiltFiles, setJustBuiltFiles] = useState<Set<string>>(new Set());
-  const [showRebuildInput, setShowRebuildInput] = useState(false);
-  const [rebuildPrompt, setRebuildPrompt] = useState("");
-  const buildPhaseRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Run / Preview
   const [isRunning, setIsRunning] = useState(false);
   const [output, setOutput] = useState("");
   const [outputErr, setOutputErr] = useState("");
-  const [previewKey, setPreviewKey] = useState(0);
+  const [rightPanel, setRightPanel] = useState<"preview" | "output">("preview");
   const [livePreview, setLivePreview] = useState("");
-  const [rightPanel, setRightPanel] = useState<"preview" | "output" | "ai">("preview");
+  const [previewKey, setPreviewKey] = useState(0);
+  const [showAddFile, setShowAddFile] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
 
   // Deploy
   const [isDeploying, setIsDeploying] = useState(false);
-  const [showDeploy, setShowDeploy] = useState(false);
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
-  const [customDomain, setCustomDomain] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [customDomain, setCustomDomain] = useState("");
 
-  // AI Chat
-  const [aiMessages, setAiMessages] = useState<AiMsg[]>([
-    { role: "assistant", content: "Hi! I'm **Turbo Code**, powered by Gemini 3.1 Pro. I can write, fix, and explain any code. What are you building?" },
-  ]);
-  const [aiInput, setAiInput] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const aiEndRef = useRef<HTMLDivElement>(null);
+  // Agent chat
+  const [messages, setMessages] = useState<ChatMsg[]>([{
+    id: uid(),
+    role: "assistant",
+    content: "Hi! I'm **Turbo Code Agent**, powered by Gemini 3.1 Pro.\n\nTell me what app you want to build — or ask me any coding question. I'll automatically detect whether to build or explain.",
+  }]);
+  const [input, setInput] = useState("");
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [buildingMsgId, setBuildingMsgId] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Promo code (for paywall)
+  const [promoCode, setPromoCode] = useState("");
 
   const activeFileData = files.find(f => f.name === activeFile);
-  const mainLang = currentProject?.mainLanguage || "html";
+  const isWebProject = currentProject?.mainLanguage === "html";
   const hasProject = !!currentProject;
 
   useEffect(() => { if (isAuthenticated) loadProjects(); }, [isAuthenticated]);
-
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => {
-    if (isWebProject(mainLang) && files.length > 0) setLivePreview(buildSrcdoc(files));
-  }, [files, mainLang]);
+    if (isWebProject && files.length > 0) setLivePreview(buildSrcdoc(files));
+  }, [files, isWebProject]);
 
-  useEffect(() => { aiEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
-
-  // Handle addon activation redirect from PayPal
+  // Handle addon PayPal redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('addon') === 'activated') {
-      const subId = params.get('subscription_id');
+    if (params.get("addon") === "activated") {
+      const subId = params.get("subscription_id");
       if (subId) {
-        fetch('/api/confirm-addon-subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subscriptionId: subId }),
-          credentials: 'include',
-        }).then(r => r.json()).then(d => {
-          if (d.success) {
-            queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
-            toast({ title: 'Code Studio Activated!', description: 'Your add-on is now active. Enjoy building!' });
-          } else {
-            toast({ title: 'Activation issue', description: d.error || 'Please contact support.', variant: 'destructive' });
-          }
-          window.history.replaceState({}, '', '/code-studio');
-        }).catch(() => {});
-      } else {
-        window.history.replaceState({}, '', '/code-studio');
-      }
+        fetch("/api/confirm-addon-subscription", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscriptionId: subId }), credentials: "include" })
+          .then(r => r.json()).then(d => {
+            if (d.success) { queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] }); toast({ title: "Code Studio Activated!" }); }
+            window.history.replaceState({}, "", "/code-studio");
+          }).catch(() => {});
+      } else { window.history.replaceState({}, "", "/code-studio"); }
     }
   }, []);
 
   const addonMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/create-addon-subscription'),
-    onSuccess: async (res: any) => {
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    },
-    onError: (e: any) => {
-      toast({ title: 'Error', description: e.message || 'Could not start checkout', variant: 'destructive' });
-    },
+    mutationFn: () => apiRequest("POST", "/api/create-addon-subscription"),
+    onSuccess: async (res: any) => { const d = await res.json(); if (d.url) window.location.href = d.url; },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
-  const [promoCode, setPromoCode] = useState('');
   const promoMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/apply-code-studio-promo', { code: promoCode.trim() }),
+    mutationFn: () => apiRequest("POST", "/api/apply-code-studio-promo", { code: promoCode.trim() }),
     onSuccess: async (res: any) => {
-      const data = await res.json();
-      toast({ title: 'Code Studio Activated!', description: data.message || 'Enjoy your free access.' });
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+      const d = await res.json();
+      toast({ title: "Code Studio Activated!", description: d.message });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     },
-    onError: (e: any) => {
-      toast({ title: 'Invalid Code', description: e.message || 'Promo code not valid', variant: 'destructive' });
-    },
+    onError: (e: any) => toast({ title: "Invalid Code", description: e.message, variant: "destructive" }),
   });
 
   async function loadProjects() {
     try {
       const res = await fetch("/api/code/projects", { credentials: "include" });
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setProjects(data);
-        if (data.length > 0) openProject(data[0]);
-      }
+      if (Array.isArray(data)) { setProjects(data); if (data.length > 0) openProject(data[0]); }
     } catch {}
   }
 
@@ -207,43 +208,79 @@ export default function CodeStudio() {
     setActiveFile(f[0]?.name || "");
     setUnsaved(false);
     setDeployUrl(project.isPublished && project.slug ? `/p/${project.slug}` : null);
+    setRightPanel(project.mainLanguage === "html" ? "preview" : "output");
     setShowProjects(false);
-    setRightPanel(isWebProject(project.mainLanguage) ? "preview" : "output");
   }
 
-  // ── One-prompt AI Build + Auto-Deploy ───────────────────────────────────
-  async function buildWithAI(prompt: string, refUrl?: string) {
-    if (!prompt.trim() || isBuilding) return;
-    setIsBuilding(true);
-    setBuildPhase(0);
-    setBuildingFileName("");
-    setJustBuiltFiles(new Set());
+  // ── Unified Agent send ──────────────────────────────────────────────────
+  async function sendMessage() {
+    const msg = input.trim();
+    if (!msg || agentLoading) return;
+    setInput("");
+    setAgentLoading(true);
 
-    // Cycle through build phases (faster when no reference URL)
-    const intervalMs = refUrl?.trim() ? 2800 : 2400;
+    const userMsg: ChatMsg = { id: uid(), role: "user", content: msg };
+    setMessages(prev => [...prev, userMsg]);
+
+    try {
+      const res = await fetch("/api/code/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ message: msg, code: activeFileData?.content || "", language: activeFileData?.language || "html" }),
+      });
+      const data = await res.json();
+
+      if (data.intent === "build") {
+        // Show AI reply in chat
+        const replyMsg: ChatMsg = { id: uid(), role: "assistant", content: data.reply || "On it! Building now..." };
+        setMessages(prev => [...prev, replyMsg]);
+
+        // Start building with inline progress
+        await triggerBuild(data.buildPrompt, msg);
+      } else {
+        const replyMsg: ChatMsg = { id: uid(), role: "assistant", content: data.reply || "Sorry, I couldn't process that." };
+        setMessages(prev => [...prev, replyMsg]);
+      }
+    } catch {
+      setMessages(prev => [...prev, { id: uid(), role: "assistant", content: "Connection error — please try again." }]);
+    } finally {
+      setAgentLoading(false);
+    }
+  }
+
+  async function triggerBuild(buildPrompt: string, originalMsg?: string) {
+    const buildMsgId = uid();
+    setBuildingMsgId(buildMsgId);
+
+    const buildMsg: ChatMsg = {
+      id: buildMsgId,
+      role: "building",
+      content: "",
+      buildPrompt,
+      buildPhase: 0,
+      buildDone: false,
+    };
+    setMessages(prev => [...prev, buildMsg]);
+
+    // Advance phase indicator
     let phase = 0;
-    buildPhaseRef.current = setInterval(() => {
-      phase = Math.min(phase + 1, BUILD_PHASES.length - 1);
-      setBuildPhase(phase);
-    }, intervalMs);
+    const phaseInterval = setInterval(() => {
+      phase = Math.min(phase + 1, BUILD_PHASES.length - 2);
+      setMessages(prev => prev.map(m => m.id === buildMsgId ? { ...m, buildPhase: phase } : m));
+    }, 2500);
 
     try {
       const res = await fetch("/api/code/ai-generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          projectId: currentProject?.id,
-          referenceUrl: refUrl?.trim() || undefined,
-        }),
+        body: JSON.stringify({ prompt: buildPrompt, projectId: undefined }),
       });
       const data = await res.json();
+      clearInterval(phaseInterval);
 
       if (!res.ok) throw new Error(data.error || "Build failed");
-
-      clearInterval(buildPhaseRef.current!);
-      setBuildPhase(BUILD_PHASES.length - 1); // "Live and ready!"
 
       const generatedFiles: CodeFile[] = data.files;
       const project: CodeProject = data.project;
@@ -251,31 +288,13 @@ export default function CodeStudio() {
 
       setCurrentProject(project);
       setProjects(p => [project, ...p.filter(pr => pr.id !== project.id)]);
-      setFiles([]);
+      setFiles(generatedFiles);
       setActiveFile(generatedFiles[0]?.name || "");
       setDeployUrl(liveUrl);
-      setRightPanel(isWebProject(project.mainLanguage) ? "preview" : "output");
+      setUnsaved(false);
 
-      // Animate files appearing one by one
-      for (let i = 0; i < generatedFiles.length; i++) {
-        const file = generatedFiles[i];
-        setBuildingFileName(file.name);
+      if (project.mainLanguage === "html") {
         await delay(300);
-        setFiles(prev => {
-          const exists = prev.find(f => f.name === file.name);
-          return exists ? prev.map(f => f.name === file.name ? file : f) : [...prev, file];
-        });
-        setJustBuiltFiles(prev => new Set([...prev, file.name]));
-        await delay(150);
-      }
-
-      setActiveFile(generatedFiles[0]?.name || "");
-      setBuildingFileName("");
-      await delay(600);
-      setIsBuilding(false);
-
-      // Auto-run / preview
-      if (isWebProject(project.mainLanguage)) {
         setLivePreview(buildSrcdoc(generatedFiles));
         setPreviewKey(k => k + 1);
         setRightPanel("preview");
@@ -283,50 +302,27 @@ export default function CodeStudio() {
         await runCodeWithFiles(generatedFiles, project.mainLanguage);
       }
 
-      setUnsaved(false);
-      if (liveUrl) {
-        toast({ title: "✅ Built & Deployed!", description: `Live at ${window.location.origin}${liveUrl}` });
-      } else {
-        toast({ title: "App built!", description: `"${project.name}" is ready` });
-      }
+      // Mark build done in chat
+      setMessages(prev => prev.map(m => m.id === buildMsgId ? {
+        ...m,
+        buildPhase: BUILD_PHASES.length - 1,
+        buildDone: true,
+        deployUrl: liveUrl || undefined,
+        files: generatedFiles.map(f => f.name),
+      } : m));
+      setBuildingMsgId(null);
+
     } catch (e: any) {
-      clearInterval(buildPhaseRef.current!);
-      setIsBuilding(false);
+      clearInterval(phaseInterval);
+      setMessages(prev => prev.map(m => m.id === buildMsgId ? {
+        ...m,
+        buildDone: true,
+        content: `Build failed: ${e.message}`,
+        role: "system",
+      } : m));
+      setBuildingMsgId(null);
       toast({ title: "Build failed", description: e.message, variant: "destructive" });
     }
-  }
-
-  function delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-
-  async function runCode() {
-    await runCodeWithFiles(files, mainLang);
-  }
-
-  async function runCodeWithFiles(theFiles: CodeFile[], lang: string) {
-    if (isWebProject(lang)) {
-      setLivePreview(buildSrcdoc(theFiles));
-      setPreviewKey(k => k + 1);
-      setRightPanel("preview");
-      return;
-    }
-    const mainFile = theFiles[0];
-    if (!mainFile) return;
-    setIsRunning(true);
-    setOutput("");
-    setOutputErr("");
-    setRightPanel("output");
-    try {
-      const res = await fetch("/api/code/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ language: mainFile.language, code: mainFile.content }),
-      });
-      const data = await res.json();
-      setOutput(data.output || "");
-      setOutputErr(data.stderr || "");
-    } catch (e: any) { setOutputErr(e.message); }
-    finally { setIsRunning(false); }
   }
 
   async function saveProject() {
@@ -337,7 +333,7 @@ export default function CodeStudio() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name: currentProject.name, description: currentProject.description, files, mainLanguage: mainLang }),
+        body: JSON.stringify({ name: currentProject.name, description: currentProject.description, files, mainLanguage: currentProject.mainLanguage }),
       });
       const updated = await res.json();
       setCurrentProject(updated);
@@ -348,28 +344,11 @@ export default function CodeStudio() {
     finally { setIsSaving(false); }
   }
 
-  async function createBlankProject() {
-    if (!newName.trim()) return;
-    try {
-      const res = await fetch("/api/code/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name: newName.trim(), mainLanguage: newLang }),
-      });
-      const project = await res.json();
-      setProjects(p => [project, ...p]);
-      openProject(project);
-      setShowNewModal(false);
-      setNewName("");
-    } catch (e: any) { toast({ title: "Error", description: e.message, variant: "destructive" }); }
-  }
-
   async function deleteProject(id: number) {
     if (!confirm("Delete this project?")) return;
     await fetch(`/api/code/projects/${id}`, { method: "DELETE", credentials: "include" });
     setProjects(p => p.filter(pr => pr.id !== id));
-    if (currentProject?.id === id) { setCurrentProject(null); setFiles([]); }
+    if (currentProject?.id === id) { setCurrentProject(null); setFiles([]); setDeployUrl(null); }
   }
 
   async function deployProject() {
@@ -386,34 +365,34 @@ export default function CodeStudio() {
       const data = await res.json();
       setDeployUrl(data.publishUrl);
       setCurrentProject(data.project);
+      setShowDeployModal(false);
       toast({ title: "Deployed!", description: `Live at ${window.location.origin}${data.publishUrl}` });
     } catch (e: any) { toast({ title: "Deploy failed", description: e.message, variant: "destructive" }); }
     finally { setIsDeploying(false); }
   }
 
-  async function sendAiMessage() {
-    if (!aiInput.trim() || aiLoading) return;
-    const msg = aiInput.trim();
-    setAiInput("");
-    setAiMessages(m => [...m, { role: "user", content: msg }]);
-    setAiLoading(true);
-    try {
-      const res = await fetch("/api/code/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ message: msg, code: activeFileData?.content || "", language: activeFileData?.language || mainLang }),
-      });
-      const data = await res.json();
-      setAiMessages(m => [...m, { role: "assistant", content: data.reply || "No response" }]);
-    } catch {
-      setAiMessages(m => [...m, { role: "assistant", content: "Error — please try again." }]);
-    } finally { setAiLoading(false); }
-  }
+  async function runCode() { await runCodeWithFiles(files, currentProject?.mainLanguage || "html"); }
 
-  function updateFileContent(content: string) {
-    setFiles(f => f.map(file => file.name === activeFile ? { ...file, content } : file));
-    setUnsaved(true);
+  async function runCodeWithFiles(theFiles: CodeFile[], lang: string) {
+    if (lang === "html") {
+      setLivePreview(buildSrcdoc(theFiles));
+      setPreviewKey(k => k + 1);
+      setRightPanel("preview");
+      return;
+    }
+    const mainFile = theFiles[0];
+    if (!mainFile) return;
+    setIsRunning(true);
+    setOutput("");
+    setOutputErr("");
+    setRightPanel("output");
+    try {
+      const res = await fetch("/api/code/execute", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ language: mainFile.language, code: mainFile.content }) });
+      const data = await res.json();
+      setOutput(data.output || "");
+      setOutputErr(data.stderr || "");
+    } catch (e: any) { setOutputErr(e.message); }
+    finally { setIsRunning(false); }
   }
 
   function addFile() {
@@ -428,46 +407,33 @@ export default function CodeStudio() {
     setUnsaved(true);
   }
 
-  function copyDeployUrl() {
+  function copyUrl() {
     if (!deployUrl) return;
     navigator.clipboard.writeText(`${window.location.origin}${deployUrl}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function renderAiContent(content: string) {
-    const parts = content.split(/(```[\s\S]*?```)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("```")) {
-        const lines = part.slice(3, -3).split("\n");
-        const lang = lines[0] || "";
-        const code = lines.slice(1).join("\n");
-        return (
-          <pre key={i} className={`rounded-lg p-3 text-xs overflow-x-auto my-2 ${isDark ? "bg-black/40 border border-white/10" : "bg-gray-100"}`}>
-            {lang && <div className="text-violet-400 text-[10px] mb-1">{lang}</div>}
-            <code className="text-green-300">{code}</code>
-          </pre>
-        );
-      }
-      return <span key={i} className="whitespace-pre-wrap">{part.replace(/\*\*(.*?)\*\*/g, "$1")}</span>;
-    });
-  }
+  // ── Colors ────────────────────────────────────────────────────────────────
+  const C = {
+    bg: "#0e1117",
+    sidebar: "#0a0a0f",
+    panel: "#111118",
+    border: "rgba(255,255,255,0.07)",
+    text: "#e0e0ff",
+    muted: "#555570",
+    accent: "#7c3aed",
+    accentLight: "rgba(124,58,237,0.15)",
+  };
 
-  // Styles
-  const bg = isDark ? "bg-[#0d0d1a]" : "bg-gray-50";
-  const surface = isDark ? "bg-[#13131f]" : "bg-white";
-  const border = isDark ? "border-white/[0.08]" : "border-gray-200";
-  const text = isDark ? "text-gray-200" : "text-gray-800";
-  const muted = isDark ? "text-gray-500" : "text-gray-400";
-  const tabBg = isDark ? "bg-[#1a1a2e]" : "bg-gray-100";
-
+  // ── Guards ────────────────────────────────────────────────────────────────
   if (!isAuthenticated) {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${bg}`}>
-        <div className="text-center">
-          <Code2 className="h-12 w-12 text-violet-500 mx-auto mb-4" />
-          <h2 className={`text-xl font-bold mb-4 ${text}`}>Sign in to use Code Studio</h2>
-          <Button onClick={() => navigate("/login")} className="bg-violet-600 hover:bg-violet-700">Sign In</Button>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg }}>
+        <div style={{ textAlign: "center" }}>
+          <Code2 style={{ width: 48, height: 48, color: C.accent, margin: "0 auto 16px" }} />
+          <h2 style={{ color: C.text, fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Sign in to use Code Studio</h2>
+          <button onClick={() => navigate("/login")} style={{ background: C.accent, color: "#fff", border: "none", padding: "10px 24px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Sign In</button>
         </div>
       </div>
     );
@@ -475,72 +441,45 @@ export default function CodeStudio() {
 
   if (!authLoading && !user?.codeStudioAddon) {
     return (
-      <div className={`min-h-screen flex items-center justify-center p-4 ${bg}`}>
-        <div className="max-w-md w-full text-center">
-          <div className="relative mb-6 inline-block">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center mx-auto shadow-2xl shadow-green-500/30">
-              <Code2 className="h-10 w-10 text-white" />
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, padding: 24 }}>
+        <div style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
+          <div style={{ position: "relative", display: "inline-block", marginBottom: 24 }}>
+            <div style={{ width: 80, height: 80, borderRadius: 20, background: "linear-gradient(135deg, #059669, #10b981)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto", boxShadow: "0 0 40px rgba(16,185,129,0.3)" }}>
+              <Code2 style={{ width: 40, height: 40, color: "#fff" }} />
             </div>
-            <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-yellow-500 flex items-center justify-center border-2 border-[#0d1117]">
-              <Lock className="h-3.5 w-3.5 text-black" />
+            <div style={{ position: "absolute", bottom: -4, right: -4, width: 28, height: 28, borderRadius: "50%", background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #0e1117" }}>
+              <Lock style={{ width: 13, height: 13, color: "#000" }} />
             </div>
           </div>
-          <h1 className={`text-2xl font-bold mb-2 ${text}`}>Code Studio</h1>
-          <p className={`text-sm mb-6 ${muted}`}>Full-featured AI IDE — build, run, and deploy apps with one prompt</p>
-          <div className={`rounded-xl border p-5 mb-6 text-left ${isDark ? 'bg-[#111120] border-white/10' : 'bg-gray-50 border-gray-200'}`}>
-            <div className="text-xs font-semibold uppercase tracking-widest text-green-400 mb-3">What you get</div>
-            {[
-              "AI generates full apps from a single prompt",
-              "Monaco editor (VS Code engine) with multi-file support",
-              "Live preview for HTML/CSS/JS projects",
-              "Run Python, JS, TypeScript, Java, Go, Rust & more",
-              "Deploy projects to a public shareable URL",
-              "Gemini 3.1 Pro AI for code generation & debugging",
-            ].map(f => (
-              <div key={f} className="flex items-start gap-2 mb-2">
-                <Check className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
-                <span className={`text-sm ${text}`}>{f}</span>
+          <h1 style={{ color: C.text, fontSize: 26, fontWeight: 800, marginBottom: 8 }}>Code Studio</h1>
+          <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>AI-powered IDE — describe your app, get production-quality code in seconds</p>
+          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, marginBottom: 20, textAlign: "left" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>What you get</div>
+            {["Gemini 3.1 Pro builds full apps from one sentence", "Unified AI agent — chat, build, and debug in one place", "Monaco editor (VS Code engine) with multi-file support", "Live preview + auto-deploy to a public URL", "Reference any website to copy its design", "Run Python, JS, TypeScript, Java, Go, Rust & more"].map(f => (
+              <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+                <Check style={{ width: 15, height: 15, color: "#10b981", marginTop: 1, flexShrink: 0 }} />
+                <span style={{ color: C.text, fontSize: 13 }}>{f}</span>
               </div>
             ))}
           </div>
-          <div className={`rounded-xl border p-4 mb-5 flex items-center justify-between ${isDark ? 'bg-[#0d1a0d] border-green-500/20' : 'bg-green-50 border-green-200'}`}>
-            <div>
-              <div className={`text-xs ${muted} mb-0.5`}>Add-on for any plan</div>
-              <div className={`text-2xl font-bold ${text}`}>$10 <span className={`text-sm font-normal ${muted}`}>/ month</span></div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-green-400 font-medium">Cancel anytime</div>
-              <div className={`text-xs ${muted}`}>Separate from main plan</div>
-            </div>
+          <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "14px 20px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Add-on for any plan</div><div style={{ fontSize: 28, fontWeight: 800, color: C.text }}>$10<span style={{ fontSize: 14, fontWeight: 400, color: C.muted }}>/mo</span></div></div>
+            <div style={{ textAlign: "right" }}><div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>Cancel anytime</div><div style={{ fontSize: 12, color: C.muted }}>Billed separately</div></div>
           </div>
-          <Button
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-semibold py-3 text-base"
-            onClick={() => addonMutation.mutate()}
-            disabled={addonMutation.isPending || promoMutation.isPending}
-          >
-            {addonMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting to PayPal…</> : 'Add Code Studio — $10/mo'}
-          </Button>
-          <p className={`text-xs mt-3 ${muted}`}>Secure payment via PayPal. Your main subscription is unaffected.</p>
-
-          <div className={`mt-5 pt-5 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-            <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Have a promo code?</p>
-            <div className="flex gap-2">
-              <Input
-                value={promoCode}
-                onChange={e => setPromoCode(e.target.value.toUpperCase())}
-                placeholder="ENTER-CODE-HERE"
-                className={`flex-1 font-mono text-sm uppercase ${isDark ? 'bg-white/5 border-white/10 text-white placeholder:text-gray-600' : 'bg-gray-50 border-gray-200'}`}
-                onKeyDown={e => { if (e.key === 'Enter' && promoCode.trim()) promoMutation.mutate(); }}
-                disabled={promoMutation.isPending}
-              />
-              <Button
-                onClick={() => promoMutation.mutate()}
-                disabled={!promoCode.trim() || promoMutation.isPending}
-                variant="outline"
-                className={`shrink-0 ${isDark ? 'border-green-500/40 text-green-400 hover:bg-green-500/10' : 'border-green-500 text-green-600 hover:bg-green-50'}`}
-              >
-                {promoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
-              </Button>
+          <button onClick={() => addonMutation.mutate()} disabled={addonMutation.isPending}
+            style={{ width: "100%", background: "linear-gradient(135deg, #059669, #10b981)", color: "#fff", border: "none", padding: "14px 24px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginBottom: 16, opacity: addonMutation.isPending ? 0.7 : 1 }}>
+            {addonMutation.isPending ? "Redirecting to PayPal..." : "Add Code Studio — $10/mo"}
+          </button>
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Have a promo code?</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={promoCode} onChange={e => setPromoCode(e.target.value.toUpperCase())} placeholder="ENTER-CODE-HERE"
+                style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 14px", color: C.text, fontSize: 13, fontFamily: "monospace", outline: "none" }}
+                onKeyDown={e => { if (e.key === "Enter" && promoCode.trim()) promoMutation.mutate(); }} />
+              <button onClick={() => promoMutation.mutate()} disabled={!promoCode.trim() || promoMutation.isPending}
+                style={{ background: C.accentLight, border: `1px solid rgba(124,58,237,0.4)`, color: "#a78bfa", borderRadius: 8, padding: "9px 18px", cursor: "pointer", fontSize: 13, fontWeight: 600, opacity: (!promoCode.trim() || promoMutation.isPending) ? 0.5 : 1 }}>
+                {promoMutation.isPending ? "..." : "Apply"}
+              </button>
             </div>
           </div>
         </div>
@@ -548,75 +487,49 @@ export default function CodeStudio() {
     );
   }
 
+  // ── Main IDE Layout ───────────────────────────────────────────────────────
   return (
-    <div className={`h-screen flex flex-col overflow-hidden ${bg} ${text}`}>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: C.bg, color: C.text, fontFamily: "Inter, system-ui, sans-serif", overflow: "hidden" }}>
 
-      {/* ── AI Build Loading Overlay ── */}
-      {isBuilding && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(12px)' }}>
-          <div className="text-center max-w-lg px-8">
-            <div className="relative mb-8 flex items-center justify-center">
-              <div className="absolute w-28 h-28 rounded-full border border-violet-500/20 animate-ping" />
-              <div className="absolute w-20 h-20 rounded-full border border-cyan-400/30 animate-pulse" />
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/40">
-                <Rocket className="h-7 w-7 text-white" />
-              </div>
-            </div>
-            <p className="text-white font-bold text-xl mb-2">{BUILD_PHASES[buildPhase]}</p>
-            {buildingFileName && (
-              <p className="text-gray-400 text-sm mb-2">Writing <code className="text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">{buildingFileName}</code></p>
-            )}
-            {referenceUrl && buildPhase === 0 && (
-              <p className="text-cyan-400/70 text-xs mb-4">Fetching design data from {new URL(referenceUrl.startsWith('http') ? referenceUrl : 'https://' + referenceUrl).hostname}...</p>
-            )}
-            <div className="mt-4 flex items-center gap-2 justify-center">
-              {BUILD_PHASES.map((_, i) => (
-                <div key={i} className={`rounded-full transition-all duration-500 ${i <= buildPhase ? "w-2 h-2 bg-violet-400" : "w-1.5 h-1.5 bg-gray-700"}`} />
-              ))}
-            </div>
-            <p className="mt-4 text-gray-600 text-xs">Powered by Gemini 3.1 Pro · Auto-deploys when done</p>
-          </div>
-        </div>
-      )}
-
-      {/* ── Top Toolbar ── */}
-      <div className={`flex items-center gap-2 px-3 py-2 border-b ${border} ${surface} shrink-0`}>
-        <button onClick={() => navigate("/chat")} className={`flex items-center gap-1 text-xs font-medium ${muted} hover:text-violet-400 transition-colors pr-1`}>
-          <ChevronLeft className="h-4 w-4" />
-          <span>Chat</span>
+      {/* ── Top Bar ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 12px", height: 44, borderBottom: `1px solid ${C.border}`, background: C.sidebar, flexShrink: 0 }}>
+        <button onClick={() => navigate("/chat")} style={{ display: "flex", alignItems: "center", gap: 4, color: C.muted, background: "none", border: "none", cursor: "pointer", fontSize: 12, padding: "4px 6px", borderRadius: 6 }}>
+          <ChevronLeft style={{ width: 14, height: 14 }} /> Chat
         </button>
 
-        <div className="flex items-center gap-1.5 mr-2">
-          <Code2 className="h-5 w-5 text-violet-500" />
-          <span className="font-bold text-sm bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">Code Studio</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Code2 style={{ width: 18, height: 18, color: C.accent }} />
+          <span style={{ fontWeight: 700, fontSize: 13, background: "linear-gradient(135deg, #a78bfa, #67e8f9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Code Studio</span>
         </div>
 
-        {/* Project selector */}
-        <div className="relative">
+        {/* Project dropdown */}
+        <div style={{ position: "relative" }}>
           <button onClick={() => setShowProjects(v => !v)}
-            className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border transition-colors ${isDark ? "bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]" : "bg-gray-100 border-gray-200 hover:bg-gray-200"}`}>
-            <FolderOpen className="h-3.5 w-3.5 text-violet-400" />
-            <span className="max-w-[140px] truncate">{currentProject?.name || "Projects"}</span>
-            {unsaved && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, cursor: "pointer", fontSize: 12 }}>
+            <FolderOpen style={{ width: 13, height: 13, color: C.accent }} />
+            <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentProject?.name || "Projects"}</span>
+            {unsaved && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />}
+            <ChevronRight style={{ width: 12, height: 12, color: C.muted, transform: showProjects ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
           </button>
-
           {showProjects && (
-            <div className={`absolute left-0 top-full mt-1 w-72 rounded-xl border shadow-2xl z-50 overflow-hidden ${isDark ? "bg-[#1a1a2e] border-white/10" : "bg-white border-gray-200"}`}>
-              <div className={`p-2 border-b ${border}`}>
-                <button onClick={() => { setShowNewModal(true); setShowProjects(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-violet-400 hover:bg-violet-500/10">
-                  <Plus className="h-4 w-4" /> Blank project
+            <div style={{ position: "absolute", left: 0, top: "calc(100% + 4px)", width: 260, background: "#111118", border: `1px solid ${C.border}`, borderRadius: 12, zIndex: 50, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+              <div style={{ padding: "6px", borderBottom: `1px solid ${C.border}` }}>
+                <button onClick={() => { setCurrentProject(null); setFiles([]); setDeployUrl(null); setShowProjects(false); }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, color: C.accent, background: "none", border: "none", cursor: "pointer", fontSize: 12 }}>
+                  <Plus style={{ width: 13, height: 13 }} /> New project via AI
                 </button>
               </div>
-              <div className="max-h-60 overflow-y-auto">
-                {projects.length === 0 && <div className={`px-4 py-3 text-xs ${muted}`}>No saved projects</div>}
+              <div style={{ maxHeight: 240, overflowY: "auto" }}>
+                {projects.length === 0 && <div style={{ padding: "12px 16px", color: C.muted, fontSize: 12 }}>No saved projects</div>}
                 {projects.map(p => (
-                  <div key={p.id} className={`group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${isDark ? "hover:bg-white/[0.05]" : "hover:bg-gray-50"} ${currentProject?.id === p.id ? isDark ? "bg-violet-500/10" : "bg-violet-50" : ""}`}>
-                    <span className="flex-1 text-sm truncate" onClick={() => openProject(p)}>{p.name}</span>
-                    <span className={`text-[10px] ${muted}`}>{p.mainLanguage}</span>
-                    {p.isPublished && <Globe className="h-3 w-3 text-green-400" />}
-                    <button onClick={() => deleteProject(p.id)} className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100">
-                      <Trash2 className="h-3 w-3" />
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", cursor: "pointer", borderBottom: `1px solid ${C.border}`, background: currentProject?.id === p.id ? C.accentLight : "transparent" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = currentProject?.id === p.id ? C.accentLight : "rgba(255,255,255,0.03)") }
+                    onMouseLeave={e => (e.currentTarget.style.background = currentProject?.id === p.id ? C.accentLight : "transparent") }>
+                    <span style={{ flex: 1, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} onClick={() => openProject(p)}>{p.name}</span>
+                    <span style={{ fontSize: 10, color: C.muted }}>{p.mainLanguage}</span>
+                    {p.isPublished && <Globe style={{ width: 10, height: 10, color: "#10b981" }} />}
+                    <button onClick={e => { e.stopPropagation(); deleteProject(p.id); }} style={{ color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: 2, opacity: 0.6 }}>
+                      <Trash2 style={{ width: 11, height: 11 }} />
                     </button>
                   </div>
                 ))}
@@ -625,466 +538,298 @@ export default function CodeStudio() {
           )}
         </div>
 
-        <div className="flex-1" />
+        <div style={{ flex: 1 }} />
 
-        {/* Rebuild with AI */}
-        {hasProject && (
-          <div className="relative">
-            <Button size="sm" variant="ghost" onClick={() => setShowRebuildInput(v => !v)}
-              className={`h-8 gap-1.5 text-xs ${isDark ? "text-violet-400 hover:text-violet-300" : "text-violet-600 hover:text-violet-700"}`}>
-              <Wand2 className="h-3.5 w-3.5" /> Rebuild
-            </Button>
-            {showRebuildInput && (
-              <div className={`absolute right-0 top-full mt-1 w-80 rounded-xl border shadow-2xl z-50 p-3 ${isDark ? "bg-[#1a1a2e] border-white/10" : "bg-white border-gray-200"}`}>
-                <p className={`text-xs ${muted} mb-2`}>Describe changes or a new version:</p>
-                <div className="flex gap-2">
-                  <Input value={rebuildPrompt} onChange={e => setRebuildPrompt(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { setShowRebuildInput(false); buildWithAI(rebuildPrompt, referenceUrl); setRebuildPrompt(""); } }}
-                    placeholder="Make it a dark theme stopwatch..."
-                    className={`text-xs h-8 ${isDark ? "bg-black/20 border-white/10" : ""}`} autoFocus />
-                  <Button size="sm" onClick={() => { setShowRebuildInput(false); buildWithAI(rebuildPrompt, referenceUrl); setRebuildPrompt(""); }}
-                    className="h-8 w-8 p-0 bg-violet-600 hover:bg-violet-500 shrink-0">
-                    <Rocket className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Action buttons */}
+        <button onClick={saveProject} disabled={isSaving || !hasProject}
+          style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 10px", color: unsaved ? "#f59e0b" : C.muted, cursor: hasProject ? "pointer" : "not-allowed", fontSize: 12, opacity: !hasProject ? 0.4 : 1 }}>
+          {isSaving ? <Loader2 style={{ width: 13, height: 13, animation: "spin 1s linear infinite" }} /> : <Save style={{ width: 13, height: 13 }} />} Save
+        </button>
 
-        <Button size="sm" variant="ghost" onClick={saveProject} disabled={isSaving || !hasProject}
-          className={`h-8 gap-1.5 text-xs ${unsaved ? "text-orange-400" : muted}`}>
-          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
-        </Button>
-
-        <Button size="sm" onClick={runCode} disabled={isRunning || !hasProject}
-          className="h-8 gap-1.5 text-xs bg-green-600 hover:bg-green-500 text-white">
-          {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />} Run
-        </Button>
+        <button onClick={runCode} disabled={isRunning || !hasProject}
+          style={{ display: "flex", alignItems: "center", gap: 5, background: "#059669", border: "none", borderRadius: 7, padding: "5px 12px", color: "#fff", cursor: hasProject ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600, opacity: !hasProject ? 0.4 : 1 }}>
+          {isRunning ? <Loader2 style={{ width: 13, height: 13, animation: "spin 1s linear infinite" }} /> : <Play style={{ width: 13, height: 13 }} />} Run
+        </button>
 
         {deployUrl ? (
-          <div className="flex items-center gap-1">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-green-500/10 border border-green-500/25">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-xs text-green-400 font-medium">Live</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 7, padding: "4px 10px" }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", animation: "pulse 2s infinite" }} />
+              <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>Live</span>
             </div>
-            <button onClick={copyDeployUrl} className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${isDark ? "border-white/10 text-gray-400 hover:text-white hover:bg-white/05" : "border-gray-200 text-gray-500 hover:text-gray-800"}`}>
-              {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
-              <span className="max-w-[120px] truncate">{window.location.origin}{deployUrl}</span>
+            <button onClick={copyUrl} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 10px", color: C.muted, cursor: "pointer", fontSize: 11 }}>
+              {copied ? <Check style={{ width: 11, height: 11, color: "#10b981" }} /> : <Copy style={{ width: 11, height: 11 }} />}
+              <span style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>{window.location.origin}{deployUrl}</span>
             </button>
-            <a href={deployUrl} target="_blank" rel="noopener noreferrer"
-              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors ${isDark ? "border-white/10 text-gray-400 hover:text-violet-300" : "border-gray-200 text-gray-500 hover:text-violet-600"}`}>
-              <ExternalLink className="h-3 w-3" />
+            <a href={deployUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", padding: "5px 8px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 7, color: C.muted, textDecoration: "none" }}>
+              <ExternalLink style={{ width: 12, height: 12 }} />
             </a>
-            <Button size="sm" onClick={() => setShowDeploy(true)} disabled={!hasProject}
-              className="h-7 gap-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white">
-              <RefreshCw className="h-3 w-3" /> Redeploy
-            </Button>
+            <button onClick={() => setShowDeployModal(true)} disabled={!hasProject}
+              style={{ display: "flex", alignItems: "center", gap: 5, background: C.accentLight, border: `1px solid rgba(124,58,237,0.3)`, borderRadius: 7, padding: "5px 10px", color: "#a78bfa", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+              <RefreshCw style={{ width: 12, height: 12 }} /> Redeploy
+            </button>
           </div>
         ) : (
-          <Button size="sm" onClick={() => setShowDeploy(true)} disabled={!hasProject}
-            className="h-8 gap-1.5 text-xs bg-violet-600 hover:bg-violet-500 text-white">
-            <Rocket className="h-3.5 w-3.5" /> Deploy
-          </Button>
+          <button onClick={() => setShowDeployModal(true)} disabled={!hasProject}
+            style={{ display: "flex", alignItems: "center", gap: 5, background: C.accent, border: "none", borderRadius: 7, padding: "5px 14px", color: "#fff", cursor: hasProject ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600, opacity: !hasProject ? 0.4 : 1 }}>
+            <Rocket style={{ width: 13, height: 13 }} /> Deploy
+          </button>
         )}
       </div>
 
-      {/* ── Main Layout ── */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* ── Main 3-column layout ── */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-        {/* Left Sidebar */}
-        <div className={`w-48 shrink-0 flex flex-col border-r ${border} ${surface}`}>
-          <div className={`flex items-center justify-between px-3 py-2 border-b ${border}`}>
-            <span className={`text-xs font-semibold uppercase tracking-wider ${muted}`}>Files</span>
-            <button onClick={() => setShowAddFile(v => !v)} className="text-violet-400 hover:text-violet-300">
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          {showAddFile && (
-            <div className={`p-2 border-b ${border}`}>
-              <div className="flex gap-1">
-                <Input value={newFileName} onChange={e => setNewFileName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addFile()}
-                  placeholder="file.js" className={`h-7 text-xs ${isDark ? "bg-black/20 border-white/10" : ""}`} />
-                <button onClick={addFile} className="text-violet-400"><Check className="h-4 w-4" /></button>
-              </div>
-            </div>
-          )}
-          <div className="flex-1 overflow-y-auto py-1">
-            {files.map(file => (
-              <div key={file.name}
-                className={`group flex items-center gap-1.5 px-3 py-1.5 cursor-pointer text-xs transition-all ${
-                  justBuiltFiles.has(file.name) && isBuilding ? "animate-pulse" : ""
-                } ${activeFile === file.name
-                  ? isDark ? "bg-violet-500/15 text-violet-300" : "bg-violet-50 text-violet-700"
-                  : isDark ? "text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]" : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-                onClick={() => setActiveFile(file.name)}>
-                <FileCode className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                <span className="flex-1 truncate">{file.name}</span>
-                {justBuiltFiles.has(file.name) && <Zap className="h-3 w-3 text-yellow-400 shrink-0" />}
-              </div>
-            ))}
-          </div>
-          {/* Panel toggle */}
-          <div className={`border-t ${border} p-2 space-y-1`}>
-            {[
-              { id: "preview", icon: <Monitor className="h-3.5 w-3.5" />, label: "Preview", color: "text-blue-400 bg-blue-500/20" },
-              { id: "output", icon: <Terminal className="h-3.5 w-3.5" />, label: "Output", color: "text-green-400 bg-green-500/20" },
-              { id: "ai", icon: <Sparkles className="h-3.5 w-3.5" />, label: "AI Chat", color: "text-violet-400 bg-violet-500/20" },
-            ].map(p => (
-              <button key={p.id} onClick={() => setRightPanel(p.id as any)}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${rightPanel === p.id ? p.color : `${muted} hover:text-white`}`}>
-                {p.icon} {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* ── LEFT: Agent + Files ── */}
+        <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", borderRight: `1px solid ${C.border}`, background: C.sidebar }}>
 
-        {/* Center: Editor or Hero */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {hasProject ? (
-            <>
-              {/* File tabs */}
-              <div className={`flex items-center gap-0.5 px-2 py-1 border-b ${border} ${tabBg} overflow-x-auto shrink-0`}>
+          {/* File tree */}
+          {hasProject && (
+            <div style={{ borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 12px" }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>Files</span>
+                <button onClick={() => setShowAddFile(v => !v)} style={{ color: C.accent, background: "none", border: "none", cursor: "pointer" }}>
+                  <Plus style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+              {showAddFile && (
+                <div style={{ padding: "4px 8px 8px", display: "flex", gap: 6 }}>
+                  <input value={newFileName} onChange={e => setNewFileName(e.target.value)} onKeyDown={e => e.key === "Enter" && addFile()}
+                    placeholder="filename.js" autoFocus
+                    style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, borderRadius: 6, padding: "5px 8px", color: C.text, fontSize: 11, outline: "none", fontFamily: "monospace" }} />
+                  <button onClick={addFile} style={{ color: "#10b981", background: "none", border: "none", cursor: "pointer" }}><Check style={{ width: 14, height: 14 }} /></button>
+                </div>
+              )}
+              <div style={{ paddingBottom: 6 }}>
                 {files.map(file => (
                   <button key={file.name} onClick={() => setActiveFile(file.name)}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs whitespace-nowrap transition-colors ${
-                      activeFile === file.name
-                        ? isDark ? "bg-[#1e1e3f] text-violet-300 border border-violet-500/30" : "bg-white text-violet-700 border border-violet-200 shadow-sm"
-                        : `${muted} hover:text-violet-400`
-                    }`}>
-                    <FileCode className="h-3 w-3 opacity-60" />
-                    {file.name}
-                    {justBuiltFiles.has(file.name) && <Zap className="h-2.5 w-2.5 text-yellow-400" />}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", background: activeFile === file.name ? C.accentLight : "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+                    <FileCode style={{ width: 12, height: 12, color: activeFile === file.name ? C.accent : C.muted, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: activeFile === file.name ? "#a78bfa" : C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
                   </button>
                 ))}
               </div>
-              {/* Monaco */}
-              <div className="flex-1 overflow-hidden">
+            </div>
+          )}
+
+          {/* Agent Chat */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ width: 20, height: 20, borderRadius: 6, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Sparkles style={{ width: 11, height: 11, color: "#fff" }} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>Turbo Code Agent</span>
+              <span style={{ marginLeft: "auto", fontSize: 10, color: "#7c3aed", background: "rgba(124,58,237,0.12)", padding: "2px 6px", borderRadius: 4 }}>Gemini 3.1 Pro</span>
+            </div>
+
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {messages.map(msg => {
+                if (msg.role === "building") {
+                  const phase = msg.buildPhase ?? 0;
+                  const done = msg.buildDone;
+                  return (
+                    <div key={msg.id} style={{ background: "rgba(124,58,237,0.08)", border: "1px solid rgba(124,58,237,0.2)", borderRadius: 12, padding: "12px 14px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: done ? "rgba(16,185,129,0.2)" : "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {done ? <Check style={{ width: 14, height: 14, color: "#10b981" }} /> : <Wand2 style={{ width: 14, height: 14, color: "#fff" }} />}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: done ? "#10b981" : "#a78bfa", marginBottom: 2 }}>
+                            {done ? "Build Complete!" : "Building..."}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.buildPrompt}</div>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: done ? 10 : 0 }}>
+                        <div style={{ fontSize: 11, color: done ? "#10b981" : "#a78bfa", marginBottom: 6 }}>{BUILD_PHASES[Math.min(phase, BUILD_PHASES.length - 1)]}</div>
+                        <div style={{ display: "flex", gap: 3 }}>
+                          {BUILD_PHASES.map((_, i) => (
+                            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= phase ? (done ? "#10b981" : "#7c3aed") : "rgba(255,255,255,0.08)", transition: "background 0.4s" }} />
+                          ))}
+                        </div>
+                      </div>
+                      {done && msg.deployUrl && (
+                        <div style={{ marginTop: 10 }}>
+                          <a href={msg.deployUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 8, padding: "6px 12px", color: "#10b981", textDecoration: "none", fontSize: 12, fontWeight: 600 }}>
+                            <Globe style={{ width: 12, height: 12 }} /> Open deployed app <ExternalLink style={{ width: 11, height: 11 }} />
+                          </a>
+                        </div>
+                      )}
+                      {done && msg.files && (
+                        <div style={{ marginTop: 8, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {msg.files.map(f => (
+                            <span key={f} style={{ fontSize: 10, color: C.muted, background: "rgba(255,255,255,0.05)", padding: "2px 6px", borderRadius: 4, fontFamily: "monospace" }}>{f}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                const isUser = msg.role === "user";
+                return (
+                  <div key={msg.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", flexDirection: isUser ? "row-reverse" : "row" }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 8, background: isUser ? "rgba(124,58,237,0.3)" : "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {isUser ? <User style={{ width: 13, height: 13, color: "#a78bfa" }} /> : <Bot style={{ width: 13, height: 13, color: "#fff" }} />}
+                    </div>
+                    <div style={{ maxWidth: "85%", background: isUser ? "rgba(124,58,237,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${isUser ? "rgba(124,58,237,0.2)" : C.border}`, borderRadius: isUser ? "12px 4px 12px 12px" : "4px 12px 12px 12px", padding: "8px 12px", fontSize: 12.5, color: C.text, lineHeight: 1.6 }}>
+                      {renderMessage(msg.content)}
+                    </div>
+                  </div>
+                );
+              })}
+              {agentLoading && (
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Bot style={{ width: 13, height: 13, color: "#fff" }} />
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: "4px 12px 12px 12px", padding: "10px 14px", display: "flex", gap: 4, alignItems: "center" }}>
+                    {[0, 1, 2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: C.accent, animation: `bounce 1.2s infinite ${i * 0.2}s` }} />)}
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input */}
+            <div style={{ padding: "8px 10px", borderTop: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", gap: 6, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 8px" }}>
+                <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder="Build a todo app... or ask a question..."
+                  disabled={agentLoading || !!buildingMsgId}
+                  style={{ flex: 1, background: "none", border: "none", color: C.text, fontSize: 12.5, outline: "none", fontFamily: "inherit" }} />
+                <button onClick={sendMessage} disabled={!input.trim() || agentLoading || !!buildingMsgId}
+                  style={{ width: 28, height: 28, borderRadius: 7, background: input.trim() && !agentLoading ? C.accent : "rgba(255,255,255,0.05)", border: "none", cursor: input.trim() && !agentLoading ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}>
+                  {agentLoading ? <Loader2 style={{ width: 13, height: 13, color: "#fff", animation: "spin 1s linear infinite" }} /> : <Send style={{ width: 13, height: 13, color: "#fff" }} />}
+                </button>
+              </div>
+              <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {!hasProject && ["A portfolio website", "A todo app", "A snake game", "A calculator"].map(ex => (
+                  <button key={ex} onClick={() => { setInput(ex); inputRef.current?.focus(); }}
+                    style={{ fontSize: 10, color: C.muted, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 4, padding: "2px 7px", cursor: "pointer" }}>
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── CENTER: Editor ── */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+          {hasProject ? (
+            <>
+              {/* File tabs */}
+              <div style={{ display: "flex", alignItems: "center", gap: 0, borderBottom: `1px solid ${C.border}`, background: C.panel, overflowX: "auto", flexShrink: 0, height: 36 }}>
+                {files.map(file => (
+                  <button key={file.name} onClick={() => setActiveFile(file.name)}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 14px", height: "100%", background: activeFile === file.name ? C.bg : "transparent", borderRight: `1px solid ${C.border}`, border: "none", cursor: "pointer", color: activeFile === file.name ? "#a78bfa" : C.muted, fontSize: 12, whiteSpace: "nowrap", borderBottom: activeFile === file.name ? `1px solid ${C.accent}` : "1px solid transparent" }}>
+                    <FileCode style={{ width: 11, height: 11, opacity: 0.7 }} />
+                    {file.name}
+                  </button>
+                ))}
+              </div>
+              <div style={{ flex: 1, overflow: "hidden" }}>
                 <Editor
                   height="100%"
                   language={getMonacoLang(activeFileData?.language || "javascript")}
                   value={activeFileData?.content || ""}
-                  onChange={v => updateFileContent(v || "")}
-                  theme={isDark ? "vs-dark" : "light"}
-                  options={{
-                    fontSize: 14,
-                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                    fontLigatures: true,
-                    minimap: { enabled: false },
-                    scrollBeyondLastLine: false,
-                    lineNumbers: "on",
-                    renderLineHighlight: "gutter",
-                    bracketPairColorization: { enabled: true },
-                    wordWrap: "on",
-                    automaticLayout: true,
-                    padding: { top: 12, bottom: 12 },
-                    quickSuggestions: true,
-                    tabSize: 2,
-                  }}
+                  onChange={v => { setFiles(f => f.map(file => file.name === activeFile ? { ...file, content: v || "" } : file)); setUnsaved(true); }}
+                  theme="vs-dark"
+                  options={{ fontSize: 13.5, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", fontLigatures: true, minimap: { enabled: false }, scrollBeyondLastLine: false, lineNumbers: "on", wordWrap: "on", automaticLayout: true, padding: { top: 16, bottom: 16 }, tabSize: 2, bracketPairColorization: { enabled: true } }}
                 />
               </div>
             </>
           ) : (
-            /* ── Hero Build Screen ── */
-            <div className={`flex-1 flex flex-col items-center justify-center p-8 ${isDark ? "bg-[#0d0d1a]" : "bg-gray-50"}`}>
-              <div className="text-center mb-8">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 blur-xl opacity-40" />
-                    <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center shadow-2xl shadow-violet-500/40">
-                      <Wand2 className="h-7 w-7 text-white" />
-                    </div>
-                  </div>
-                </div>
-                <h1 className={`text-3xl font-bold mb-2 ${isDark ? "text-white" : "text-gray-900"}`}>
-                  One prompt. Full app. Auto-deployed.
-                </h1>
-                <p className={`text-sm ${muted}`}>
-                  Gemini 3.1 Pro writes every file, launches a live preview, and deploys it instantly
-                </p>
+            /* Welcome state */
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40, textAlign: "center" }}>
+              <div style={{ width: 64, height: 64, borderRadius: 18, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, boxShadow: "0 0 40px rgba(124,58,237,0.3)" }}>
+                <Sparkles style={{ width: 32, height: 32, color: "#fff" }} />
               </div>
-
-              <div className="w-full max-w-2xl space-y-3">
-                {/* Main prompt */}
-                <div className={`flex gap-2 p-2 rounded-2xl border ${isDark ? "bg-white/[0.04] border-white/10" : "bg-white border-gray-200 shadow-lg"}`}>
-                  <input
-                    value={buildPrompt}
-                    onChange={e => setBuildPrompt(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && buildPrompt.trim()) { buildWithAI(buildPrompt, referenceUrl); setBuildPrompt(""); } }}
-                    placeholder="a portfolio site with animated hero, project cards, and dark mode..."
-                    className={`flex-1 bg-transparent text-sm outline-none px-2 ${isDark ? "text-gray-200 placeholder-gray-600" : "text-gray-800 placeholder-gray-400"}`}
-                    autoFocus
-                  />
-                  <Button
-                    onClick={() => { buildWithAI(buildPrompt, referenceUrl); setBuildPrompt(""); }}
-                    disabled={!buildPrompt.trim()}
-                    className="bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl px-5 gap-2 shrink-0 font-semibold">
-                    <Rocket className="h-4 w-4" /> Build & Deploy
-                  </Button>
-                </div>
-
-                {/* Reference URL */}
-                <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border ${isDark ? "bg-white/[0.02] border-white/[0.06]" : "bg-white/80 border-gray-200"}`}>
-                  <Globe className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                  <input
-                    value={referenceUrl}
-                    onChange={e => setReferenceUrl(e.target.value)}
-                    placeholder="Optional: paste a website URL to copy its design (e.g. https://stripe.com)"
-                    className={`flex-1 bg-transparent text-xs outline-none ${isDark ? "text-gray-300 placeholder-gray-600" : "text-gray-600 placeholder-gray-400"}`}
-                  />
-                  {referenceUrl && (
-                    <button onClick={() => setReferenceUrl("")} className="text-gray-500 hover:text-gray-300 shrink-0">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Example prompts */}
-                <div className="flex flex-wrap gap-2 justify-center pt-1">
-                  {[
-                    "a stopwatch with lap timer",
-                    "a to-do list app",
-                    "a snake game",
-                    "a weather dashboard",
-                    "a SaaS landing page",
-                    "a budget tracker",
-                    "a markdown preview editor",
-                    "a quiz app",
-                    "a music player UI",
-                  ].map(ex => (
-                    <button key={ex} onClick={() => buildWithAI(ex, referenceUrl)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${isDark ? "border-white/10 text-gray-400 hover:border-violet-500/40 hover:text-violet-300 hover:bg-violet-500/10" : "border-gray-200 text-gray-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50"}`}>
-                      {ex}
-                    </button>
-                  ))}
-                </div>
-
-                <div className={`pt-2 text-center text-xs ${muted} flex items-center justify-center gap-2`}>
-                  <span>or</span>
-                  <button onClick={() => setShowNewModal(true)} className="text-violet-400 hover:text-violet-300 underline underline-offset-2">
-                    start with a blank project
-                  </button>
-                </div>
-              </div>
+              <h2 style={{ fontSize: 24, fontWeight: 800, color: C.text, marginBottom: 8 }}>Tell the Agent what to build</h2>
+              <p style={{ fontSize: 14, color: C.muted, maxWidth: 400, lineHeight: 1.6 }}>
+                Type what you want in the chat — Gemini 3.1 Pro will build the full app, deploy it, and show it here instantly.
+              </p>
             </div>
           )}
         </div>
 
-        {/* Right Panel */}
-        <div className={`w-96 shrink-0 flex flex-col border-l ${border} overflow-hidden`}>
-          {rightPanel === "preview" && (
-            <div className="flex flex-col h-full">
-              <div className={`flex items-center gap-2 px-3 py-2 border-b ${border} ${surface} shrink-0`}>
-                <Monitor className="h-3.5 w-3.5 text-blue-400" />
-                <span className="text-xs font-semibold">Live Preview</span>
-                <div className="flex-1" />
-                <button onClick={() => { setLivePreview(buildSrcdoc(files)); setPreviewKey(k => k + 1); }} className="text-blue-400 hover:text-blue-300">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </button>
-                {deployUrl && (
-                  <a href={deployUrl} target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </div>
-              <div className="flex-1 bg-white">
-                {isWebProject(mainLang) ? (
-                  <iframe key={previewKey} srcDoc={livePreview} className="w-full h-full border-0"
-                    sandbox="allow-scripts allow-modals" title="Live Preview" />
-                ) : (
-                  <div className={`flex items-center justify-center h-full ${isDark ? "bg-[#0d0d1a]" : "bg-gray-50"}`}>
-                    <div className={`text-center text-sm ${muted}`}>
-                      <Monitor className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                      <p>Preview is for HTML/CSS/JS apps</p>
-                      <p className="text-xs opacity-60 mt-1">Use Output to run code</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+        {/* ── RIGHT: Preview / Output ── */}
+        <div style={{ width: 420, flexShrink: 0, display: "flex", flexDirection: "column", borderLeft: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 10px", height: 36, borderBottom: `1px solid ${C.border}`, background: C.panel, flexShrink: 0 }}>
+            {[
+              { id: "preview" as const, icon: <Monitor style={{ width: 12, height: 12 }} />, label: "Preview" },
+              { id: "output" as const, icon: <Terminal style={{ width: 12, height: 12 }} />, label: "Output" },
+            ].map(p => (
+              <button key={p.id} onClick={() => setRightPanel(p.id)}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 10px", height: "100%", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: rightPanel === p.id ? "#a78bfa" : C.muted, borderBottom: rightPanel === p.id ? `1px solid ${C.accent}` : "1px solid transparent" }}>
+                {p.icon} {p.label}
+              </button>
+            ))}
+            {rightPanel === "preview" && hasProject && (
+              <button onClick={runCode} style={{ marginLeft: "auto", color: C.muted, background: "none", border: "none", cursor: "pointer" }} title="Refresh preview">
+                <RefreshCw style={{ width: 13, height: 13 }} />
+              </button>
+            )}
+          </div>
 
-          {rightPanel === "output" && (
-            <div className="flex flex-col h-full">
-              <div className={`flex items-center gap-2 px-3 py-2 border-b ${border} ${surface} shrink-0`}>
-                <Terminal className="h-3.5 w-3.5 text-green-400" />
-                <span className="text-xs font-semibold">Output</span>
-                <div className="flex-1" />
-                <button onClick={runCode} disabled={isRunning} className="text-green-400 hover:text-green-300 disabled:opacity-50">
-                  {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                </button>
-                <button onClick={() => { setOutput(""); setOutputErr(""); }} className={`${muted} hover:text-red-400`}><X className="h-3.5 w-3.5" /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-3 font-mono text-xs bg-black/90">
-                {isRunning && <div className="text-yellow-400 flex items-center gap-2 mb-2"><Loader2 className="h-3 w-3 animate-spin" /> Running...</div>}
-                {!output && !outputErr && !isRunning && (
-                  <div className="text-gray-600 text-center mt-8"><Terminal className="h-8 w-8 mx-auto mb-2 opacity-20" /><p>Press Run to execute</p></div>
-                )}
-                {output && <pre className="text-green-400 whitespace-pre-wrap">{output}</pre>}
-                {outputErr && <pre className="text-red-400 whitespace-pre-wrap mt-2">{outputErr}</pre>}
-              </div>
-            </div>
-          )}
-
-          {rightPanel === "ai" && (
-            <div className="flex flex-col h-full">
-              <div className={`flex items-center gap-2 px-3 py-2 border-b ${border} ${surface} shrink-0`}>
-                <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-                <span className="text-xs font-semibold">Turbo Code AI</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? "bg-violet-500/20 text-violet-300" : "bg-violet-100 text-violet-600"}`}>Antigravity · Gemini 3.1 Pro</span>
-                <div className="flex-1" />
-                <button onClick={() => setAiMessages([{ role: "assistant", content: "Chat cleared. How can I help?" }])} className={`${muted} hover:text-red-400`}><X className="h-3.5 w-3.5" /></button>
-              </div>
-              <div className={`flex-1 overflow-y-auto p-3 space-y-3 ${isDark ? "bg-[#0d0d1a]" : "bg-gray-50"}`}>
-                {aiMessages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${msg.role === "user" ? "bg-violet-600 text-white" : isDark ? "bg-[#1a1a2e] border border-white/[0.06] text-gray-200" : "bg-white border border-gray-200 text-gray-800"}`}>
-                      {renderAiContent(msg.content)}
-                    </div>
-                  </div>
-                ))}
-                {aiLoading && (
-                  <div className="flex justify-start">
-                    <div className={`px-3 py-2 rounded-xl text-xs ${isDark ? "bg-[#1a1a2e] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
-                    </div>
-                  </div>
-                )}
-                <div ref={aiEndRef} />
-              </div>
-              <div className={`p-2 border-t ${border} ${surface}`}>
-                <div className="flex gap-2">
-                  <Input value={aiInput} onChange={e => setAiInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }}
-                    placeholder="Ask AI anything about the code..."
-                    className={`text-xs h-8 ${isDark ? "bg-black/20 border-white/10" : ""}`} />
-                  <Button size="sm" onClick={sendAiMessage} disabled={aiLoading || !aiInput.trim()} className="h-8 w-8 p-0 bg-violet-600 hover:bg-violet-500 shrink-0">
-                    {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>
-                <div className="flex gap-1 mt-1.5 flex-wrap">
-                  {["Fix bugs", "Optimize", "Explain code", "Add feature"].map(s => (
-                    <button key={s} onClick={() => setAiInput(s)}
-                      className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${isDark ? "border-white/10 text-gray-500 hover:text-violet-400 hover:border-violet-500/30" : "border-gray-200 text-gray-400 hover:text-violet-500 hover:border-violet-300"}`}>
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          {rightPanel === "preview" ? (
+            <iframe key={previewKey} srcDoc={livePreview || "<p style='font-family:sans-serif;color:#555;padding:24px;'>Run your HTML project to see the preview</p>"}
+              style={{ flex: 1, border: "none", background: "#fff" }} sandbox="allow-scripts allow-same-origin allow-forms" />
+          ) : (
+            <div style={{ flex: 1, padding: 16, fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, overflowY: "auto", background: "#0a0a0f" }}>
+              {isRunning && <div style={{ color: "#a78bfa" }}>Running...</div>}
+              {output && <pre style={{ color: "#a5f3fc", margin: 0, whiteSpace: "pre-wrap" }}>{output}</pre>}
+              {outputErr && <pre style={{ color: "#ef4444", margin: 0, whiteSpace: "pre-wrap" }}>{outputErr}</pre>}
+              {!isRunning && !output && !outputErr && <div style={{ color: C.muted }}>Run your code to see output here</div>}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── New Blank Project Modal ── */}
-      {showNewModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowNewModal(false)}>
-          <div onClick={e => e.stopPropagation()} className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${isDark ? "bg-[#13131f] border-white/10" : "bg-white border-gray-200"}`}>
-            <h2 className={`text-lg font-bold mb-4 ${text}`}>New Blank Project</h2>
-            <div className="space-y-4">
-              <Input value={newName} onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && createBlankProject()}
-                placeholder="Project name" className={isDark ? "bg-black/20 border-white/10" : ""} autoFocus />
-              <div className="grid grid-cols-2 gap-2">
-                {LANGUAGES.map(lang => (
-                  <button key={lang.id} onClick={() => setNewLang(lang.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${newLang === lang.id
-                      ? isDark ? "bg-violet-500/20 border-violet-500/40 text-violet-300" : "bg-violet-50 border-violet-300 text-violet-700"
-                      : isDark ? "bg-white/[0.03] border-white/[0.08] text-gray-400" : "bg-gray-50 border-gray-200 text-gray-600"}`}>
-                    <span>{lang.icon}</span> {lang.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowNewModal(false)} className="flex-1">Cancel</Button>
-                <Button onClick={createBlankProject} disabled={!newName.trim()} className="flex-1 bg-violet-600 hover:bg-violet-500">Create</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Deploy Modal ── */}
-      {showDeploy && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowDeploy(false)}>
-          <div onClick={e => e.stopPropagation()} className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-[#13131f] border-white/10" : "bg-white border-gray-200"}`}>
-            {/* Header */}
-            <div className={`px-6 py-4 border-b ${border} ${isDark ? "bg-gradient-to-r from-violet-900/30 to-cyan-900/20" : "bg-gradient-to-r from-violet-50 to-cyan-50"}`}>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-violet-500/20"><Rocket className="h-6 w-6 text-violet-400" /></div>
-                <div>
-                  <h2 className={`text-lg font-bold ${text}`}>Deploy "{currentProject?.name}"</h2>
-                  <p className={`text-xs ${muted}`}>Get a public URL you can share with anyone</p>
-                </div>
-                <button onClick={() => setShowDeploy(false)} className={`ml-auto ${muted} hover:text-white`}><X className="h-5 w-5" /></button>
+      {showDeployModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, backdropFilter: "blur(4px)" }}>
+          <div style={{ background: "#111118", border: `1px solid ${C.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 440, boxShadow: "0 40px 80px rgba(0,0,0,0.6)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Rocket style={{ width: 20, height: 20, color: C.accent }} />
+                <span style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Deploy Project</span>
               </div>
+              <button onClick={() => setShowDeployModal(false)} style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}><X style={{ width: 18, height: 18 }} /></button>
             </div>
-
-            <div className="p-6 space-y-5">
-              {/* Live URL — shown after deploy */}
-              {deployUrl ? (
-                <div className={`rounded-2xl border p-4 ${isDark ? "bg-green-500/8 border-green-500/25" : "bg-green-50 border-green-200"}`}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    <span className={`text-sm font-semibold ${isDark ? "text-green-300" : "text-green-700"}`}>Your app is live!</span>
-                  </div>
-                  <div className={`rounded-xl px-3 py-2.5 mb-3 font-mono text-sm break-all ${isDark ? "bg-black/40 text-green-300" : "bg-white text-green-800 border border-green-200"}`}>
-                    {window.location.origin}{deployUrl}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={copyDeployUrl} variant="outline" size="sm" className={`flex-1 gap-2 ${isDark ? "border-green-500/30 text-green-300 hover:bg-green-500/10" : "border-green-300 text-green-700"}`}>
-                      {copied ? <><Check className="h-3.5 w-3.5" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy URL</>}
-                    </Button>
-                    <a href={deployUrl} target="_blank" rel="noopener noreferrer" className="flex-1">
-                      <Button size="sm" className="w-full gap-2 bg-green-600 hover:bg-green-500 text-white">
-                        <ExternalLink className="h-3.5 w-3.5" /> Open App
-                      </Button>
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div className={`rounded-xl border border-dashed p-4 text-center ${isDark ? "border-white/15 text-gray-500" : "border-gray-300 text-gray-400"}`}>
-                  <Globe className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Your app will be live at:</p>
-                  <p className={`text-xs mt-1 font-mono ${isDark ? "text-violet-400" : "text-violet-600"}`}>{window.location.origin}/p/your-app-name</p>
-                </div>
-              )}
-
-              {/* Custom Domain */}
-              <div>
-                <label className={`text-xs font-semibold uppercase tracking-wider ${muted} mb-2 block`}>Custom Domain</label>
-                <div className="flex gap-2">
-                  <Input value={customDomain} onChange={e => setCustomDomain(e.target.value)} placeholder="myapp.com or app.mysite.com"
-                    className={`text-sm ${isDark ? "bg-black/20 border-white/10" : ""}`} />
-                </div>
-                {customDomain && (
-                  <div className={`mt-2 rounded-xl border p-3 text-xs space-y-1.5 ${isDark ? "bg-blue-500/8 border-blue-500/20 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-800"}`}>
-                    <p className="font-semibold">DNS Setup Instructions:</p>
-                    <p>Add one of these records at your domain registrar:</p>
-                    <div className={`rounded-lg p-2 font-mono text-[11px] space-y-1 ${isDark ? "bg-black/30" : "bg-white border border-blue-200"}`}>
-                      <div><span className="opacity-60">Type:</span> CNAME</div>
-                      <div><span className="opacity-60">Name:</span> {customDomain.includes('.') && customDomain.split('.').length > 2 ? customDomain.split('.')[0] : '@'}</div>
-                      <div><span className="opacity-60">Value:</span> {window.location.host}</div>
-                    </div>
-                    <p className="opacity-70">DNS changes can take up to 24–48 hours to propagate worldwide.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-1">
-                <Button variant="outline" onClick={() => setShowDeploy(false)} className="flex-1">Cancel</Button>
-                <Button onClick={deployProject} disabled={isDeploying} className="flex-1 bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white gap-2">
-                  {isDeploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                  {deployUrl ? "Redeploy" : "Deploy & Get URL"}
-                </Button>
-              </div>
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
+              Your project will be published to a public URL at <strong style={{ color: C.text }}>{window.location.origin}/p/your-slug</strong>
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 12, color: C.muted, display: "block", marginBottom: 6 }}>Custom domain (optional)</label>
+              <input value={customDomain} onChange={e => setCustomDomain(e.target.value)} placeholder="myapp.com"
+                style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", color: C.text, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
             </div>
+            {deployUrl && (
+              <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <a href={deployUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#10b981", fontSize: 13, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis" }}>{window.location.origin}{deployUrl}</a>
+                <button onClick={copyUrl} style={{ color: copied ? "#10b981" : C.muted, background: "none", border: "none", cursor: "pointer" }}>
+                  {copied ? <Check style={{ width: 14, height: 14 }} /> : <Copy style={{ width: 14, height: 14 }} />}
+                </button>
+              </div>
+            )}
+            <button onClick={deployProject} disabled={isDeploying}
+              style={{ width: "100%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", border: "none", borderRadius: 10, padding: "12px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: isDeploying ? 0.7 : 1 }}>
+              {isDeploying ? "Deploying..." : deployUrl ? "Redeploy" : "Deploy to Web"}
+            </button>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-5px); } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+      `}</style>
     </div>
   );
 }

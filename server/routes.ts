@@ -3226,29 +3226,79 @@ IMPORTANT: Study these colors and replicate the visual identity, color palette, 
         }
       }
 
-      const systemPrompt = `You are Turbo Code, an elite full-stack developer and UI designer. Given a user's idea, generate a COMPLETE, fully working, visually stunning app that looks like it was built by a top design team.
+      const systemPrompt = `You are Turbo Code, a world-class full-stack developer and UI/UX designer. You build production-quality web apps that look like they were made by a professional agency — think Stripe, Linear, Vercel, or Apple quality.
 
-CRITICAL: You MUST respond with ONLY a valid JSON object. No markdown fences, no explanation text outside the JSON.
+CRITICAL: Respond with ONLY a valid JSON object. No markdown, no text outside the JSON.
 
 Technology decision:
-- Use "html" for visual apps, games, UI tools, dashboards, calculators, clocks, timers, drawing tools, landing pages, portfolios, etc.
-- Use "python" for data processing, algorithms, scripts, math
-- Use "javascript" for Node.js utilities/CLIs
+- Use "html" for ALL visual apps: games, dashboards, tools, landing pages, portfolios, calculators, timers, etc.
+- Use "python" ONLY for pure data/algorithm/math scripts with no UI
+- Use "javascript" ONLY for Node.js CLI utilities
 
-Return this exact JSON structure:
-{"projectName":"Short name","mainLanguage":"html","description":"One line","files":[{"name":"index.html","language":"html","content":"..."},{"name":"style.css","language":"css","content":"..."},{"name":"script.js","language":"javascript","content":"..."}]}
+JSON structure (EXACT — no deviation):
+{"projectName":"Concise Name","mainLanguage":"html","description":"One-line description","files":[{"name":"index.html","language":"html","content":"..."},{"name":"style.css","language":"css","content":"..."},{"name":"script.js","language":"javascript","content":"..."}]}
 
-HTML/CSS/JS REQUIREMENTS (MANDATORY — no shortcuts):
-- ULTRA-polished design: smooth gradients, glassmorphism, neumorphism, or flat design — pick the best for the context
-- Advanced CSS: custom properties (--vars), clamp() for responsive sizing, grid + flex layouts, keyframe animations, hover/focus transitions
-- Typography: varied font weights, tracking, line-height — use Google Fonts via @import if suitable
-- Rich interactions: JavaScript must make the app fully interactive — no placeholder buttons
-- Mobile responsive: works on all screen sizes using CSS media queries or clamp()
-- Micro-animations: subtle entrance animations (fade-in, slide-up, scale) for all key elements
-- Separate files: CSS in style.css (link via <link href="style.css">), JS in script.js (link via <script src="script.js"></script>)
-- DO NOT inline styles or scripts in HTML
+═══════════════════════════════════════════════════════
+DESIGN SYSTEM — MANDATORY (no exceptions, no shortcuts)
+═══════════════════════════════════════════════════════
 
-Write world-class, production-quality code that impresses immediately.${designContext}`;
+FONTS — ALWAYS import from Google Fonts in CSS:
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+Use Inter (or a thematic alternative like Poppins/DM Sans) — never system fonts alone.
+
+CSS ARCHITECTURE:
+:root {
+  /* Color palette — adapt to theme, dark by default */
+  --bg-primary: #0a0a0f;
+  --bg-secondary: #111118;
+  --bg-card: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --text-primary: #f0f0ff;
+  --text-secondary: #8888aa;
+  --accent: #7c3aed;
+  --accent-2: #06b6d4;
+  --success: #10b981;
+  --danger: #ef4444;
+  /* Spacing on 8px grid */
+  --space-1: 8px; --space-2: 16px; --space-3: 24px; --space-4: 32px; --space-6: 48px; --space-8: 64px;
+  /* Typography */
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-base: 1rem; --text-lg: 1.125rem; --text-xl: 1.25rem; --text-2xl: 1.5rem; --text-3xl: 2rem; --text-4xl: 2.5rem;
+  /* Radius */
+  --radius-sm: 6px; --radius-md: 12px; --radius-lg: 20px; --radius-xl: 28px; --radius-full: 9999px;
+}
+
+REQUIRED CSS TECHNIQUES (all must be present):
+1. Glassmorphism cards: background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1);
+2. Gradient accents: background: linear-gradient(135deg, #7c3aed, #06b6d4); or radial-gradient
+3. Box shadows: box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 4px 24px rgba(0,0,0,0.4);
+4. Smooth transitions: transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+5. Keyframe animations — entrance anims (fadeInUp, scaleIn) for main elements
+6. CSS Grid or Flexbox for layout — no floats, no absolute positioning hacks
+7. Hover states with transform: translateY(-2px) and enhanced glow
+8. Responsive: fluid with clamp(), media queries for mobile
+
+JAVASCRIPT — ALL features must work:
+- Every button, input, form element must have full working functionality
+- Local storage for persistence where relevant (todos, scores, preferences)
+- Smooth DOM updates — no page reloads
+- Error states and empty states handled gracefully
+- For games: complete game loop, score tracking, restart
+- For apps: CRUD operations fully implemented
+
+HTML structure:
+- Semantic HTML5 elements (main, section, header, nav, article, footer)
+- Meta viewport, charset, Open Graph tags
+- Link CSS: <link href="style.css" rel="stylesheet">
+- Script at end of body: <script src="script.js"></script>
+- NO inline styles, NO inline scripts
+
+QUALITY BAR — ask yourself before outputting:
+✓ Would a professional dev be proud to show this?
+✓ Does it look like a $5,000+ website?
+✓ Do ALL interactive elements work perfectly?
+✓ Is it mobile responsive?
+✓ Are there smooth animations?
+✓ Does it use proper typography hierarchy?${designContext}`;
 
       async function callGemini(model: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
         try {
@@ -3464,37 +3514,22 @@ Write world-class, production-quality code that impresses immediately.${designCo
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // AI code assistance
+  // AI code assistance — with intent detection (build vs chat)
   app.post('/api/code/ai', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      const { message, code, language, context } = req.body;
+      const { message, code, language } = req.body;
       if (!message) return res.status(400).json({ error: 'message required' });
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
 
-      const systemPrompt = `You are Turbo Code, an expert AI coding assistant powered by Gemini 3.1 Pro inside TurboAnswer Code Studio. You help users write, debug, optimize, and understand code.
-
-Guidelines:
-- Always provide complete, working, runnable code examples
-- When fixing bugs, explain what was wrong and why the fix works
-- Use clear code comments for complex logic
-- Format code blocks properly with the correct language tag
-- For HTML/CSS/JS apps, provide self-contained code that works in a browser
-- Keep explanations clear but concise — show, don't just tell`;
-
-      const contextBlock = code ? `\n\nCurrent ${language || 'code'} in editor:\n\`\`\`${language || ''}\n${code.slice(0, 3000)}\n\`\`\`` : '';
-      const fullPrompt = `${systemPrompt}${contextBlock}\n\nUser: ${message}`;
-
-      async function tryModel(model: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
+      async function callModel(model: string, prompt: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
         try {
           const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: fullPrompt }] }],
+              contents: [{ parts: [{ text: prompt }] }],
               generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens },
             }),
             signal: AbortSignal.timeout(timeoutMs),
@@ -3505,12 +3540,51 @@ Guidelines:
         } catch { return null; }
       }
 
-      const reply = await tryModel('gemini-3.1-pro-preview', 8192, 60000)
-        ?? await tryModel('gemini-2.0-flash', 4096, 30000)
-        ?? await tryModel('gemini-2.0-flash-lite', 4096, 15000);
+      // Step 1: Detect intent (build vs chat) using fast model
+      const intentPrompt = `You are Turbo Code Agent inside TurboAnswer Code Studio.
 
-      if (!reply) return res.status(502).json({ error: 'AI service unavailable. Please try again.' });
-      res.json({ reply });
+Classify if the user message is a BUILD request (they want to create an app/website/game/tool) or a CHAT request (asking a coding question, asking to fix/explain/improve specific code).
+
+BUILD examples: "build me a todo app", "create a portfolio site", "make a snake game", "I want a weather dashboard", "a calculator", "landing page for my startup"
+CHAT examples: "how do I center a div?", "explain useEffect", "fix the bug in my code", "what is a promise?", "optimize this function"
+
+User message: "${message.slice(0, 500)}"
+
+Respond ONLY with valid JSON (no markdown):
+For BUILD: {"intent":"build","buildPrompt":"concise clean description of what to build","reply":"On it! I'm generating your [app description] now..."}
+For CHAT: {"intent":"chat"}`;
+
+      const intentRaw = await callModel('gemini-2.0-flash-lite', intentPrompt, 256, 8000)
+        ?? await callModel('gemini-2.0-flash', intentPrompt, 256, 8000);
+
+      if (intentRaw) {
+        try {
+          const cleaned = intentRaw.replace(/^```(?:json)?\s*/im, '').replace(/\s*```\s*$/im, '').trim();
+          const intentData = JSON.parse(cleaned.match(/\{[\s\S]*\}/)?.[0] || '{}');
+          if (intentData.intent === 'build' && intentData.buildPrompt) {
+            return res.json({ intent: 'build', buildPrompt: intentData.buildPrompt, reply: intentData.reply || `On it! Building your app now...` });
+          }
+        } catch { /* fall through to chat */ }
+      }
+
+      // Step 2: Chat response
+      const contextBlock = code ? `\n\nCurrent code in editor (${language || 'unknown'}):\n\`\`\`${language || ''}\n${code.slice(0, 4000)}\n\`\`\`` : '';
+      const chatPrompt = `You are Turbo Code, an elite AI coding assistant powered by Gemini 3.1 Pro inside TurboAnswer Code Studio. You help users write, debug, optimize, and understand code.
+
+Rules:
+- Give complete, working code examples — never snippets with "..." placeholders
+- When fixing bugs, explain what was wrong briefly then show the fix
+- Format all code with proper language tags in markdown code blocks
+- Keep answers focused and practical${contextBlock}
+
+User: ${message}`;
+
+      const reply = await callModel('gemini-3.1-pro-preview', 8192, 60000)
+        ?? await callModel('gemini-2.0-flash', 4096, 30000)
+        ?? await callModel('gemini-2.0-flash-lite', 4096, 15000);
+
+      if (!reply) return res.status(502).json({ error: 'AI unavailable. Please try again.' });
+      res.json({ intent: 'chat', reply });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
