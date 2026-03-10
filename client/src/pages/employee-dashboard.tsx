@@ -14,7 +14,8 @@ import {
   Copy, Plus, ExternalLink, Link2, Calendar, FlaskConical, Send, ThumbsUp, ThumbsDown,
   Bug, Terminal, Filter, XCircle, AlertOctagon, CheckSquare, SlidersHorizontal,
   ChevronRight, AlertCircle, Layers, LayoutDashboard, LogOut, ChevronLeft,
-  Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick, ShieldCheck, Siren, Unlock
+  Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick, ShieldCheck, Siren, Unlock, Loader2,
+  ShieldOff, ShieldPlus, KeyRound
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,7 +115,130 @@ interface ActivityEntry {
   duration: number;
 }
 
-type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes';
+type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes' | 'emailTemplates';
+
+const EMAIL_TEMPLATES_LIST = [
+  { id: 'account-banned', label: 'Account Banned', icon: Ban, color: '#ef4444', description: 'Notify a user that their account has been banned for violating guidelines.' },
+  { id: 'account-unbanned', label: 'Account Unbanned', icon: ShieldCheck, color: '#22c55e', description: 'Notify a user that their account ban has been lifted and access restored.' },
+  { id: 'account-suspended', label: 'Suspended for Review', icon: Search, color: '#f59e0b', description: 'Notify a user their account is temporarily suspended and under review.' },
+  { id: 'account-recovered', label: 'Account Recovered', icon: KeyRound, color: '#3b82f6', description: 'Notify a user that their account has been successfully recovered.' },
+  { id: 'account-deleted', label: 'Permanently Deleted', icon: Trash2, color: '#dc2626', description: 'Confirm to a user that their account and all data have been permanently deleted.' },
+  { id: 'blacklist-added', label: 'Added to Blacklist', icon: ShieldOff, color: '#7f1d1d', description: 'Notify a user they have been added to the TurboAnswer blacklist.' },
+  { id: 'blacklist-removed', label: 'Removed from Blacklist', icon: ShieldPlus, color: '#059669', description: 'Notify a user they have been removed from the TurboAnswer blacklist.' },
+];
+
+function getEmailTemplateBody(templateId: string, name: string, date: string): string {
+  const appUrl = 'https://turbo-answer.replit.app';
+  const bodies: Record<string, string> = {
+    'account-banned': `Dear ${name},\n\nWe regret to inform you that your TurboAnswer account has been banned effective ${date}.\n\nThis action was taken due to a violation of our community guidelines or terms of service. As a result:\n\n- Your account access has been revoked\n- You will not be able to log in or use TurboAnswer services\n- Any active subscriptions have been paused\n\nIf you believe this was done in error, you may appeal by contacting our appeals team at appeals@turboanswer.it.com. Please include your account email and a detailed explanation in your appeal.`,
+    'account-unbanned': `Dear ${name},\n\nYour TurboAnswer account has been unbanned and fully restored as of ${date}.\n\nYour access to all TurboAnswer services has been fully restored. You may now:\n\n- Log in and use TurboAnswer normally\n- Access all AI features available to your subscription tier\n- Engage with the community and all platform features\n\nWe kindly ask that you continue to adhere to our community guidelines and terms of service.\n\nYou can log in at: ${appUrl}/login`,
+    'account-suspended': `Dear ${name},\n\nYour TurboAnswer account has been temporarily suspended and is currently under review as of ${date}.\n\nDuring this review period:\n\n- Your account access is temporarily restricted\n- Your data and conversations remain safe and intact\n- Any active subscriptions are paused until the review is complete\n\nOur team is reviewing your account activity. You will receive a follow-up email once the review is complete. This process typically takes 1-3 business days.\n\nIf you have additional information that may assist in the review, please contact our appeals team at appeals@turboanswer.it.com.`,
+    'account-recovered': `Dear ${name},\n\nYour TurboAnswer account has been successfully recovered as of ${date}.\n\nYour account is now fully accessible:\n\n- All your data, conversations, and settings have been restored\n- Your subscription status remains unchanged\n- We recommend updating your password for security\n\nFor your security, if you did not request this recovery, please contact our appeals team immediately at appeals@turboanswer.it.com.\n\nYou can log in at: ${appUrl}/login`,
+    'account-deleted': `Dear ${name},\n\nThis email confirms that your TurboAnswer account has been permanently deleted as of ${date}.\n\nThe following actions have been completed:\n\n- All account data has been permanently removed from our systems\n- All conversation history has been deleted\n- Any active subscriptions have been cancelled\n- This action is irreversible and cannot be undone\n\nIf you wish to use TurboAnswer again in the future, you are welcome to create a new account at any time.\n\nThank you for being a part of the TurboAnswer community.`,
+    'blacklist-added': `Dear ${name},\n\nWe are writing to inform you that your account has been added to the TurboAnswer blacklist effective ${date}.\n\nThe following restrictions are now in effect:\n\n- Your account has been permanently blocked from accessing TurboAnswer\n- You will not be able to create new accounts using the same credentials\n- Any active subscriptions have been cancelled and refunded where applicable\n- All associated data will be retained for security purposes\n\nThis action was taken due to severe or repeated violations of our terms of service.\n\nIf you believe this decision was made in error, you may submit an appeal by contacting appeals@turboanswer.it.com.`,
+    'blacklist-removed': `Dear ${name},\n\nWe are pleased to inform you that your account has been removed from the TurboAnswer blacklist as of ${date}.\n\nYour access has been fully restored:\n\n- Your account is now fully active and accessible\n- You may log in and use all TurboAnswer services\n- You are welcome to subscribe to any of our plans\n- All platform features are available to you\n\nWe kindly ask that you continue to adhere to our community guidelines and terms of service.\n\nYou can log in at: ${appUrl}/login`,
+  };
+  return bodies[templateId] || '';
+}
+
+function EmailTemplatesTab() {
+  const { toast } = useToast();
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState('account-banned');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [useHtml, setUseHtml] = useState(true);
+
+  const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const name = recipientName.trim() || '[Recipient Name]';
+  const template = EMAIL_TEMPLATES_LIST.find(t => t.id === selectedTemplate)!;
+  const emailBody = getEmailTemplateBody(selectedTemplate, name, currentDate);
+  const fullPreview = `${emailBody}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 467-7269\nHours: Mon-Fri, 9:30 AM - 6:00 PM EST\n\nTo stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
+
+  const handleSendEmail = async () => {
+    if (!recipientName.trim() || !recipientEmail.trim()) {
+      toast({ title: 'Missing info', description: 'Please enter both the name and email address', variant: 'destructive' });
+      return;
+    }
+    setSending(true);
+    setSent(false);
+    try {
+      const res = await apiRequest('POST', '/api/admin/send-email', { recipientEmail: recipientEmail.trim(), recipientName: recipientName.trim(), templateType: selectedTemplate, useHtml });
+      const data = await res.json();
+      if (data.success) {
+        setSent(true);
+        toast({ title: 'Email sent!', description: data.message || `Email sent to ${recipientEmail.trim()}` });
+      } else {
+        toast({ title: 'Failed to send', description: data.error || 'Something went wrong', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Failed to send', description: err.message || 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: '24px', maxWidth: '900px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+        <Mail className="w-6 h-6 text-purple-400" />
+        <div>
+          <h2 style={{ fontSize: '22px', fontWeight: 'bold', color: '#fff', margin: 0 }}>Email Templates</h2>
+          <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Send professional email notifications from support@turboanswer.it.com</p>
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: '#111111', border: '1px solid #1f1f1f', borderRadius: '12px', padding: '24px', marginBottom: '20px' }}>
+        <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#a78bfa', marginBottom: '16px' }}>Choose Template</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+          {EMAIL_TEMPLATES_LIST.map(t => {
+            const Icon = t.icon;
+            const isSelected = selectedTemplate === t.id;
+            return (
+              <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setSent(false); }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px 10px', borderRadius: '10px', border: isSelected ? `2px solid ${t.color}` : '2px solid #2a2a2a', backgroundColor: isSelected ? `${t.color}15` : '#0a0a0a', cursor: 'pointer', transition: 'all 0.2s' }}>
+                <Icon style={{ width: '20px', height: '20px', color: t.color }} />
+                <span style={{ fontSize: '12px', fontWeight: '600', color: isSelected ? t.color : '#ccc', textAlign: 'center' }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '16px' }}>{template.description}</p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <Input placeholder="Recipient's full name" value={recipientName} onChange={e => { setRecipientName(e.target.value); setSent(false); }} className="flex-1 min-w-[200px] bg-black/50 border-gray-700 text-white" />
+            <Input placeholder="Recipient's email address" type="email" value={recipientEmail} onChange={e => { setRecipientEmail(e.target.value); setSent(false); }} className="flex-1 min-w-[200px] bg-black/50 border-gray-700 text-white" />
+          </div>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#9ca3af' }}>
+              <input type="checkbox" checked={useHtml} onChange={e => setUseHtml(e.target.checked)} style={{ accentColor: '#7c3aed' }} />
+              Include HTML formatting
+            </label>
+            <span style={{ fontSize: '12px', color: useHtml ? '#f59e0b' : '#22c55e', padding: '2px 8px', borderRadius: '4px', backgroundColor: useHtml ? '#f59e0b15' : '#22c55e15' }}>
+              {useHtml ? 'HTML + Plain Text' : 'Plain Text Only'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Button onClick={handleSendEmail} disabled={!recipientName.trim() || !recipientEmail.trim() || sending} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold px-8">
+              {sending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</> : sent ? <><CheckCircle className="w-4 h-4 mr-2" /> Sent!</> : <><Send className="w-4 h-4 mr-2" /> Send {template.label} Email</>}
+            </Button>
+            {sent && <span style={{ color: '#22c55e', fontSize: '14px' }}>Email delivered to {recipientEmail}</span>}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: '#111111', border: '1px solid #1f1f1f', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+        <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '12px' }}>Email Preview:</p>
+        <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '24px', maxWidth: '600px' }}>
+          <pre style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '14px', lineHeight: 1.6, color: '#333', whiteSpace: 'pre-wrap', wordWrap: 'break-word', margin: 0 }}>{fullPreview}</pre>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function EmployeeDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -563,6 +687,7 @@ export default function EmployeeDashboard() {
     { id: 'invite' as TabType, icon: Shield, label: 'Admin Invites' },
     { id: 'beta' as TabType, icon: FlaskConical, label: 'Beta Testing' },
     { id: 'promoCodes' as TabType, icon: Gift, label: 'Promo Codes' },
+    { id: 'emailTemplates' as TabType, icon: Mail, label: 'Email Templates' },
   ];
 
   const svcStatus = systemHealth?.services;
@@ -746,16 +871,6 @@ export default function EmployeeDashboard() {
               );
             })}
             <div className="flex-1" />
-            <div className="border-t mt-2 pt-1.5" style={{ borderColor: '#141414' }}>
-              <Link href="/email-templates">
-                <button className="flex items-center gap-2.5 px-2.5 py-2 rounded w-full transition-colors"
-                  style={{ color: '#3f3f46' }}
-                  title={sidebarCollapsed ? 'Email Templates' : undefined}>
-                  <Mail className="w-3.5 h-3.5 flex-shrink-0 text-zinc-700" />
-                  {!sidebarCollapsed && <span className="text-[11px] font-medium">Email Templates</span>}
-                </button>
-              </Link>
-            </div>
           </nav>
         </aside>
 
@@ -1030,6 +1145,9 @@ export default function EmployeeDashboard() {
         )}
         {activeTab === 'promoCodes' && (
           <PromoCodesTab />
+        )}
+        {activeTab === 'emailTemplates' && (
+          <EmailTemplatesTab />
         )}
 
           </div>
