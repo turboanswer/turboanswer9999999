@@ -12,6 +12,7 @@ aab-output
 *.md
 !README.md
 npm-debug.log*
+yarn-error.log*
 .DS_Store
 .local
 .cache
@@ -19,5 +20,9 @@ npm-debug.log*
 .agents
 .upm
 .replit
+replit.nix
 wrangler.jsonc
 railway.json
+attached_assets
+generated-videos
+capacitor.config.ts
