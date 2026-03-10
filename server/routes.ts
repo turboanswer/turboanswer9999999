@@ -3524,6 +3524,8 @@ Guidelines:
       const files = project.files as { name: string; content: string; language: string }[];
       const html = buildProjectHtml(project.name, files, project.mainLanguage);
       res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
       res.send(html);
     } catch (e: any) { res.status(500).send('<h1>Error loading project</h1>'); }
   });
@@ -3645,13 +3647,23 @@ console.log(\`Welcome, \${user.name}!\`);` },
     if (!htmlFile) return `<!DOCTYPE html><html><body><h1>${escapeHtml(projectName)}</h1><p>No HTML file found.</p></body></html>`;
 
     let html = htmlFile.content;
+
     for (const file of files) {
       if (file.language === 'css') {
-        html = html.replace(`<link rel="stylesheet" href="${file.name}" />`, `<style>${file.content}</style>`)
-                   .replace(`<link rel="stylesheet" href="${file.name}">`, `<style>${file.content}</style>`);
+        // Match any <link> tag that references this CSS file, regardless of attribute order
+        const cssRegex = new RegExp(
+          `<link[^>]*href=["']${file.name}["'][^>]*>`,
+          'gi'
+        );
+        html = html.replace(cssRegex, `<style>${file.content}</style>`);
       }
       if (file.language === 'javascript') {
-        html = html.replace(`<script src="${file.name}"></script>`, `<script>${file.content}</script>`);
+        // Match any <script> tag that references this JS file, regardless of other attributes
+        const jsRegex = new RegExp(
+          `<script[^>]*src=["']${file.name}["'][^>]*>\\s*</script>`,
+          'gi'
+        );
+        html = html.replace(jsRegex, `<script>${file.content}</script>`);
       }
     }
     return html;

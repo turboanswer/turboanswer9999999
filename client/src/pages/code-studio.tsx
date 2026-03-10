@@ -55,11 +55,14 @@ function buildSrcdoc(files: CodeFile[]): string {
   let html = htmlFile.content;
   for (const file of files) {
     if (file.language === "css") {
-      html = html.replace(`<link rel="stylesheet" href="${file.name}" />`, `<style>${file.content}</style>`)
-                 .replace(`<link rel="stylesheet" href="${file.name}">`, `<style>${file.content}</style>`);
+      // Match any <link> tag referencing this file regardless of attribute order
+      const cssRegex = new RegExp(`<link[^>]*href=["']${file.name}["'][^>]*>`, "gi");
+      html = html.replace(cssRegex, `<style>${file.content}</style>`);
     }
     if (file.language === "javascript") {
-      html = html.replace(`<script src="${file.name}"></script>`, `<script>${file.content}</script>`);
+      // Match any <script src="..."> tag regardless of other attributes (defer, type, etc.)
+      const jsRegex = new RegExp(`<script[^>]*src=["']${file.name}["'][^>]*>\\s*</script>`, "gi");
+      html = html.replace(jsRegex, `<script>${file.content}</script>`);
     }
   }
   return html;
