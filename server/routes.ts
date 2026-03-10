@@ -3329,7 +3329,7 @@ Make it professional, beautiful, and fully functional. The complete app in one i
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
-              model: 'claude-3-5-sonnet-20241022',
+              model: 'claude-opus-4-5',
               max_tokens: maxTokens,
               messages: [{ role: 'user', content: buildPrompt }],
             }),
