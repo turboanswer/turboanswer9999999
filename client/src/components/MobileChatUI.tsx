@@ -8,12 +8,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { Conversation, Message } from "@shared/schema";
 import turboLogo from "@assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509.png";
 
-const GEMINI_BG = "#0B0B0F";
-const CARD_BG = "#16171F";
-const INPUT_BG = "#1C1D26";
+const GEMINI_BG = "#08080F";
+const CARD_BG = "#111118";
+const INPUT_BG = "#16171F";
 const BORDER = "rgba(255,255,255,0.07)";
 const TEXT_MUTED = "rgba(255,255,255,0.45)";
-const TEXT_DIM = "rgba(255,255,255,0.7)";
+const TEXT_DIM = "rgba(255,255,255,0.75)";
+
+const CARD_STYLES = [
+  { border: "1px solid rgba(66,133,244,0.35)", bg: "linear-gradient(135deg, rgba(66,133,244,0.08) 0%, #111118 100%)", dot: "#4285F4" },
+  { border: "1px solid rgba(139,92,246,0.35)", bg: "linear-gradient(135deg, rgba(139,92,246,0.08) 0%, #111118 100%)", dot: "#8B5CF6" },
+  { border: "1px solid rgba(20,184,166,0.35)", bg: "linear-gradient(135deg, rgba(20,184,166,0.08) 0%, #111118 100%)", dot: "#14B8A6" },
+  { border: "1px solid rgba(251,146,60,0.35)", bg: "linear-gradient(135deg, rgba(251,146,60,0.08) 0%, #111118 100%)", dot: "#FB923C" },
+];
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -118,7 +125,7 @@ export default function MobileChatUI({
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden" style={{ background: GEMINI_BG }}>
+    <div className="flex flex-col" style={{ position: "fixed", inset: 0, background: GEMINI_BG, overflow: "hidden" }}>
 
       {/* Drawer backdrop */}
       {showDrawer && (
@@ -131,11 +138,16 @@ export default function MobileChatUI({
         style={{ background: "#12131A", borderRight: `1px solid ${BORDER}`, transform: showDrawer ? "translateX(0)" : "translateX(-100%)" }}
       >
         {/* Drawer header */}
-        <div className="flex items-center gap-3 px-5 pt-12 pb-5 border-b" style={{ borderColor: BORDER }}>
-          <img src={turboLogo} alt="Turbo" className="w-9 h-9 rounded-xl object-cover" />
-          <div>
-            <p className="text-white font-semibold text-sm">TurboAnswer</p>
-            <p className="text-xs" style={{ color: TEXT_MUTED }}>{user?.email}</p>
+        <div className="px-4 pt-12 pb-4 border-b" style={{ borderColor: BORDER, background: "linear-gradient(180deg, rgba(66,133,244,0.06) 0%, transparent 100%)" }}>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-base font-bold flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #4285F4, #8B5CF6)", boxShadow: "0 4px 12px rgba(66,133,244,0.4)" }}>
+              {firstName[0]?.toUpperCase() || "U"}
+            </div>
+            <div className="min-w-0">
+              <p className="text-white font-semibold text-sm truncate">{user?.firstName ? `${user.firstName}` : "My Account"}</p>
+              <p className="text-xs truncate" style={{ color: TEXT_MUTED }}>{user?.email}</p>
+            </div>
           </div>
         </div>
 
@@ -217,7 +229,7 @@ export default function MobileChatUI({
       </div>
 
       {/* Header */}
-      <header className="flex items-center justify-between px-3 shrink-0" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: "8px" }}>
+      <header className="flex items-center justify-between px-3 shrink-0" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: "8px", borderBottom: "1px solid rgba(66,133,244,0.1)", background: "linear-gradient(180deg, rgba(66,133,244,0.05) 0%, transparent 100%)" }}>
         <button onClick={() => setShowDrawer(true)} className="w-9 h-9 flex items-center justify-center rounded-full transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}>
           <Menu className="h-4 w-4 text-white/70" />
         </button>
@@ -252,41 +264,48 @@ export default function MobileChatUI({
       <main className="flex-1 overflow-y-auto">
         {messages.length === 0 && !isTyping ? (
           /* Welcome screen */
-          <div className="flex flex-col items-center px-4 pt-4 pb-2">
-            {/* Big logo */}
-            <div className="relative mb-3">
-              <img src={turboLogo} alt="TurboAnswer" className="w-24 h-24 rounded-3xl object-cover shadow-2xl" style={{ boxShadow: "0 0 40px rgba(66,133,244,0.25)" }} />
-              <div className="absolute inset-0 rounded-3xl" style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" }} />
+          <div className="flex flex-col items-center px-4 pt-5 pb-2 relative">
+            {/* Background glow orbs */}
+            <div className="absolute top-0 left-1/4 w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(66,133,244,0.07) 0%, transparent 70%)" }} />
+            <div className="absolute top-12 right-1/4 w-36 h-36 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)" }} />
+
+            {/* Big logo with ring glow */}
+            <div className="relative mb-3 z-10">
+              <div className="absolute -inset-2 rounded-[28px]" style={{ background: "linear-gradient(135deg, rgba(66,133,244,0.3), rgba(139,92,246,0.3))", filter: "blur(12px)" }} />
+              <img src={turboLogo} alt="TurboAnswer" className="relative w-24 h-24 rounded-3xl object-cover" style={{ boxShadow: "0 8px 32px rgba(66,133,244,0.3)" }} />
             </div>
 
-            <h1 className="text-2xl font-bold text-center mb-1 leading-tight" style={{
+            <h1 className="text-2xl font-bold text-center mb-1 leading-tight z-10" style={{
               background: "linear-gradient(135deg, #4285F4 0%, #EA4335 35%, #FBBC05 65%, #34A853 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
             }}>
               {getGreeting()}, {firstName}
             </h1>
-            <p className="text-sm mb-4 text-center" style={{ color: TEXT_MUTED }}>How can I help you today?</p>
+            <p className="text-sm mb-4 text-center z-10" style={{ color: TEXT_MUTED }}>How can I help you today?</p>
 
-            {/* Suggestion grid */}
-            <div className="grid grid-cols-2 gap-2.5 w-full">
+            {/* Colorful suggestion grid */}
+            <div className="grid grid-cols-2 gap-2.5 w-full z-10">
               {SUGGESTIONS.map((s, i) => (
                 <button
                   key={i}
                   onClick={() => setMessageContent(s.prompt)}
                   className="rounded-2xl p-3 text-left transition-all active:scale-95"
-                  style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}
+                  style={{ background: CARD_STYLES[i].bg, border: CARD_STYLES[i].border }}
                 >
-                  <div className="text-xl mb-1.5">{s.icon}</div>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: CARD_STYLES[i].dot }} />
+                    <span className="text-base">{s.icon}</span>
+                  </div>
                   <p className="text-xs font-medium leading-snug" style={{ color: TEXT_DIM }}>{s.text}</p>
                 </button>
               ))}
             </div>
 
-            {/* Tier indicator */}
-            <div className="mt-3 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs" style={{ background: "rgba(66,133,244,0.08)", border: "1px solid rgba(66,133,244,0.15)", color: "rgba(66,133,244,0.9)" }}>
-              <Brain className="h-3 w-3" />
-              {tierLabel} model active
+            {/* Tier badge */}
+            <div className="mt-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs" style={{ background: "rgba(66,133,244,0.1)", border: "1px solid rgba(66,133,244,0.2)", color: "#7BA7F7" }}>
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              {tierLabel} · Ready
             </div>
           </div>
         ) : (
@@ -359,7 +378,7 @@ export default function MobileChatUI({
           )}
 
           {/* Input bar */}
-          <div className="flex items-end gap-2 px-3 py-2.5 rounded-3xl" style={{ background: INPUT_BG, border: `1px solid ${BORDER}` }}>
+          <div className="flex items-end gap-2 px-3 py-2.5 rounded-3xl" style={{ background: INPUT_BG, border: "1px solid rgba(66,133,244,0.2)", boxShadow: "0 0 20px rgba(66,133,244,0.05)" }}>
             <button className="flex-shrink-0 mb-0.5 p-1 rounded-full transition-colors" style={{ color: TEXT_MUTED }}>
               <Plus className="h-5 w-5" />
             </button>
@@ -380,9 +399,9 @@ export default function MobileChatUI({
                 onClick={handleSend}
                 disabled={isSending}
                 className="flex-shrink-0 mb-0.5 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-40"
-                style={{ background: "white" }}
+                style={{ background: "linear-gradient(135deg, #4285F4, #8B5CF6)", boxShadow: "0 4px 12px rgba(66,133,244,0.4)" }}
               >
-                <ArrowUp className="h-4 w-4 text-black" />
+                <ArrowUp className="h-4 w-4 text-white" />
               </button>
             ) : (
               <button className="flex-shrink-0 mb-0.5 p-1 rounded-full transition-colors" style={{ color: TEXT_MUTED }}>
