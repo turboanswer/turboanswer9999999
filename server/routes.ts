@@ -3638,11 +3638,29 @@ Rules:
 
 User: ${message}`;
 
-      const reply = await callModel('gemini-3.1-pro-preview', 8192, 60000)
-        ?? await callModel('gemini-2.0-flash', 4096, 30000)
-        ?? await callModel('gemini-2.0-flash-lite', 4096, 15000);
+      // Try fast models first, then heavier ones, then Claude as last resort
+      let reply = await callModel('gemini-2.0-flash', 4096, 20000)
+        ?? await callModel('gemini-3.1-pro-preview', 8192, 45000)
+        ?? await callModel('gemini-2.0-flash-lite', 4096, 12000);
 
-      if (!reply) return res.status(502).json({ error: 'AI unavailable. Please try again.' });
+      // Claude fallback if all Gemini models fail
+      if (!reply) {
+        const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+        const anthropicBase = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+        if (anthropicKey) {
+          try {
+            const r = await fetch(`${anthropicBase}/v1/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+              body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 2048, messages: [{ role: 'user', content: chatPrompt }] }),
+              signal: AbortSignal.timeout(30000),
+            });
+            if (r.ok) { const d: any = await r.json(); reply = d.content?.[0]?.text || null; }
+          } catch {}
+        }
+      }
+
+      if (!reply) return res.status(502).json({ error: 'AI is temporarily busy. Please try again in a moment.' });
       res.json({ intent: 'chat', reply });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

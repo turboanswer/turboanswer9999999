@@ -232,19 +232,25 @@ export default function CodeStudio() {
       });
       const data = await res.json();
 
+      // Handle API errors
+      if (!res.ok || data.error) {
+        setMessages(prev => [...prev, { id: uid(), role: "assistant", content: data.error || "AI is temporarily unavailable. Please try again in a moment." }]);
+        return;
+      }
+
       if (data.intent === "build") {
-        // Show AI reply in chat
         const replyMsg: ChatMsg = { id: uid(), role: "assistant", content: data.reply || "On it! Building now..." };
         setMessages(prev => [...prev, replyMsg]);
-
-        // Start building with inline progress
         await triggerBuild(data.buildPrompt, msg);
-      } else {
-        const replyMsg: ChatMsg = { id: uid(), role: "assistant", content: data.reply || "Sorry, I couldn't process that." };
+      } else if (data.reply) {
+        const replyMsg: ChatMsg = { id: uid(), role: "assistant", content: data.reply };
         setMessages(prev => [...prev, replyMsg]);
+      } else {
+        // Fallback — re-route to build if something slipped through
+        await triggerBuild(msg, msg);
       }
-    } catch {
-      setMessages(prev => [...prev, { id: uid(), role: "assistant", content: "Connection error — please try again." }]);
+    } catch (e: any) {
+      setMessages(prev => [...prev, { id: uid(), role: "assistant", content: "Connection error. Please check your connection and try again." }]);
     } finally {
       setAgentLoading(false);
     }
