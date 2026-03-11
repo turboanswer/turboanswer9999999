@@ -456,7 +456,7 @@ export default function AISettings() {
                 Code Studio Add-on
               </h3>
               <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                You have an active Code Studio add-on ($10/month). Cancel to stop future billing — your access remains until the billing period ends.
+                You have an active Code Studio add-on ($15/month). Cancel to stop future billing — your access remains until the billing period ends.
               </p>
               <Button
                 variant="outline"

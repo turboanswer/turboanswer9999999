@@ -18,7 +18,7 @@ import {
 } from "./services/document-analysis";
 import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription } from "./paypal";
+import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription, createCreditPackOrder, captureCreditPackOrder, CREDIT_PACKS } from "./paypal";
 
 import widgetRoutes from './routes/widget-routes';
 import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
@@ -3181,6 +3181,17 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
     req.user = { claims: { sub: userId } };
     const u = await storage.getUser(userId).catch(() => null);
     if (!u?.codeStudioAddon) return res.status(403).json({ error: 'Code Studio add-on required', requiresAddon: true });
+
+    // Monthly credit reset: if 30+ days since last reset, give 15 fresh credits
+    if (u.codeStudioCreditsResetAt) {
+      const daysSinceReset = (Date.now() - new Date(u.codeStudioCreditsResetAt).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceReset >= 30) {
+        await storage.updateCodeStudioCredits(userId, 15, new Date()).catch(() => {});
+      }
+    } else {
+      // First time — set reset clock and grant credits
+      await storage.updateCodeStudioCredits(userId, 15, new Date()).catch(() => {});
+    }
     next();
   });
 
@@ -3191,6 +3202,20 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
       const userId = req.user.claims.sub;
       const { prompt, projectId, referenceUrl } = req.body;
       if (!prompt?.trim()) return res.status(400).json({ error: 'Prompt required' });
+
+      // ── Credit check ────────────────────────────────────────────────────────
+      const currentUser = await storage.getUser(userId);
+      if (!currentUser) return res.status(403).json({ error: 'User not found' });
+      const availableCredits = currentUser.codeStudioCredits ?? 0;
+      if (availableCredits <= 0) {
+        return res.status(402).json({
+          error: 'No AI credits remaining. Purchase more credits to continue.',
+          outOfCredits: true,
+          credits: 0,
+        });
+      }
+      // Deduct 1 credit immediately (before generation, so duplicate submits don't bypass)
+      await storage.updateCodeStudioCredits(userId, availableCredits - 1);
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
@@ -3505,7 +3530,8 @@ CRITICAL JAVASCRIPT RULES (ALL must be followed):
         console.log('[CodeAI] Auto-deploy skipped:', e.message);
       }
 
-      res.json({ project, files: generatedFiles, publishUrl, discoveredFeatures });
+      const freshUser = await storage.getUser(userId).catch(() => null);
+      res.json({ project, files: generatedFiles, publishUrl, discoveredFeatures, creditsRemaining: freshUser?.codeStudioCredits ?? 0 });
     } catch (e: any) {
       console.error('[CodeAI] Generate error:', e.message);
       res.status(500).json({ error: e.message });
@@ -3514,6 +3540,62 @@ CRITICAL JAVASCRIPT RULES (ALL must be followed):
   const { db } = await import('./db');
   const { codeProjects } = await import('../shared/schema');
   const { eq, and } = await import('drizzle-orm');
+
+  // Get current credit balance
+  app.get('/api/code/credits', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) return res.status(403).json({ error: 'User not found' });
+      const resetAt = user.codeStudioCreditsResetAt ? new Date(user.codeStudioCreditsResetAt) : null;
+      const nextReset = resetAt ? new Date(resetAt.getTime() + 30 * 24 * 60 * 60 * 1000) : null;
+      res.json({ credits: user.codeStudioCredits ?? 0, nextReset: nextReset?.toISOString() ?? null });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Create PayPal order to buy a credit pack
+  app.post('/api/code/buy-credits', isAuthenticated, async (req: any, res) => {
+    try {
+      const { credits } = req.body;
+      const creditCount = Number(credits);
+      if (!CREDIT_PACKS[creditCount]) {
+        return res.status(400).json({ error: `Invalid credit pack. Valid options: ${Object.keys(CREDIT_PACKS).join(', ')}` });
+      }
+      const userId = req.user.claims.sub;
+      const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+      const { orderId, approvalUrl } = await createCreditPackOrder(
+        creditCount,
+        `${origin}/code-studio?creditSuccess=1`,
+        `${origin}/code-studio?creditCancelled=1`,
+        userId,
+      );
+      res.json({ orderId, approvalUrl });
+    } catch (e: any) {
+      console.error('[Credits] Buy error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Capture PayPal order and credit the user's account
+  app.post('/api/code/capture-credits', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId } = req.body;
+      if (!orderId) return res.status(400).json({ error: 'orderId required' });
+      const userId = req.user.claims.sub;
+
+      const { credits, userId: payloadUserId } = await captureCreditPackOrder(orderId);
+
+      // Security: verify payment belongs to the requesting user
+      if (payloadUserId !== userId) return res.status(403).json({ error: 'Order mismatch' });
+
+      const user = await storage.getUser(userId);
+      const newTotal = (user?.codeStudioCredits ?? 0) + credits;
+      await storage.updateCodeStudioCredits(userId, newTotal);
+      res.json({ success: true, creditsAdded: credits, totalCredits: newTotal });
+    } catch (e: any) {
+      console.error('[Credits] Capture error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   // List user's projects
   app.get('/api/code/projects', isAuthenticated, async (req: any, res) => {

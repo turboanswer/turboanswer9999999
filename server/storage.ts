@@ -9,6 +9,7 @@ export interface IStorage {
   storePendingSubscription(userId: string, paypalSubscriptionId: string): Promise<User>;
   cancelUserSubscription(userId: string): Promise<User>;
   updateCodeStudioAddon(userId: string, addon: boolean, subId: string | null): Promise<User>;
+  updateCodeStudioCredits(userId: string, credits: number, resetAt?: Date): Promise<User>;
 
   getAllUsers(): Promise<User[]>;
   banUser(userId: string, reason: string, durationMonths?: number): Promise<User>;
@@ -197,9 +198,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCodeStudioAddon(userId: string, addon: boolean, subId: string | null): Promise<User> {
+    const updates: any = { codeStudioAddon: addon, codeStudioAddonSubId: subId };
+    if (addon) {
+      // Grant 15 credits on activation and set reset clock
+      updates.codeStudioCredits = 15;
+      updates.codeStudioCreditsResetAt = new Date();
+    } else {
+      updates.codeStudioCredits = 0;
+      updates.codeStudioCreditsResetAt = null;
+    }
     const [user] = await db
       .update(users)
-      .set({ codeStudioAddon: addon, codeStudioAddonSubId: subId })
+      .set(updates)
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async updateCodeStudioCredits(userId: string, credits: number, resetAt?: Date): Promise<User> {
+    const updates: any = { codeStudioCredits: credits };
+    if (resetAt !== undefined) updates.codeStudioCreditsResetAt = resetAt;
+    const [user] = await db
+      .update(users)
+      .set(updates)
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");

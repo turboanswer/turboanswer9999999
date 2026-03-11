@@ -3412,7 +3412,7 @@ function PromoCodesTab() {
   });
 
   const PRODUCTS = [
-    { value: 'code_studio', label: 'Code Studio ($10/mo)' },
+    { value: 'code_studio', label: 'Code Studio ($15/mo)' },
     { value: 'pro', label: 'Pro ($6.99/mo)' },
     { value: 'research', label: 'Research ($30/mo)' },
     { value: 'enterprise', label: 'Enterprise ($100/mo)' },

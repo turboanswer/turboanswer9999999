@@ -359,7 +359,7 @@ export async function getOrCreateAddonPlan(): Promise<string> {
       const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
       const regularCycle = details?.billing_cycles?.find((c: any) => c.tenure_type === "REGULAR");
       const price = regularCycle?.pricing_scheme?.fixed_price?.value;
-      if (price && parseFloat(price) === 10) {
+      if (price && parseFloat(price) === 15) {
         codeStudioAddonPlanId = plan.id;
         console.log("[PayPal] Found existing Code Studio add-on plan:", codeStudioAddonPlanId);
         return codeStudioAddonPlanId;
@@ -390,7 +390,7 @@ export async function getOrCreateAddonPlan(): Promise<string> {
   const plan = await paypalRequest("POST", "/v1/billing/plans", {
     product_id: productId,
     name: "Turbo Answer Code Studio",
-    description: "Code Studio add-on — Full AI-powered IDE. $10/month add-on for any plan.",
+    description: "Code Studio add-on — Full AI-powered IDE with 15 AI credits/month. $15/month.",
     status: "ACTIVE",
     billing_cycles: [
       {
@@ -398,7 +398,7 @@ export async function getOrCreateAddonPlan(): Promise<string> {
         tenure_type: "REGULAR",
         sequence: 1,
         total_cycles: 0,
-        pricing_scheme: { fixed_price: { value: "10.00", currency_code: "USD" } },
+        pricing_scheme: { fixed_price: { value: "15.00", currency_code: "USD" } },
       },
     ],
     payment_preferences: {
@@ -448,4 +448,58 @@ export async function createAddonSubscription(
 
 export function getPayPalClientId(): string {
   return PAYPAL_CLIENT_ID;
+}
+
+// Credit packs: one-time PayPal Orders v2 payment
+export const CREDIT_PACKS: Record<number, number> = {
+  15: 15,    // 15 credits = $15
+  25: 25,    // 25 credits = $25
+  45: 45,    // 45 credits = $45
+  100: 100,  // 100 credits = $100
+  250: 250,  // 250 credits = $250
+  500: 500,  // 500 credits = $500
+};
+
+export async function createCreditPackOrder(
+  credits: number,
+  returnUrl: string,
+  cancelUrl: string,
+  userId: string,
+): Promise<{ orderId: string; approvalUrl: string }> {
+  const price = CREDIT_PACKS[credits];
+  if (!price) throw new Error(`Invalid credit pack: ${credits}`);
+
+  const order = await paypalRequest("POST", "/v2/checkout/orders", {
+    intent: "CAPTURE",
+    purchase_units: [
+      {
+        amount: { currency_code: "USD", value: price.toFixed(2) },
+        description: `TurboAnswer Code Studio — ${credits} AI Credits`,
+        custom_id: JSON.stringify({ userId, credits }),
+      },
+    ],
+    application_context: {
+      brand_name: "TurboAnswer",
+      locale: "en-US",
+      shipping_preference: "NO_SHIPPING",
+      user_action: "PAY_NOW",
+      return_url: returnUrl,
+      cancel_url: cancelUrl,
+    },
+  });
+
+  const approvalUrl = order.links?.find((l: any) => l.rel === "approve")?.href;
+  if (!approvalUrl) throw new Error("No PayPal approval URL for credit pack");
+  return { orderId: order.id, approvalUrl };
+}
+
+export async function captureCreditPackOrder(orderId: string): Promise<{ status: string; credits: number; userId: string }> {
+  const capture = await paypalRequest("POST", `/v2/checkout/orders/${orderId}/capture`, {});
+  if (capture.status !== "COMPLETED") throw new Error(`Payment not completed: ${capture.status}`);
+
+  const customId = capture.purchase_units?.[0]?.custom_id || capture.purchase_units?.[0]?.payments?.captures?.[0]?.custom_id;
+  if (!customId) throw new Error("Missing custom_id in captured order");
+
+  const { userId, credits } = JSON.parse(customId);
+  return { status: "COMPLETED", credits: Number(credits), userId };
 }

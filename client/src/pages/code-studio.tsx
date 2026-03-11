@@ -9,7 +9,7 @@ import {
   Play, Save, Rocket, ChevronLeft, Plus, Trash2, Globe, Copy,
   Code2, Terminal, Loader2, FileCode, Send, RefreshCw, X,
   ExternalLink, Check, Monitor, Wand2, Zap, Lock, FolderOpen,
-  ChevronRight, Bot, User, Sparkles, ChevronDown,
+  ChevronRight, Bot, User, Sparkles, ChevronDown, ShoppingCart, CreditCard,
 } from "lucide-react";
 import type { CodeProject } from "@shared/schema";
 
@@ -175,12 +175,33 @@ export default function CodeStudio() {
   const projectsRef = useRef<HTMLDivElement>(null);
 
   const [promoCode, setPromoCode] = useState("");
+  const [credits, setCredits] = useState<number | null>(null);
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const [buyingCredits, setBuyingCredits] = useState(false);
+  const [selectedPack, setSelectedPack] = useState<number>(15);
+
+  const CREDIT_PACKS = [
+    { credits: 15, price: 15 }, { credits: 25, price: 25 },
+    { credits: 45, price: 45 }, { credits: 100, price: 100 },
+    { credits: 250, price: 250 }, { credits: 500, price: 500 },
+  ];
 
   const activeFileData = files.find(f => f.name === activeFile);
   const isWebProject = currentProject?.mainLanguage === "html";
   const hasProject = !!currentProject;
 
   useEffect(() => { if (isAuthenticated) loadProjects(); }, [isAuthenticated]);
+
+  // Fetch credit balance on load (and after addon activation)
+  useEffect(() => {
+    if (user?.codeStudioAddon) {
+      fetch("/api/code/credits", { credentials: "include" })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d) setCredits(d.credits); })
+        .catch(() => {});
+    }
+  }, [user?.codeStudioAddon]);
+
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => {
     if (isWebProject && files.length > 0) setLivePreview(buildSrcdoc(files));
@@ -207,6 +228,24 @@ export default function CodeStudio() {
           }).catch(() => {});
       } else { window.history.replaceState({}, "", "/code-studio"); }
     }
+    // Credit pack purchase complete (returned from PayPal)
+    if (params.get("creditSuccess") === "1") {
+      const orderId = params.get("token");
+      if (orderId) {
+        fetch("/api/code/capture-credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId }), credentials: "include" })
+          .then(r => r.json()).then(d => {
+            if (d.success) {
+              setCredits(d.totalCredits);
+              toast({ title: `✅ ${d.creditsAdded} credits added!`, description: `You now have ${d.totalCredits} AI credits.` });
+            }
+          }).catch(() => {});
+      }
+      window.history.replaceState({}, "", "/code-studio");
+    }
+    if (params.get("creditCancelled") === "1") {
+      toast({ title: "Purchase cancelled", description: "No charges were made." });
+      window.history.replaceState({}, "", "/code-studio");
+    }
   }, []);
 
   const addonMutation = useMutation({
@@ -214,6 +253,27 @@ export default function CodeStudio() {
     onSuccess: async (res: any) => { const d = await res.json(); if (d.url) window.location.href = d.url; },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  async function buyCredits(packSize: number) {
+    setBuyingCredits(true);
+    try {
+      const res = await fetch("/api/code/buy-credits", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credits: packSize }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Failed to create order");
+      if (d.approvalUrl) {
+        // Redirect to PayPal for one-time payment
+        window.location.href = d.approvalUrl;
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setBuyingCredits(false);
+    }
+  }
   const promoMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/apply-code-studio-promo", { code: promoCode.trim() }),
     onSuccess: async (res: any) => {
@@ -310,6 +370,16 @@ export default function CodeStudio() {
       const data = await res.json();
       clearInterval(phaseInterval);
 
+      if (res.status === 402 && data.outOfCredits) {
+        setMessages(prev => prev.map(m => m.id === buildMsgId ? {
+          ...m, buildDone: true, content: "You've used all your AI credits. Buy more to keep building!", role: "system",
+        } : m));
+        setBuildingMsgId(null);
+        setCredits(0);
+        setShowBuyCredits(true);
+        return;
+      }
+
       if (!res.ok) throw new Error(data.error || "Build failed");
 
       const generatedFiles: CodeFile[] = data.files;
@@ -334,6 +404,7 @@ export default function CodeStudio() {
         await runCodeWithFiles(generatedFiles, project.mainLanguage);
       }
 
+      if (data.creditsRemaining !== undefined) setCredits(data.creditsRemaining);
       setMessages(prev => prev.map(m => m.id === buildMsgId ? {
         ...m, buildPhase: BUILD_PHASES.length - 1, buildDone: true,
         deployUrl: liveUrl || undefined,
@@ -484,13 +555,16 @@ export default function CodeStudio() {
               </div>
             ))}
           </div>
-          <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "14px 20px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Add-on for any plan</div><div style={{ fontSize: 28, fontWeight: 800, color: C.text }}>$10<span style={{ fontSize: 14, fontWeight: 400, color: C.muted }}>/mo</span></div></div>
-            <div style={{ textAlign: "right" }}><div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>Cancel anytime</div><div style={{ fontSize: 12, color: C.muted }}>Billed separately</div></div>
+          <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "14px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Add-on for any plan</div><div style={{ fontSize: 28, fontWeight: 800, color: C.text }}>$15<span style={{ fontSize: 14, fontWeight: 400, color: C.muted }}>/mo</span></div></div>
+            <div style={{ textAlign: "right" }}><div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>15 AI credits/month</div><div style={{ fontSize: 12, color: C.muted }}>Resets monthly</div></div>
+          </div>
+          <div style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, fontSize: 12, color: C.muted }}>
+            Each AI build uses 1 credit. Need more? Buy extra packs from $15 — up to 500 credits.
           </div>
           <button onClick={() => addonMutation.mutate()} disabled={addonMutation.isPending}
             style={{ width: "100%", background: "linear-gradient(135deg, #059669, #10b981)", color: "#fff", border: "none", padding: "14px 24px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginBottom: 16, opacity: addonMutation.isPending ? 0.7 : 1 }}>
-            {addonMutation.isPending ? "Redirecting to PayPal..." : "Add Code Studio — $10/mo"}
+            {addonMutation.isPending ? "Redirecting to PayPal..." : "Add Code Studio — $15/mo"}
           </button>
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Have a promo code?</div>
@@ -563,6 +637,22 @@ export default function CodeStudio() {
         </div>
 
         <div style={{ flex: 1 }} />
+
+        {/* Credit Balance Badge */}
+        <button
+          onClick={() => setShowBuyCredits(true)}
+          title="AI build credits — click to buy more"
+          style={{
+            display: "flex", alignItems: "center", gap: 5,
+            background: credits === 0 ? "rgba(239,68,68,0.1)" : credits !== null && credits <= 3 ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.08)",
+            border: `1px solid ${credits === 0 ? "rgba(239,68,68,0.3)" : credits !== null && credits <= 3 ? "rgba(245,158,11,0.3)" : "rgba(16,185,129,0.2)"}`,
+            borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700,
+            color: credits === 0 ? "#f87171" : credits !== null && credits <= 3 ? "#fbbf24" : "#34d399",
+          }}>
+          <Zap style={{ width: 11, height: 11 }} />
+          {credits !== null ? `${credits} credit${credits !== 1 ? "s" : ""}` : "..."}
+          {(credits === 0 || (credits !== null && credits <= 3)) && <ShoppingCart style={{ width: 10, height: 10 }} />}
+        </button>
 
         {/* Action Buttons */}
         <button onClick={saveProject} disabled={isSaving || !hasProject}
@@ -974,6 +1064,59 @@ export default function CodeStudio() {
               style={{ width: "100%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", border: "none", borderRadius: 10, padding: "13px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: isDeploying ? 0.7 : 1 }}>
               {isDeploying ? "Deploying..." : deployUrl ? "Redeploy" : "Deploy to Web"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Buy Credits Modal ────────────────────────────────────────────────── */}
+      {showBuyCredits && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
+          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 20, width: "100%", maxWidth: 480, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.7)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Zap style={{ width: 18, height: 18, color: "#fff" }} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: C.text }}>Buy AI Credits</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>You have {credits ?? 0} credits remaining</div>
+                </div>
+              </div>
+              <button onClick={() => setShowBuyCredits(false)} style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}>
+                <X style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 20, padding: "10px 14px", background: "rgba(124,58,237,0.06)", borderRadius: 10, border: "1px solid rgba(124,58,237,0.15)" }}>
+              Each AI build uses <strong style={{ color: C.text }}>1 credit</strong>. Your monthly plan resets 15 credits every billing cycle. Buy extra packs anytime — they never expire.
+            </p>
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Choose a pack</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+              {CREDIT_PACKS.map(pack => (
+                <button key={pack.credits}
+                  onClick={() => setSelectedPack(pack.credits)}
+                  style={{
+                    background: selectedPack === pack.credits ? "rgba(124,58,237,0.15)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${selectedPack === pack.credits ? "rgba(124,58,237,0.5)" : C.border}`,
+                    borderRadius: 10, padding: "12px 8px", cursor: "pointer", textAlign: "center", transition: "all 0.15s",
+                  }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{pack.credits}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>credits</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", marginTop: 6 }}>${pack.price}</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>${(pack.price / pack.credits).toFixed(2)}/credit</div>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => buyCredits(selectedPack)}
+              disabled={buyingCredits}
+              style={{ width: "100%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", border: "none", borderRadius: 10, padding: "14px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: buyingCredits ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              {buyingCredits ? <Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> : <CreditCard style={{ width: 16, height: 16 }} />}
+              {buyingCredits ? "Redirecting to PayPal..." : `Buy ${selectedPack} Credits — $${selectedPack}`}
+            </button>
+            <div style={{ textAlign: "center", marginTop: 10, fontSize: 11, color: C.muted }}>Secure payment via PayPal · One-time charge · Credits never expire</div>
           </div>
         </div>
       )}

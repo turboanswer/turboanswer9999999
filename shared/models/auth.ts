@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 // Session storage table.
 // (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
@@ -57,6 +57,8 @@ export const users = pgTable("users", {
   isBetaTester: boolean("is_beta_tester").default(false),
   codeStudioAddon: boolean("code_studio_addon").default(false),
   codeStudioAddonSubId: text("code_studio_addon_sub_id"),
+  codeStudioCredits: integer("code_studio_credits").default(0),
+  codeStudioCreditsResetAt: timestamp("code_studio_credits_reset_at"),
   phoneNumber: varchar("phone_number"),
 });
 
