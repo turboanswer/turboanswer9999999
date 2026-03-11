@@ -3761,6 +3761,31 @@ User: ${message}`;
     } catch (e: any) { res.status(500).send('<h1>Error loading project</h1>'); }
   });
 
+  // Live preview — serves the project HTML with NO sandbox so all browser APIs work
+  // (localStorage, fetch, WebSockets, IndexedDB, geolocation, etc.)
+  app.get('/code-preview/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const projectId = parseInt(req.params.id);
+      if (isNaN(projectId)) return res.status(400).send('Invalid project ID');
+
+      const [project] = await db.select().from(codeProjects)
+        .where(and(eq(codeProjects.id, projectId), eq(codeProjects.userId, userId)));
+
+      if (!project) return res.status(404).send('Project not found');
+
+      const files = project.files as { name: string; content: string; language: string }[];
+      const html = buildProjectHtml(project.name, files, project.mainLanguage);
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+      res.send(html);
+    } catch (e: any) {
+      res.status(500).send('<h1 style="font-family:sans-serif">Error loading preview</h1>');
+    }
+  });
+
   function getDefaultFiles(lang: string): { name: string; content: string; language: string }[] {
     if (lang === 'html') return [
       { name: 'index.html', language: 'html', content: `<!DOCTYPE html>

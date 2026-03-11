@@ -157,6 +157,7 @@ export default function CodeStudio() {
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployUrl, setDeployUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [customDomain, setCustomDomain] = useState("");
@@ -240,6 +241,9 @@ export default function CodeStudio() {
     setDeployUrl(project.isPublished && project.slug ? `/p/${project.slug}` : null);
     setRightPanel(project.mainLanguage === "html" ? "preview" : "output");
     setShowProjects(false);
+    if (project.mainLanguage === "html") {
+      setPreviewUrl(`/code-preview/${project.id}?t=${Date.now()}`);
+    }
   }
 
   async function sendMessage() {
@@ -322,9 +326,11 @@ export default function CodeStudio() {
       if (project.mainLanguage === "html") {
         await delay(300);
         setLivePreview(buildSrcdoc(generatedFiles));
+        setPreviewUrl(`/code-preview/${project.id}?t=${Date.now()}`);
         setPreviewKey(k => k + 1);
         setRightPanel("preview");
       } else {
+        setPreviewUrl(null);
         await runCodeWithFiles(generatedFiles, project.mainLanguage);
       }
 
@@ -360,6 +366,10 @@ export default function CodeStudio() {
       setCurrentProject(updated);
       setProjects(p => p.map(pr => pr.id === updated.id ? updated : pr));
       setUnsaved(false);
+      if (updated.mainLanguage === "html") {
+        setPreviewUrl(`/code-preview/${updated.id}?t=${Date.now()}`);
+        setPreviewKey(k => k + 1);
+      }
       toast({ title: "Saved!" });
     } catch (e: any) { toast({ title: "Save failed", description: e.message, variant: "destructive" }); }
     finally { setIsSaving(false); }
@@ -396,7 +406,9 @@ export default function CodeStudio() {
 
   async function runCodeWithFiles(theFiles: CodeFile[], lang: string) {
     if (lang === "html") {
+      // Live preview from current editor content (instant, no server round-trip)
       setLivePreview(buildSrcdoc(theFiles));
+      setPreviewUrl(null); // use srcDoc for live editing feedback
       setPreviewKey(k => k + 1);
       setRightPanel("preview");
       return;
@@ -871,7 +883,16 @@ export default function CodeStudio() {
             ))}
             <div style={{ flex: 1 }} />
             {rightPanel === "preview" && hasProject && (
-              <button onClick={runCode} title="Refresh preview"
+              <button
+                onClick={() => {
+                  if (previewUrl && currentProject) {
+                    // Force reload the URL-based preview
+                    setPreviewUrl(`/code-preview/${currentProject.id}?t=${Date.now()}`);
+                  } else {
+                    runCode();
+                  }
+                }}
+                title="Refresh preview"
                 style={{ color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 6, display: "flex", alignItems: "center" }}>
                 <RefreshCw style={{ width: 12, height: 12 }} />
               </button>
@@ -881,12 +902,23 @@ export default function CodeStudio() {
           {/* Panel Content */}
           <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
             {rightPanel === "preview" ? (
-              livePreview ? (
+              previewUrl ? (
+                // URL-based preview: NO sandbox = full browser API access
+                // localStorage, fetch, WebSockets, IndexedDB, geolocation all work
+                <iframe
+                  key={previewUrl}
+                  src={previewUrl}
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", background: "#fff" }}
+                  title="App Preview"
+                />
+              ) : livePreview ? (
+                // srcDoc preview: used only during live editing (before save)
                 <iframe
                   key={previewKey}
                   srcDoc={livePreview}
                   style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none", background: "#fff" }}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads"
+                  title="Live Edit Preview"
                 />
               ) : (
                 <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
