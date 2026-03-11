@@ -3182,15 +3182,14 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
     const u = await storage.getUser(userId).catch(() => null);
     if (!u?.codeStudioAddon) return res.status(403).json({ error: 'Code Studio add-on required', requiresAddon: true });
 
-    // Monthly credit reset: if 30+ days since last reset, give 15 fresh credits
+    // Credit reset: resetAt stores the NEXT reset date.
+    // When that date passes → set credits to exactly 15 (no rollover), push next reset 30 days out.
     if (u.codeStudioCreditsResetAt) {
-      const daysSinceReset = (Date.now() - new Date(u.codeStudioCreditsResetAt).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSinceReset >= 30) {
-        await storage.updateCodeStudioCredits(userId, 15, new Date()).catch(() => {});
+      const nextReset = new Date(u.codeStudioCreditsResetAt);
+      if (Date.now() >= nextReset.getTime()) {
+        const next30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await storage.updateCodeStudioCredits(userId, 15, next30).catch(() => {});
       }
-    } else {
-      // First time — set reset clock and grant credits
-      await storage.updateCodeStudioCredits(userId, 15, new Date()).catch(() => {});
     }
     next();
   });
@@ -3546,8 +3545,8 @@ CRITICAL JAVASCRIPT RULES (ALL must be followed):
     try {
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) return res.status(403).json({ error: 'User not found' });
-      const resetAt = user.codeStudioCreditsResetAt ? new Date(user.codeStudioCreditsResetAt) : null;
-      const nextReset = resetAt ? new Date(resetAt.getTime() + 30 * 24 * 60 * 60 * 1000) : null;
+      // codeStudioCreditsResetAt IS the next reset date (not last reset)
+      const nextReset = user.codeStudioCreditsResetAt ? new Date(user.codeStudioCreditsResetAt) : null;
       res.json({ credits: user.codeStudioCredits ?? 0, nextReset: nextReset?.toISOString() ?? null });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

@@ -176,6 +176,7 @@ export default function CodeStudio() {
 
   const [promoCode, setPromoCode] = useState("");
   const [credits, setCredits] = useState<number | null>(null);
+  const [nextReset, setNextReset] = useState<Date | null>(null);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
   const [buyingCredits, setBuyingCredits] = useState(false);
   const [selectedPack, setSelectedPack] = useState<number>(15);
@@ -197,7 +198,12 @@ export default function CodeStudio() {
     if (user?.codeStudioAddon) {
       fetch("/api/code/credits", { credentials: "include" })
         .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d) setCredits(d.credits); })
+        .then(d => {
+          if (d) {
+            setCredits(d.credits);
+            if (d.nextReset) setNextReset(new Date(d.nextReset));
+          }
+        })
         .catch(() => {});
     }
   }, [user?.codeStudioAddon]);
@@ -555,16 +561,30 @@ export default function CodeStudio() {
               </div>
             ))}
           </div>
-          <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "14px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div><div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>Add-on for any plan</div><div style={{ fontSize: 28, fontWeight: 800, color: C.text }}>$15<span style={{ fontSize: 14, fontWeight: 400, color: C.muted }}>/mo</span></div></div>
-            <div style={{ textAlign: "right" }}><div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>15 AI credits/month</div><div style={{ fontSize: 12, color: C.muted }}>Resets monthly</div></div>
+          {/* Trial badge */}
+          <div style={{ background: "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.1))", border: "1px solid rgba(16,185,129,0.35)", borderRadius: 10, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18 }}>🎉</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#6ee7b7" }}>7-Day Free Trial</div>
+              <div style={{ fontSize: 12, color: C.muted }}>Try it free with 5 AI credits — no charge for 7 days</div>
+            </div>
+          </div>
+          <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "14px 20px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>After trial · Add-on for any plan</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: C.text }}>$15<span style={{ fontSize: 14, fontWeight: 400, color: C.muted }}>/mo</span></div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 12, color: "#10b981", fontWeight: 600 }}>15 AI credits/month</div>
+              <div style={{ fontSize: 11, color: "#f87171", fontWeight: 500 }}>Credits don't roll over</div>
+            </div>
           </div>
           <div style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, fontSize: 12, color: C.muted }}>
-            Each AI build uses 1 credit. Need more? Buy extra packs from $15 — up to 500 credits.
+            Each AI build uses 1 credit. Need more? Buy extra packs from $15 — up to 500 credits. Pack credits never expire.
           </div>
           <button onClick={() => addonMutation.mutate()} disabled={addonMutation.isPending}
             style={{ width: "100%", background: "linear-gradient(135deg, #059669, #10b981)", color: "#fff", border: "none", padding: "14px 24px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginBottom: 16, opacity: addonMutation.isPending ? 0.7 : 1 }}>
-            {addonMutation.isPending ? "Redirecting to PayPal..." : "Add Code Studio — $15/mo"}
+            {addonMutation.isPending ? "Redirecting to PayPal..." : "Start Free Trial — $0 for 7 days"}
           </button>
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Have a promo code?</div>
@@ -638,21 +658,28 @@ export default function CodeStudio() {
 
         <div style={{ flex: 1 }} />
 
-        {/* Credit Balance Badge */}
-        <button
-          onClick={() => setShowBuyCredits(true)}
-          title="AI build credits — click to buy more"
-          style={{
-            display: "flex", alignItems: "center", gap: 5,
-            background: credits === 0 ? "rgba(239,68,68,0.1)" : credits !== null && credits <= 3 ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.08)",
-            border: `1px solid ${credits === 0 ? "rgba(239,68,68,0.3)" : credits !== null && credits <= 3 ? "rgba(245,158,11,0.3)" : "rgba(16,185,129,0.2)"}`,
-            borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700,
-            color: credits === 0 ? "#f87171" : credits !== null && credits <= 3 ? "#fbbf24" : "#34d399",
-          }}>
-          <Zap style={{ width: 11, height: 11 }} />
-          {credits !== null ? `${credits} credit${credits !== 1 ? "s" : ""}` : "..."}
-          {(credits === 0 || (credits !== null && credits <= 3)) && <ShoppingCart style={{ width: 10, height: 10 }} />}
-        </button>
+        {/* Credit Percentage Bar */}
+        {(() => {
+          const pct = credits === null ? 0 : Math.min(100, Math.round((credits / 15) * 100));
+          const barColor = credits === 0 ? "#ef4444" : credits !== null && credits <= 3 ? "#f59e0b" : credits !== null && credits <= 7 ? "#eab308" : "#10b981";
+          const textColor = credits === 0 ? "#f87171" : credits !== null && credits <= 3 ? "#fbbf24" : "#a3e635";
+          return (
+            <button
+              onClick={() => setShowBuyCredits(true)}
+              title={`${credits ?? 0} AI credits remaining — click to buy more`}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 7, padding: "5px 10px", cursor: "pointer" }}>
+              <Zap style={{ width: 10, height: 10, color: barColor, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: textColor, minWidth: 28 }}>
+                {credits !== null ? credits : "..."}
+              </span>
+              <div style={{ width: 52, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: barColor, borderRadius: 99, transition: "width 0.4s ease, background 0.3s" }} />
+              </div>
+              <span style={{ fontSize: 9, color: C.muted, minWidth: 22 }}>{pct}%</span>
+              {credits === 0 && <ShoppingCart style={{ width: 10, height: 10, color: "#f87171" }} />}
+            </button>
+          );
+        })()}
 
         {/* Action Buttons */}
         <button onClick={saveProject} disabled={isSaving || !hasProject}
@@ -1087,9 +1114,19 @@ export default function CodeStudio() {
               </button>
             </div>
 
-            <p style={{ color: C.muted, fontSize: 13, marginBottom: 20, padding: "10px 14px", background: "rgba(124,58,237,0.06)", borderRadius: 10, border: "1px solid rgba(124,58,237,0.15)" }}>
-              Each AI build uses <strong style={{ color: C.text }}>1 credit</strong>. Your monthly plan resets 15 credits every billing cycle. Buy extra packs anytime — they never expire.
-            </p>
+            <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(124,58,237,0.06)", borderRadius: 10, border: "1px solid rgba(124,58,237,0.15)" }}>
+              <p style={{ color: C.muted, fontSize: 13, margin: "0 0 6px" }}>
+                Each AI build uses <strong style={{ color: C.text }}>1 credit</strong>. Monthly plan gives <strong style={{ color: C.text }}>15 credits/cycle</strong> — unused credits do <strong style={{ color: "#f87171" }}>not</strong> roll over.
+              </p>
+              {nextReset && (
+                <p style={{ color: "#fbbf24", fontSize: 12, margin: 0 }}>
+                  Next reset: {nextReset.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+            </div>
+            <div style={{ marginBottom: 16, padding: "8px 12px", background: "rgba(16,185,129,0.06)", borderRadius: 8, border: "1px solid rgba(16,185,129,0.15)", fontSize: 12, color: "#6ee7b7" }}>
+              Pack credits are permanent — they never expire or reset.
+            </div>
 
             <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Choose a pack</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>

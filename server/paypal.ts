@@ -359,7 +359,8 @@ export async function getOrCreateAddonPlan(): Promise<string> {
       const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
       const regularCycle = details?.billing_cycles?.find((c: any) => c.tenure_type === "REGULAR");
       const price = regularCycle?.pricing_scheme?.fixed_price?.value;
-      if (price && parseFloat(price) === 15) {
+      const hasTrialCycle = details?.billing_cycles?.some((c: any) => c.tenure_type === "TRIAL");
+      if (price && parseFloat(price) === 15 && hasTrialCycle) {
         codeStudioAddonPlanId = plan.id;
         console.log("[PayPal] Found existing Code Studio add-on plan:", codeStudioAddonPlanId);
         return codeStudioAddonPlanId;
@@ -390,13 +391,20 @@ export async function getOrCreateAddonPlan(): Promise<string> {
   const plan = await paypalRequest("POST", "/v1/billing/plans", {
     product_id: productId,
     name: "Turbo Answer Code Studio",
-    description: "Code Studio add-on — Full AI-powered IDE with 15 AI credits/month. $15/month.",
+    description: "Code Studio — 7-day free trial, then $15/month. Includes 15 AI credits/month.",
     status: "ACTIVE",
     billing_cycles: [
       {
+        frequency: { interval_unit: "DAY", interval_count: 7 },
+        tenure_type: "TRIAL",
+        sequence: 1,
+        total_cycles: 1,
+        pricing_scheme: { fixed_price: { value: "0.00", currency_code: "USD" } },
+      },
+      {
         frequency: { interval_unit: "MONTH", interval_count: 1 },
         tenure_type: "REGULAR",
-        sequence: 1,
+        sequence: 2,
         total_cycles: 0,
         pricing_scheme: { fixed_price: { value: "15.00", currency_code: "USD" } },
       },

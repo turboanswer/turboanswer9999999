@@ -436,7 +436,7 @@ export default function Chat() {
               </Link>
               {!isNativeMobile && (
               <Link href="/code-studio">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs relative ${isDark ? 'text-gray-400 hover:text-cyan-400' : 'text-gray-500 hover:text-cyan-600'}`} title={user?.codeStudioAddon ? "Code Studio — Build & run apps with AI" : "Code Studio — $15/mo add-on"}>
+                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs relative ${isDark ? 'text-gray-400 hover:text-cyan-400' : 'text-gray-500 hover:text-cyan-600'}`} title={user?.codeStudioAddon ? "Code Studio — Build & run apps with AI" : "Code Studio — 7-day free trial, then $15/mo"}>
                   <Code2 className="h-4 w-4 mr-1" /> Code
                   {!user?.codeStudioAddon && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-yellow-400" />}
                 </Button>
