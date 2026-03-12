@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Radio } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -419,6 +419,11 @@ export default function Chat() {
             </button>
 
             <div className="hidden sm:flex items-center gap-1">
+              <Link href="/ai-live">
+                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-green-400' : 'text-gray-500 hover:text-green-600'}`} title="AI Live — Voice conversation with Turbo">
+                  <Radio className="h-4 w-4 mr-1" /> Live
+                </Button>
+              </Link>
               <Link href="/media-editor">
                 <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-pink-400' : 'text-gray-500 hover:text-pink-500'}`} title="Media Editor — CapCut-style photo & video editor">
                   <Scissors className="h-4 w-4 mr-1" /> Edit
@@ -484,6 +489,11 @@ export default function Chat() {
               <Button onClick={() => { setShowDocumentUpload(!showDocumentUpload); setShowToolbar(false); }} variant="ghost" size="sm" className={`h-8 px-2 text-xs ${showDocumentUpload ? 'text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 <FileText className="h-4 w-4 mr-1" /> Docs
               </Button>
+              <Link href="/ai-live">
+                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-green-400' : 'text-gray-500 hover:text-green-600'}`}>
+                  <Radio className="h-4 w-4 mr-1" /> Live
+                </Button>
+              </Link>
               <Link href="/media-editor">
                 <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-pink-400' : 'text-gray-500 hover:text-pink-500'}`}>
                   <Scissors className="h-4 w-4 mr-1" /> Edit
@@ -571,15 +581,15 @@ export default function Chat() {
 
       {/* Code Studio Banner */}
       {showAntigravityBanner && (
-        <div className="shrink-0 relative z-30 overflow-hidden" style={{ background: "linear-gradient(90deg, #0d0d2e 0%, #0a0a1e 50%, #0d0a2e 100%)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className={`shrink-0 relative z-30 overflow-hidden border-b ${isDark ? 'border-white/[0.06]' : 'border-purple-100'}`} style={{ background: isDark ? "linear-gradient(90deg, #0d0d2e 0%, #0a0a1e 50%, #0d0a2e 100%)" : "linear-gradient(90deg, #f5f3ff 0%, #eff6ff 50%, #f5f3ff 100%)" }}>
           <div className="absolute inset-0 opacity-20" style={{ background: "linear-gradient(90deg, rgba(139,92,246,0.3) 0%, rgba(34,211,238,0.2) 50%, rgba(139,92,246,0.2) 100%)" }} />
           <div className="relative flex items-center gap-3 px-4 py-2.5">
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <span className="text-xs font-bold shrink-0" style={{ background: "linear-gradient(90deg, #8b5cf6, #22d3ee)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>NEW</span>
-              <span className="text-white text-xs sm:text-sm font-semibold truncate">
+              <span className={`text-xs sm:text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-purple-900'}`}>
                 Code Studio — build full apps from a single prompt
               </span>
-              <span className="hidden md:inline text-xs text-gray-400 truncate">Powered by Claude + Gemini</span>
+              <span className={`hidden md:inline text-xs truncate ${isDark ? 'text-gray-400' : 'text-purple-500'}`}>Powered by Claude + Gemini</span>
             </div>
             {!isNativeMobile && (
             <Link href="/code-studio">

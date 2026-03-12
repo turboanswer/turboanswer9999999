@@ -4294,6 +4294,46 @@ Return ONLY valid JSON (no markdown):
     }
   });
 
+  // ── AI LIVE CHAT ────────────────────────────────────────────────────
+  app.post('/api/ai-live', isAuthenticated, async (req: any, res) => {
+    try {
+      const { message, history = [] } = req.body;
+      if (!message?.trim()) return res.status(400).json({ error: 'message required' });
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) return res.status(503).json({ error: 'AI unavailable' });
+
+      const systemPrompt = `You are Turbo, a warm and conversational AI assistant. You are in a LIVE VOICE conversation. Keep responses SHORT (1-3 sentences max), natural, and conversational — like a real human chat. Be direct, friendly, and engaging. No bullet points, no markdown — just plain spoken language.`;
+
+      const contents = [
+        ...history.slice(-10).map((h: any) => ({ role: h.role, parts: [{ text: h.content }] })),
+        { role: 'user', parts: [{ text: message }] }
+      ];
+
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig: { maxOutputTokens: 256, temperature: 0.9 }
+        })
+      });
+
+      if (!r.ok) {
+        const err = await r.text();
+        console.error('[AI Live]', err);
+        return res.status(500).json({ error: 'AI error' });
+      }
+
+      const data = await r.json();
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "I'm here! What would you like to talk about?";
+      res.json({ reply });
+    } catch (e: any) {
+      console.error('[AI Live]', e.message);
+      res.status(500).json({ error: 'Live chat unavailable' });
+    }
+  });
+
   startProactiveDiagnostics();
 
   // Auto-lockdown on critical infrastructure failure (DB or AI down — not memory pressure)

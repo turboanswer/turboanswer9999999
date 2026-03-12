@@ -33,6 +33,7 @@ import MediaEditor from "@/pages/media-editor";
 import VideoStudio from "@/pages/video-studio";
 import CodeStudio from "@/pages/code-studio";
 import BetaApply from "@/pages/beta-apply";
+import AILive from "@/pages/ai-live";
 import DataDeletion from "@/pages/data-deletion";
 import LockdownScreen from "@/components/lockdown-screen";
 import { primeAudioContext } from "@/lib/audio-manager";
@@ -66,6 +67,7 @@ function AuthenticatedRouter() {
       <Route path="/video-studio" component={VideoStudio} />
       <Route path="/code-studio" component={CodeStudio} />
       <Route path="/beta" component={BetaApply} />
+      <Route path="/ai-live" component={AILive} />
       <Route component={NotFound} />
     </Switch>
   );

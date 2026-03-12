@@ -125,7 +125,6 @@ export default function AISettings() {
 
   // Voice prefs
   const [voiceEnabled, setVoiceEnabled] = usePref("pref_voiceEnabled", false);
-  const [wakeWordEnabled, setWakeWordEnabled] = usePref("wakeWordEnabled", false);
   const [autoReadResponses, setAutoReadResponses] = usePref("pref_autoRead", false);
   const [voiceSpeed, setVoiceSpeed] = usePref<"slow"|"normal"|"fast">("pref_voiceSpeed", "normal");
   const [voicePitch, setVoicePitch] = usePref<"low"|"normal"|"high">("pref_voicePitch", "normal");
@@ -530,9 +529,6 @@ export default function AISettings() {
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Voice Input</div>
                 <SettingRow label="Enable voice input" desc={`Speak to Turbo using your microphone`}>
                   <Toggle value={voiceEnabled} onChange={setVoiceEnabled} color={accentColor} />
-                </SettingRow>
-                <SettingRow label='"Hey Turbo" wake word' desc="Say 'Hey Turbo' to activate voice without clicking (uses battery)">
-                  <Toggle value={wakeWordEnabled} onChange={v => { if (!voiceEnabled) { toast({ title: "Enable voice first" }); return; } setWakeWordEnabled(v); }} color={accentColor} />
                 </SettingRow>
                 <SettingRow label="Voice activation mode" desc="How to start listening">
                   <div style={{ display: "flex", gap: 6 }}>
