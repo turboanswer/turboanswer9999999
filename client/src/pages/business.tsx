@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Code, Palette, Zap, Shield, BarChart3, Users, Globe } from "lucide-react";
+import { Check, Code, Palette, Zap, Shield, BarChart3, Users, Globe, ArrowLeft } from "lucide-react";
 
 export default function Business() {
   const [selectedExample, setSelectedExample] = useState("ecommerce");
@@ -156,6 +157,14 @@ TurboWidget.init({
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
+        {/* Back button */}
+        <div className="mb-8">
+          <Link href="/home">
+            <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', background: 'none', border: '1px solid rgba(100,116,139,0.3)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+              <ArrowLeft size={15} /> Back
+            </button>
+          </Link>
+        </div>
         <div className="text-center max-w-4xl mx-auto">
           <Badge className="mb-4" variant="outline">
             🚀 AI Widget for Business

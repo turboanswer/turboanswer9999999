@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,7 +95,15 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4 relative">
+      {/* Back button — top-left corner */}
+      <div style={{ position: 'absolute', top: 20, left: 20 }}>
+        <Link href="/login">
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+            <ArrowLeft size={15} /> Back
+          </button>
+        </Link>
+      </div>
       <Card className="w-full max-w-md bg-gray-900 border-gray-800">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">

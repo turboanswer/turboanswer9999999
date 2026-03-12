@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { Check, Crown, Zap, MessageSquare, Headphones, Loader2, Heart, HandHeart } from 'lucide-react';
+import { Link } from 'wouter';
+import { Check, Crown, Zap, MessageSquare, Headphones, Loader2, Heart, HandHeart, ArrowLeft } from 'lucide-react';
 
 interface PricingPlan {
   id: string;
@@ -159,6 +160,8 @@ export default function Pricing() {
     }
   };
 
+  const { data: authUser } = useQuery<{ id: number } | null>({ queryKey: ["/api/auth/user"] });
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -166,6 +169,15 @@ export default function Pricing() {
       color: 'white',
       padding: '40px 20px'
     }}>
+      {/* Back button */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', marginBottom: 24 }}>
+        <Link href={authUser ? "/home" : "/"}>
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+            <ArrowLeft size={15} /> Back
+          </button>
+        </Link>
+      </div>
+
       <div style={{ textAlign: 'center', marginBottom: '60px' }}>
         <div style={{
           width: '80px',
