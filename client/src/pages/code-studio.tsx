@@ -263,9 +263,19 @@ export default function CodeStudio() {
     }
   }, []);
 
+  const isEnterprise = user?.subscriptionTier === 'enterprise' && user?.subscriptionStatus === 'active';
+
   const addonMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/create-addon-subscription"),
-    onSuccess: async (res: any) => { const d = await res.json(); if (d.url) window.location.href = d.url; },
+    onSuccess: async (res: any) => {
+      const d = await res.json();
+      if (d.free) {
+        toast({ title: "🎉 Code Studio Activated!", description: "Included free with your Enterprise plan!" });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      } else if (d.url) {
+        window.location.href = d.url;
+      }
+    },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
@@ -598,9 +608,14 @@ export default function CodeStudio() {
           <div style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, fontSize: 12, color: C.muted }}>
             Priced at <strong style={{ color: C.text }}>$0.02/line</strong> — 10 lines = $0.20. Need more? Add budget packs from $5. Pack budget never expires.
           </div>
+          {isEnterprise && (
+            <div style={{ marginBottom: 12, padding: "10px 16px", background: "rgba(251,188,5,0.08)", border: "1px solid rgba(251,188,5,0.3)", borderRadius: 10, fontSize: 13, color: "#FCD34D", fontWeight: 600, textAlign: "center" as const }}>
+              🏆 Enterprise Perk — Code Studio is FREE for you ($15/mo value)
+            </div>
+          )}
           <button onClick={() => addonMutation.mutate()} disabled={addonMutation.isPending}
-            style={{ width: "100%", background: "linear-gradient(135deg, #059669, #10b981)", color: "#fff", border: "none", padding: "14px 24px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginBottom: 16, opacity: addonMutation.isPending ? 0.7 : 1 }}>
-            {addonMutation.isPending ? "Redirecting to PayPal..." : "Start Free Trial — $0 for 7 days"}
+            style={{ width: "100%", background: isEnterprise ? "linear-gradient(135deg, #FBBC05, #f59e0b)" : "linear-gradient(135deg, #059669, #10b981)", color: isEnterprise ? "#000" : "#fff", border: "none", padding: "14px 24px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginBottom: 16, opacity: addonMutation.isPending ? 0.7 : 1 }}>
+            {addonMutation.isPending ? "Activating..." : isEnterprise ? "🎉 Activate Free — Enterprise Benefit" : "Start Free Trial — $0 for 7 days"}
           </button>
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Have a promo code?</div>

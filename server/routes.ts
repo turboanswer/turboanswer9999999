@@ -1225,12 +1225,20 @@ function downloadAAB(){
   });
 
   // Create Code Studio add-on subscription
+  // Enterprise members get it FREE — auto-activate without PayPal
   app.post('/api/create-addon-subscription', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       if (!user) return res.status(401).json({ error: 'User not found' });
       if (user.codeStudioAddon) return res.status(400).json({ error: 'You already have Code Studio active' });
+
+      // Enterprise members: activate for free, no PayPal needed
+      if (user.subscriptionTier === 'enterprise' && user.subscriptionStatus === 'active') {
+        await storage.updateCodeStudioAddon(userId, true, 'enterprise_included');
+        console.log(`[Addon] Code Studio auto-activated FREE for Enterprise user ${userId}`);
+        return res.json({ free: true, success: true, message: 'Code Studio included free with Enterprise!' });
+      }
 
       const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || req.get('host')}`;
       const result = await createAddonSubscription(
@@ -1274,7 +1282,7 @@ function downloadAAB(){
       if (!user) return res.status(401).json({ error: 'User not found' });
       if (!user.codeStudioAddon) return res.status(400).json({ error: 'No Code Studio add-on to cancel' });
 
-      if (user.codeStudioAddonSubId && !user.codeStudioAddonSubId.startsWith('promo_')) {
+      if (user.codeStudioAddonSubId && !user.codeStudioAddonSubId.startsWith('promo_') && user.codeStudioAddonSubId !== 'enterprise_included') {
         await cancelSubscription(user.codeStudioAddonSubId, 'User cancelled Code Studio add-on').catch(() => {});
       }
       await storage.updateCodeStudioAddon(userId, false, null);
