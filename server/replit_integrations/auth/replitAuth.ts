@@ -4,18 +4,24 @@ import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { authStorage } from "./storage";
 
-const RECAPTCHA_TEST_SECRET = "6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe";
-
 async function verifyRecaptcha(token: string | undefined): Promise<boolean> {
+  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  if (!secret) {
+    console.warn("[reCAPTCHA] RECAPTCHA_SECRET_KEY not set — skipping verification");
+    return true;
+  }
   if (!token) return false;
-  const secret = process.env.RECAPTCHA_SECRET_KEY || RECAPTCHA_TEST_SECRET;
   try {
     const resp = await fetch(
       `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`,
       { method: "POST" }
     );
-    const data = (await resp.json()) as { success: boolean };
-    return data.success === true;
+    const data = (await resp.json()) as { success: boolean; score?: number; "error-codes"?: string[] };
+    if (!data.success) return false;
+    if (typeof data.score === "number") {
+      return data.score >= 0.5;
+    }
+    return true;
   } catch {
     return false;
   }

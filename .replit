@@ -51,3 +51,4 @@ integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_openai_ai_int
 
 [userenv.shared]
 CRISIS_ENCRYPTION_KEY = "01695823cd146197b143e3f66a0a0682b1c3e5827a240a830e92ef5549ff0b9a54916194506a71b9d73ef3e386821a13abe11b49946ed9ab265b910f31f98a08"
+VITE_RECAPTCHA_SITE_KEY = "6LdRrIgsAAAAAJsHGeLXP9dRcNtgbHlwkqwWjN6T"

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { ArrowLeft } from "lucide-react";
-import ReCAPTCHA from "react-google-recaptcha";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,18 +11,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import TurboLogo from "@/components/TurboLogo";
 import { Shield, AlertCircle } from "lucide-react";
 
-const RECAPTCHA_SITE_KEY =
-  (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string) ||
-  "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
-
 export default function Register() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [isLoading, setIsLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
   const [inviteLabel, setInviteLabel] = useState<string>("");
@@ -52,13 +47,8 @@ export default function Register() {
     }
   }, [search]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!captchaToken) {
-      toast({ title: "Verification required", description: "Please complete the reCAPTCHA check before creating your account.", variant: "destructive" });
-      return;
-    }
 
     if (formData.password !== formData.confirmPassword) {
       toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
@@ -73,6 +63,8 @@ export default function Register() {
     setIsLoading(true);
 
     try {
+      const captchaToken = executeRecaptcha ? await executeRecaptcha("register") : undefined;
+
       const response = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,18 +90,14 @@ export default function Register() {
         });
         setLocation(data.isEmployee ? "/employee/dashboard" : "/chat");
       } else {
-        recaptchaRef.current?.reset();
-        setCaptchaToken(null);
         toast({ title: "Error", description: data.message || "Failed to create account", variant: "destructive" });
       }
     } catch {
-      recaptchaRef.current?.reset();
-      setCaptchaToken(null);
       toast({ title: "Error", description: "Registration failed. Please try again.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [executeRecaptcha, formData, inviteToken, inviteValid, queryClient, toast, setLocation]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4 relative">
@@ -229,20 +217,10 @@ export default function Register() {
               />
             </div>
 
-            <div className="flex justify-center py-1">
-              <ReCAPTCHA
-                ref={recaptchaRef}
-                sitekey={RECAPTCHA_SITE_KEY}
-                theme="dark"
-                onChange={(token) => setCaptchaToken(token)}
-                onExpired={() => setCaptchaToken(null)}
-              />
-            </div>
-
             <Button
               type="submit"
-              disabled={isLoading || !captchaToken}
-              className={`w-full text-white disabled:opacity-50 ${inviteValid ? 'bg-red-700 hover:bg-red-800' : 'bg-purple-600 hover:bg-purple-700'}`}
+              disabled={isLoading}
+              className={`w-full text-white ${inviteValid ? 'bg-red-700 hover:bg-red-800' : 'bg-purple-600 hover:bg-purple-700'}`}
             >
               {isLoading ? "Creating Account..." : inviteValid ? "Create Admin Account" : "Create Account"}
             </Button>

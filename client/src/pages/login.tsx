@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, ShieldCheck, Lock } from "lucide-react";
-import ReCAPTCHA from "react-google-recaptcha";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,37 +10,21 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import TurboLogo from "@/components/TurboLogo";
 
-const RECAPTCHA_SITE_KEY =
-  (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string) ||
-  "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
-
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [isLoading, setIsLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!captchaToken) {
-      toast({
-        title: "Verification required",
-        description: "Please complete the reCAPTCHA check before signing in.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
 
     try {
+      const captchaToken = executeRecaptcha ? await executeRecaptcha("login") : undefined;
+
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,7 +42,7 @@ export default function Login() {
         await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
 
         try {
-          const pending = localStorage.getItem('turbo_pending_subscription');
+          const pending = localStorage.getItem("turbo_pending_subscription");
           if (pending) {
             const pendingData = JSON.parse(pending);
             if (Date.now() - pendingData.timestamp < 30 * 60 * 1000) {
@@ -71,54 +55,36 @@ export default function Login() {
               if (syncRes.ok) {
                 const syncData = await syncRes.json();
                 if (syncData.tier) {
-                  localStorage.removeItem('turbo_pending_subscription');
+                  localStorage.removeItem("turbo_pending_subscription");
                   queryClient.invalidateQueries({ queryKey: ["/api/models"] });
                   queryClient.invalidateQueries({ queryKey: ["/api/subscription-status"] });
                   queryClient.invalidateQueries({ queryKey: ["/api/enterprise-code"] });
-                  toast({
-                    title: "Subscription Activated!",
-                    description: `Your ${syncData.tier} plan is now active.`,
-                  });
+                  toast({ title: "Subscription Activated!", description: `Your ${syncData.tier} plan is now active.` });
                 }
               }
             } else {
-              localStorage.removeItem('turbo_pending_subscription');
+              localStorage.removeItem("turbo_pending_subscription");
             }
           }
-        } catch (e) {}
+        } catch {}
 
-        toast({
-          title: "Welcome back!",
-          description: "You're now signed in to Turbo Answer.",
-        });
+        toast({ title: "Welcome back!", description: "You're now signed in to Turbo Answer." });
         setLocation("/chat");
       } else {
-        recaptchaRef.current?.reset();
-        setCaptchaToken(null);
-        toast({
-          title: "Error",
-          description: data.message || "Invalid credentials",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: data.message || "Invalid credentials", variant: "destructive" });
       }
-    } catch (error: any) {
-      recaptchaRef.current?.reset();
-      setCaptchaToken(null);
-      toast({
-        title: "Error",
-        description: "Login failed. Please try again.",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Error", description: "Login failed. Please try again.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [executeRecaptcha, formData, queryClient, toast, setLocation]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4 relative">
-      <div style={{ position: 'absolute', top: 20, left: 20 }}>
+      <div style={{ position: "absolute", top: 20, left: 20 }}>
         <Link href="/">
-          <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
+          <button style={{ display: "flex", alignItems: "center", gap: 6, color: "#94a3b8", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "7px 14px", cursor: "pointer", fontSize: 14, fontWeight: 500 }}>
             <ArrowLeft size={15} /> Back
           </button>
         </Link>
@@ -165,20 +131,10 @@ export default function Login() {
               />
             </div>
 
-            <div className="flex justify-center py-1">
-              <ReCAPTCHA
-                ref={recaptchaRef}
-                sitekey={RECAPTCHA_SITE_KEY}
-                theme="dark"
-                onChange={(token) => setCaptchaToken(token)}
-                onExpired={() => setCaptchaToken(null)}
-              />
-            </div>
-
             <Button
               type="submit"
-              disabled={isLoading || !captchaToken}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+              disabled={isLoading}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
             >
               {isLoading ? "Signing In..." : "Sign In"}
             </Button>
@@ -213,7 +169,7 @@ export default function Login() {
               <div className="w-px h-3 bg-gray-700" />
               <div className="flex items-center gap-1.5">
                 <ShieldCheck size={11} className="text-purple-400" />
-                <span>reCAPTCHA Protected</span>
+                <span>reCAPTCHA v3 Protected</span>
               </div>
             </div>
           </div>
