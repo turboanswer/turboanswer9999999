@@ -135,7 +135,7 @@ process.on('unhandledRejection', (reason: any) => {
   const server = await registerRoutes(app);
   console.log('[Server] Routes registered.');
 
-  try { await storage.seedOwnerPromoCode(); } catch (e: any) { console.error('[PromoCode] Seed error:', e.message); }
+  try { await storage.seedOwnerPromoCode(); } catch (e: any) { /* Neon API may be disabled, ignore seed errors */ }
 
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
