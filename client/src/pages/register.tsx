@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,12 +20,6 @@ export default function Register() {
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
   const [inviteLabel, setInviteLabel] = useState<string>("");
   const [inviteError, setInviteError] = useState<string>("");
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [sendingCode, setSendingCode] = useState(false);
-  const [verifyingCode, setVerifyingCode] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-  const [smsCode, setSmsCode] = useState("");
-  const [cooldown, setCooldown] = useState(0);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -51,69 +45,8 @@ export default function Register() {
     }
   }, [search]);
 
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [cooldown]);
-
-  const handleSendCode = async () => {
-    if (!formData.phoneNumber.trim()) {
-      toast({ title: "Error", description: "Please enter your phone number first", variant: "destructive" });
-      return;
-    }
-    setSendingCode(true);
-    try {
-      const res = await fetch("/api/sms/send-verification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: formData.phoneNumber }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setCodeSent(true);
-        setCooldown(60);
-        toast({ title: "Code Sent", description: "Check your phone for the verification code" });
-      } else {
-        toast({ title: "Error", description: data.message || "Failed to send code", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Error", description: "Failed to send verification code", variant: "destructive" });
-    } finally {
-      setSendingCode(false);
-    }
-  };
-
-  const handleVerifyCode = async () => {
-    if (!smsCode.trim()) return;
-    setVerifyingCode(true);
-    try {
-      const res = await fetch("/api/sms/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: formData.phoneNumber, code: smsCode }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPhoneVerified(true);
-        toast({ title: "Verified", description: "Phone number verified successfully" });
-      } else {
-        toast({ title: "Error", description: data.message || "Invalid code", variant: "destructive" });
-      }
-    } catch {
-      toast({ title: "Error", description: "Verification failed", variant: "destructive" });
-    } finally {
-      setVerifyingCode(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!phoneVerified) {
-      toast({ title: "Error", description: "Please verify your phone number first", variant: "destructive" });
-      return;
-    }
 
     if (formData.password !== formData.confirmPassword) {
       toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
@@ -240,71 +173,17 @@ export default function Register() {
             <div className="space-y-2">
               <Label htmlFor="phoneNumber" className="text-white flex items-center gap-2">
                 <Phone size={14} />
-                Phone Number *
-                {phoneVerified && <CheckCircle size={14} className="text-green-400" />}
+                Phone Number (optional)
               </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="phoneNumber"
-                  type="tel"
-                  placeholder="e.g. +1 (555) 000-0000"
-                  value={formData.phoneNumber}
-                  onChange={(e) => {
-                    setFormData(prev => ({ ...prev, phoneNumber: e.target.value }));
-                    if (phoneVerified) {
-                      setPhoneVerified(false);
-                      setCodeSent(false);
-                      setSmsCode("");
-                    }
-                  }}
-                  required
-                  disabled={phoneVerified}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-400 flex-1"
-                />
-                {!phoneVerified && (
-                  <Button
-                    type="button"
-                    onClick={handleSendCode}
-                    disabled={sendingCode || !formData.phoneNumber.trim() || cooldown > 0}
-                    className="bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap px-3 text-sm"
-                  >
-                    {sendingCode ? <Loader2 size={16} className="animate-spin" /> : cooldown > 0 ? `${cooldown}s` : codeSent ? "Resend" : "Send Code"}
-                  </Button>
-                )}
-              </div>
-              {phoneVerified && (
-                <p className="text-xs text-green-400 flex items-center gap-1 mt-1">
-                  <CheckCircle size={12} /> Phone number verified
-                </p>
-              )}
+              <Input
+                id="phoneNumber"
+                type="tel"
+                placeholder="e.g. +1 (555) 000-0000"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                className="bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+              />
             </div>
-
-            {codeSent && !phoneVerified && (
-              <div className="space-y-2">
-                <Label htmlFor="smsCode" className="text-white">Verification Code</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="smsCode"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="Enter 6-digit code"
-                    value={smsCode}
-                    onChange={(e) => setSmsCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-400 flex-1 text-center tracking-[0.3em] text-lg font-mono"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleVerifyCode}
-                    disabled={verifyingCode || smsCode.length !== 6}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4"
-                  >
-                    {verifyingCode ? <Loader2 size={16} className="animate-spin" /> : "Verify"}
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500">Enter the 6-digit code sent to your phone</p>
-              </div>
-            )}
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-white">Password</Label>
@@ -336,17 +215,11 @@ export default function Register() {
 
             <Button
               type="submit"
-              disabled={isLoading || !phoneVerified}
+              disabled={isLoading}
               className={`w-full text-white disabled:opacity-50 ${inviteValid ? "bg-red-700 hover:bg-red-800" : "bg-purple-600 hover:bg-purple-700"}`}
             >
               {isLoading ? "Creating Account..." : inviteValid ? "Create Admin Account" : "Create Account"}
             </Button>
-
-            {!phoneVerified && (
-              <p className="text-xs text-center text-amber-400/80">
-                Please verify your phone number to create an account
-              </p>
-            )}
           </form>
 
           <div className="mt-6 text-center">

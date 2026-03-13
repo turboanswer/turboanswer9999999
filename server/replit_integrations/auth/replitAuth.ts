@@ -282,16 +282,8 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "Last name is required" });
       }
 
-      if (!phoneNumber || !phoneNumber.trim()) {
-        return res.status(400).json({ message: "Phone number is required" });
-      }
-
-      const normalizedPhone = normalizePhone(phoneNumber.trim());
-      const smsEntry = smsVerificationCodes.get(normalizedPhone);
-      if (!smsEntry || !smsEntry.verified || Date.now() > smsEntry.expiresAt) {
-        return res.status(400).json({ message: "Phone number must be verified before registering" });
-      }
-      smsVerificationCodes.delete(normalizedPhone);
+      // SMS verification temporarily disabled — phone number is optional
+      // TODO: Re-enable SMS verification when Twilio is resolved
 
       if (password.length < 6) {
         return res.status(400).json({ message: "Password must be at least 6 characters" });
@@ -352,7 +344,7 @@ export async function setupAuth(app: Express) {
         password: hashedPassword,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: phoneNumber?.trim() || null,
         isEmployee: grantAdmin,
         employeeRole: grantAdmin ? "super_admin" : "basic",
         canViewAllChats: grantAdmin,
