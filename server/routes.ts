@@ -4543,17 +4543,15 @@ Return ONLY valid JSON (no markdown):
 
   startProactiveDiagnostics();
 
-  // Auto-lockdown on critical infrastructure failure (DB or AI down — not memory pressure)
-  const LOCKDOWN_CRITICAL_CHECKS = ['Database Connection', 'AI Engine (Gemini)'];
+  // Auto-lockdown on critical AI failure only (not database — Neon endpoints can sleep/disable)
   setInterval(async () => {
     const report = getLatestReport();
     if (report && !lockdownActive) {
-      const infraFailures = report.results.filter(r =>
-        r.status === 'fail' && LOCKDOWN_CRITICAL_CHECKS.includes(r.check)
+      const aiFailures = report.results.filter(r =>
+        r.status === 'fail' && r.check === 'AI Engine (Gemini)'
       );
-      if (infraFailures.length > 0) {
-        const failedChecks = infraFailures.map(r => r.check).join(', ');
-        autoActivateLockdown('system_failure', `Critical infrastructure failure: ${failedChecks}`);
+      if (aiFailures.length > 0) {
+        autoActivateLockdown('system_failure', `Critical infrastructure failure: AI Engine (Gemini)`);
       }
     }
   }, 5 * 60 * 1000); // check every 5 minutes
