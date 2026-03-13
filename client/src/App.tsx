@@ -1,7 +1,6 @@
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -163,22 +162,16 @@ function AppContent() {
   );
 }
 
-const RECAPTCHA_SITE_KEY =
-  (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string) ||
-  "6LdRrIgsAAAAAJsHGeLXP9dRcNtgbHlwkqwWjN6T";
-
 function App() {
   return (
-    <GoogleReCaptchaProvider reCaptchaKey={RECAPTCHA_SITE_KEY}>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <TooltipProvider>
-            <Toaster />
-            <AppContent />
-          </TooltipProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </GoogleReCaptchaProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <TooltipProvider>
+          <Toaster />
+          <AppContent />
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -4,7 +4,6 @@ import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { authStorage } from "./storage";
 
-const RECAPTCHA_SCORE_THRESHOLD = 0.2;
 const CAPTCHA_BLOCK_DURATION_MS = 5 * 60 * 1000;
 const captchaBlocks = new Map<string, number>();
 
@@ -18,7 +17,7 @@ function getCaptchaBlock(ip: string): number | null {
   return blockedUntil;
 }
 
-async function verifyRecaptcha(token: string | undefined, action?: string, ip?: string): Promise<{ ok: boolean; score?: number; blockedMinutes?: number }> {
+async function verifyRecaptcha(token: string | undefined, action?: string, ip?: string): Promise<{ ok: boolean; blockedMinutes?: number }> {
   if (ip) {
     const blockedUntil = getCaptchaBlock(ip);
     if (blockedUntil) {
@@ -42,26 +41,18 @@ async function verifyRecaptcha(token: string | undefined, action?: string, ip?: 
       `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`,
       { method: "POST" }
     );
-    const data = (await resp.json()) as { success: boolean; score?: number; action?: string; "error-codes"?: string[] };
+    const data = (await resp.json()) as { success: boolean; "error-codes"?: string[] };
 
     if (!data.success) {
       console.warn(`[reCAPTCHA] Verification failed — action=${action} errors=${JSON.stringify(data["error-codes"])}`);
-      return { ok: false };
-    }
-
-    const score = data.score ?? 1;
-    const passed = score >= RECAPTCHA_SCORE_THRESHOLD;
-
-    if (!passed) {
-      console.warn(`[reCAPTCHA] LOW SCORE — action=${action} score=${score} threshold=${RECAPTCHA_SCORE_THRESHOLD} — BLOCKED 5 MIN`);
       if (ip) {
         captchaBlocks.set(ip, Date.now() + CAPTCHA_BLOCK_DURATION_MS);
       }
-    } else {
-      console.log(`[reCAPTCHA] OK — action=${action} score=${score}`);
+      return { ok: false };
     }
 
-    return { ok: passed, score };
+    console.log(`[reCAPTCHA] OK — action=${action}`);
+    return { ok: true };
   } catch (err: any) {
     console.error("[reCAPTCHA] Verification error:", err.message);
     return { ok: false };
