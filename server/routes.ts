@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
