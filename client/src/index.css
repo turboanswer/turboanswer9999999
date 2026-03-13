@@ -87,6 +87,36 @@ body.dark-body {
   color: #f5f5f5;
 }
 
+/* Settings page theme variables */
+:root {
+  --s-bg: #f1f5f9;
+  --s-panel: #ffffff;
+  --s-border: rgba(0,0,0,0.08);
+  --s-text: #1e293b;
+  --s-muted: #64748b;
+  --s-row-border: rgba(0,0,0,0.06);
+  --s-input-bg: rgba(0,0,0,0.05);
+  --s-input-border: rgba(0,0,0,0.12);
+  --s-input-text: #1e293b;
+  --s-toggle-off: rgba(0,0,0,0.12);
+  --s-pill-border: rgba(0,0,0,0.12);
+  --s-option-bg: #f1f5f9;
+}
+.dark {
+  --s-bg: #0a0a14;
+  --s-panel: #111122;
+  --s-border: rgba(255,255,255,0.07);
+  --s-text: #e2e8f0;
+  --s-muted: #64748b;
+  --s-row-border: rgba(255,255,255,0.05);
+  --s-input-bg: rgba(255,255,255,0.06);
+  --s-input-border: rgba(255,255,255,0.1);
+  --s-input-text: #e2e8f0;
+  --s-toggle-off: rgba(255,255,255,0.1);
+  --s-pill-border: rgba(255,255,255,0.1);
+  --s-option-bg: #1a1a2e;
+}
+
 .light body,
 body.light-body {
   background-color: #fff;

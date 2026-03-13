@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Brain, Zap, CheckCircle, Star, FlaskConical, XCircle, AlertTriangle,
   Gift, Building2, Trash2, Copy, Users, Code2, History, MessageSquare, User, Palette,
-  Shield, Bell, Mic, CreditCard, Sun, Moon, SlidersHorizontal, Globe,
+  Shield, Bell, CreditCard, Sun, Moon, SlidersHorizontal, Globe,
   Download, Eye, EyeOff, ChevronRight, Lock, Volume2, VolumeX, Type,
   Smartphone, Info, RefreshCw, LogOut, Save, Check, X, Settings, Sparkles,
   HelpCircle, Mail, Clock, BarChart3, Languages, Wand2, FileText, Bot
@@ -33,7 +33,6 @@ const TABS = [
   { id: "profile",     label: "Profile",      icon: User },
   { id: "appearance",  label: "Appearance",   icon: Palette },
   { id: "ai",          label: "AI & Models",  icon: Brain },
-  { id: "voice",       label: "Voice",        icon: Mic },
   { id: "privacy",     label: "Privacy",      icon: Shield },
   { id: "billing",     label: "Billing",      icon: CreditCard },
   { id: "notifications", label: "Notifications", icon: Bell },
@@ -65,7 +64,7 @@ const AI_MODELS = {
 
 function Toggle({ value, onChange, color = "#4285F4" }: { value: boolean; onChange: (v: boolean) => void; color?: string }) {
   return (
-    <button onClick={() => onChange(!value)} style={{ width: 44, height: 24, borderRadius: 12, background: value ? color : "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", padding: 2, transition: "background 0.2s", position: "relative", flexShrink: 0 }}>
+    <button onClick={() => onChange(!value)} style={{ width: 44, height: 24, borderRadius: 12, background: value ? color : "var(--s-toggle-off)", border: "none", cursor: "pointer", padding: 2, transition: "background 0.2s", position: "relative", flexShrink: 0 }}>
       <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", transform: value ? "translateX(20px)" : "translateX(0)", transition: "transform 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
     </button>
   );
@@ -75,10 +74,10 @@ function SettingRow({ label, desc, children, stacked }: { label: string; desc?: 
   const mobile = typeof window !== "undefined" && window.innerWidth < 640;
   const shouldStack = stacked || mobile;
   return (
-    <div style={{ display: "flex", flexDirection: shouldStack ? "column" : "row", alignItems: shouldStack ? "flex-start" : "center", justifyContent: "space-between", gap: shouldStack ? 10 : 16, padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display: "flex", flexDirection: shouldStack ? "column" : "row", alignItems: shouldStack ? "flex-start" : "center", justifyContent: "space-between", gap: shouldStack ? 10 : 16, padding: "14px 0", borderBottom: "1px solid var(--s-row-border)" }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: "#e2e8f0" }}>{label}</div>
-        {desc && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{desc}</div>}
+        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--s-text)" }}>{label}</div>
+        {desc && <div style={{ fontSize: 12, color: "var(--s-muted)", marginTop: 2 }}>{desc}</div>}
       </div>
       <div style={{ flexShrink: 0, flexWrap: "wrap", display: "flex", gap: 6 }}>{children}</div>
     </div>
@@ -87,8 +86,8 @@ function SettingRow({ label, desc, children, stacked }: { label: string; desc?: 
 
 function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "6px 10px", color: "#e2e8f0", fontSize: 13, cursor: "pointer", outline: "none" }}>
-      {options.map(o => <option key={o.value} value={o.value} style={{ background: "#1a1a2e" }}>{o.label}</option>)}
+    <select value={value} onChange={e => onChange(e.target.value)} style={{ background: "var(--s-input-bg)", border: "1px solid var(--s-input-border)", borderRadius: 8, padding: "6px 10px", color: "var(--s-input-text)", fontSize: 13, cursor: "pointer", outline: "none" }}>
+      {options.map(o => <option key={o.value} value={o.value} style={{ background: "var(--s-option-bg)" }}>{o.label}</option>)}
     </select>
   );
 }
@@ -123,15 +122,6 @@ export default function AISettings() {
   const [smartSuggestions, setSmartSuggestions] = usePref("pref_smartSuggestions", true);
   const [streamResponses, setStreamResponses] = usePref("pref_streamResponses", true);
 
-  // Voice prefs
-  const [voiceEnabled, setVoiceEnabled] = usePref("pref_voiceEnabled", false);
-  const [autoReadResponses, setAutoReadResponses] = usePref("pref_autoRead", false);
-  const [voiceSpeed, setVoiceSpeed] = usePref<"slow"|"normal"|"fast">("pref_voiceSpeed", "normal");
-  const [voicePitch, setVoicePitch] = usePref<"low"|"normal"|"high">("pref_voicePitch", "normal");
-  const [voiceGender, setVoiceGender] = usePref<"default"|"male"|"female">("pref_voiceGender", "default");
-  const [voiceInputLang, setVoiceInputLang] = usePref("pref_voiceInputLang", "en-US");
-  const [noiseReduction, setNoiseReduction] = usePref("pref_noiseReduction", true);
-  const [voiceActivation, setVoiceActivation] = usePref<"button"|"continuous">("pref_voiceActivation", "button");
 
   // Privacy prefs
   const [saveHistory, setSaveHistory] = usePref("pref_saveHistory", true);
@@ -146,6 +136,11 @@ export default function AISettings() {
   const [updateNotifs, setUpdateNotifs] = usePref("pref_updateNotifs", true);
   const [billingNotifs, setBillingNotifs] = usePref("pref_billingNotifs", true);
   const [weeklyDigest, setWeeklyDigest] = usePref("pref_weeklyDigest", false);
+  const weeklyDigestMutation = useMutation({
+    mutationFn: async (enabled: boolean) => (await apiRequest("POST", "/api/settings/weekly-digest", { enabled })).json(),
+    onSuccess: (_, enabled) => toast({ title: enabled ? "Weekly Digest Enabled" : "Weekly Digest Disabled", description: enabled ? "You'll receive a confirmation email shortly." : "You've unsubscribed from weekly digest emails." }),
+    onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to update", variant: "destructive" }),
+  });
   const [betaFeatures, setBetaFeatures] = usePref("pref_betaFeatures", false);
 
   const { theme, toggleTheme } = useTheme();
@@ -223,11 +218,11 @@ export default function AISettings() {
 
   // ── Styles ──
   const C = {
-    bg: "#0a0a14",
-    panel: "#111122",
-    border: "rgba(255,255,255,0.07)",
-    text: "#e2e8f0",
-    muted: "#64748b",
+    bg: isDark ? "#0a0a14" : "#f1f5f9",
+    panel: isDark ? "#111122" : "#ffffff",
+    border: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
+    text: isDark ? "#e2e8f0" : "#1e293b",
+    muted: isDark ? "#64748b" : "#6b7280",
     accent: "#4285F4",
   };
 
@@ -247,7 +242,7 @@ export default function AISettings() {
   );
 
   const pill = (label: string, active: boolean, onClick: () => void, color = accentColor) => (
-    <button onClick={onClick} style={{ padding: "6px 14px", borderRadius: 20, border: `1px solid ${active ? color : "rgba(255,255,255,0.1)"}`, background: active ? `${color}20` : "transparent", color: active ? color : C.muted, fontSize: 13, fontWeight: active ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
+    <button onClick={onClick} style={{ padding: "6px 14px", borderRadius: 20, border: `1px solid ${active ? color : "var(--s-pill-border)"}`, background: active ? `${color}20` : "transparent", color: active ? color : C.muted, fontSize: 13, fontWeight: active ? 600 : 400, cursor: "pointer", transition: "all 0.15s" }}>
       {label}
     </button>
   );
@@ -282,7 +277,7 @@ export default function AISettings() {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
               return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 20, border: `1px solid ${active ? accentColor : "rgba(255,255,255,0.08)"}`, background: active ? `${accentColor}18` : "transparent", color: active ? accentColor : C.muted, fontSize: 13, fontWeight: active ? 600 : 400, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s" }}>
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 20, border: `1px solid ${active ? accentColor : "var(--s-pill-border)"}`, background: active ? `${accentColor}18` : "transparent", color: active ? accentColor : C.muted, fontSize: 13, fontWeight: active ? 600 : 400, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s" }}>
                   <Icon size={13} />{tab.label}
                 </button>
               );
@@ -521,61 +516,6 @@ export default function AISettings() {
             </div>
           )}
 
-          {/* ══ VOICE ══ */}
-          {activeTab === "voice" && (
-            <div>
-              {sectionTitle("Voice & Audio", "Configure Turbo voice assistant settings")}
-              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Voice Input</div>
-                <SettingRow label="Enable voice input" desc={`Speak to Turbo using your microphone`}>
-                  <Toggle value={voiceEnabled} onChange={setVoiceEnabled} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Voice activation mode" desc="How to start listening">
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {([{v:"button",l:"Hold button"},{v:"continuous",l:"Always on"}] as const).map(({v,l}) => pill(l, voiceActivation===v, ()=>setVoiceActivation(v)))}
-                  </div>
-                </SettingRow>
-                <SettingRow label="Input language" desc="Language for voice recognition">
-                  <Select value={voiceInputLang} onChange={setVoiceInputLang} options={[
-                    {value:"en-US",label:"English (US)"},{value:"en-GB",label:"English (UK)"},
-                    {value:"es-ES",label:"Spanish"},{value:"fr-FR",label:"French"},
-                    {value:"de-DE",label:"German"},{value:"it-IT",label:"Italian"},
-                    {value:"pt-BR",label:"Portuguese"},{value:"zh-CN",label:"Chinese"},
-                    {value:"ja-JP",label:"Japanese"},{value:"ko-KR",label:"Korean"},
-                  ]} />
-                </SettingRow>
-                <SettingRow label="Noise reduction" desc="Filter background noise from microphone input">
-                  <Toggle value={noiseReduction} onChange={setNoiseReduction} color={accentColor} />
-                </SettingRow>
-              </div>
-
-              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Voice Output (Text-to-Speech)</div>
-                <SettingRow label="Auto-read responses" desc="Turbo will speak responses aloud automatically">
-                  <Toggle value={autoReadResponses} onChange={setAutoReadResponses} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Speaking speed" desc="How fast Turbo speaks">
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {(["slow","normal","fast"] as const).map(s => pill(s.charAt(0).toUpperCase()+s.slice(1), voiceSpeed===s, ()=>setVoiceSpeed(s)))}
-                  </div>
-                </SettingRow>
-                <SettingRow label="Voice pitch" desc="The pitch of the synthesized voice">
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {(["low","normal","high"] as const).map(s => pill(s.charAt(0).toUpperCase()+s.slice(1), voicePitch===s, ()=>setVoicePitch(s)))}
-                  </div>
-                </SettingRow>
-                <SettingRow label="Voice type" desc="Gender preference for text-to-speech">
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {([{v:"default",l:"Default"},{v:"male",l:"Male"},{v:"female",l:"Female"}] as const).map(({v,l}) => pill(l, voiceGender===v, ()=>setVoiceGender(v)))}
-                  </div>
-                </SettingRow>
-                <div style={{ marginTop: 16, padding: "12px 16px", background: "rgba(66,133,244,0.06)", border: "1px solid rgba(66,133,244,0.15)", borderRadius: 10, fontSize: 12, color: C.muted }}>
-                  Voice output uses your browser's built-in speech synthesis engine. Quality may vary by device and browser.
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ══ PRIVACY ══ */}
           {activeTab === "privacy" && (
             <div>
@@ -770,7 +710,7 @@ export default function AISettings() {
                   <Toggle value={billingNotifs} onChange={setBillingNotifs} color={accentColor} />
                 </SettingRow>
                 <SettingRow label="Weekly digest" desc="Get a weekly summary of your AI usage">
-                  <Toggle value={weeklyDigest} onChange={setWeeklyDigest} color={accentColor} />
+                  <Toggle value={weeklyDigest} onChange={v => { setWeeklyDigest(v); weeklyDigestMutation.mutate(v); }} color={accentColor} />
                 </SettingRow>
                 <SettingRow label="Product updates" desc="Learn about new features and improvements">
                   <Toggle value={updateNotifs} onChange={setUpdateNotifs} color={accentColor} />

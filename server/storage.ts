@@ -10,6 +10,7 @@ export interface IStorage {
   cancelUserSubscription(userId: string): Promise<User>;
   updateCodeStudioAddon(userId: string, addon: boolean, subId: string | null): Promise<User>;
   updateCodeStudioCredits(userId: string, credits: number, resetAt?: Date): Promise<User>;
+  updateWeeklyDigest(userId: string, enabled: boolean): Promise<User>;
 
   getAllUsers(): Promise<User[]>;
   banUser(userId: string, reason: string, durationMonths?: number): Promise<User>;
@@ -222,6 +223,16 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set(updates)
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async updateWeeklyDigest(userId: string, enabled: boolean): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ weeklyDigestEnabled: enabled })
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");

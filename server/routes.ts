@@ -1295,6 +1295,33 @@ function downloadAAB(){
     }
   });
 
+  // ── Weekly Digest Preference ──────────────────────────────────────────────
+  app.post('/api/settings/weekly-digest', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+
+      const { enabled } = req.body;
+      await storage.updateWeeklyDigest(userId, !!enabled);
+
+      if (enabled && user.email) {
+        const name = user.firstName || user.email.split('@')[0];
+        await sendBrevoEmail(
+          user.email,
+          name,
+          'You\'re subscribed to TurboAnswer Weekly Digest',
+          `Hi ${name},\n\nYou've successfully subscribed to the TurboAnswer Weekly Digest!\n\nEvery week you'll receive a summary of:\n- Your AI usage highlights\n- New features and updates\n- Tips to get the most out of TurboAnswer\n\nYou can unsubscribe at any time from your Settings > Notifications page.\n\nThank you for being part of TurboAnswer!\n\nThe TurboAnswer Team`
+        ).catch(() => {});
+      }
+
+      res.json({ success: true, enabled: !!enabled, message: enabled ? 'Weekly digest enabled' : 'Weekly digest disabled' });
+    } catch (error: any) {
+      console.error('[WeeklyDigest]', error.message);
+      res.status(500).json({ error: error.message || 'Failed to update weekly digest preference' });
+    }
+  });
+
   // ── Promo Code: Apply to Code Studio (free activation) ──────────────────
   app.post('/api/apply-code-studio-promo', isAuthenticated, async (req: any, res) => {
     try {
