@@ -34,6 +34,7 @@ import VideoStudio from "@/pages/video-studio";
 import CodeStudio from "@/pages/code-studio";
 import BetaApply from "@/pages/beta-apply";
 import DataDeletion from "@/pages/data-deletion";
+import TermsConditions from "@/pages/terms-conditions";
 import MobileWelcome from "@/pages/mobile-welcome";
 import TrialChat from "@/pages/trial-chat";
 import LockdownScreen from "@/components/lockdown-screen";
@@ -54,6 +55,7 @@ function AuthenticatedRouter() {
       <Route path="/support" component={Support} />
       <Route path="/employee/dashboard" component={EmployeeDashboard} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms-conditions" component={TermsConditions} />
       <Route path="/data-deletion" component={DataDeletion} />
       <Route path="/business" component={Business} />
       <Route path="/integration" component={Integration} />
@@ -86,6 +88,7 @@ function UnauthenticatedRouter() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/support" component={Support} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms-conditions" component={TermsConditions} />
       <Route path="/data-deletion" component={DataDeletion} />
       <Route path="/business" component={Business} />
       <Route path="/widget-demo" component={WidgetDemo} />
