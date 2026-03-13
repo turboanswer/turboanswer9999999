@@ -118,7 +118,7 @@ async function sendSubscriptionEmail(
       <div style="text-align:center;margin:28px 0;">
         <a href="https://turbo-answer.replit.app" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Open TurboAnswer</a>
       </div>
-      <p style="font-size:13px;color:#6b7280;">You can manage or cancel your subscription at any time from Settings → Subscription.</p>`;
+      <p style="font-size:13px;color:#94a3b8;">You can manage or cancel your subscription at any time from Settings → Subscription.</p>`;
   } else if (type === 'switch') {
     subject = `Your TurboAnswer plan has been updated to ${label}`;
     heading = `Plan Changed to ${label}`;
@@ -130,7 +130,7 @@ async function sendSubscriptionEmail(
       <div style="text-align:center;margin:28px 0;">
         <a href="https://turbo-answer.replit.app" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Open TurboAnswer</a>
       </div>
-      <p style="font-size:13px;color:#6b7280;">You can manage your subscription at any time from Settings → Subscription.</p>`;
+      <p style="font-size:13px;color:#94a3b8;">You can manage your subscription at any time from Settings → Subscription.</p>`;
   } else if (type === 'cancel') {
     subject = `Your TurboAnswer subscription has been cancelled`;
     heading = `Subscription Cancelled`;
@@ -142,34 +142,34 @@ async function sendSubscriptionEmail(
       <div style="text-align:center;margin:28px 0;">
         <a href="https://turbo-answer.replit.app/settings" style="display:inline-block;background:#6b7280;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Manage Subscription</a>
       </div>
-      <p style="font-size:13px;color:#6b7280;">If you have any questions, reply to this email or contact us at support@turboanswer.it.com.</p>`;
+      <p style="font-size:13px;color:#94a3b8;">If you have any questions, reply to this email or contact us at support@turboanswer.it.com.</p>`;
   } else if (type === 'payment_failed') {
     subject = `Action required: Payment failed for your TurboAnswer subscription`;
     heading = `Payment Failed`;
     bodyHtml = `
       <p>Hi ${recipientName},</p>
       <p>We were unable to process the payment for your <strong>${label}</strong> subscription. This can happen if your card has expired, has insufficient funds, or your billing information has changed.</p>
-      <div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:6px;padding:16px 20px;margin:20px 0;">
-        <p style="margin:0;font-weight:bold;color:#dc2626;">What to do:</p>
-        <p style="margin:8px 0 0;">Please update your payment method by logging in to TurboAnswer and going to <strong>Settings → Subscription → Manage Payment</strong>. If payment continues to fail, your subscription may be suspended.</p>
+      <div style="background:#3b1318;border-left:4px solid #ef4444;border-radius:6px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0;font-weight:bold;color:#fca5a5;">What to do:</p>
+        <p style="margin:8px 0 0;color:#e2e8f0;">Please update your payment method by logging in to TurboAnswer and going to <strong>Settings → Subscription → Manage Payment</strong>. If payment continues to fail, your subscription may be suspended.</p>
       </div>
       <div style="text-align:center;margin:28px 0;">
         <a href="https://turbo-answer.replit.app/settings" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Update Payment Method</a>
       </div>
-      <p style="font-size:13px;color:#6b7280;">If you need help, contact us at support@turboanswer.it.com or call (866) 467-7269.</p>`;
+      <p style="font-size:13px;color:#94a3b8;">If you need help, contact us at support@turboanswer.it.com or call (866) 467-7269.</p>`;
   }
 
   const fullHtml = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.7;color:#1e1b4b;max-width:600px;margin:0 auto;padding:0;">
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.7;color:#e2e8f0;max-width:600px;margin:0 auto;padding:0;background:#0f172a;">
 <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:36px 32px;text-align:center;border-radius:12px 12px 0 0;">
   <h1 style="color:#fff;margin:0;font-size:24px;">${heading}</h1>
 </div>
-<div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+<div style="background:#1e293b;padding:32px;border:1px solid #334155;border-top:none;border-radius:0 0 12px 12px;">
 ${bodyHtml}
-<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
-<p style="font-size:12px;color:#9ca3af;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 467-7269</p>
+<hr style="border:none;border-top:1px solid #334155;margin:24px 0;">
+<p style="font-size:12px;color:#94a3b8;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 467-7269</p>
 </div>
 </body>
 </html>`;
@@ -2983,17 +2983,22 @@ To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
       const minimalHtml = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#e2e8f0;max-width:600px;margin:0 auto;padding:0;background:#0f172a;">
+<div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+  <h1 style="color:#fff;margin:0;font-size:22px;">${template.statusText}</h1>
+</div>
+<div style="background:#1e293b;padding:28px 32px;border:1px solid #334155;border-top:none;border-radius:0 0 12px 12px;">
 ${template.bodyText.split('\n').map(line => {
-        if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;">${line}</p>`;
+        if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;color:#cbd5e1;">${line}</p>`;
         if (line.trim() === '') return '<br>';
-        return `<p style="margin:0 0 10px;">${line}</p>`;
+        return `<p style="margin:0 0 10px;color:#e2e8f0;">${line}</p>`;
       }).join('\n')}
-<hr style="border:none;border-top:1px solid #ddd;margin:24px 0;">
-<p style="font-size:13px;color:#666;margin:0;">TurboAnswer Support</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Email: support@turboanswer.it.com</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Phone: (866) 467-7269</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+<hr style="border:none;border-top:1px solid #334155;margin:24px 0;">
+<p style="font-size:13px;color:#94a3b8;margin:0;">TurboAnswer Support</p>
+<p style="font-size:13px;color:#94a3b8;margin:2px 0;">Email: support@turboanswer.it.com</p>
+<p style="font-size:13px;color:#94a3b8;margin:2px 0;">Phone: (866) 467-7269</p>
+<p style="font-size:13px;color:#94a3b8;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+</div>
 </body>
 </html>`;
 
