@@ -52,6 +52,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Embeddable AI Widget**: Universal JavaScript widget for website integration.
 - **Promo Code System**: Database-driven system for discounts and free access.
 - **Beta Testing Program**: Public application and feedback system for new features.
+- **Automated Email System**: Brevo-powered transactional emails for welcome (on registration), subscription signup, plan switch, cancellation, and payment failure. PayPal payment-failed webhook at `POST /api/paypal/webhook` — register this URL in the PayPal developer dashboard under your app's webhook settings for the `BILLING.SUBSCRIPTION.PAYMENT.FAILED` event.
 
 ## External Dependencies
 

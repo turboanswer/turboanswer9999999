@@ -82,6 +82,118 @@ ${bodyText.split('\n').map(line => {
   }
 }
 
+const TIER_LABELS: Record<string, string> = { free: 'Free', pro: 'Pro', research: 'Research', enterprise: 'Enterprise' };
+const TIER_PRICES: Record<string, string> = { pro: '$6.99/mo', research: '$30.00/mo', enterprise: '$100.00/mo' };
+const TIER_PERKS: Record<string, string[]> = {
+  pro:        ['Unlimited daily questions', 'Advanced AI models (Gemini 3.1 Pro)', 'Priority response speed', 'Full Code Studio access'],
+  research:   ['Everything in Pro', 'Claude Opus & GPT-4o access', 'AI Video Generation', 'Deep research mode with citations'],
+  enterprise: ['Everything in Research', 'Team access with shared enterprise code', 'Dedicated support', 'Highest priority processing'],
+};
+
+async function sendSubscriptionEmail(
+  type: 'signup' | 'switch' | 'cancel' | 'payment_failed',
+  recipientEmail: string,
+  recipientName: string,
+  newTier: string,
+  oldTier?: string,
+) {
+  const label = TIER_LABELS[newTier] || newTier;
+  const oldLabel = TIER_LABELS[oldTier || ''] || oldTier || 'Free';
+  const price = TIER_PRICES[newTier];
+  const perks = TIER_PERKS[newTier] || [];
+  const perksHtml = perks.map(p => `<li style="margin:0 0 6px;">${p}</li>`).join('');
+
+  let subject = '';
+  let heading = '';
+  let bodyHtml = '';
+
+  if (type === 'signup') {
+    subject = `You're now on TurboAnswer ${label}! 🎉`;
+    heading = `Welcome to ${label}!`;
+    bodyHtml = `
+      <p>Hi ${recipientName},</p>
+      <p>Your <strong>${label}</strong> subscription is now active${price ? ` at ${price}` : ''}. Here's what you now have access to:</p>
+      <ul style="padding-left:20px;margin:16px 0;">${perksHtml}</ul>
+      <p>Head back to TurboAnswer to start using your new features.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="https://turbo-answer.replit.app" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Open TurboAnswer</a>
+      </div>
+      <p style="font-size:13px;color:#6b7280;">You can manage or cancel your subscription at any time from Settings → Subscription.</p>`;
+  } else if (type === 'switch') {
+    subject = `Your TurboAnswer plan has been updated to ${label}`;
+    heading = `Plan Changed to ${label}`;
+    bodyHtml = `
+      <p>Hi ${recipientName},</p>
+      <p>Your plan has been switched from <strong>${oldLabel}</strong> to <strong>${label}</strong>${price ? ` (${price})` : ''}.</p>
+      ${perks.length ? `<p>Your updated plan includes:</p><ul style="padding-left:20px;margin:16px 0;">${perksHtml}</ul>` : ''}
+      <p>Changes are effective immediately. Head back to TurboAnswer to enjoy your updated features.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="https://turbo-answer.replit.app" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Open TurboAnswer</a>
+      </div>
+      <p style="font-size:13px;color:#6b7280;">You can manage your subscription at any time from Settings → Subscription.</p>`;
+  } else if (type === 'cancel') {
+    subject = `Your TurboAnswer subscription has been cancelled`;
+    heading = `Subscription Cancelled`;
+    bodyHtml = `
+      <p>Hi ${recipientName},</p>
+      <p>We've received your cancellation request. Your <strong>${oldLabel}</strong> subscription has been cancelled.</p>
+      <p>You will continue to have access to your plan features until the end of your current billing period. After that, your account will revert to the Free tier.</p>
+      <p>We're sorry to see you go! If you cancelled by mistake or change your mind, you can resubscribe at any time from Settings → Subscription.</p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="https://turbo-answer.replit.app/settings" style="display:inline-block;background:#6b7280;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Manage Subscription</a>
+      </div>
+      <p style="font-size:13px;color:#6b7280;">If you have any questions, reply to this email or contact us at support@turboanswer.it.com.</p>`;
+  } else if (type === 'payment_failed') {
+    subject = `Action required: Payment failed for your TurboAnswer subscription`;
+    heading = `Payment Failed`;
+    bodyHtml = `
+      <p>Hi ${recipientName},</p>
+      <p>We were unable to process the payment for your <strong>${label}</strong> subscription. This can happen if your card has expired, has insufficient funds, or your billing information has changed.</p>
+      <div style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:6px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0;font-weight:bold;color:#dc2626;">What to do:</p>
+        <p style="margin:8px 0 0;">Please update your payment method by logging in to TurboAnswer and going to <strong>Settings → Subscription → Manage Payment</strong>. If payment continues to fail, your subscription may be suspended.</p>
+      </div>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="https://turbo-answer.replit.app/settings" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Update Payment Method</a>
+      </div>
+      <p style="font-size:13px;color:#6b7280;">If you need help, contact us at support@turboanswer.it.com or call (866) 467-7269.</p>`;
+  }
+
+  const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.7;color:#1e1b4b;max-width:600px;margin:0 auto;padding:0;">
+<div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:36px 32px;text-align:center;border-radius:12px 12px 0 0;">
+  <h1 style="color:#fff;margin:0;font-size:24px;">${heading}</h1>
+</div>
+<div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+${bodyHtml}
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+<p style="font-size:12px;color:#9ca3af;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 467-7269</p>
+</div>
+</body>
+</html>`;
+
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (!brevoApiKey) { console.warn('[Email] BREVO_API_KEY not configured, skipping subscription email'); return; }
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept': 'application/json', 'api-key': brevoApiKey, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sender: { name: 'TurboAnswer', email: 'support@turboanswer.it.com' },
+        to: [{ email: recipientEmail, name: recipientName }],
+        subject,
+        htmlContent: fullHtml,
+      }),
+    });
+    if (!response.ok) { const err = await response.json(); console.error(`[Email] Subscription email (${type}) error:`, err); return; }
+    console.log(`[Email] Subscription email (${type}) sent to ${recipientEmail}`);
+  } catch (e: any) {
+    console.error(`[Email] Subscription email (${type}) failed:`, e.message);
+  }
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -825,6 +937,17 @@ function downloadAAB(){
       const userId = req.user.claims.sub;
       const { subscriptionId, expectedTier } = req.body || {};
 
+      const currentUser = await storage.getUser(userId);
+      const oldTier = currentUser?.subscriptionTier || 'free';
+
+      const fireSubEmail = (newTier: string, userObj?: typeof currentUser) => {
+        const u = userObj || currentUser;
+        if (!u?.email) return;
+        const name = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
+        const isSwitch = oldTier !== 'free' && oldTier !== newTier;
+        sendSubscriptionEmail(isSwitch ? 'switch' : 'signup', u.email, name, newTier, oldTier).catch(() => {});
+      };
+
       if (subscriptionId) {
         const subDetails = await getSubscriptionDetails(subscriptionId);
         if (subDetails.status === 'ACTIVE' || subDetails.status === 'APPROVED') {
@@ -836,6 +959,7 @@ function downloadAAB(){
 
           await storage.updatePaypalSubscription(userId, subscriptionId, tier);
           console.log(`[PayPal Sync] Updated user ${userId} to ${tier}`);
+          if (oldTier !== tier) fireSubEmail(tier);
 
           let enterpriseCode: string | undefined;
           if (tier === 'enterprise') {
@@ -874,6 +998,7 @@ function downloadAAB(){
             } catch (e) {}
             await storage.updatePaypalSubscription(userId, user.paypalSubscriptionId, tier);
             console.log(`[PayPal Sync] Updated user ${userId} to ${tier} via stored subscription`);
+            if (oldTier !== tier) fireSubEmail(tier, user);
 
             let enterpriseCode: string | undefined;
             if (tier === 'enterprise') {
@@ -1151,6 +1276,37 @@ function downloadAAB(){
   });
 
   // Cancel subscription with auto-refund if within 3 days
+  // PayPal webhook — handles payment failures and subscription events
+  app.post('/api/paypal/webhook', async (req: any, res) => {
+    try {
+      const event = req.body;
+      const eventType: string = event?.event_type || '';
+      console.log(`[PayPal Webhook] Received event: ${eventType}`);
+
+      if (eventType === 'BILLING.SUBSCRIPTION.PAYMENT.FAILED') {
+        const subscriptionId: string = event?.resource?.id || event?.resource?.billing_agreement_id || '';
+        if (subscriptionId) {
+          try {
+            const users = await storage.getAllUsers ? await storage.getAllUsers() : [];
+            const affected = users.find((u: any) => u.paypalSubscriptionId === subscriptionId);
+            if (affected?.email) {
+              const name = `${affected.firstName || ''} ${affected.lastName || ''}`.trim() || affected.email;
+              await sendSubscriptionEmail('payment_failed', affected.email, name, affected.subscriptionTier || 'pro');
+              console.log(`[PayPal Webhook] Payment failed email sent to ${affected.email}`);
+            }
+          } catch (lookupErr: any) {
+            console.error('[PayPal Webhook] User lookup error:', lookupErr.message);
+          }
+        }
+      }
+
+      res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error('[PayPal Webhook] Error:', err.message);
+      res.status(200).json({ received: true });
+    }
+  });
+
   app.post('/api/cancel-subscription', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1211,6 +1367,11 @@ function downloadAAB(){
       }
 
       await storage.cancelUserSubscription(userId);
+
+      if (user.email) {
+        const cancelName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+        sendSubscriptionEmail('cancel', user.email, cancelName, 'free', user.subscriptionTier || 'pro').catch(() => {});
+      }
 
       res.json({ 
         success: true, 
