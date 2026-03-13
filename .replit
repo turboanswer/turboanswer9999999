@@ -7,7 +7,7 @@ channel = "stable-24_05"
 packages = ["openjdk", "gradle", "unzip", "android-tools"]
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
 build = ["npm", "run", "build"]
 run = ["bash", "-c", "NODE_ENV=production node dist/index.js"]
 
