@@ -4,7 +4,7 @@ import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { authStorage } from "./storage";
 
-const RECAPTCHA_SCORE_THRESHOLD = 0.5;
+const RECAPTCHA_SCORE_THRESHOLD = 0.3;
 
 async function verifyRecaptcha(token: string | undefined, action?: string): Promise<{ ok: boolean; score?: number }> {
   const secret = process.env.RECAPTCHA_SECRET_KEY;
