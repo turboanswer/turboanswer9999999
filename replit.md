@@ -43,6 +43,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Subscription Management**: PayPal Subscriptions API for plan management, including a 7-day free trial.
 - **Admin Panel**: Five-tab interface for user, subscription, system, and alert management, including complimentary access and proactive self-diagnosis.
 - **Performance**: API rate limiting, response compression, in-memory caching for expensive endpoints, optimized DB connection pool.
+- **Security**: Google reCAPTCHA v2 on login and register pages (server-side token verification via `verifyRecaptcha()`); HTTP security headers on every response (X-Frame-Options: DENY, X-Content-Type-Options, X-XSS-Protection, HSTS, Referrer-Policy, Permissions-Policy, CSP in production); passwords hashed with bcrypt (cost factor 12). reCAPTCHA uses Google test keys by default; set `VITE_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` env vars for production keys from https://www.google.com/recaptcha/admin/create.
 - **Content Moderation**: Automatic profanity/threat detection with user suspension and admin notifications.
 - **Crisis Support Bot**: Dedicated, private, AES-256-GCM encrypted AI for mental health support, exempt from moderation.
 - **Media Studio**: Enterprise-exclusive video and photo editor with filters, text overlays, and AI-powered suggestions.

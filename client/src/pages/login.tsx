@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Lock } from "lucide-react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,11 +10,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import TurboLogo from "@/components/TurboLogo";
 
+const RECAPTCHA_SITE_KEY =
+  (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string) ||
+  "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -21,6 +28,16 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!captchaToken) {
+      toast({
+        title: "Verification required",
+        description: "Please complete the reCAPTCHA check before signing in.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -31,6 +48,7 @@ export default function Login() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
+          captchaToken,
         }),
       });
 
@@ -75,6 +93,8 @@ export default function Login() {
         });
         setLocation("/chat");
       } else {
+        recaptchaRef.current?.reset();
+        setCaptchaToken(null);
         toast({
           title: "Error",
           description: data.message || "Invalid credentials",
@@ -82,6 +102,8 @@ export default function Login() {
         });
       }
     } catch (error: any) {
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
       toast({
         title: "Error",
         description: "Login failed. Please try again.",
@@ -94,7 +116,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4 relative">
-      {/* Back button — top-left corner */}
       <div style={{ position: 'absolute', top: 20, left: 20 }}>
         <Link href="/">
           <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
@@ -102,6 +123,7 @@ export default function Login() {
           </button>
         </Link>
       </div>
+
       <Card className="w-full max-w-md bg-gray-900 border-gray-800">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -114,6 +136,7 @@ export default function Login() {
             NEVER STOP INNOVATING
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -142,10 +165,20 @@ export default function Login() {
               />
             </div>
 
+            <div className="flex justify-center py-1">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={RECAPTCHA_SITE_KEY}
+                theme="dark"
+                onChange={(token) => setCaptchaToken(token)}
+                onExpired={() => setCaptchaToken(null)}
+              />
+            </div>
+
             <Button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              disabled={isLoading || !captchaToken}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
             >
               {isLoading ? "Signing In..." : "Sign In"}
             </Button>
@@ -164,6 +197,25 @@ export default function Login() {
                 Create one
               </Link>
             </p>
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-gray-800">
+            <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+              <div className="flex items-center gap-1.5">
+                <Lock size={11} className="text-green-500" />
+                <span>256-bit AES Encrypted</span>
+              </div>
+              <div className="w-px h-3 bg-gray-700" />
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck size={11} className="text-blue-400" />
+                <span>bcrypt Password Hashing</span>
+              </div>
+              <div className="w-px h-3 bg-gray-700" />
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck size={11} className="text-purple-400" />
+                <span>reCAPTCHA Protected</span>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

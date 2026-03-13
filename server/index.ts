@@ -27,6 +27,35 @@ async function initPayPal() {
 
 app.use(compression());
 
+app.use((_req, res, next) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains; preload"
+  );
+  if (process.env.NODE_ENV === "production") {
+    res.setHeader(
+      "Content-Security-Policy",
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com",
+        "frame-src 'self' https://www.google.com https://recaptcha.google.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self' wss: https://www.google.com https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://api.paypal.com https://api-m.paypal.com https://api.brevo.com https://resend.com https://wttr.in https://api.open-meteo.com",
+        "media-src 'self' blob:",
+        "worker-src 'self' blob:",
+      ].join("; ")
+    );
+  }
+  next();
+});
+
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 200,

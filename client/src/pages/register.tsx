@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import ReCAPTCHA from "react-google-recaptcha";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,12 +11,18 @@ import { useQueryClient } from "@tanstack/react-query";
 import TurboLogo from "@/components/TurboLogo";
 import { Shield, AlertCircle } from "lucide-react";
 
+const RECAPTCHA_SITE_KEY =
+  (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string) ||
+  "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+
 export default function Register() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
   const [inviteLabel, setInviteLabel] = useState<string>("");
@@ -48,6 +55,11 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!captchaToken) {
+      toast({ title: "Verification required", description: "Please complete the reCAPTCHA check before creating your account.", variant: "destructive" });
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
       return;
@@ -71,6 +83,7 @@ export default function Register() {
           firstName: formData.firstName || undefined,
           lastName: formData.lastName || undefined,
           phoneNumber: formData.phoneNumber || undefined,
+          captchaToken,
           ...(inviteToken && inviteValid ? { inviteToken } : {}),
         }),
       });
@@ -85,9 +98,13 @@ export default function Register() {
         });
         setLocation(data.isEmployee ? "/employee/dashboard" : "/chat");
       } else {
+        recaptchaRef.current?.reset();
+        setCaptchaToken(null);
         toast({ title: "Error", description: data.message || "Failed to create account", variant: "destructive" });
       }
     } catch {
+      recaptchaRef.current?.reset();
+      setCaptchaToken(null);
       toast({ title: "Error", description: "Registration failed. Please try again.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -212,10 +229,20 @@ export default function Register() {
               />
             </div>
 
+            <div className="flex justify-center py-1">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={RECAPTCHA_SITE_KEY}
+                theme="dark"
+                onChange={(token) => setCaptchaToken(token)}
+                onExpired={() => setCaptchaToken(null)}
+              />
+            </div>
+
             <Button
               type="submit"
-              disabled={isLoading}
-              className={`w-full text-white ${inviteValid ? 'bg-red-700 hover:bg-red-800' : 'bg-purple-600 hover:bg-purple-700'}`}
+              disabled={isLoading || !captchaToken}
+              className={`w-full text-white disabled:opacity-50 ${inviteValid ? 'bg-red-700 hover:bg-red-800' : 'bg-purple-600 hover:bg-purple-700'}`}
             >
               {isLoading ? "Creating Account..." : inviteValid ? "Create Admin Account" : "Create Account"}
             </Button>

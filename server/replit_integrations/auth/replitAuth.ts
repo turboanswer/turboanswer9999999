@@ -4,6 +4,23 @@ import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { authStorage } from "./storage";
 
+const RECAPTCHA_TEST_SECRET = "6LeIxAcTAAAAAGG-vFI1TnRWxMZNFuojJ4WifJWe";
+
+async function verifyRecaptcha(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  const secret = process.env.RECAPTCHA_SECRET_KEY || RECAPTCHA_TEST_SECRET;
+  try {
+    const resp = await fetch(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${token}`,
+      { method: "POST" }
+    );
+    const data = (await resp.json()) as { success: boolean };
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
+
 async function sendBrevoOtpEmail(recipientEmail: string, recipientName: string, otp: string) {
   const brevoApiKey = process.env.BREVO_API_KEY;
   if (!brevoApiKey) {
@@ -137,10 +154,15 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, password, firstName, lastName, phoneNumber, inviteToken } = req.body;
+      const { email, password, firstName, lastName, phoneNumber, inviteToken, captchaToken } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      const captchaOk = await verifyRecaptcha(captchaToken);
+      if (!captchaOk) {
+        return res.status(400).json({ message: "reCAPTCHA verification failed. Please try again." });
       }
 
       if (!firstName || !firstName.trim()) {
@@ -247,10 +269,15 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/login", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { email, password, captchaToken } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      const captchaOk = await verifyRecaptcha(captchaToken);
+      if (!captchaOk) {
+        return res.status(400).json({ message: "reCAPTCHA verification failed. Please try again." });
       }
 
       const user = await authStorage.getUserByEmail(email.toLowerCase());
