@@ -734,6 +734,31 @@ function downloadAAB(){
   });
 
   // Send a message and get AI response
+  const FREE_DAILY_LIMIT = 50;
+
+  app.get("/api/daily-usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const tier = user.subscriptionTier || 'free';
+      if (tier !== 'free') {
+        return res.json({ used: 0, limit: -1, remaining: -1, tier });
+      }
+      const now = new Date();
+      const resetAt = user.dailyQuestionsResetAt ? new Date(user.dailyQuestionsResetAt) : null;
+      let used = user.dailyQuestionsUsed || 0;
+      if (!resetAt || now >= resetAt) {
+        used = 0;
+      }
+      return res.json({ used, limit: FREE_DAILY_LIMIT, remaining: FREE_DAILY_LIMIT - used, tier });
+    } catch (err: any) {
+      console.error('Daily usage error:', err);
+      res.status(500).json({ message: "Failed to get daily usage" });
+    }
+  });
+
   app.post("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
       const conversationId = parseInt(req.params.id);
@@ -758,6 +783,35 @@ function downloadAAB(){
               : "Your account has been permanently banned. Please contact support for assistance.";
             return res.status(403).json({ message: banMsg });
           }
+        }
+
+        if ((sender?.subscriptionTier || 'free') === 'free') {
+          const now = new Date();
+          const resetAt = sender?.dailyQuestionsResetAt ? new Date(sender.dailyQuestionsResetAt) : null;
+          let used = sender?.dailyQuestionsUsed || 0;
+          if (!resetAt || now >= resetAt) {
+            used = 0;
+          }
+          if (used >= FREE_DAILY_LIMIT) {
+            return res.status(429).json({
+              message: "You've reached your daily limit of 50 free questions. Upgrade to Pro for unlimited questions!",
+              code: "DAILY_LIMIT_REACHED",
+              used,
+              limit: FREE_DAILY_LIMIT,
+            });
+          }
+          const tomorrow = new Date(now);
+          tomorrow.setUTCHours(0, 0, 0, 0);
+          tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+          const { db } = await import('./db');
+          const { users } = await import('@shared/schema');
+          const { eq } = await import('drizzle-orm');
+          await db.update(users)
+            .set({
+              dailyQuestionsUsed: used + 1,
+              dailyQuestionsResetAt: (!resetAt || now >= resetAt) ? tomorrow : resetAt,
+            })
+            .where(eq(users.id, sendingUserId));
         }
       }
 

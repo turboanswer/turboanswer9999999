@@ -61,6 +61,8 @@ export const users = pgTable("users", {
   codeStudioCreditsResetAt: timestamp("code_studio_credits_reset_at"),
   phoneNumber: varchar("phone_number"),
   weeklyDigestEnabled: boolean("weekly_digest_enabled").default(false),
+  dailyQuestionsUsed: integer("daily_questions_used").default(0),
+  dailyQuestionsResetAt: timestamp("daily_questions_reset_at"),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
