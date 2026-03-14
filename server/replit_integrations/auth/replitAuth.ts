@@ -280,7 +280,7 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, password, firstName, lastName, inviteToken } = req.body;
+      const { email, password, firstName, lastName, inviteToken, timezone } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
@@ -353,6 +353,7 @@ export async function setupAuth(app: Express) {
         password: hashedPassword,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        timezone: timezone || 'UTC',
         isEmployee: grantAdmin,
         employeeRole: grantAdmin ? "super_admin" : "basic",
         canViewAllChats: grantAdmin,

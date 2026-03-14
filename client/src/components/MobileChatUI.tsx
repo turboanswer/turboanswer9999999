@@ -80,6 +80,8 @@ interface Props {
   messagesEndRef: React.RefObject<HTMLDivElement>;
   renderMessageContent: (content: string, role: string) => React.ReactNode;
   formatTimestamp: (ts: string | Date) => string;
+  showDailyLimitModal: boolean;
+  setShowDailyLimitModal: (v: boolean) => void;
 }
 
 export default function MobileChatUI({
@@ -92,6 +94,7 @@ export default function MobileChatUI({
   showPromoPopup, setShowPromoPopup, dismissPromo, isFreeTier,
   entCoupon, setEntCoupon, entCouponApplied, setEntCouponApplied,
   toast, messagesEndRef, renderMessageContent, formatTimestamp,
+  showDailyLimitModal, setShowDailyLimitModal,
 }: Props) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -867,6 +870,78 @@ export default function MobileChatUI({
       )}
 
       {/* Promo popup for free users */}
+      {showDailyLimitModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDailyLimitModal(false)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-sm w-full p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-red-500/5 to-transparent pointer-events-none" />
+            <button onClick={() => setShowDailyLimitModal(false)} className="absolute top-3 right-3 z-10 text-zinc-400 hover:text-white">
+              <X className="h-5 w-5" />
+            </button>
+            <div className="relative text-center mb-5">
+              <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/25">
+                <Zap className="text-white h-8 w-8" />
+              </div>
+              <h2 className="text-xl font-bold mb-1 text-white">Daily Limit Reached</h2>
+              <p className="text-zinc-400 text-sm">You've used all 25 free questions for today</p>
+            </div>
+            <div className="relative space-y-3 mb-5">
+              <div className="p-4 rounded-xl text-center bg-zinc-800/50">
+                <p className="text-sm text-zinc-300">
+                  Your free questions reset at <strong>midnight</strong> in your time zone. Or upgrade to Pro for <strong>unlimited questions</strong> every day.
+                </p>
+              </div>
+              {[
+                { icon: <Sparkles className="w-4 h-4 text-yellow-400" />, title: "Unlimited Questions", desc: "No daily caps — ask as much as you want" },
+                { icon: <Brain className="w-4 h-4 text-purple-400" />, title: "Advanced AI Models", desc: "Access Gemini 3.1 Pro & more" },
+                { icon: <Zap className="w-4 h-4 text-cyan-400" />, title: "Priority Speed", desc: "Faster responses, always" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/50">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-zinc-700">{item.icon}</div>
+                  <div>
+                    <p className="text-sm font-medium text-white">{item.title}</p>
+                    <p className="text-xs text-zinc-400">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="relative text-center mb-4">
+              <span className="text-3xl font-bold text-white">$6.99</span>
+              <span className="text-base text-zinc-400">/month</span>
+            </div>
+            <Button
+              className="relative w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-5 rounded-xl text-base"
+              disabled={checkoutLoading}
+              onClick={async () => {
+                setShowDailyLimitModal(false);
+                setCheckoutLoading(true);
+                try {
+                  const res = await fetch("/api/checkout", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ plan: "pro" }),
+                    credentials: "include",
+                  });
+                  const data = await res.json();
+                  if (data.url) {
+                    localStorage.setItem('turbo_pending_subscription', JSON.stringify({ tier: 'pro', timestamp: Date.now() }));
+                    window.location.href = data.url;
+                  } else toast({ title: "Error", description: data.error || "Could not start checkout", variant: "destructive" });
+                } catch { toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }); }
+                finally { setCheckoutLoading(false); }
+              }}>
+              <Crown className="w-4 h-4 mr-2" />
+              {checkoutLoading ? "Loading..." : "Upgrade to Pro — Unlimited"}
+            </Button>
+            <button
+              onClick={() => setShowDailyLimitModal(false)}
+              className="w-full text-center text-xs mt-3 py-1 text-zinc-500 hover:text-zinc-300"
+            >
+              I'll wait until tomorrow
+            </button>
+          </div>
+        </div>
+      )}
+
       {showPromoPopup && isFreeTier && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={dismissPromo}>
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-sm w-full p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>

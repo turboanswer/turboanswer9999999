@@ -800,16 +800,25 @@ function downloadAAB(){
               limit: FREE_DAILY_LIMIT,
             });
           }
-          const tomorrow = new Date(now);
-          tomorrow.setUTCHours(0, 0, 0, 0);
-          tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+          const userTz = sender?.timezone || 'UTC';
+          let nextMidnight: Date;
+          try {
+            const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
+            nextMidnight = new Date(nowInTz);
+            nextMidnight.setHours(24, 0, 0, 0);
+            const offset = nextMidnight.getTime() - nowInTz.getTime();
+            nextMidnight = new Date(now.getTime() + offset);
+          } catch {
+            nextMidnight = new Date(now);
+            nextMidnight.setUTCHours(24, 0, 0, 0);
+          }
           const { db } = await import('./db');
           const { users } = await import('@shared/schema');
           const { eq } = await import('drizzle-orm');
           await db.update(users)
             .set({
               dailyQuestionsUsed: used + 1,
-              dailyQuestionsResetAt: (!resetAt || now >= resetAt) ? tomorrow : resetAt,
+              dailyQuestionsResetAt: (!resetAt || now >= resetAt) ? nextMidnight : resetAt,
             })
             .where(eq(users.id, sendingUserId));
         }

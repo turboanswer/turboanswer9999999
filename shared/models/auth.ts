@@ -63,6 +63,7 @@ export const users = pgTable("users", {
   weeklyDigestEnabled: boolean("weekly_digest_enabled").default(false),
   dailyQuestionsUsed: integer("daily_questions_used").default(0),
   dailyQuestionsResetAt: timestamp("daily_questions_reset_at"),
+  timezone: varchar("timezone").default("UTC"),
 });
 
 export type UpsertUser = typeof users.$inferInsert;

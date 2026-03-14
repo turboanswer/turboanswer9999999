@@ -24,6 +24,7 @@ export default function Register() {
     lastName: "",
     password: "",
     confirmPassword: "",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function Register() {
           password: formData.password,
           firstName: formData.firstName || undefined,
           lastName: formData.lastName || undefined,
+          timezone: formData.timezone,
           ...(inviteToken && inviteValid ? { inviteToken } : {}),
         }),
       });

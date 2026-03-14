@@ -461,6 +461,8 @@ export default function Chat() {
         entCouponApplied={entCouponApplied}
         setEntCouponApplied={setEntCouponApplied}
         toast={toast}
+        showDailyLimitModal={showDailyLimitModal}
+        setShowDailyLimitModal={setShowDailyLimitModal}
         messagesEndRef={messagesEndRef}
         renderMessageContent={renderMessageContent}
         formatTimestamp={formatTimestamp}
@@ -1294,7 +1296,7 @@ export default function Chat() {
             <div className="relative space-y-3 mb-5">
               <div className={`p-4 rounded-xl text-center ${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'}`}>
                 <p className={`text-sm ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>
-                  Your free questions reset at <strong>midnight UTC</strong>. Or upgrade to Pro for <strong>unlimited questions</strong> every day.
+                  Your free questions reset at <strong>midnight</strong> in your time zone. Or upgrade to Pro for <strong>unlimited questions</strong> every day.
                 </p>
               </div>
               {[
