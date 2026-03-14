@@ -627,10 +627,11 @@ function downloadAAB(){
       const conversation = await storage.getConversation(conversationId);
       if (!conversation) return res.status(404).json({ message: "Conversation not found" });
       const dbUser = await storage.getUser(userId);
-      if (conversation.userId !== userId && !dbUser?.canViewAllChats) {
+      const isPrivileged = !!dbUser?.canViewAllChats;
+      if (conversation.userId !== userId && !isPrivileged) {
         return res.status(403).json({ message: "Access denied" });
       }
-      await storage.deleteConversation(conversationId, userId);
+      await storage.deleteConversation(conversationId, userId, isPrivileged);
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

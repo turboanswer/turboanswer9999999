@@ -59,7 +59,7 @@ export interface IStorage {
   getRedemptionByUserId(userId: string): Promise<EnterpriseCodeRedemption | undefined>;
   adminSetSubscription(userId: string, tier: string, status: string): Promise<User>;
   setComplimentaryExpiration(userId: string, expiresAt: Date | null): Promise<void>;
-  deleteConversation(conversationId: number, userId: string): Promise<void>;
+  deleteConversation(conversationId: number, userId: string, privileged?: boolean): Promise<void>;
   deleteAllConversations(userId: string): Promise<void>;
   deleteUserAccount(userId: string): Promise<void>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -597,9 +597,10 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
-  async deleteConversation(conversationId: number, userId: string): Promise<void> {
+  async deleteConversation(conversationId: number, userId: string, privileged?: boolean): Promise<void> {
     const [conv] = await db.select().from(conversations).where(eq(conversations.id, conversationId));
-    if (!conv || conv.userId !== userId) return;
+    if (!conv) return;
+    if (!privileged && conv.userId !== userId) return;
     await db.delete(messages).where(eq(messages.conversationId, conversationId));
     await db.delete(conversations).where(eq(conversations.id, conversationId));
   }
