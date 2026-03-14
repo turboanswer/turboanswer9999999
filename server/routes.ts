@@ -36,17 +36,19 @@ async function sendBrevoEmail(recipientEmail: string, recipientName: string, sub
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#ffffff;max-width:600px;margin:0 auto;padding:0;background-color:#000000;">
+<div style="background-color:#000000;padding:32px;">
 ${bodyText.split('\n').map(line => {
-    if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;">${line}</p>`;
+    if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;color:#e2e2e2;">${line}</p>`;
     if (line.trim() === '') return '<br>';
-    return `<p style="margin:0 0 10px;">${line}</p>`;
+    return `<p style="margin:0 0 10px;color:#ffffff;">${line}</p>`;
   }).join('\n')}
-<hr style="border:none;border-top:1px solid #ddd;margin:24px 0;">
-<p style="font-size:13px;color:#666;margin:0;">TurboAnswer Support</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Email: support@turboanswer.it.com</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Phone: (866) 467-7269</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+<hr style="border:none;border-top:1px solid #333;margin:24px 0;">
+<p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 467-7269</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+</div>
 </body>
 </html>`;
 
@@ -3049,21 +3051,21 @@ To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
       const minimalHtml = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#e2e8f0;max-width:600px;margin:0 auto;padding:0;background:#0f172a;">
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#ffffff;max-width:600px;margin:0 auto;padding:0;background-color:#000000;">
 <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;text-align:center;border-radius:12px 12px 0 0;">
   <h1 style="color:#fff;margin:0;font-size:22px;">${template.statusText}</h1>
 </div>
-<div style="background:#1e293b;padding:28px 32px;border:1px solid #334155;border-top:none;border-radius:0 0 12px 12px;">
+<div style="background-color:#000000;padding:28px 32px;border:1px solid #333;border-top:none;border-radius:0 0 12px 12px;">
 ${template.bodyText.split('\n').map(line => {
-        if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;color:#cbd5e1;">${line}</p>`;
+        if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;color:#e2e2e2;">${line}</p>`;
         if (line.trim() === '') return '<br>';
-        return `<p style="margin:0 0 10px;color:#e2e8f0;">${line}</p>`;
+        return `<p style="margin:0 0 10px;color:#ffffff;">${line}</p>`;
       }).join('\n')}
-<hr style="border:none;border-top:1px solid #334155;margin:24px 0;">
-<p style="font-size:13px;color:#94a3b8;margin:0;">TurboAnswer Support</p>
-<p style="font-size:13px;color:#94a3b8;margin:2px 0;">Email: support@turboanswer.it.com</p>
-<p style="font-size:13px;color:#94a3b8;margin:2px 0;">Phone: (866) 467-7269</p>
-<p style="font-size:13px;color:#94a3b8;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+<hr style="border:none;border-top:1px solid #333;margin:24px 0;">
+<p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 467-7269</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
 </div>
 </body>
 </html>`;

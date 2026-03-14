@@ -62,22 +62,24 @@ async function sendBrevoOtpEmail(recipientEmail: string, recipientName: string, 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333;max-width:600px;margin:0 auto;padding:20px;">
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#ffffff;max-width:600px;margin:0 auto;padding:0;background-color:#000000;">
+<div style="background-color:#000000;padding:32px;">
 <div style="text-align:center;margin-bottom:24px;">
-  <h2 style="color:#7c3aed;margin:0;">TurboAnswer Password Reset</h2>
+  <h2 style="color:#a78bfa;margin:0;font-size:24px;">TurboAnswer Password Reset</h2>
 </div>
-<p>Hi ${recipientName},</p>
-<p>We received a request to reset your TurboAnswer password. Use the verification code below to continue. This code expires in <strong>10 minutes</strong>.</p>
+<p style="color:#ffffff;margin:0 0 12px;">Hi ${recipientName},</p>
+<p style="color:#e2e2e2;margin:0 0 12px;">We received a request to reset your TurboAnswer password. Use the verification code below to continue. This code expires in <strong style="color:#ffffff;">10 minutes</strong>.</p>
 <div style="text-align:center;margin:32px 0;">
-  <div style="display:inline-block;background:#1e1b4b;border-radius:12px;padding:24px 40px;">
+  <div style="display:inline-block;background-color:#1a1a2e;border:1px solid #333;border-radius:12px;padding:24px 40px;">
     <p style="margin:0 0 8px;color:#a5b4fc;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Your 2FA Code</p>
-    <p style="margin:0;color:#fff;font-size:40px;font-weight:bold;letter-spacing:12px;">${otp}</p>
+    <p style="margin:0;color:#ffffff;font-size:40px;font-weight:bold;letter-spacing:12px;">${otp}</p>
   </div>
 </div>
-<p>If you did not request a password reset, you can safely ignore this email. Your password will not change.</p>
-<hr style="border:none;border-top:1px solid #ddd;margin:24px 0;">
-<p style="font-size:13px;color:#666;margin:0;">TurboAnswer Support</p>
-<p style="font-size:13px;color:#666;margin:2px 0;">Email: support@turboanswer.it.com | Phone: (866) 467-7269</p>
+<p style="color:#e2e2e2;margin:0 0 12px;">If you did not request a password reset, you can safely ignore this email. Your password will not change.</p>
+<hr style="border:none;border-top:1px solid #333;margin:24px 0;">
+<p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com | Phone: (866) 467-7269</p>
+</div>
 </body>
 </html>`;
   try {
@@ -109,29 +111,29 @@ async function sendBrevoWelcomeEmail(recipientEmail: string, firstName: string) 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.7;color:#1e1b4b;max-width:600px;margin:0 auto;padding:0;">
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.7;color:#ffffff;max-width:600px;margin:0 auto;padding:0;background-color:#000000;">
 <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:40px 32px;text-align:center;border-radius:12px 12px 0 0;">
   <h1 style="color:#fff;margin:0;font-size:28px;letter-spacing:-0.5px;">Welcome to TurboAnswer!</h1>
   <p style="color:rgba(255,255,255,0.85);margin:10px 0 0;font-size:16px;">Your AI assistant is ready.</p>
 </div>
-<div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
-  <p style="margin:0 0 18px;">Hi ${name},</p>
-  <p style="margin:0 0 18px;">Thanks for joining TurboAnswer! Here's how to get the most out of your account:</p>
-  <div style="background:#f5f3ff;border-left:4px solid #7c3aed;border-radius:6px;padding:18px 20px;margin:0 0 22px;">
-    <p style="margin:0 0 10px;font-weight:bold;color:#4f46e5;">🚀 Quick Start Guide</p>
-    <p style="margin:0 0 8px;"><strong>1. Ask anything</strong> — Type any question in the chat and get an instant, expert-level answer across science, tech, law, finance, and more.</p>
-    <p style="margin:0 0 8px;"><strong>2. Scan & Summarize</strong> — Use the AI Scanner (camera icon) to upload any image and let TurboAnswer read, transcribe, or summarize it for you.</p>
-    <p style="margin:0 0 8px;"><strong>3. Code Studio</strong> — Open the Code Studio to write, run, and debug code in your browser with full AI assistance.</p>
-    <p style="margin:0 0 8px;"><strong>4. Upgrade anytime</strong> — Free accounts get daily questions. Upgrade to Pro, Research, or Enterprise for unlimited access and advanced AI models.</p>
-    <p style="margin:0;"><strong>5. Settings</strong> — Customize your response style, language, and notification preferences in Settings.</p>
+<div style="background-color:#000000;padding:32px;border:1px solid #333;border-top:none;border-radius:0 0 12px 12px;">
+  <p style="margin:0 0 18px;color:#ffffff;">Hi ${name},</p>
+  <p style="margin:0 0 18px;color:#e2e2e2;">Thanks for joining TurboAnswer! Here's how to get the most out of your account:</p>
+  <div style="background-color:#1a1a2e;border-left:4px solid #7c3aed;border-radius:6px;padding:18px 20px;margin:0 0 22px;">
+    <p style="margin:0 0 10px;font-weight:bold;color:#a78bfa;">🚀 Quick Start Guide</p>
+    <p style="margin:0 0 8px;color:#e2e2e2;"><strong style="color:#ffffff;">1. Ask anything</strong> — Type any question in the chat and get an instant, expert-level answer across science, tech, law, finance, and more.</p>
+    <p style="margin:0 0 8px;color:#e2e2e2;"><strong style="color:#ffffff;">2. Scan & Summarize</strong> — Use the AI Scanner (camera icon) to upload any image and let TurboAnswer read, transcribe, or summarize it for you.</p>
+    <p style="margin:0 0 8px;color:#e2e2e2;"><strong style="color:#ffffff;">3. Code Studio</strong> — Open the Code Studio to write, run, and debug code in your browser with full AI assistance.</p>
+    <p style="margin:0 0 8px;color:#e2e2e2;"><strong style="color:#ffffff;">4. Upgrade anytime</strong> — Free accounts get daily questions. Upgrade to Pro, Research, or Enterprise for unlimited access and advanced AI models.</p>
+    <p style="margin:0;color:#e2e2e2;"><strong style="color:#ffffff;">5. Settings</strong> — Customize your response style, language, and notification preferences in Settings.</p>
   </div>
   <div style="text-align:center;margin:28px 0;">
     <a href="https://turbo-answer.replit.app" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:bold;">Start Chatting Now</a>
   </div>
-  <p style="margin:0 0 6px;color:#6b7280;font-size:13px;">Need help? Reply to this email or visit our support page.</p>
-  <p style="margin:0;color:#6b7280;font-size:13px;">We're excited to have you onboard!</p>
-  <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
-  <p style="font-size:12px;color:#9ca3af;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 467-7269</p>
+  <p style="margin:0 0 6px;color:#999;font-size:13px;">Need help? Reply to this email or visit our support page.</p>
+  <p style="margin:0;color:#999;font-size:13px;">We're excited to have you onboard!</p>
+  <hr style="border:none;border-top:1px solid #333;margin:24px 0;">
+  <p style="font-size:12px;color:#777;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 467-7269</p>
 </div>
 </body>
 </html>`;

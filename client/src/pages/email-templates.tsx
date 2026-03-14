@@ -354,12 +354,12 @@ To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
           <p style={{ color: '#9ca3af', fontSize: '13px', padding: '8px 16px', marginBottom: '8px' }}>
             Email Preview (exactly what the recipient will see):
           </p>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', overflow: 'hidden', padding: '32px', maxWidth: '600px', margin: '0 auto' }}>
+          <div style={{ backgroundColor: '#000000', borderRadius: '8px', overflow: 'hidden', padding: '32px', maxWidth: '600px', margin: '0 auto', border: '1px solid #333' }}>
             <pre style={{
               fontFamily: 'Arial, Helvetica, sans-serif',
               fontSize: '15px',
               lineHeight: 1.6,
-              color: '#333333',
+              color: '#ffffff',
               whiteSpace: 'pre-wrap',
               wordWrap: 'break-word',
               margin: 0,
