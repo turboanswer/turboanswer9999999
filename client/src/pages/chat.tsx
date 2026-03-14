@@ -757,38 +757,62 @@ export default function Chat() {
 
         <div className="px-3 sm:px-6 py-4 sm:py-6 max-w-3xl mx-auto relative z-10">
           {/* Welcome screen - Space themed */}
-          {messages.length === 0 && !isTyping && (
-            <div className="flex flex-col items-center justify-center py-12 sm:py-20 relative">
-              {isDark && (
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-600/10 rounded-full blur-[80px]" />
-                  <div className="absolute top-1/3 left-1/3 w-32 h-32 bg-purple-600/10 rounded-full blur-[60px]" />
-                  <div className="absolute bottom-1/3 right-1/3 w-40 h-40 bg-pink-600/8 rounded-full blur-[60px]" />
+          {messages.length === 0 && !isTyping && (() => {
+            const hour = new Date().getHours();
+            const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+            const displayName = user?.firstName || user?.email?.split("@")[0] || "there";
+            const suggestions = [
+              { icon: <Code2 className="h-4 w-4" />, text: "Analyze my code", prompt: "Can you help me analyze and improve my code?", color: "from-blue-500/20 to-cyan-500/20", border: "border-blue-500/20", dotColor: "bg-blue-400" },
+              { icon: <FileText className="h-4 w-4" />, text: "Draft an email", prompt: "Help me draft a professional email", color: "from-purple-500/20 to-pink-500/20", border: "border-purple-500/20", dotColor: "bg-purple-400" },
+              { icon: <Brain className="h-4 w-4" />, text: "Explain a concept", prompt: "Explain a complex concept to me in simple terms", color: "from-orange-500/20 to-amber-500/20", border: "border-orange-500/20", dotColor: "bg-orange-400" },
+              { icon: <Sparkles className="h-4 w-4" />, text: "Creative writing", prompt: "Help me with creative writing", color: "from-emerald-500/20 to-green-500/20", border: "border-emerald-500/20", dotColor: "bg-emerald-400" },
+            ];
+            return (
+            <div className="flex flex-col items-start py-12 sm:py-20 relative">
+              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-1/4 left-0 w-96 h-96 rounded-full blur-[120px]" style={{ background: "radial-gradient(circle, rgba(66,133,244,0.08) 0%, transparent 70%)" }} />
+                <div className="absolute top-1/3 right-0 w-80 h-80 rounded-full blur-[100px]" style={{ background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)" }} />
+                <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full blur-[100px]" style={{ background: "radial-gradient(circle, rgba(234,67,53,0.06) 0%, transparent 70%)" }} />
+              </div>
+
+              <div className="relative z-10 w-full">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-tight mb-2" style={{
+                  background: "linear-gradient(135deg, #4285F4 0%, #9B72CB 25%, #D96570 50%, #D96570 75%, #FFC857 100%)",
+                  backgroundSize: "200% auto",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  animation: animationsPref ? "gemini-gradient 8s ease infinite" : "none",
+                }}>
+                  {greeting}, {displayName}
+                </h1>
+                <p className={`text-2xl sm:text-3xl lg:text-4xl font-semibold mb-10 ${isDark ? 'text-zinc-600' : 'text-gray-300'}`}>
+                  How can I help you today?
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setMessageContent(s.prompt)}
+                      className={`group relative rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] border ${s.border} ${isDark ? 'bg-white/[0.03] hover:bg-white/[0.06]' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'}`}
+                    >
+                      <div className={`flex items-center gap-2 mb-2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+                        <div className={`w-2 h-2 rounded-full ${s.dotColor}`} />
+                        {s.icon}
+                      </div>
+                      <p className={`text-sm font-medium ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{s.text}</p>
+                    </button>
+                  ))}
                 </div>
-              )}
-              <div className="relative z-10 flex flex-col items-center">
-                <div className={`relative mb-6 ${isDark ? '' : ''}`}>
-                  <img src={turboLogo} alt="TurboAnswer" className={`w-20 h-20 sm:w-28 sm:h-28 rounded-2xl object-cover ${isDark ? 'shadow-2xl shadow-indigo-500/20' : 'shadow-lg'}`} />
-                  {isDark && animationsPref && <div className="absolute -inset-2 rounded-3xl border border-indigo-500/20 animate-pulse" />}
+
+                <div className={`mt-8 flex items-center gap-2 text-xs px-4 py-2 rounded-full w-fit ${isDark ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-300' : 'bg-blue-50 border border-blue-200 text-blue-500'}`}>
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                  <span>{selectedAIModel === 'gemini-flash' ? 'Free' : selectedAIModel === 'gemini-pro' ? 'Pro' : selectedAIModel === 'enterprise-research' ? 'Enterprise' : 'Research'} · Ready</span>
                 </div>
-                <h2 className={`text-xl sm:text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Welcome to TurboAnswer</h2>
-                <p className={`text-sm sm:text-base mb-6 ${isDark ? 'bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-medium' : 'text-gray-500'}`}>Think Faster. Build Smarter.</p>
-                <div className={`flex items-center gap-2 text-xs px-4 py-2 rounded-full ${isDark ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-300' : 'bg-gray-200 text-gray-500'}`}>
-                  <Brain className="h-3 w-3" />
-                  <span>Model: {selectedAIModel === 'gemini-flash' ? 'Free' : selectedAIModel === 'gemini-pro' ? 'Pro' : selectedAIModel === 'enterprise-research' ? 'Enterprise' : 'Research'}</span>
-                </div>
-                {isDark && (
-                  <div className="flex gap-3 mt-6">
-                    {['Ask questions', 'Upload docs', 'Generate images'].map((hint, i) => (
-                      <span key={i} className="text-[10px] sm:text-xs px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/5 text-indigo-300/50">
-                        {hint}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Messages */}
           {messages.map((message) => (
