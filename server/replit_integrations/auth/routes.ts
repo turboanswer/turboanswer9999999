@@ -7,7 +7,12 @@ export function registerAuthRoutes(app: Express): void {
     try {
       const userId = req.user.claims.sub;
       const user = await authStorage.getUser(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user) {
+        req.session.destroy(() => {});
+        res.clearCookie('connect.sid');
+        res.clearCookie('_csrf_token');
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
       const { password, twoFactorSecret, ...safeUser } = user;
       res.json(safeUser);
