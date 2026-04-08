@@ -47,15 +47,15 @@ input, textarea, form {
 }
 
 .dark {
-  --background: hsl(0, 0%, 0%);
-  --foreground: hsl(0, 0%, 95%);
-  --muted: hsl(0, 0%, 8%);
-  --muted-foreground: hsl(0, 0%, 60%);
-  --popover: hsl(0, 0%, 5%);
-  --popover-foreground: hsl(0, 0%, 95%);
-  --card: hsl(0, 0%, 5%);
-  --card-foreground: hsl(0, 0%, 95%);
-  --border: hsl(0, 0%, 15%);
+  --background: hsl(240, 3%, 7%);
+  --foreground: hsl(0, 0%, 89%);
+  --muted: hsl(240, 3%, 12%);
+  --muted-foreground: hsl(120, 1%, 56%);
+  --popover: hsl(240, 3%, 12%);
+  --popover-foreground: hsl(0, 0%, 89%);
+  --card: hsl(240, 3%, 12%);
+  --card-foreground: hsl(0, 0%, 89%);
+  --border: hsl(200, 3%, 24%);
   --input: hsl(0, 0%, 8%);
   --primary: hsl(217, 91%, 60%);
   --primary-foreground: hsl(0, 0%, 100%);
@@ -67,18 +67,18 @@ input, textarea, form {
   --destructive-foreground: hsl(0, 0%, 98%);
   --ring: hsl(217, 91%, 60%);
   --radius: 0.75rem;
-  /* Chat page */
-  --chat-outer-bg: #000000;
-  --chat-header-bg: rgba(0,0,0,0.95);
-  --chat-header-border: #1f2937;
-  --chat-msg-bg: #030014;
-  --chat-input-bg: rgba(3,0,20,0.9);
-  --chat-input-border: rgba(99,102,241,0.1);
-  --chat-text: #f3f4f6;
-  --chat-text-muted: #9ca3af;
-  --chat-bubble-ai-bg: rgba(39,39,42,0.6);
-  --chat-bubble-ai-border: rgba(255,255,255,0.06);
-  --chat-bubble-ai-text: #f3f4f6;
+  /* Chat page — Gemini dark */
+  --chat-outer-bg: #131314;
+  --chat-header-bg: #131314;
+  --chat-header-border: #3c4043;
+  --chat-msg-bg: #131314;
+  --chat-input-bg: #1e1f20;
+  --chat-input-border: #3c4043;
+  --chat-text: #e3e3e3;
+  --chat-text-muted: #8e918f;
+  --chat-bubble-ai-bg: #1e1f20;
+  --chat-bubble-ai-border: #3c4043;
+  --chat-bubble-ai-text: #e3e3e3;
 }
 
 body {
@@ -107,8 +107,8 @@ input, textarea, select, button {
 
 .dark body,
 body.dark-body {
-  background-color: #000;
-  color: #f5f5f5;
+  background-color: #131314;
+  color: #e3e3e3;
 }
 
 /* Settings page theme variables */
@@ -127,18 +127,18 @@ body.dark-body {
   --s-option-bg: #f1f5f9;
 }
 .dark {
-  --s-bg: #0a0a14;
-  --s-panel: #111122;
-  --s-border: rgba(255,255,255,0.07);
-  --s-text: #e2e8f0;
-  --s-muted: #64748b;
-  --s-row-border: rgba(255,255,255,0.05);
-  --s-input-bg: rgba(255,255,255,0.06);
-  --s-input-border: rgba(255,255,255,0.1);
-  --s-input-text: #e2e8f0;
-  --s-toggle-off: rgba(255,255,255,0.1);
-  --s-pill-border: rgba(255,255,255,0.1);
-  --s-option-bg: #1a1a2e;
+  --s-bg: #131314;
+  --s-panel: #1e1f20;
+  --s-border: #3c4043;
+  --s-text: #e3e3e3;
+  --s-muted: #8e918f;
+  --s-row-border: #3c4043;
+  --s-input-bg: #1e1f20;
+  --s-input-border: #3c4043;
+  --s-input-text: #e3e3e3;
+  --s-toggle-off: #3c4043;
+  --s-pill-border: #3c4043;
+  --s-option-bg: #1e1f20;
 }
 
 .light body,

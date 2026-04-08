@@ -472,22 +472,18 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-[100dvh]" style={{ background: 'var(--chat-outer-bg)' }}>
-      {/* Header */}
-      <header className="border-b px-3 sm:px-5 py-2.5 relative z-40 shrink-0" style={{ background: 'var(--chat-header-bg)', borderColor: 'var(--chat-header-border)' }}>
+      <header className="px-3 sm:px-5 py-2.5 relative z-40 shrink-0" style={{ background: 'var(--chat-header-bg)' }}>
         <div className="flex items-center justify-between gap-2">
           <Link href="/">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 cursor-pointer group">
-              <img src={turboLogo} alt="TurboAnswer" className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover group-hover:opacity-80 transition-opacity" />
-              <div className="min-w-0">
-                <h1 className={`text-base sm:text-lg font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'} group-hover:opacity-80 transition-opacity`}>TurboAnswer</h1>
-                <p className={`text-[10px] sm:text-xs hidden sm:block ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Think Faster. Build Smarter.</p>
-              </div>
+              <img src={turboLogo} alt="TurboAnswer" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover group-hover:opacity-80 transition-opacity" />
+              <h1 className={`text-base sm:text-lg font-medium truncate ${isDark ? 'text-[#e3e3e3]' : 'text-gray-900'} group-hover:opacity-80 transition-opacity`}>TurboAnswer</h1>
             </div>
           </Link>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <Select value={selectedAIModel} onValueChange={handleModelChange}>
-              <SelectTrigger className={`w-24 sm:w-32 h-8 text-[10px] sm:text-xs rounded-lg ${isDark ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-gray-100 border-gray-300 text-gray-900'}`}>
+              <SelectTrigger className={`w-24 sm:w-32 h-8 text-[10px] sm:text-xs rounded-full ${isDark ? 'bg-[#1e1f20] border-[#3c4043] text-[#c4c7c5]' : 'bg-gray-100 border-gray-300 text-gray-900'}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -498,60 +494,60 @@ export default function Chat() {
               </SelectContent>
             </Select>
 
-            <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-lg ${isDark ? 'text-yellow-400 hover:bg-zinc-800' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
+            <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
 
-            <div className="hidden sm:flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-0.5">
               <Link href="/media-editor">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-pink-400' : 'text-gray-500 hover:text-pink-500'}`} title="Media Editor — CapCut-style photo & video editor">
-                  <Scissors className="h-4 w-4 mr-1" /> Edit
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Media Editor">
+                  <Scissors className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/photo-editor">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-500'}`} title="AI Scanner — Scan documents, receipts & photos">
-                  <Camera className="h-4 w-4 mr-1" /> Scan
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="AI Scanner">
+                  <Camera className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/video-studio">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs ${isDark ? 'text-gray-400 hover:text-violet-400' : 'text-gray-500 hover:text-violet-600'}`} title="Video Studio — Generate AI videos">
-                  <Film className="h-4 w-4 mr-1" /> Videos
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Video Studio">
+                  <Film className="h-4 w-4" />
                 </Button>
               </Link>
               {!isNativeMobile && (
               <Link href="/code-studio">
-                <Button variant="ghost" size="sm" className={`h-8 px-2 text-xs relative ${isDark ? 'text-gray-400 hover:text-cyan-400' : 'text-gray-500 hover:text-cyan-600'}`} title={user?.codeStudioAddon ? "Code Studio — Build & run apps with AI" : "Code Studio — 7-day free trial, then $15/mo"}>
-                  <Code2 className="h-4 w-4 mr-1" /> Code
-                  {!user?.codeStudioAddon && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-yellow-400" />}
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full relative ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Code Studio">
+                  <Code2 className="h-4 w-4" />
+                  {!user?.codeStudioAddon && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[#8ab4f8]" />}
                 </Button>
               </Link>
               )}
-              <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 ${showQR ? 'text-blue-400' : isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-blue-500`} title="QR Code">
+              <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${showQR ? 'text-[#8ab4f8]' : isDark ? 'text-[#8e918f]' : 'text-gray-500'} ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="QR Code">
                 <QrCode className="h-4 w-4" />
               </Button>
               {user?.isEmployee && (
                 <Link href="/employee/dashboard">
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:text-red-300" title="Admin Panel">
+                  <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="Admin Panel">
                     <Shield className="h-4 w-4" />
                   </Button>
                 </Link>
               )}
               {user?.isBetaTester && (
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-400 hover:text-green-300" title="Beta Feedback" onClick={() => { setShowBetaFeedback(true); setBetaFeedbackSent(false); setBetaFeedbackMsg(""); }}>
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-green-400 hover:text-green-300 ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="Beta Feedback" onClick={() => { setShowBetaFeedback(true); setBetaFeedbackSent(false); setBetaFeedbackMsg(""); }}>
                   <FlaskConical className="h-4 w-4" />
                 </Button>
               )}
               <Link href="/crisis-support">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-pink-400 hover:text-pink-300" title="Crisis Support">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Crisis Support">
                   <Heart className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/ai-settings">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`} title="Settings">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Settings">
                   <Settings className="h-4 w-4" />
                 </Button>
               </Link>
-              <Button onClick={() => logout()} variant="ghost" size="sm" className={`h-8 w-8 p-0 ${isDark ? 'text-gray-400' : 'text-gray-500'} hover:text-red-400`} title="Logout">
+              <Button onClick={() => logout()} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-red-400 hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-red-400 hover:bg-gray-100'}`} title="Logout">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
@@ -779,27 +775,23 @@ export default function Chat() {
         </div>
 
         <div className="px-3 sm:px-6 py-4 sm:py-6 max-w-3xl mx-auto relative z-10">
-          {/* Welcome screen - Space themed */}
           {messages.length === 0 && !isTyping && (() => {
             const hour = new Date().getHours();
             const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
             const displayName = user?.firstName || user?.email?.split("@")[0] || "there";
             const suggestions = [
-              { icon: <Code2 className="h-4 w-4" />, text: "Analyze my code", prompt: "Can you help me analyze and improve my code?", color: "from-blue-500/20 to-cyan-500/20", border: "border-blue-500/20", dotColor: "bg-blue-400" },
-              { icon: <FileText className="h-4 w-4" />, text: "Draft an email", prompt: "Help me draft a professional email", color: "from-purple-500/20 to-pink-500/20", border: "border-purple-500/20", dotColor: "bg-purple-400" },
-              { icon: <Brain className="h-4 w-4" />, text: "Explain a concept", prompt: "Explain a complex concept to me in simple terms", color: "from-orange-500/20 to-amber-500/20", border: "border-orange-500/20", dotColor: "bg-orange-400" },
-              { icon: <Sparkles className="h-4 w-4" />, text: "Creative writing", prompt: "Help me with creative writing", color: "from-emerald-500/20 to-green-500/20", border: "border-emerald-500/20", dotColor: "bg-emerald-400" },
+              { icon: <Code2 className="h-4 w-4" />, text: "Help me write code", prompt: "Can you help me analyze and improve my code?" },
+              { icon: <FileText className="h-4 w-4" />, text: "Draft an email", prompt: "Help me draft a professional email" },
+              { icon: <Brain className="h-4 w-4" />, text: "Explain a concept", prompt: "Explain a complex concept to me in simple terms" },
+              { icon: <Sparkles className="h-4 w-4" />, text: "Brainstorm ideas", prompt: "Help me brainstorm creative ideas" },
             ];
             return (
-            <div className="flex flex-col items-start py-12 sm:py-20 relative">
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-1/4 left-0 w-96 h-96 rounded-full blur-[120px]" style={{ background: "radial-gradient(circle, rgba(66,133,244,0.08) 0%, transparent 70%)" }} />
-                <div className="absolute top-1/3 right-0 w-80 h-80 rounded-full blur-[100px]" style={{ background: "radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)" }} />
-                <div className="absolute bottom-0 left-1/3 w-72 h-72 rounded-full blur-[100px]" style={{ background: "radial-gradient(circle, rgba(234,67,53,0.06) 0%, transparent 70%)" }} />
-              </div>
-
+            <div className="flex flex-col items-start py-16 sm:py-24 relative">
+              <style>{`
+                @keyframes gemini-gradient { 0% { background-position: 0% center; } 50% { background-position: 200% center; } 100% { background-position: 0% center; } }
+              `}</style>
               <div className="relative z-10 w-full">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-tight mb-2" style={{
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium leading-[1.15] mb-3" style={{
                   background: "linear-gradient(135deg, #4285F4 0%, #9B72CB 25%, #D96570 50%, #D96570 75%, #FFC857 100%)",
                   backgroundSize: "200% auto",
                   WebkitBackgroundClip: "text",
@@ -808,7 +800,7 @@ export default function Chat() {
                 }}>
                   {greeting}, {displayName}
                 </h1>
-                <p className={`text-2xl sm:text-3xl lg:text-4xl font-semibold mb-10 ${isDark ? 'text-zinc-600' : 'text-gray-300'}`}>
+                <p className={`text-2xl sm:text-3xl lg:text-4xl font-medium mb-12 ${isDark ? 'text-[#444746]' : 'text-gray-300'}`}>
                   How can I help you today?
                 </p>
 
@@ -817,20 +809,14 @@ export default function Chat() {
                     <button
                       key={i}
                       onClick={() => setMessageContent(s.prompt)}
-                      className={`group relative rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98] border ${s.border} ${isDark ? 'bg-white/[0.03] hover:bg-white/[0.06]' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'}`}
+                      className={`group relative rounded-2xl p-4 text-left transition-all duration-200 hover:shadow-lg ${isDark ? 'bg-[#1e1f20] border border-[#3c4043] hover:bg-[#282a2c]' : 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-gray-300'}`}
                     >
-                      <div className={`flex items-center gap-2 mb-2 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
-                        <div className={`w-2 h-2 rounded-full ${s.dotColor}`} />
+                      <div className={`mb-3 ${isDark ? 'text-[#8e918f]' : 'text-gray-400'}`}>
                         {s.icon}
                       </div>
-                      <p className={`text-sm font-medium ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>{s.text}</p>
+                      <p className={`text-sm ${isDark ? 'text-[#c4c7c5]' : 'text-gray-700'}`}>{s.text}</p>
                     </button>
                   ))}
-                </div>
-
-                <div className={`mt-8 flex items-center gap-2 text-xs px-4 py-2 rounded-full w-fit ${isDark ? 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-300' : 'bg-blue-50 border border-blue-200 text-blue-500'}`}>
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  <span>{selectedAIModel === 'gemini-flash' ? 'Free' : selectedAIModel === 'gemini-pro' ? 'Pro' : selectedAIModel === 'enterprise-research' ? 'Enterprise' : 'Research'} · Ready</span>
                 </div>
               </div>
             </div>
@@ -906,15 +892,8 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Input area - Space themed */}
-      <div className="border-t p-3 sm:p-4 shrink-0 relative overflow-hidden" style={{ background: 'var(--chat-input-bg)', borderColor: 'var(--chat-input-border)', backdropFilter: isDark ? 'blur(12px)' : 'none' }}>
-        {isDark && (
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-0 left-1/4 w-64 h-16 bg-indigo-600/5 rounded-full blur-[40px]" />
-            <div className="absolute top-0 right-1/3 w-48 h-16 bg-purple-600/5 rounded-full blur-[40px]" />
-          </div>
-        )}
-        <div className="max-w-3xl mx-auto relative z-10">
+      <div className="p-3 sm:p-4 shrink-0" style={{ background: 'var(--chat-outer-bg)' }}>
+        <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-2 sm:gap-3">
             <div className="flex-1 relative">
               <Textarea
@@ -922,20 +901,20 @@ export default function Chat() {
                 value={messageContent}
                 onChange={(e) => setMessageContent(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask me anything across the universe..."
-                className={`w-full px-4 py-3 pr-12 rounded-2xl text-sm sm:text-base resize-none min-h-[44px] max-h-28 transition-all duration-300 ${
+                placeholder="Enter a prompt here"
+                className={`w-full px-5 py-3.5 pr-14 rounded-3xl text-sm sm:text-base resize-none min-h-[52px] max-h-28 transition-colors ${
                   isDark
-                    ? 'bg-white/[0.04] border-indigo-500/20 text-white placeholder-indigo-300/30 focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/30 focus:bg-white/[0.06]'
-                    : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                    ? 'bg-[#1e1f20] border-[#3c4043] text-[#e3e3e3] placeholder-[#8e918f] focus:ring-1 focus:ring-[#8ab4f8]/40 focus:border-[#8ab4f8]/50'
+                    : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-400'
                 }`}
                 rows={1}
               />
               <Button
                 onClick={handleSendWithPromo}
                 disabled={!messageContent.trim() || sendMessageMutation.isPending}
-                className={`absolute right-2 bottom-2 h-8 w-8 p-0 rounded-xl disabled:opacity-40 transition-all duration-300 ${
+                className={`absolute right-2.5 bottom-2.5 h-9 w-9 p-0 rounded-full disabled:opacity-30 transition-colors ${
                   isDark
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/20'
+                    ? 'bg-[#8ab4f8] text-[#131314] hover:bg-[#aecbfa]'
                     : 'bg-blue-500 text-white hover:bg-blue-600'
                 }`}
                 title="Send message"
@@ -944,15 +923,8 @@ export default function Chat() {
               </Button>
             </div>
           </div>
-          <div className={`flex items-center justify-between mt-1.5 text-[10px] sm:text-xs ${isDark ? 'text-indigo-300/30' : 'text-gray-400'}`}>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <span className="flex items-center gap-1">
-                <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'bg-green-400'}`} />
-                <span>Ready</span>
-              </span>
-              {sendOnEnterPref && <span className="hidden sm:inline">Press Enter to send</span>}
-            </div>
-            <span>{messageContent.length}/2000</span>
+          <div className={`flex items-center justify-center mt-2 text-[11px] ${isDark ? 'text-[#8e918f]' : 'text-gray-400'}`}>
+            <span>TurboAnswer may display inaccurate info, including about people, so double-check its responses.</span>
           </div>
         </div>
       </div>

@@ -193,7 +193,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className={`min-h-screen overflow-x-hidden relative ${isDark ? 'bg-[#030014] text-white' : 'bg-gradient-to-b from-slate-50 via-white to-slate-50 text-gray-900'}`}>
+    <div className={`min-h-screen overflow-x-hidden relative ${isDark ? 'bg-[#131314] text-white' : 'bg-gradient-to-b from-slate-50 via-white to-slate-50 text-gray-900'}`}>
       {isDark && <StarField />}
 
       <style>{`
@@ -208,7 +208,7 @@ export default function LandingPage() {
         .card-hologram:hover { transform: translateY(-4px); }
       `}</style>
 
-      <nav className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl ${isDark ? 'bg-[#030014]/70 border-white/5' : 'bg-white/80 border-gray-200'} border-b`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl ${isDark ? 'bg-[#131314]/80 border-[#3c4043]' : 'bg-white/80 border-gray-200'} border-b`}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TurboLogo size={32} animated={false} />
@@ -223,7 +223,7 @@ export default function LandingPage() {
               {isDark ? <span className="text-lg">&#9728;</span> : <span className="text-lg">&#9790;</span>}
             </button>
             <Link href={ctaHref}>
-              <Button size="sm" className="font-semibold px-5 shadow-lg text-white" style={{ background: 'linear-gradient(135deg, #4285F4, #34A853)', boxShadow: '0 4px 15px rgba(66,133,244,0.3)' }}>
+              <Button size="sm" className="font-medium px-5 rounded-full bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#131314]">
                 {ctaLabel}
               </Button>
             </Link>
@@ -243,7 +243,7 @@ export default function LandingPage() {
         </div>
 
         {mobileMenuOpen && (
-          <div className={`sm:hidden border-t px-4 py-4 space-y-2 ${isDark ? 'border-white/5 bg-[#030014]/95 backdrop-blur-xl' : 'border-gray-200 bg-white/95'}`}>
+          <div className={`sm:hidden border-t px-4 py-4 space-y-2 ${isDark ? 'border-[#3c4043] bg-[#131314]/95 backdrop-blur-xl' : 'border-gray-200 bg-white/95'}`}>
             <a href="#features" onClick={() => setMobileMenuOpen(false)}>
               <Button variant="ghost" className={`w-full justify-start ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}>
                 Features
@@ -260,7 +260,7 @@ export default function LandingPage() {
               </Button>
             </a>
             <Link href={ctaHref} className="block">
-              <Button className="w-full font-semibold text-white" style={{ background: 'linear-gradient(135deg, #4285F4, #34A853)' }}>
+              <Button className="w-full font-medium rounded-full bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#131314]">
                 {ctaLabel}
               </Button>
             </Link>
@@ -339,12 +339,12 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
             <Link href={ctaHref}>
-              <Button size="lg" className="w-full sm:w-auto text-lg px-10 py-7 font-bold shadow-2xl rounded-2xl text-white" style={{ background: 'linear-gradient(135deg, #4285F4 0%, #34A853 100%)', boxShadow: isDark ? '0 0 40px rgba(66,133,244,0.35)' : '0 8px 30px rgba(66,133,244,0.3)', ...(isDark ? { animation: 'glow-pulse 3s ease-in-out infinite' } : {}) }}>
+              <Button size="lg" className="w-full sm:w-auto text-lg px-10 py-7 font-medium rounded-full bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#131314]">
                 {ctaLabel}
                 <ArrowRight className="h-5 w-5 ml-2" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className={`w-full sm:w-auto text-lg px-8 py-7 rounded-2xl ${isDark ? 'border-white/10 text-gray-300 hover:bg-white/5 hover:border-white/20' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`} onClick={() => setShowQR(true)}>
+            <Button size="lg" variant="outline" className={`w-full sm:w-auto text-lg px-8 py-7 rounded-full ${isDark ? 'border-[#3c4043] text-[#c4c7c5] hover:bg-[#1e1f20] hover:border-[#5f6368]' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`} onClick={() => setShowQR(true)}>
               <QrCode className="h-5 w-5 mr-2" />
               Open on Phone
             </Button>

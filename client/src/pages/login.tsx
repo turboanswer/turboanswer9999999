@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Loader2, ShieldCheck, Lock, Sparkles, Brain, Zap, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import TurboLogo from "@/components/TurboLogo";
+import turboLogo from "@assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509.png";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -75,127 +74,75 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col lg:flex-row overflow-hidden">
+    <div className="min-h-screen bg-[#131314] text-white flex items-center justify-center px-4">
       <style>{`
-        @keyframes float-gentle { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-15px); } }
-        @keyframes gradient-flow { 0% { background-position: 0% center; } 50% { background-position: 200% center; } 100% { background-position: 0% center; } }
+        @keyframes gemini-fade-up { 0% { opacity: 0; transform: translateY(16px); } 100% { opacity: 1; transform: translateY(0); } }
       `}</style>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:py-0 relative">
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-80 h-80 rounded-full blur-[120px]" style={{ background: "radial-gradient(circle, rgba(66,133,244,0.12) 0%, transparent 70%)" }} />
-          <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-[100px]" style={{ background: "radial-gradient(circle, rgba(139,92,246,0.10) 0%, transparent 70%)" }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-[140px]" style={{ background: "radial-gradient(circle, rgba(234,67,53,0.06) 0%, transparent 70%)" }} />
+      <div className="w-full max-w-[400px]" style={{ animation: 'gemini-fade-up 0.5s ease-out forwards' }}>
+        <div className="flex flex-col items-center mb-8">
+          <img src={turboLogo} alt="TurboAnswer" className="w-12 h-12 rounded-2xl object-cover mb-5" />
+          <h1 className="text-2xl font-normal text-white mb-1">Sign in</h1>
+          <p className="text-sm text-[#8e918f]">to continue to TurboAnswer</p>
         </div>
 
-        <div className="relative z-10 max-w-md text-center lg:text-left">
-          <div className="flex justify-center lg:justify-start mb-8" style={{ animation: "float-gentle 6s ease-in-out infinite" }}>
-            <TurboLogo size={72} animated={true} />
-          </div>
+        <div className="rounded-2xl border border-[#3c4043] bg-[#1e1f20] p-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                required
+                className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
+              />
+            </div>
 
-          <h1 className="text-4xl sm:text-5xl font-semibold leading-tight mb-4" style={{
-            background: "linear-gradient(135deg, #4285F4 0%, #9B72CB 25%, #D96570 50%, #D96570 75%, #FFC857 100%)",
-            backgroundSize: "200% auto",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            animation: "gradient-flow 8s ease infinite",
-          }}>
-            Welcome back to TurboAnswer
-          </h1>
+            <div>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                required
+                className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
+              />
+            </div>
 
-          <p className="text-lg text-zinc-500 mb-8">
-            Your AI that thinks, creates, and analyzes.
-          </p>
-
-          <div className="hidden lg:flex flex-col gap-3">
-            {[
-              { icon: Brain, text: "Advanced AI models for deep reasoning", color: "text-violet-400" },
-              { icon: Zap, text: "Instant answers in 100+ languages", color: "text-cyan-400" },
-              { icon: Sparkles, text: "Generate images, code, and more", color: "text-amber-400" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm text-zinc-400">
-                <item.icon className={`h-4 w-4 ${item.color} flex-shrink-0`} />
-                <span>{item.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex items-center justify-center px-6 py-10 lg:py-0">
-        <div className="w-full max-w-sm">
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-8">
-            <h2 className="text-xl font-semibold text-white mb-1">Sign in</h2>
-            <p className="text-sm text-zinc-500 mb-6">Enter your credentials to continue</p>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-zinc-300 text-sm">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  required
-                  className="bg-white/[0.05] border-white/[0.08] text-white placeholder-zinc-600 rounded-xl h-11 focus:border-blue-500/50 focus:ring-blue-500/20"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-zinc-300 text-sm">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  required
-                  className="bg-white/[0.05] border-white/[0.08] text-white placeholder-zinc-600 rounded-xl h-11 focus:border-blue-500/50 focus:ring-blue-500/20"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-11 rounded-xl text-white font-semibold text-sm disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg, #4285F4 0%, #7B68EE 50%, #9B72CB 100%)" }}
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Signing in...</span>
-                ) : (
-                  <span className="flex items-center gap-2">Sign In <ArrowRight className="h-4 w-4" /></span>
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-4 text-center">
-              <Link href="/forgot-password" className="text-xs text-zinc-500 hover:text-blue-400 transition-colors">
-                Forgot your password?
+            <div className="text-left">
+              <Link href="/forgot-password" className="text-sm text-[#8ab4f8] hover:text-[#aecbfa] transition-colors">
+                Forgot password?
               </Link>
             </div>
 
-            <div className="mt-6 pt-5 border-t border-white/[0.06]">
-              <p className="text-center text-sm text-zinc-500">
-                Don't have an account?{" "}
-                <Link href="/register" className="text-blue-400 hover:text-blue-300 font-medium">
-                  Sign up
-                </Link>
-              </p>
+            <div className="flex items-center justify-between pt-2">
+              <Link href="/register" className="text-sm text-[#8ab4f8] hover:text-[#aecbfa] font-medium transition-colors">
+                Create account
+              </Link>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="h-10 px-6 rounded-full bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#131314] font-medium text-sm disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Signing in</span>
+                ) : (
+                  <span className="flex items-center gap-1.5">Next <ArrowRight className="h-3.5 w-3.5" /></span>
+                )}
+              </Button>
             </div>
+          </form>
+        </div>
 
-            <div className="mt-5 flex items-center justify-center gap-4 text-[10px] text-zinc-600">
-              <div className="flex items-center gap-1">
-                <Lock size={10} className="text-green-500/60" />
-                <span>AES-256 Encrypted</span>
-              </div>
-              <div className="w-px h-2.5 bg-zinc-800" />
-              <div className="flex items-center gap-1">
-                <ShieldCheck size={10} className="text-blue-400/60" />
-                <span>bcrypt Hashing</span>
-              </div>
-            </div>
-          </div>
+        <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#8e918f]">
+          <Link href="/privacy-policy" className="hover:text-[#aecbfa] transition-colors">Privacy</Link>
+          <span>·</span>
+          <Link href="/terms-conditions" className="hover:text-[#aecbfa] transition-colors">Terms</Link>
+          <span>·</span>
+          <Link href="/support" className="hover:text-[#aecbfa] transition-colors">Help</Link>
         </div>
       </div>
     </div>
