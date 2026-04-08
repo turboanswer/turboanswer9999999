@@ -200,7 +200,7 @@ export default function AISettings() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => (await apiRequest("POST", "/api/delete-account")).json(),
-    onSuccess: () => { toast({ title: "Account Deleted" }); setTimeout(() => { setLocation("/"); window.location.reload(); }, 1500); },
+    onSuccess: () => { toast({ title: "Account Deleted" }); setTimeout(() => { window.location.href = "/login"; }, 1500); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 

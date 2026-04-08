@@ -1,4 +1,4 @@
-import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode } from "@shared/schema";
+import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -621,6 +621,9 @@ export class DatabaseStorage implements IStorage {
     await db.delete(conversations).where(eq(conversations.userId, userId));
     await this.deleteAllCrisisData(userId);
     await db.delete(enterpriseCodeRedemptions).where(eq(enterpriseCodeRedemptions.userId, userId));
+    await db.delete(codeProjects).where(eq(codeProjects.userId, userId));
+    await db.delete(betaFeedback).where(eq(betaFeedback.userId, userId));
+    await db.delete(betaApplications).where(eq(betaApplications.userId, userId));
     await db.delete(users).where(eq(users.id, userId));
   }
 

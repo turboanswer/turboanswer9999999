@@ -1426,7 +1426,12 @@ function downloadAAB(){
       await storage.deleteUserAccount(userId);
       console.log(`[Delete Account] User ${userId} (${user.email}) account deleted`);
 
-      res.json({ success: true, message: 'Your account has been deleted successfully.' });
+      req.session.destroy((err: any) => {
+        if (err) console.error('[Delete Account] Session destroy error:', err.message);
+        res.clearCookie('connect.sid');
+        res.clearCookie('_csrf_token');
+        res.json({ success: true, message: 'Your account has been deleted successfully.' });
+      });
     } catch (error: any) {
       console.error('[Delete Account] Error:', error.message);
       res.status(500).json({ error: 'Failed to delete account' });
