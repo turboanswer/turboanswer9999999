@@ -10,6 +10,7 @@ import {
   extractLocation,
   getTimeZoneInfo
 } from "./weather-location";
+import { runMultiAgentResearch } from "./multi-agent";
 
 export const AI_MODELS: Record<string, Record<string, any>> = {
   pro: {
@@ -23,18 +24,18 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   },
   research: {
     "claude-research": {
-      name: "Claude + Gemini",
-      provider: "anthropic",
-      description: "Claude as primary with Gemini fallback — maximum intelligence for deep research",
+      name: "10-Agent Research",
+      provider: "multi-agent",
+      description: "10 AI experts analyze your question from different angles — technical, business, security, UX, data, innovation, risk, implementation, academic, and contrarian perspectives — then synthesize into one comprehensive answer",
       maxTokens: 16000,
       temperature: 0.1,
     },
   },
   enterprise: {
     "enterprise-research": {
-      name: "Claude + Gemini",
-      provider: "anthropic",
-      description: "Claude as primary with Gemini fallback — enterprise-grade intelligence",
+      name: "10-Agent Research",
+      provider: "multi-agent",
+      description: "10 AI experts analyze your question from every angle — enterprise-grade multi-perspective intelligence",
       maxTokens: 16000,
       temperature: 0.1,
     },
@@ -190,25 +191,15 @@ export async function generateAIResponse(
       const complexity = classifyQueryComplexity(userMessage);
 
       if (complexity === 'simple') {
-        // Simple queries → Gemini Flash Lite (fast, cheap, same quality for simple)
         if (!geminiApiKey) return "API key not configured.";
         const systemPrompt = `You are Turbo Answer Research. Answer questions directly and concisely. Never discuss your own state, feelings, or load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
         const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
         console.log(`[AI] Research/simple → Gemini Flash Lite`);
         return await callGemini(fullPrompt, 'gemini-3.1-flash-lite-preview', 2000, 0.4, geminiApiKey);
       } else {
-        // Complex queries → Claude Sonnet 4 primary, Gemini 3.1 Pro fallback
-        const systemPrompt = `You are Turbo Answer Research, powered by Claude and Gemini. Give expert-level responses. Answer directly, use structure (headings, bullets) for complex topics, calibrate length to the question. Never discuss your own state or feelings. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
-        const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
-
-        console.log(`[AI] Research/complex → Claude primary`);
-        const claudeReply = await callClaude(fullPrompt, 8192, 0.1);
-        if (claudeReply) return claudeReply;
-
-        // Gemini fallback
-        console.log(`[AI] Claude failed → Gemini 3.1 Pro fallback`);
-        if (!geminiApiKey) throw new Error('No API keys available');
-        return await callGemini(fullPrompt, 'gemini-3.1-pro-preview', 8192, 0.1, geminiApiKey);
+        console.log(`[AI] Research/complex → 10-Agent Multi-Agent System`);
+        const fullQuestion = additionalContext ? `${enhancedMessage}\n\n${additionalContext}` : enhancedMessage;
+        return await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
       }
     } else if (selectedModel === 'gemini-pro') {
       // Pro tier ($6.99) → Gemini Flash
