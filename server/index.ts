@@ -268,14 +268,9 @@ process.on('unhandledRejection', (reason: any) => {
     console.log('[Server] Static files ready.');
   }
 
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    console.log(`[Server] Listening on port ${port}...`);
-    log(`serving on port ${port}`);
+  const port = process.env.PORT || 8080;
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
     initPayPal();
   });
 
