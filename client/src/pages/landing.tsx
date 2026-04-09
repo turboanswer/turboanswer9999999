@@ -197,13 +197,6 @@ export default function LandingPage() {
       {isDark && <StarField />}
 
       <style>{`
-        @keyframes spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
-        @keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3), 0 0 60px rgba(99, 102, 241, 0.1); } 50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.5), 0 0 80px rgba(99, 102, 241, 0.2); } }
-        @keyframes border-glow { 0%, 100% { border-color: rgba(99,102,241,0.3); } 50% { border-color: rgba(168,85,247,0.5); } }
-        @keyframes text-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-        .shimmer-text { background-size: 200% auto; animation: text-shimmer 3s linear infinite; }
-        .hover-glow:hover { box-shadow: 0 0 30px rgba(99, 102, 241, 0.2), 0 0 60px rgba(168, 85, 247, 0.1); }
         .card-hologram { backdrop-filter: blur(10px); transition: all 0.3s ease; }
         .card-hologram:hover { transform: translateY(-4px); }
       `}</style>
@@ -269,41 +262,18 @@ export default function LandingPage() {
       </nav>
 
       <section className="pt-28 sm:pt-44 pb-20 sm:pb-32 px-4 relative">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <GlowOrb className="top-10 left-1/4" color="rgba(99,102,241,0.15)" size={600} />
-          <GlowOrb className="top-40 right-1/4" color="rgba(168,85,247,0.12)" size={500} />
-          <GlowOrb className="bottom-0 left-1/2 -translate-x-1/2" color="rgba(236,72,153,0.08)" size={700} />
-          {isDark && (
-            <>
-              <GlowOrb className="top-20 right-10" color="rgba(6,182,212,0.08)" size={300} />
-              <GlowOrb className="bottom-20 left-10" color="rgba(59,130,246,0.1)" size={400} />
-            </>
-          )}
-        </div>
-
         <div className="max-w-5xl mx-auto text-center relative z-10">
           <div className="flex justify-center mb-8">
-            <div className="relative inline-block">
-              <div className="relative flex justify-center" style={{ animation: 'float 6s ease-in-out infinite' }}>
-                <TurboLogo size={100} animated={true} />
-              </div>
-              {isDark && (
-                <>
-                  <OrbitalRing size={160} duration={8} delay={0} color="rgba(99,102,241,0.4)" />
-                  <OrbitalRing size={200} duration={12} delay={2} color="rgba(168,85,247,0.3)" />
-                  <OrbitalRing size={240} duration={16} delay={4} color="rgba(236,72,153,0.2)" />
-                </>
-              )}
-            </div>
+            <TurboLogo size={100} animated={false} />
           </div>
 
           {/* Code Studio launch announcement */}
           <div className="flex justify-center mb-6">
             <div className={`relative inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl text-sm font-semibold overflow-hidden shadow-xl ${isDark ? 'bg-black/60 border border-white/10' : 'bg-white border border-gray-200 shadow-lg'}`}>
               {/* Purple/cyan top bar */}
-              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, #8b5cf6, #22d3ee)" }} />
-              <span style={{ color: "#a78bfa", fontSize: "18px" }}>⚡</span>
-              <span className={isDark ? 'text-white' : 'text-gray-900'} style={{ background: "linear-gradient(90deg, #a78bfa, #22d3ee)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "#8ab4f8" }} />
+              <span style={{ color: "#8ab4f8", fontSize: "18px" }}>⚡</span>
+              <span className={isDark ? 'text-white' : 'text-gray-900'} style={{ color: "#8ab4f8" }}>
                 Code Studio
               </span>
               <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Antigravity · Multi-Model AI · Research</span>
@@ -312,7 +282,7 @@ export default function LandingPage() {
           </div>
 
           <div className="flex justify-center mb-8">
-            <div className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm ${isDark ? 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-300' : 'bg-indigo-50 border border-indigo-200 text-indigo-600'}`} style={isDark ? { animation: 'border-glow 3s ease-in-out infinite' } : {}}>
+            <div className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm ${isDark ? 'bg-blue-500/10 border border-blue-500/30 text-blue-300' : 'bg-blue-50 border border-blue-200 text-blue-600'}`}>
               <Rocket className="h-4 w-4" />
               <span className="font-medium">Next-Gen AI Intelligence</span>
               <Sparkles className="h-4 w-4" />
@@ -321,13 +291,7 @@ export default function LandingPage() {
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight mb-6">
             <span className={isDark ? 'text-white' : 'text-gray-900'}>Your AI That</span><br />
-            <span
-              className="shimmer-text bg-clip-text text-transparent"
-              style={{
-                backgroundImage: 'linear-gradient(90deg, #4285F4, #EA4335, #FBBC05, #34A853, #4285F4)',
-                backgroundSize: '200% auto',
-              }}
-            >
+            <span className="text-[#8ab4f8]">
               Thinks, Creates & Analyzes
             </span>
           </h1>
@@ -376,13 +340,9 @@ export default function LandingPage() {
 
       {/* ════ ANTIGRAVITY SHOWCASE SECTION ════ */}
       <section className="relative py-24 sm:py-36 px-4 overflow-hidden">
-        {/* Multi-color Google glow blobs */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-30" style={{background:'#4285F4'}} />
-          <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px] opacity-25" style={{background:'#EA4335'}} />
-          <div className="absolute bottom-0 left-1/3 w-[450px] h-[450px] rounded-full blur-[110px] opacity-20" style={{background:'#FBBC05'}} />
-          <div className="absolute bottom-1/4 right-1/5 w-[380px] h-[380px] rounded-full blur-[100px] opacity-25" style={{background:'#34A853'}} />
-          {/* Dark overlay so text is readable */}
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-20" style={{background:'#4285F4'}} />
+          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px] opacity-15" style={{background:'#8ab4f8'}} />
           <div className="absolute inset-0 bg-black/60" />
         </div>
 
@@ -418,17 +378,8 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* ANTIGRAVITY title — clean Google-color gradient, professional */}
-          <h2 className="text-5xl sm:text-6xl lg:text-8xl font-black leading-none tracking-tighter mb-6 select-none"
-            style={{
-              background: 'linear-gradient(90deg, #4285F4 0%, #EA4335 30%, #FBBC05 60%, #34A853 85%, #4285F4 100%)',
-              backgroundSize: '200% auto',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              animation: 'text-shimmer 4s linear infinite',
-              letterSpacing: '-0.02em',
-            }}>
+          <h2 className="text-5xl sm:text-6xl lg:text-8xl font-black leading-none tracking-tighter mb-6 select-none text-[#8ab4f8]"
+            style={{ letterSpacing: '-0.02em' }}>
             ANTIGRAVITY
           </h2>
 
@@ -463,11 +414,8 @@ export default function LandingPage() {
 
           {/* Giant CTA */}
           <Link href={isAuthenticated ? "/code-studio" : "/login"}>
-            <button className="group relative inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-black text-xl text-white shadow-2xl overflow-hidden transition-transform duration-200 hover:scale-105" style={{
-              background: 'linear-gradient(135deg, #4285F4 0%, #EA4335 33%, #FBBC05 66%, #34A853 100%)',
-              backgroundSize: '200% 200%',
-              animation: 'text-shimmer 3s linear infinite',
-              boxShadow: '0 0 40px rgba(66,133,244,0.5), 0 0 80px rgba(234,67,53,0.3)',
+            <button className="group relative inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-black text-xl text-white shadow-2xl overflow-hidden transition-transform duration-200 hover:scale-105 bg-[#4285F4] hover:bg-[#5a9bf4]" style={{
+              boxShadow: '0 0 40px rgba(66,133,244,0.4)',
             }}>
               <span>Try Code Studio Free</span>
               <ArrowRight className="h-6 w-6 transition-transform group-hover:translate-x-1" />
@@ -507,7 +455,7 @@ export default function LandingPage() {
             </div>
             <h2 className="text-3xl sm:text-5xl font-black mb-4">
               Everything{" "}
-              <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">TurboAnswer</span>
+              <span className="text-[#8ab4f8]">TurboAnswer</span>
               {" "}Can Do
             </h2>
             <p className={`text-lg max-w-xl mx-auto ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
@@ -561,7 +509,7 @@ export default function LandingPage() {
             </div>
             <h2 className="text-3xl sm:text-5xl font-black mb-4">
               Expert Knowledge in{" "}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Every Field</span>
+              <span className="text-[#8ab4f8]">Every Field</span>
             </h2>
             <p className={`text-lg max-w-xl mx-auto ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
               TurboAnswer provides professional-level answers across all major domains
@@ -601,7 +549,7 @@ export default function LandingPage() {
                     <Cpu className="h-3.5 w-3.5" /> 10 AI Models · 10 Expert Perspectives
                   </div>
                   <h2 className="text-3xl sm:text-5xl font-black mb-5 leading-tight">
-                    <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent">10 AI Brains.</span>
+                    <span className="text-[#8ab4f8]">10 AI Brains.</span>
                     <br />
                     <span className={isDark ? 'text-white' : 'text-gray-900'}>One answer.</span>
                   </h2>
@@ -625,7 +573,7 @@ export default function LandingPage() {
                     ))}
                   </div>
                   <Link href={ctaHref}>
-                    <Button className="rounded-xl h-13 px-8 font-bold text-base bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 hover:from-indigo-500 hover:via-violet-500 hover:to-cyan-500 shadow-xl shadow-indigo-500/30 transition-all duration-200 hover:shadow-indigo-500/50 hover:scale-[1.02]">
+                    <Button className="rounded-xl h-13 px-8 font-bold text-base bg-[#4285F4] hover:bg-[#5a9bf4] shadow-xl shadow-blue-500/30 transition-all duration-200 hover:shadow-blue-500/50 hover:scale-[1.02]">
                       <Sparkles className="h-4 w-4 mr-2" />
                       Try Research Free for 7 Days
                       <ChevronRight className="h-4 w-4 ml-1" />
@@ -676,7 +624,7 @@ export default function LandingPage() {
             </div>
             <h2 className="text-3xl sm:text-5xl font-black mb-4">
               Simple{" "}
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Pricing</span>
+              <span className="text-[#8ab4f8]">Pricing</span>
             </h2>
             <p className={`text-lg max-w-xl mx-auto ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
               Start free, upgrade when you need more power
@@ -719,12 +667,12 @@ export default function LandingPage() {
             {/* Research — FEATURED */}
             <div className="relative pt-5 md:-mt-4 md:-mb-4">
               {/* Badge sits OUTSIDE overflow-hidden card so it's always visible */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap px-4 py-1.5 bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 rounded-full text-xs font-black text-white tracking-wide shadow-lg shadow-indigo-500/40 flex items-center gap-1.5">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap px-4 py-1.5 bg-[#4285F4] rounded-full text-xs font-black text-white tracking-wide shadow-lg shadow-blue-500/40 flex items-center gap-1.5">
                 <Star className="h-3 w-3 fill-white" /> MOST POWERFUL
               </div>
             <div className={`card-hologram rounded-2xl border-2 relative overflow-hidden ${isDark ? 'border-indigo-500/60 bg-gradient-to-b from-indigo-950/40 to-slate-950/60 shadow-2xl shadow-indigo-500/20' : 'border-indigo-400 bg-gradient-to-b from-indigo-50/60 to-white shadow-2xl shadow-indigo-200'}`}>
               {/* Animated shimmer top border */}
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-cyan-400 to-violet-500" />
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#8ab4f8]" />
               {/* Glow behind card in dark mode */}
               {isDark && <div className="absolute -inset-px rounded-2xl pointer-events-none" style={{boxShadow: '0 0 60px rgba(99,102,241,0.15) inset'}} />}
               <div className="p-8 pt-10">
@@ -732,7 +680,7 @@ export default function LandingPage() {
                   <Microscope className="h-5 w-5 text-indigo-400" /> Research
                 </h3>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-5xl font-black bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">$30</span>
+                  <span className="text-5xl font-black text-[#8ab4f8]">$30</span>
                   <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>/month</span>
                 </div>
                 <div className="inline-flex items-center gap-1 mt-2 bg-green-500/15 text-green-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">
@@ -795,7 +743,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link href={ctaHref}>
-                  <Button className="w-full rounded-xl h-13 font-black text-base bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 hover:from-indigo-500 hover:via-violet-500 hover:to-cyan-500 shadow-xl shadow-indigo-500/30 transition-all duration-200 hover:shadow-indigo-500/50">
+                  <Button className="w-full rounded-xl h-13 font-black text-base bg-[#4285F4] hover:bg-[#5a9bf4] shadow-xl shadow-blue-500/30 transition-all duration-200 hover:shadow-blue-500/50">
                     <Sparkles className="h-4 w-4 mr-2" />
                     {isAuthenticated ? "Unlock Research" : "Start Free Trial"}
                   </Button>
@@ -863,7 +811,7 @@ export default function LandingPage() {
             </div>
             <h2 className="text-3xl sm:text-5xl font-black mb-4">
               How It{" "}
-              <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Works</span>
+              <span className="text-[#8ab4f8]">Works</span>
             </h2>
           </div>
 
@@ -894,7 +842,7 @@ export default function LandingPage() {
           </div>
           <h2 className="text-3xl sm:text-5xl font-black">
             Take It{" "}
-            <span className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">Everywhere</span>
+            <span className="text-[#8ab4f8]">Everywhere</span>
           </h2>
           <p className={`text-lg ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             Scan the QR code with your phone camera to instantly access Turbo Answer on any mobile device.
@@ -948,13 +896,13 @@ export default function LandingPage() {
               </div>
               <h2 className="text-3xl sm:text-5xl font-black mb-5">
                 Ready to Get{" "}
-                <span className="bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">Started?</span>
+                <span className="text-[#8ab4f8]">Started?</span>
               </h2>
               <p className={`text-lg mb-10 max-w-xl mx-auto ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Join thousands using TurboAnswer to work smarter, learn faster, and create more. It's completely free to start.
               </p>
               <Link href={ctaHref}>
-                <Button size="lg" className="text-lg px-12 py-7 font-bold shadow-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 shadow-purple-500/25 rounded-2xl" style={isDark ? { animation: 'glow-pulse 3s ease-in-out infinite' } : {}}>
+                <Button size="lg" className="text-lg px-12 py-7 font-bold shadow-2xl bg-[#4285F4] hover:bg-[#5a9bf4] shadow-blue-500/25 rounded-2xl">
                   {ctaLabel}
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
