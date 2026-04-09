@@ -175,6 +175,7 @@ async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: st
   const prompt = `${perspective.prompt}\n\nQuestion: ${question}\n\nGive a focused analysis in 2-4 paragraphs. Be specific, not generic. No preamble — go straight into your analysis.`;
 
   let response: string | null = null;
+  let actualModel = perspective.modelLabel;
 
   response = await callOpenRouter(perspective.model, prompt, 1500, 0.3);
 
@@ -185,16 +186,18 @@ async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: st
   if (!response) {
     console.log(`[Multi-Agent] ${perspective.name} → ${perspective.modelLabel} failed, falling back to Claude`);
     response = await callClaude(prompt, 1500, 0.2);
+    if (response) actualModel = 'Claude Sonnet 4 (fallback)';
   }
 
   if (!response) {
     console.log(`[Multi-Agent] ${perspective.name} → Claude failed, falling back to Gemini`);
     response = await callGemini(prompt, 1500, 0.3);
+    if (response) actualModel = 'Gemini (fallback)';
   }
 
   if (!response) return null;
 
-  return { id: perspective.id, name: perspective.name, model: perspective.modelLabel, response };
+  return { id: perspective.id, name: perspective.name, model: actualModel, response };
 }
 
 export async function runMultiAgentResearch(question: string, languageInstruction: string = '', behaviorInstruction: string = ''): Promise<string> {

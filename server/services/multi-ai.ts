@@ -309,8 +309,13 @@ export function getAvailableModels(subscriptionTier: string): Record<string, any
     if (hasGemini) Object.assign(models, AI_MODELS.pro);
   }
 
-  if (subscriptionTier === 'research' || subscriptionTier === 'enterprise') {
+  if (subscriptionTier === 'research') {
     Object.assign(models, AI_MODELS.research);
+  }
+
+  if (subscriptionTier === 'enterprise') {
+    Object.assign(models, AI_MODELS.research);
+    Object.assign(models, AI_MODELS.enterprise);
   }
 
   return models;

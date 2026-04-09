@@ -37,7 +37,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Migration**: Drizzle Kit
 
 ### Key Features
-- **Multi-Model AI System**: Tiered access (Free, Pro, Research, Enterprise) with intelligent routing based on query complexity. Simple queries default to Gemini Flash Lite. Complex Research/Enterprise queries use a 10-agent multi-perspective system — 10 specialized AI agents (technical, business, security, UX, data, innovation, risk, implementation, academic, contrarian) analyze the question in parallel, then a synthesizer combines all perspectives into one comprehensive answer. Supports Azure AI Foundry, Claude (Anthropic), and Gemini as backends.
+- **Multi-Model AI System**: Tiered access (Free, Pro, Research, Enterprise) with intelligent routing based on query complexity. Simple queries default to Gemini Flash Lite. Complex Research/Enterprise queries use a 10-agent multi-perspective system — 10 specialized AI agents each powered by a different AI model via OpenRouter (GPT-4o, Claude Sonnet 4, Mistral Large, Gemini 2.5 Flash, Command R+, Llama 3.1 70B, Qwen 2.5 72B, DeepSeek V3, Perplexity Sonar Pro, Nemotron 70B). All 10 analyze in parallel, then Claude synthesizes into one comprehensive answer. Fallback: Claude → Gemini if OpenRouter unavailable.
 - **Voice Command**: Speech recognition, "Turbo" assistant name, optional wake word, auto-send, text-to-speech.
 - **Comprehensive Knowledge**: Expert-level knowledge across various domains, including real-time weather and time zones.
 - **Subscription Management**: PayPal Subscriptions API for plan management, including a 7-day free trial.
