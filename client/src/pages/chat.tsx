@@ -40,7 +40,7 @@ export default function Chat() {
   const [enterpriseCode, setEnterpriseCode] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [showUpgradeBanner, setShowUpgradeBanner] = useState(true);
-  const [showAntigravityBanner, setShowAntigravityBanner] = useState(() => localStorage.getItem('ag_banner_dismissed') !== '1');
+  const [showCodeStudioBanner, setShowCodeStudioBanner] = useState(() => localStorage.getItem('ag_banner_dismissed') !== '1');
   const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [messageCountSinceLastPromo, setMessageCountSinceLastPromo] = useState(0);
   const [lastPromoDismissedAt, setLastPromoDismissedAt] = useState(0);
@@ -650,25 +650,24 @@ export default function Chat() {
       </header>
 
       {/* Code Studio Banner */}
-      {showAntigravityBanner && (
-        <div className={`shrink-0 relative z-30 overflow-hidden border-b ${isDark ? 'border-white/[0.06]' : 'border-purple-100'}`} style={{ background: isDark ? "linear-gradient(90deg, #0d0d2e 0%, #0a0a1e 50%, #0d0a2e 100%)" : "linear-gradient(90deg, #f5f3ff 0%, #eff6ff 50%, #f5f3ff 100%)" }}>
-          <div className="absolute inset-0 opacity-20" style={{ background: "linear-gradient(90deg, rgba(139,92,246,0.3) 0%, rgba(34,211,238,0.2) 50%, rgba(139,92,246,0.2) 100%)" }} />
+      {showCodeStudioBanner && (
+        <div className={`shrink-0 relative z-30 overflow-hidden border-b ${isDark ? 'border-white/[0.06]' : 'border-blue-100'}`} style={{ background: isDark ? "linear-gradient(90deg, #0a1628 0%, #0a1220 50%, #0a1628 100%)" : "linear-gradient(90deg, #eff6ff 0%, #f0f9ff 50%, #eff6ff 100%)" }}>
           <div className="relative flex items-center gap-3 px-4 py-2.5">
             <div className="flex-1 flex items-center gap-2 min-w-0">
-              <span className="text-xs font-bold shrink-0" style={{ background: "linear-gradient(90deg, #8b5cf6, #22d3ee)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>NEW</span>
-              <span className={`text-xs sm:text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-purple-900'}`}>
+              <span className="text-xs font-bold shrink-0 text-[#8ab4f8]">NEW</span>
+              <span className={`text-xs sm:text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-blue-900'}`}>
                 Code Studio — build full apps from a single prompt
               </span>
-              <span className={`hidden md:inline text-xs truncate ${isDark ? 'text-gray-400' : 'text-purple-500'}`}>Powered by 10 AI Models</span>
+              <span className={`hidden md:inline text-xs truncate ${isDark ? 'text-gray-400' : 'text-blue-500'}`}>Powered by Claude Opus 4</span>
             </div>
             {!isNativeMobile && (
             <Link href="/code-studio">
-              <button className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all" style={{ background: "linear-gradient(135deg, #8b5cf6, #22d3ee)", color: "white" }}>
+              <button className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all bg-[#4285F4] hover:bg-[#5a9bf4] text-white">
                 Try Code Studio
               </button>
             </Link>
             )}
-            <button onClick={() => { setShowAntigravityBanner(false); localStorage.setItem('ag_banner_dismissed', '1'); }}
+            <button onClick={() => { setShowCodeStudioBanner(false); localStorage.setItem('ag_banner_dismissed', '1'); }}
               className="shrink-0 text-gray-500 hover:text-gray-300 ml-1">
               <X className="h-4 w-4" />
             </button>

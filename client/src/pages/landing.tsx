@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Rocket, Star, ChevronRight, FlaskConical, Microscope, Cpu, Layers, BarChart3, Film } from "lucide-react";
+import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, Code2, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Rocket, Star, ChevronRight, FlaskConical, Microscope, Cpu, Layers, BarChart3, Film } from "lucide-react";
 import { Link } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import { useTheme } from "@/hooks/use-theme";
@@ -267,20 +267,6 @@ export default function LandingPage() {
             <TurboLogo size={100} animated={false} />
           </div>
 
-          {/* Code Studio launch announcement */}
-          <div className="flex justify-center mb-6">
-            <div className={`relative inline-flex items-center gap-3 px-5 py-2.5 rounded-2xl text-sm font-semibold overflow-hidden shadow-xl ${isDark ? 'bg-black/60 border border-white/10' : 'bg-white border border-gray-200 shadow-lg'}`}>
-              {/* Purple/cyan top bar */}
-              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "#8ab4f8" }} />
-              <span style={{ color: "#8ab4f8", fontSize: "18px" }}>⚡</span>
-              <span className={isDark ? 'text-white' : 'text-gray-900'} style={{ color: "#8ab4f8" }}>
-                Code Studio
-              </span>
-              <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Antigravity · Multi-Model AI · Research</span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>NEW</span>
-            </div>
-          </div>
-
           <div className="flex justify-center mb-8">
             <div className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm ${isDark ? 'bg-blue-500/10 border border-blue-500/30 text-blue-300' : 'bg-blue-50 border border-blue-200 text-blue-600'}`}>
               <Rocket className="h-4 w-4" />
@@ -338,93 +324,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ════ ANTIGRAVITY SHOWCASE SECTION ════ */}
-      <section className="relative py-24 sm:py-36 px-4 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] opacity-20" style={{background:'#4285F4'}} />
-          <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px] opacity-15" style={{background:'#8ab4f8'}} />
-          <div className="absolute inset-0 bg-black/60" />
-        </div>
-
-        <style>{`
-          @keyframes antigravity-float { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-18px)} }
-          @keyframes color-pulse-blue { 0%,100%{box-shadow:0 0 30px #4285F466,0 0 60px #4285F433} 50%{box-shadow:0 0 60px #4285F499,0 0 100px #4285F466} }
-        `}</style>
-
-        <div className="relative z-10 max-w-5xl mx-auto text-center">
-
-          {/* NEW badge */}
-          <div className="flex justify-center mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-black text-white animate-pulse"
-              style={{background:'linear-gradient(135deg,#4285F4,#EA4335,#FBBC05,#34A853)', backgroundSize:'200%'}}>
-              ✦ JUST LAUNCHED · RESEARCH EXCLUSIVE
-            </div>
-          </div>
-
-          {/* Floating Google G logo */}
-          <div className="flex justify-center mb-8">
-            <div className="w-28 h-28 rounded-3xl flex items-center justify-center shadow-2xl" style={{
-              background: 'rgba(255,255,255,0.07)',
-              backdropFilter: 'blur(20px)',
-              border: '2px solid rgba(255,255,255,0.15)',
-              animation: 'antigravity-float 4s ease-in-out infinite, color-pulse-blue 3s ease-in-out infinite',
-            }}>
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-            </div>
-          </div>
-
-          <h2 className="text-5xl sm:text-6xl lg:text-8xl font-black leading-none tracking-tighter mb-6 select-none text-[#8ab4f8]"
-            style={{ letterSpacing: '-0.02em' }}>
-            ANTIGRAVITY
-          </h2>
-
-          <p className="text-xl sm:text-2xl text-white/70 font-medium mb-4 max-w-2xl mx-auto">
-            Describe any app. Watch it appear.
-          </p>
-          <p className="text-base text-white/50 mb-12 max-w-xl mx-auto">
-            AI-powered IDE with 10 models — build full apps from a single prompt, inside TurboAnswer Research.
-          </p>
-
-          {/* Feature cards — bright colored, floating */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-12 max-w-3xl mx-auto">
-            {[
-              {icon:'🚀', label:'One-Prompt Build', sub:'Describe → Done', color:'#4285F4'},
-              {icon:'⚡', label:'Live Preview', sub:'Instant feedback', color:'#EA4335'},
-              {icon:'🌐', label:'Deploy Instantly', sub:'Public URL in 1 click', color:'#FBBC05'},
-              {icon:'🧠', label:'10 AI Models', sub:'Maximum intelligence', color:'#34A853'},
-            ].map((f,i) => (
-              <div key={i} className="rounded-2xl p-4 text-center" style={{
-                background: `${f.color}18`,
-                border: `1px solid ${f.color}55`,
-                boxShadow: `0 0 30px ${f.color}33`,
-                animation: `antigravity-float ${3+i*0.4}s ease-in-out infinite`,
-                animationDelay: `${i*0.3}s`,
-              }}>
-                <div className="text-3xl mb-2">{f.icon}</div>
-                <div className="text-white font-bold text-sm">{f.label}</div>
-                <div className="text-white/50 text-xs mt-1">{f.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Giant CTA */}
-          <Link href={isAuthenticated ? "/code-studio" : "/login"}>
-            <button className="group relative inline-flex items-center gap-3 px-10 py-5 rounded-2xl font-black text-xl text-white shadow-2xl overflow-hidden transition-transform duration-200 hover:scale-105 bg-[#4285F4] hover:bg-[#5a9bf4]" style={{
-              boxShadow: '0 0 40px rgba(66,133,244,0.4)',
-            }}>
-              <span>Try Code Studio Free</span>
-              <ArrowRight className="h-6 w-6 transition-transform group-hover:translate-x-1" />
-            </button>
-          </Link>
-          <p className="text-white/40 text-sm mt-4">Included with Research plan · $30/month · 7-day free trial</p>
-
-        </div>
-      </section>
 
       <div className="relative z-10 w-full bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 py-4 px-4 text-center shadow-lg">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6">
@@ -693,22 +592,13 @@ export default function LandingPage() {
                 </div>
 
                 <ul className="space-y-3 mb-7">
-                  {/* Antigravity highlight */}
-                  <li className={`flex items-start gap-2.5 rounded-xl p-2.5 -mx-1 relative overflow-hidden ${isDark ? 'bg-black/50 border border-white/10' : 'bg-white border border-gray-200 shadow-sm'}`}>
-                    <div className="absolute top-0 left-0 right-0 h-0.5 flex">
-                      {["#4285F4","#EA4335","#FBBC05","#34A853"].map((c,k) => <div key={k} className="flex-1" style={{background:c}} />)}
-                    </div>
-                    <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                      </svg>
+                  <li className={`flex items-start gap-2.5 rounded-xl p-2.5 -mx-1 ${isDark ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-200'}`}>
+                    <div className="w-5 h-5 rounded-full bg-[#4285F4] flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Code2 className="h-3 w-3 text-white" />
                     </div>
                     <div>
-                      <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}><span style={{color:'#4285F4'}}>A</span><span style={{color:'#EA4335'}}>n</span><span style={{color:'#FBBC05'}}>t</span><span style={{color:'#34A853'}}>i</span>gravity</span>
-                      <div className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Build full apps with one prompt</div>
+                      <span className={`text-sm font-bold ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>Code Studio</span>
+                      <div className={`text-xs mt-0.5 ${isDark ? 'text-blue-400/70' : 'text-blue-500'}`}>Build full apps with one prompt · Claude Opus 4</div>
                     </div>
                   </li>
                   {/* Video Studio highlight */}

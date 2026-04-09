@@ -3849,7 +3849,7 @@ IMPORTANT:
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-opus-4-20250514',
               max_tokens: maxTokens,
               system: systemPrompt,
               messages: [
@@ -4291,7 +4291,7 @@ User: ${message}`;
             const r = await fetch(`${anthropicBase}/v1/messages`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-              body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4096, messages: [{ role: 'user', content: chatPrompt }] }),
+              body: JSON.stringify({ model: 'claude-opus-4-20250514', max_tokens: 4096, messages: [{ role: 'user', content: chatPrompt }] }),
               signal: AbortSignal.timeout(30000),
             });
             if (r.ok) { const d: any = await r.json(); reply = d.content?.[0]?.text || null; }

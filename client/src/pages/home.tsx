@@ -180,8 +180,8 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-start md:items-center gap-8">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-xs px-3 py-1.5 rounded-full font-bold" style={{ background: "rgba(139,92,246,0.15)", color: "#a78bfa", border: "1px solid rgba(139,92,246,0.35)" }}>
-                    ⚡ ANTIGRAVITY ENGINE
+                  <span className="text-xs px-3 py-1.5 rounded-full font-bold" style={{ background: "rgba(66,133,244,0.15)", color: "#8ab4f8", border: "1px solid rgba(66,133,244,0.35)" }}>
+                    💻 CODE STUDIO
                   </span>
                   {isEnterprise && (
                     <span className="text-xs px-3 py-1.5 rounded-full font-bold" style={{ background: "rgba(251,188,5,0.12)", color: "#FBBC05", border: "1px solid rgba(251,188,5,0.3)" }}>

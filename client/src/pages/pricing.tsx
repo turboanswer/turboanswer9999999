@@ -55,9 +55,8 @@ const plans: PricingPlan[] = [
     period: 'per month',
     description: '10 AI Models · Multi-Agent Research · AI Video Studio',
     features: [
-      '⚡ Antigravity — AI builds full apps from a prompt',
+      '💻 Code Studio — AI builds full apps from a prompt',
       '🎬 AI Video Studio (Google Veo 3.1)',
-      '💻 Code Studio — build apps with one prompt',
       'Always-on maximum depth on every question',
       'All Pro features included',
       'Priority support'
@@ -71,7 +70,7 @@ const plans: PricingPlan[] = [
     period: 'per month',
     description: '10 AI Models · Multi-Agent Research for up to 5 team members — save 44%',
     features: [
-      '⚡ Antigravity — AI builds full apps from a prompt',
+      '💻 Code Studio — AI builds full apps from a prompt',
       '🎬 AI Video Studio (Google Veo 3.1)',
       'All Research features included',
       'Shareable 6-digit team code',
