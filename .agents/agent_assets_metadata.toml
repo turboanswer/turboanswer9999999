@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "xQO9WI8CP45Xz4LOhZIMh"
+uri = "file://turboanswer.tar.gz"
+type = "unspecified"
+title = "TurboAnswer (no node_modules) — 3.3MB"
