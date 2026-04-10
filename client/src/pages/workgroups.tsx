@@ -66,6 +66,8 @@ export default function WorkgroupsPage() {
   const [createDesc, setCreateDesc] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [joinToken, setJoinToken] = useState("");
+  const [codeDigits, setCodeDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const codeRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [msgInput, setMsgInput] = useState("");
   const [dmUserId, setDmUserId] = useState<string | null>(null);
   const [dmUserName, setDmUserName] = useState("");
@@ -80,17 +82,16 @@ export default function WorkgroupsPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const inv = params.get('invite');
-    if (inv) {
-      setJoinToken(inv);
+    const code = inv || localStorage.getItem('turbo_pending_invite') || '';
+    if (code) {
+      setJoinToken(code);
       setActiveWgId(null);
-      window.history.replaceState({}, '', '/workgroups');
-    } else {
-      const stored = localStorage.getItem('turbo_pending_invite');
-      if (stored) {
-        setJoinToken(stored);
-        setActiveWgId(null);
-        localStorage.removeItem('turbo_pending_invite');
+      if (code.length === 6 && /^\d{6}$/.test(code)) {
+        const digits = code.split('');
+        setCodeDigits(digits);
       }
+      localStorage.removeItem('turbo_pending_invite');
+      window.history.replaceState({}, '', '/workgroups');
     }
   }, []);
 
@@ -155,10 +156,14 @@ export default function WorkgroupsPage() {
   });
 
   const joinMutation = useMutation({
-    mutationFn: async () => apiRequest('POST', '/api/workgroups/join', { token: joinToken }),
+    mutationFn: async () => {
+      const code = codeDigits.join('') || joinToken;
+      return apiRequest('POST', '/api/workgroups/join', { token: code });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/workgroups'] });
       setJoinToken("");
+      setCodeDigits(["", "", "", "", "", ""]);
       toast({ title: "Joined workgroup!" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -250,47 +255,103 @@ export default function WorkgroupsPage() {
 
   const groupMessages = chatMessages.filter((m: any) => m.messageType === 'group');
 
+  const handleCodeInput = (index: number, value: string) => {
+    if (value.length > 1) value = value.slice(-1);
+    if (value && !/^\d$/.test(value)) return;
+    const newDigits = [...codeDigits];
+    newDigits[index] = value;
+    setCodeDigits(newDigits);
+    setJoinToken(newDigits.join(''));
+    if (value && index < 5) {
+      codeRefs.current[index + 1]?.focus();
+    }
+    if (newDigits.every(d => d !== '') && newDigits.join('').length === 6) {
+      setTimeout(() => joinMutation.mutate(), 100);
+    }
+  };
+
+  const handleCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !codeDigits[index] && index > 0) {
+      codeRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleCodePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) {
+      const digits = pasted.split('');
+      setCodeDigits(digits);
+      setJoinToken(pasted);
+      codeRefs.current[5]?.focus();
+      setTimeout(() => joinMutation.mutate(), 100);
+    }
+  };
+
+  const codeComplete = codeDigits.every(d => d !== '') && codeDigits.join('').length === 6;
+
   if (!activeWgId) {
     return (
-      <div className={`min-h-screen ${bg} ${textPrimary}`}>
-        <div className="max-w-2xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-6">
+      <div className="min-h-screen bg-black text-white">
+        <div className="max-w-lg mx-auto px-4 py-6">
+          <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <button onClick={() => setLocation('/chat')} className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
+              <button onClick={() => setLocation('/chat')} className="p-2 rounded-full hover:bg-white/10 transition-colors">
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h1 className="text-xl font-semibold">Workgroups</h1>
+              <h1 className="text-xl font-semibold tracking-tight">Workgroups</h1>
             </div>
-            <Button onClick={() => setShowCreate(true)} size="sm" className="bg-[#4285F4] hover:bg-[#5a9bf4] text-white rounded-full px-4 h-9">
-              <Plus className="h-4 w-4 mr-1.5" /> New group
-            </Button>
+            <button onClick={() => setShowCreate(true)}
+              className="flex items-center gap-1.5 bg-white text-black text-sm font-semibold rounded-full px-4 h-9 hover:bg-white/90 transition-colors">
+              <Plus className="h-4 w-4" /> New
+            </button>
           </div>
 
-          <div className={`rounded-2xl border p-4 mb-5 ${card}`}>
-            <p className={`text-xs font-medium mb-2 ${textSecondary}`}>Join with invite code</p>
-            <div className="flex gap-2">
-              <input value={joinToken} onChange={e => setJoinToken(e.target.value)} placeholder="Paste invite code..."
-                className={`flex-1 px-3.5 py-2 rounded-full border text-sm outline-none focus:border-[#4285F4] transition-colors ${inputBg}`} />
-              <Button onClick={() => joinMutation.mutate()} disabled={!joinToken.trim() || joinMutation.isPending}
-                className="bg-[#4285F4] hover:bg-[#5a9bf4] rounded-full h-9 px-5">
-                {joinMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Join"}
-              </Button>
+          <div className="rounded-2xl bg-[#111111] border border-[#222222] p-6 mb-6">
+            <div className="text-center mb-5">
+              <p className="text-sm font-semibold text-white mb-1">Enter Invite Code</p>
+              <p className="text-xs text-[#666666]">Type or paste the 6-digit code from your invitation email</p>
             </div>
+            <div className="flex justify-center gap-2.5 mb-5" onPaste={handleCodePaste}>
+              {codeDigits.map((digit, i) => (
+                <div key={i} className="relative">
+                  {i === 3 && <div className="absolute -left-[9px] top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[#333333]" />}
+                  <input
+                    ref={el => { codeRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={e => handleCodeInput(i, e.target.value)}
+                    onKeyDown={e => handleCodeKeyDown(i, e)}
+                    className="w-12 h-14 bg-black border border-[#333333] rounded-xl text-center text-2xl font-bold text-white outline-none focus:border-[#8ab4f8] focus:ring-1 focus:ring-[#8ab4f8]/30 transition-all caret-[#8ab4f8]"
+                  />
+                </div>
+              ))}
+            </div>
+            <button onClick={() => joinMutation.mutate()} disabled={!codeComplete || joinMutation.isPending}
+              className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
+                codeComplete
+                  ? 'bg-white text-black hover:bg-white/90'
+                  : 'bg-[#1a1a1a] text-[#444444] cursor-not-allowed'
+              }`}>
+              {joinMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Join Workgroup"}
+            </button>
           </div>
 
           {showCreate && (
-            <div className={`rounded-2xl border p-5 mb-5 ${card}`}>
-              <h3 className="font-semibold text-sm mb-4">Create new workgroup</h3>
+            <div className="rounded-2xl bg-[#111111] border border-[#222222] p-6 mb-6">
+              <h3 className="font-semibold text-sm mb-4 text-white">Create Workgroup</h3>
               <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Group name"
-                className={`w-full px-3.5 py-2.5 rounded-xl border text-sm mb-3 outline-none focus:border-[#4285F4] transition-colors ${inputBg}`} />
+                className="w-full px-4 py-3 rounded-xl bg-black border border-[#333333] text-sm text-white placeholder-[#555555] outline-none focus:border-[#8ab4f8] transition-colors mb-3" />
               <textarea value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Description (optional)" rows={2}
-                className={`w-full px-3.5 py-2.5 rounded-xl border text-sm mb-4 outline-none focus:border-[#4285F4] transition-colors resize-none ${inputBg}`} />
+                className="w-full px-4 py-3 rounded-xl bg-black border border-[#333333] text-sm text-white placeholder-[#555555] outline-none focus:border-[#8ab4f8] transition-colors resize-none mb-4" />
               <div className="flex gap-2 justify-end">
-                <Button variant="ghost" onClick={() => setShowCreate(false)} className="rounded-full">Cancel</Button>
-                <Button onClick={() => createMutation.mutate()} disabled={!createName.trim() || createMutation.isPending}
-                  className="bg-[#4285F4] hover:bg-[#5a9bf4] rounded-full px-5">
+                <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-xl text-sm text-[#888888] hover:bg-white/5 transition-colors">Cancel</button>
+                <button onClick={() => createMutation.mutate()} disabled={!createName.trim() || createMutation.isPending}
+                  className="bg-white text-black px-5 py-2 rounded-xl text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-30">
                   {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
-                </Button>
+                </button>
               </div>
             </div>
           )}
@@ -298,30 +359,30 @@ export default function WorkgroupsPage() {
           {isLoading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-[#8ab4f8]" /></div>
           ) : workgroups.length === 0 ? (
-            <div className={`text-center py-20 ${textSecondary}`}>
-              <div className={`w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
-                <Users className="h-9 w-9 opacity-40" />
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#111111] border border-[#222222]">
+                <Users className="h-7 w-7 text-[#444444]" />
               </div>
-              <p className="text-base font-medium mb-1">No workgroups yet</p>
-              <p className="text-sm">Create a group or join one with an invite code</p>
+              <p className="text-sm font-medium text-[#888888] mb-1">No workgroups yet</p>
+              <p className="text-xs text-[#555555]">Create a group or join one with an invite code</p>
             </div>
           ) : (
             <div className="space-y-1">
               {workgroups.map((wg: any) => (
                 <button key={wg.id} onClick={() => { setActiveWgId(wg.id); setActiveTab('chat'); }}
-                  className={`w-full text-left rounded-2xl px-4 py-3.5 transition-all flex items-center gap-3.5 ${isDark ? 'hover:bg-white/5 active:bg-white/10' : 'hover:bg-gray-100 active:bg-gray-200'}`}>
+                  className="w-full text-left rounded-2xl px-4 py-3.5 transition-all flex items-center gap-3.5 hover:bg-[#111111] active:bg-[#181818]">
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg shrink-0 ${getAvatarColor(wg.name)}`}>
                     {wg.name[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-[15px] truncate">{wg.name}</h3>
+                      <h3 className="font-semibold text-[15px] truncate text-white">{wg.name}</h3>
                       {wg.myRole === 'owner' && <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
                       {wg.myRole === 'admin' && <Shield className="h-3.5 w-3.5 text-blue-400 shrink-0" />}
                     </div>
-                    {wg.description && <p className={`text-sm truncate mt-0.5 ${textSecondary}`}>{wg.description}</p>}
+                    {wg.description && <p className="text-sm truncate mt-0.5 text-[#666666]">{wg.description}</p>}
                   </div>
-                  <ChevronRight className={`h-4 w-4 shrink-0 ${textSecondary}`} />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[#444444]" />
                 </button>
               ))}
             </div>

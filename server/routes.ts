@@ -4820,8 +4820,7 @@ Return ONLY valid JSON (no markdown):
       const alreadyMember = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userEmail, email.trim().toLowerCase()))).limit(1);
       if (alreadyMember.length > 0) return res.status(400).json({ error: 'User is already a member' });
 
-      const crypto = await import('crypto');
-      const token = crypto.randomBytes(24).toString('hex');
+      const token = String(Math.floor(100000 + Math.random() * 900000));
       const [wg] = await db.select().from(workgroups).where(eq(workgroups.id, wgId));
 
       const [invite] = await db.insert(workgroupInvites).values({
@@ -4834,7 +4833,8 @@ Return ONLY valid JSON (no markdown):
 
       const inviterName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
       const appUrl = 'https://turbo-answer.replit.app';
-      const inviteLink = `${appUrl}/workgroups?invite=${token}`;
+      const loginLink = `${appUrl}/login?redirect=${encodeURIComponent('/workgroups?invite=' + token)}`;
+      const d1 = token[0], d2 = token[1], d3 = token[2], d4 = token[3], d5 = token[4], d6 = token[5];
 
       const brevoApiKey = process.env.BREVO_API_KEY;
       if (brevoApiKey) {
@@ -4843,40 +4843,56 @@ Return ONLY valid JSON (no markdown):
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#000000;">
-<tr><td align="center" style="padding:40px 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#1e1f20;border-radius:16px;overflow:hidden;">
-<tr><td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #3c4043;">
-<h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;">TurboAnswer</h1>
-<p style="margin:0;font-size:13px;color:#9aa0a6;">Enterprise Workgroups</p>
+<tr><td align="center" style="padding:48px 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+<tr><td style="text-align:center;padding-bottom:32px;">
+<h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">TurboAnswer</h1>
 </td></tr>
-<tr><td style="padding:32px;">
-<p style="margin:0 0 20px;font-size:16px;color:#e8eaed;line-height:1.5;">Hi there,</p>
-<p style="margin:0 0 20px;font-size:16px;color:#e8eaed;line-height:1.5;"><strong style="color:#8ab4f8;">${inviterName}</strong> has invited you to join the workgroup <strong style="color:#ffffff;">"${wg?.name || 'Team'}"</strong> on TurboAnswer.</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
-<tr><td align="center">
-<a href="${inviteLink}" target="_blank" style="display:inline-block;background-color:#4285F4;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:28px;">Accept Invitation</a>
-</td></tr>
+<tr><td style="background-color:#111111;border-radius:20px;border:1px solid #222222;padding:40px 36px;">
+<p style="margin:0 0 8px;font-size:14px;color:#666666;text-transform:uppercase;letter-spacing:2px;font-weight:600;">You're Invited</p>
+<p style="margin:0 0 28px;font-size:20px;color:#ffffff;font-weight:600;line-height:1.4;"><span style="color:#8ab4f8;">${inviterName}</span> wants you to join <span style="color:#ffffff;">"${wg?.name || 'Team'}"</span></p>
+<p style="margin:0 0 16px;font-size:13px;color:#888888;text-align:center;">Your 6-digit invite code</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+<tr>
+<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d1}</td>
+<td style="width:10px;"></td>
+<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d2}</td>
+<td style="width:10px;"></td>
+<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d3}</td>
+<td style="width:14px;"></td>
+<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d4}</td>
+<td style="width:10px;"></td>
+<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d5}</td>
+<td style="width:10px;"></td>
+<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d6}</td>
+</tr>
 </table>
-<p style="margin:24px 0 12px;font-size:13px;color:#9aa0a6;text-align:center;">Or paste this invite code in the Workgroups page:</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 <tr><td align="center">
-<div style="display:inline-block;background-color:#000000;border:1px solid #3c4043;border-radius:12px;padding:14px 28px;">
-<code style="font-size:15px;color:#8ab4f8;letter-spacing:1px;font-family:'Courier New',monospace;">${token}</code>
-</div>
+<a href="${loginLink}" target="_blank" style="display:inline-block;width:100%;max-width:320px;background-color:#ffffff;color:#000000;font-size:15px;font-weight:600;text-decoration:none;padding:14px 0;border-radius:12px;text-align:center;">Sign in &amp; Enter Code</a>
 </td></tr>
 </table>
-<div style="margin:28px 0 0;padding:20px;background-color:#000000;border-radius:12px;border:1px solid #3c4043;">
-<p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#e8eaed;">What you can do in Workgroups:</p>
-<p style="margin:0 0 6px;font-size:13px;color:#c4c7c5;">&#10003; Team messaging &amp; private DMs</p>
-<p style="margin:0 0 6px;font-size:13px;color:#c4c7c5;">&#10003; AI-powered conversation summaries</p>
-<p style="margin:0 0 6px;font-size:13px;color:#c4c7c5;">&#10003; Share AI research with your team</p>
-<p style="margin:0;font-size:13px;color:#c4c7c5;">&#10003; Admin controls &amp; approval workflows</p>
-</div>
-<p style="margin:20px 0 0;font-size:12px;color:#9aa0a6;text-align:center;">This invitation expires in 7 days.</p>
+<div style="margin:28px 0 0;padding:20px 0 0;border-top:1px solid #222222;">
+<p style="margin:0 0 12px;font-size:12px;color:#666666;font-weight:600;text-transform:uppercase;letter-spacing:1px;">How to join</p>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
+<span style="color:#8ab4f8;font-weight:600;">1.</span>&nbsp;&nbsp;Click "Sign in &amp; Enter Code" above
 </td></tr>
-<tr><td style="padding:20px 32px;border-top:1px solid #3c4043;text-align:center;">
-<p style="margin:0 0 4px;font-size:12px;color:#9aa0a6;">TurboAnswer Inc.</p>
-<p style="margin:0;font-size:11px;color:#6b7280;">support@turboanswer.it.com &middot; (866) 467-7269</p>
+<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
+<span style="color:#8ab4f8;font-weight:600;">2.</span>&nbsp;&nbsp;Log in or create a free account
+</td></tr>
+<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
+<span style="color:#8ab4f8;font-weight:600;">3.</span>&nbsp;&nbsp;Enter the 6-digit code above
+</td></tr>
+<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
+<span style="color:#8ab4f8;font-weight:600;">4.</span>&nbsp;&nbsp;You're in! Start collaborating
+</td></tr>
+</table>
+</div>
+<p style="margin:24px 0 0;font-size:11px;color:#444444;text-align:center;">Code expires in 7 days</p>
+</td></tr>
+<tr><td style="padding:24px 0 0;text-align:center;">
+<p style="margin:0;font-size:11px;color:#444444;">TurboAnswer Inc. &middot; support@turboanswer.it.com</p>
 </td></tr>
 </table>
 </td></tr>
@@ -4884,7 +4900,7 @@ Return ONLY valid JSON (no markdown):
 </body>
 </html>`;
 
-        const inviteText = `Hi there,\n\n${inviterName} has invited you to join the workgroup "${wg?.name}" on TurboAnswer.\n\nAccept your invitation: ${inviteLink}\n\nOr paste this invite code in the Workgroups page: ${token}\n\nThis invitation expires in 7 days.\n\n--\nTurboAnswer Inc.\nsupport@turboanswer.it.com`;
+        const inviteText = `You're Invited!\n\n${inviterName} wants you to join "${wg?.name}" on TurboAnswer.\n\nYour 6-digit invite code: ${token}\n\nHow to join:\n1. Go to ${loginLink}\n2. Log in or create a free account\n3. Enter the 6-digit code\n4. You're in!\n\nCode expires in 7 days.\n\n--\nTurboAnswer Inc.\nsupport@turboanswer.it.com`;
 
         try {
           const emailRes = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -4918,7 +4934,7 @@ Return ONLY valid JSON (no markdown):
           email.trim().toLowerCase(),
           email.trim(),
           `${inviterName} invited you to "${wg?.name}" on TurboAnswer`,
-          `Hi there!\n\n${inviterName} has invited you to join their workgroup "${wg?.name}" on TurboAnswer.\n\nTo accept, go to: ${inviteLink}\n\nOr enter this invite code on the Workgroups page: ${token}\n\nThis invitation expires in 7 days.`
+          `You're Invited!\n\n${inviterName} wants you to join "${wg?.name}" on TurboAnswer.\n\nYour 6-digit invite code: ${token}\n\nHow to join:\n1. Go to ${loginLink}\n2. Log in or create a free account\n3. Enter the 6-digit code\n4. You're in!\n\nCode expires in 7 days.`
         );
       }
 
