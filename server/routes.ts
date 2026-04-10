@@ -4803,143 +4803,30 @@ Return ONLY valid JSON (no markdown):
     } catch (e: any) { res.status(500).json({ error: 'Failed to list members' }); }
   });
 
-  app.post('/api/workgroups/:id/invite', isAuthenticated, async (req: any, res) => {
+  app.post('/api/workgroups/:id/generate-code', isAuthenticated, async (req: any, res) => {
     try {
       const user = await getFullUser(req);
       if (!user) return res.status(401).json({ error: 'User not found' });
       const wgId = parseInt(req.params.id);
       if (!(await isOwnerOrAdmin(wgId, user.id))) return res.status(403).json({ error: 'Owner or admin required' });
-      const { email } = req.body;
-      if (!email?.trim()) return res.status(400).json({ error: 'Email is required' });
 
-      const existing = await db.select().from(workgroupInvites).where(and(eq(workgroupInvites.workgroupId, wgId), eq(workgroupInvites.email, email.trim().toLowerCase()), eq(workgroupInvites.status, 'pending'))).limit(1);
+      const existing = await db.select().from(workgroupInvites).where(and(eq(workgroupInvites.workgroupId, wgId), eq(workgroupInvites.status, 'pending'))).limit(1);
       if (existing.length > 0) {
         await db.delete(workgroupInvites).where(eq(workgroupInvites.id, existing[0].id));
       }
 
-      const alreadyMember = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userEmail, email.trim().toLowerCase()))).limit(1);
-      if (alreadyMember.length > 0) return res.status(400).json({ error: 'User is already a member' });
-
       const token = String(Math.floor(100000 + Math.random() * 900000));
-      const [wg] = await db.select().from(workgroups).where(eq(workgroups.id, wgId));
 
       const [invite] = await db.insert(workgroupInvites).values({
         workgroupId: wgId,
-        email: email.trim().toLowerCase(),
+        email: user.email,
         invitedBy: user.id,
         token,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       }).returning();
 
-      const inviterName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
-      const appUrl = 'https://turbo-answer.replit.app';
-      const loginLink = `${appUrl}/login?redirect=${encodeURIComponent('/workgroups?invite=' + token)}`;
-      const d1 = token[0], d2 = token[1], d3 = token[2], d4 = token[3], d5 = token[4], d6 = token[5];
-
-      const brevoApiKey = process.env.BREVO_API_KEY;
-      if (brevoApiKey) {
-        const inviteHtml = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#000000;">
-<tr><td align="center" style="padding:48px 20px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
-<tr><td style="text-align:center;padding-bottom:32px;">
-<h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">TurboAnswer</h1>
-</td></tr>
-<tr><td style="background-color:#111111;border-radius:20px;border:1px solid #222222;padding:40px 36px;">
-<p style="margin:0 0 8px;font-size:14px;color:#666666;text-transform:uppercase;letter-spacing:2px;font-weight:600;">You're Invited</p>
-<p style="margin:0 0 28px;font-size:20px;color:#ffffff;font-weight:600;line-height:1.4;"><span style="color:#8ab4f8;">${inviterName}</span> wants you to join <span style="color:#ffffff;">"${wg?.name || 'Team'}"</span></p>
-<p style="margin:0 0 16px;font-size:13px;color:#888888;text-align:center;">Your 6-digit invite code</p>
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
-<tr>
-<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d1}</td>
-<td style="width:10px;"></td>
-<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d2}</td>
-<td style="width:10px;"></td>
-<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d3}</td>
-<td style="width:14px;"></td>
-<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d4}</td>
-<td style="width:10px;"></td>
-<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d5}</td>
-<td style="width:10px;"></td>
-<td style="width:44px;height:52px;background:#000000;border:1px solid #333333;border-radius:10px;text-align:center;font-size:24px;font-weight:700;color:#ffffff;font-family:'Courier New',monospace;padding:0;">${d6}</td>
-</tr>
-</table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<a href="${loginLink}" target="_blank" style="display:inline-block;width:100%;max-width:320px;background-color:#ffffff;color:#000000;font-size:15px;font-weight:600;text-decoration:none;padding:14px 0;border-radius:12px;text-align:center;">Sign in &amp; Enter Code</a>
-</td></tr>
-</table>
-<div style="margin:28px 0 0;padding:20px 0 0;border-top:1px solid #222222;">
-<p style="margin:0 0 12px;font-size:12px;color:#666666;font-weight:600;text-transform:uppercase;letter-spacing:1px;">How to join</p>
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
-<span style="color:#8ab4f8;font-weight:600;">1.</span>&nbsp;&nbsp;Click "Sign in &amp; Enter Code" above
-</td></tr>
-<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
-<span style="color:#8ab4f8;font-weight:600;">2.</span>&nbsp;&nbsp;Log in or create a free account
-</td></tr>
-<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
-<span style="color:#8ab4f8;font-weight:600;">3.</span>&nbsp;&nbsp;Enter the 6-digit code above
-</td></tr>
-<tr><td style="padding:6px 0;font-size:13px;color:#999999;line-height:1.5;">
-<span style="color:#8ab4f8;font-weight:600;">4.</span>&nbsp;&nbsp;You're in! Start collaborating
-</td></tr>
-</table>
-</div>
-<p style="margin:24px 0 0;font-size:11px;color:#444444;text-align:center;">Code expires in 7 days</p>
-</td></tr>
-<tr><td style="padding:24px 0 0;text-align:center;">
-<p style="margin:0;font-size:11px;color:#444444;">TurboAnswer Inc. &middot; support@turboanswer.it.com</p>
-</td></tr>
-</table>
-</td></tr>
-</table>
-</body>
-</html>`;
-
-        const inviteText = `You're Invited!\n\n${inviterName} wants you to join "${wg?.name}" on TurboAnswer.\n\nYour 6-digit invite code: ${token}\n\nHow to join:\n1. Go to ${loginLink}\n2. Log in or create a free account\n3. Enter the 6-digit code\n4. You're in!\n\nCode expires in 7 days.\n\n--\nTurboAnswer Inc.\nsupport@turboanswer.it.com`;
-
-        try {
-          const emailRes = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'accept': 'application/json',
-              'api-key': brevoApiKey,
-              'content-type': 'application/json',
-            },
-            body: JSON.stringify({
-              sender: { name: 'TurboAnswer', email: 'support@turboanswer.it.com' },
-              to: [{ email: email.trim().toLowerCase(), name: email.trim() }],
-              subject: `${inviterName} invited you to "${wg?.name}" on TurboAnswer`,
-              htmlContent: inviteHtml,
-              textContent: inviteText,
-              replyTo: { email: 'support@turboanswer.it.com', name: 'TurboAnswer Support' },
-              headers: {
-                'X-Mailer': 'TurboAnswer Notifications',
-                'List-Unsubscribe': '<mailto:support@turboanswer.it.com?subject=Unsubscribe>',
-                'Precedence': 'bulk',
-              },
-            }),
-          });
-          if (!emailRes.ok) {
-            const errData = await emailRes.json().catch(() => ({}));
-            console.error('[Workgroup] Brevo invite email error:', errData);
-          }
-        } catch (emailErr: any) { console.error('[Workgroup] Email send error:', emailErr.message); }
-      } else {
-        await sendBrevoEmail(
-          email.trim().toLowerCase(),
-          email.trim(),
-          `${inviterName} invited you to "${wg?.name}" on TurboAnswer`,
-          `You're Invited!\n\n${inviterName} wants you to join "${wg?.name}" on TurboAnswer.\n\nYour 6-digit invite code: ${token}\n\nHow to join:\n1. Go to ${loginLink}\n2. Log in or create a free account\n3. Enter the 6-digit code\n4. You're in!\n\nCode expires in 7 days.`
-        );
-      }
-
-      res.json({ success: true, invite });
-    } catch (e: any) { console.error('[Workgroup] Invite error:', e.message); res.status(500).json({ error: 'Failed to send invite' }); }
+      res.json({ success: true, code: token });
+    } catch (e: any) { console.error('[Workgroup] Generate code error:', e.message); res.status(500).json({ error: 'Failed to generate invite code' }); }
   });
 
   app.post('/api/workgroups/join', isAuthenticated, async (req: any, res) => {
@@ -4959,6 +4846,9 @@ Return ONLY valid JSON (no markdown):
 
       const alreadyMember = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, invite.workgroupId), eq(workgroupMembers.userId, user.id))).limit(1);
       if (alreadyMember.length > 0) return res.status(400).json({ error: 'You are already a member of this workgroup' });
+
+      const currentMembers = await db.select().from(workgroupMembers).where(eq(workgroupMembers.workgroupId, invite.workgroupId));
+      if (currentMembers.length >= 20) return res.status(400).json({ error: 'This workgroup has reached the maximum of 20 members' });
 
       await db.update(workgroupInvites).set({ status: 'accepted' }).where(eq(workgroupInvites.id, invite.id));
 
