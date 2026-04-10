@@ -4885,7 +4885,7 @@ Return ONLY valid JSON (no markdown):
         const inviteText = `Hi there,\n\n${inviterName} has invited you to join the workgroup "${wg?.name}" on TurboAnswer.\n\nAccept your invitation: ${inviteLink}\n\nOr paste this invite code in the Workgroups page: ${token}\n\nThis invitation expires in 7 days.\n\n--\nTurboAnswer Inc.\nsupport@turboanswer.it.com`;
 
         try {
-          await fetch('https://api.brevo.com/v3/smtp/email', {
+          const emailRes = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
               'accept': 'application/json',
@@ -4906,7 +4906,18 @@ Return ONLY valid JSON (no markdown):
               },
             }),
           });
+          if (!emailRes.ok) {
+            const errData = await emailRes.json().catch(() => ({}));
+            console.error('[Workgroup] Brevo invite email error:', errData);
+          }
         } catch (emailErr: any) { console.error('[Workgroup] Email send error:', emailErr.message); }
+      } else {
+        await sendBrevoEmail(
+          email.trim().toLowerCase(),
+          email.trim(),
+          `${inviterName} invited you to "${wg?.name}" on TurboAnswer`,
+          `Hi there!\n\n${inviterName} has invited you to join their workgroup "${wg?.name}" on TurboAnswer.\n\nTo accept, go to: ${inviteLink}\n\nOr enter this invite code on the Workgroups page: ${token}\n\nThis invitation expires in 7 days.`
+        );
       }
 
       res.json({ success: true, invite });
