@@ -10,10 +10,49 @@ import {
   Users, Plus, Settings, MessageSquare, Shield, Send, ArrowLeft,
   Crown, UserMinus, Ban, Eye, ChevronRight, Search, Bot, Lock,
   Check, X, AlertTriangle, Mail, UserPlus, LogOut, Trash2,
-  MessageCircle, FileText, Sparkles, Loader2,
+  MessageCircle, FileText, Sparkles, Loader2, Smile, Paperclip,
+  MoreVertical, Phone, Video,
 } from "lucide-react";
 
 type Tab = "chat" | "members" | "admin" | "approvals" | "dm";
+
+function formatMessageDate(date: Date): string {
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const dayMs = 86400000;
+  if (diff < dayMs && now.getDate() === date.getDate()) return 'Today';
+  if (diff < dayMs * 2 && now.getDate() - date.getDate() === 1) return 'Yesterday';
+  if (diff < dayMs * 7) return date.toLocaleDateString([], { weekday: 'long' });
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getAvatarColor(name: string): string {
+  const colors = [
+    'bg-blue-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500',
+    'bg-amber-500', 'bg-cyan-500', 'bg-pink-500', 'bg-teal-500',
+    'bg-indigo-500', 'bg-orange-500', 'bg-lime-600', 'bg-fuchsia-500',
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function shouldShowAvatar(messages: any[], index: number, currentUserId: string | undefined): boolean {
+  const msg = messages[index];
+  if (msg.senderId === currentUserId) return false;
+  if (index === messages.length - 1) return true;
+  const next = messages[index + 1];
+  return next.senderId !== msg.senderId;
+}
+
+function isNewSenderGroup(messages: any[], index: number): boolean {
+  if (index === 0) return true;
+  return messages[index].senderId !== messages[index - 1].senderId;
+}
+
+function getDateKey(dateStr: string): string {
+  return new Date(dateStr).toDateString();
+}
 
 export default function WorkgroupsPage() {
   const { user } = useAuth();
@@ -33,7 +72,10 @@ export default function WorkgroupsPage() {
   const [dmInput, setDmInput] = useState("");
   const [aiQuestion, setAiQuestion] = useState("");
   const [viewHistoryUserId, setViewHistoryUserId] = useState<string | null>(null);
+  const [showAiPanel, setShowAiPanel] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const dmEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -76,6 +118,10 @@ export default function WorkgroupsPage() {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
+  useEffect(() => {
+    if (dmEndRef.current) dmEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [dmMessages]);
+
   const createMutation = useMutation({
     mutationFn: async () => apiRequest('POST', '/api/workgroups', { name: createName, description: createDesc }),
     onSuccess: () => {
@@ -109,7 +155,7 @@ export default function WorkgroupsPage() {
 
   const sendMsgMutation = useMutation({
     mutationFn: async () => apiRequest('POST', `/api/workgroups/${activeWgId}/messages`, { content: msgInput, messageType: 'group' }),
-    onSuccess: () => { setMsgInput(""); refetchMessages(); },
+    onSuccess: () => { setMsgInput(""); refetchMessages(); inputRef.current?.focus(); },
   });
 
   const sendDmMutation = useMutation({
@@ -191,70 +237,80 @@ export default function WorkgroupsPage() {
   const textSecondary = isDark ? 'text-[#c4c7c5]' : 'text-gray-500';
   const inputBg = isDark ? 'bg-[#131314] border-[#3c4043] text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400';
 
+  const groupMessages = chatMessages.filter((m: any) => m.messageType === 'group');
+
   if (!activeWgId) {
     return (
-      <div className={`min-h-screen ${bg} ${textPrimary} p-4 sm:p-8`}>
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
+      <div className={`min-h-screen ${bg} ${textPrimary}`}>
+        <div className="max-w-2xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <button onClick={() => setLocation('/chat')} className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`}>
+              <button onClick={() => setLocation('/chat')} className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-[#8ab4f8]" /> Workgroups</h1>
+              <h1 className="text-xl font-semibold">Workgroups</h1>
             </div>
-            <Button onClick={() => setShowCreate(true)} className="bg-[#4285F4] hover:bg-[#5a9bf4] text-white">
-              <Plus className="h-4 w-4 mr-2" /> Create
+            <Button onClick={() => setShowCreate(true)} size="sm" className="bg-[#4285F4] hover:bg-[#5a9bf4] text-white rounded-full px-4 h-9">
+              <Plus className="h-4 w-4 mr-1.5" /> New group
             </Button>
           </div>
 
-          <div className={`rounded-xl border p-4 mb-6 ${card}`}>
-            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2"><Mail className="h-4 w-4" /> Join with Invite Code</h3>
+          <div className={`rounded-2xl border p-4 mb-5 ${card}`}>
+            <p className={`text-xs font-medium mb-2 ${textSecondary}`}>Join with invite code</p>
             <div className="flex gap-2">
-              <input value={joinToken} onChange={e => setJoinToken(e.target.value)} placeholder="Paste invite code..." className={`flex-1 px-3 py-2 rounded-lg border text-sm ${inputBg}`} />
-              <Button onClick={() => joinMutation.mutate()} disabled={!joinToken.trim() || joinMutation.isPending} className="bg-[#4285F4]">
+              <input value={joinToken} onChange={e => setJoinToken(e.target.value)} placeholder="Paste invite code..."
+                className={`flex-1 px-3.5 py-2 rounded-full border text-sm outline-none focus:border-[#4285F4] transition-colors ${inputBg}`} />
+              <Button onClick={() => joinMutation.mutate()} disabled={!joinToken.trim() || joinMutation.isPending}
+                className="bg-[#4285F4] hover:bg-[#5a9bf4] rounded-full h-9 px-5">
                 {joinMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Join"}
               </Button>
             </div>
           </div>
 
           {showCreate && (
-            <div className={`rounded-xl border p-6 mb-6 ${card}`}>
-              <h3 className="font-semibold mb-4">Create New Workgroup</h3>
-              <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Workgroup name" className={`w-full px-3 py-2 rounded-lg border text-sm mb-3 ${inputBg}`} />
-              <textarea value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Description (optional)" rows={2} className={`w-full px-3 py-2 rounded-lg border text-sm mb-4 ${inputBg}`} />
-              <div className="flex gap-2">
-                <Button onClick={() => createMutation.mutate()} disabled={!createName.trim() || createMutation.isPending} className="bg-[#4285F4]">
+            <div className={`rounded-2xl border p-5 mb-5 ${card}`}>
+              <h3 className="font-semibold text-sm mb-4">Create new workgroup</h3>
+              <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Group name"
+                className={`w-full px-3.5 py-2.5 rounded-xl border text-sm mb-3 outline-none focus:border-[#4285F4] transition-colors ${inputBg}`} />
+              <textarea value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Description (optional)" rows={2}
+                className={`w-full px-3.5 py-2.5 rounded-xl border text-sm mb-4 outline-none focus:border-[#4285F4] transition-colors resize-none ${inputBg}`} />
+              <div className="flex gap-2 justify-end">
+                <Button variant="ghost" onClick={() => setShowCreate(false)} className="rounded-full">Cancel</Button>
+                <Button onClick={() => createMutation.mutate()} disabled={!createName.trim() || createMutation.isPending}
+                  className="bg-[#4285F4] hover:bg-[#5a9bf4] rounded-full px-5">
                   {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
                 </Button>
-                <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
               </div>
             </div>
           )}
 
           {isLoading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-[#8ab4f8]" /></div>
+            <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-[#8ab4f8]" /></div>
           ) : workgroups.length === 0 ? (
-            <div className={`text-center py-16 ${textSecondary}`}>
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-40" />
-              <p className="text-lg font-medium mb-2">No workgroups yet</p>
-              <p className="text-sm">Create one or join using an invite code.</p>
+            <div className={`text-center py-20 ${textSecondary}`}>
+              <div className={`w-20 h-20 rounded-full mx-auto mb-5 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+                <Users className="h-9 w-9 opacity-40" />
+              </div>
+              <p className="text-base font-medium mb-1">No workgroups yet</p>
+              <p className="text-sm">Create a group or join one with an invite code</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-1">
               {workgroups.map((wg: any) => (
                 <button key={wg.id} onClick={() => { setActiveWgId(wg.id); setActiveTab('chat'); }}
-                  className={`w-full text-left rounded-xl border p-4 transition-all hover:scale-[1.01] ${card}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold flex items-center gap-2">
-                        {wg.name}
-                        {wg.myRole === 'owner' && <Crown className="h-3.5 w-3.5 text-yellow-500" />}
-                        {wg.myRole === 'admin' && <Shield className="h-3.5 w-3.5 text-blue-400" />}
-                      </h3>
-                      {wg.description && <p className={`text-sm mt-1 ${textSecondary}`}>{wg.description}</p>}
-                    </div>
-                    <ChevronRight className="h-5 w-5 opacity-40" />
+                  className={`w-full text-left rounded-2xl px-4 py-3.5 transition-all flex items-center gap-3.5 ${isDark ? 'hover:bg-white/5 active:bg-white/10' : 'hover:bg-gray-100 active:bg-gray-200'}`}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg shrink-0 ${getAvatarColor(wg.name)}`}>
+                    {wg.name[0].toUpperCase()}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-[15px] truncate">{wg.name}</h3>
+                      {wg.myRole === 'owner' && <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
+                      {wg.myRole === 'admin' && <Shield className="h-3.5 w-3.5 text-blue-400 shrink-0" />}
+                    </div>
+                    {wg.description && <p className={`text-sm truncate mt-0.5 ${textSecondary}`}>{wg.description}</p>}
+                  </div>
+                  <ChevronRight className={`h-4 w-4 shrink-0 ${textSecondary}`} />
                 </button>
               ))}
             </div>
@@ -264,7 +320,7 @@ export default function WorkgroupsPage() {
     );
   }
 
-  const isAdmin = activeWg?.myRole === 'owner' || activeWg?.myRole === 'admin';
+  const isAdminUser = activeWg?.myRole === 'owner' || activeWg?.myRole === 'admin';
   const isOwner = activeWg?.myRole === 'owner';
 
   const tabs: { id: Tab; label: string; icon: any; adminOnly?: boolean }[] = [
@@ -274,97 +330,192 @@ export default function WorkgroupsPage() {
     { id: 'approvals', label: 'Approvals', icon: Shield, adminOnly: true },
   ];
 
+  const renderChatBubbles = (msgs: any[], isGroupChat: boolean) => {
+    let lastDateKey = '';
+
+    return msgs.map((m: any, i: number) => {
+      const isMine = m.senderId === user?.id;
+      const dateKey = getDateKey(m.createdAt);
+      const showDate = dateKey !== lastDateKey;
+      if (showDate) lastDateKey = dateKey;
+      const newGroup = isNewSenderGroup(msgs, i);
+      const showAv = isGroupChat && shouldShowAvatar(msgs, i, user?.id);
+      const isLastInGroup = i === msgs.length - 1 || msgs[i + 1]?.senderId !== m.senderId;
+      const senderName = m.senderName || '?';
+
+      return (
+        <div key={m.id}>
+          {showDate && (
+            <div className="flex justify-center my-4">
+              <span className={`text-[11px] font-medium px-3 py-1 rounded-full ${isDark ? 'bg-white/5 text-[#9aa0a6]' : 'bg-gray-200/80 text-gray-500'}`}>
+                {formatMessageDate(new Date(m.createdAt))}
+              </span>
+            </div>
+          )}
+          <div className={`flex items-end gap-2 ${isMine ? 'flex-row-reverse' : ''} ${newGroup ? 'mt-3' : 'mt-0.5'}`}>
+            {isGroupChat && !isMine ? (
+              <div className="w-7 shrink-0">
+                {showAv && (
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white ${getAvatarColor(senderName)}`}>
+                    {senderName[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
+            ) : null}
+            <div className={`max-w-[78%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
+              {isGroupChat && !isMine && newGroup && (
+                <p className={`text-[11px] font-medium mb-0.5 ml-1 ${isDark ? 'text-[#8ab4f8]' : 'text-blue-600'}`}>{senderName}</p>
+              )}
+              <div className={`
+                relative px-3.5 py-2 text-[14px] leading-[20px]
+                ${isMine
+                  ? `${isDark ? 'bg-[#004a77] text-[#e8f0fe]' : 'bg-[#d3e3fd] text-[#1a1a1a]'}
+                     ${isLastInGroup ? 'rounded-[20px_20px_4px_20px]' : 'rounded-[20px_4px_4px_20px]'}`
+                  : `${isDark ? 'bg-[#303134] text-[#e8eaed]' : 'bg-white text-[#1a1a1a] border border-gray-200/80'}
+                     ${isLastInGroup ? 'rounded-[20px_20px_20px_4px]' : 'rounded-[4px_20px_20px_4px]'}`
+                }
+              `}>
+                <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                <p className={`text-[10px] mt-1 flex items-center gap-1 ${isMine ? (isDark ? 'text-blue-300/50' : 'text-blue-800/40') : (isDark ? 'text-white/30' : 'text-gray-400')}`}>
+                  {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {isMine && <Check className="h-2.5 w-2.5" />}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
   return (
-    <div className={`min-h-screen flex flex-col ${bg} ${textPrimary}`}>
-      {/* Header */}
-      <div className={`shrink-0 border-b px-4 py-3 flex items-center gap-3 ${isDark ? 'border-[#3c4043] bg-[#1e1f20]' : 'border-gray-200 bg-white'}`}>
+    <div className={`h-screen flex flex-col ${bg} ${textPrimary}`}>
+      {/* Header — Google Messages style */}
+      <div className={`shrink-0 px-2 py-2 flex items-center gap-2 ${isDark ? 'bg-[#1e1f20]' : 'bg-white shadow-sm'}`}>
         <button onClick={() => { if (activeTab === 'dm') { setActiveTab('members'); setDmUserId(null); } else { setActiveWgId(null); } }}
-          className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`}>
+          className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex-1 min-w-0">
-          <h2 className="font-bold truncate">{activeTab === 'dm' ? `DM — ${dmUserName}` : activeWg?.name}</h2>
-          <p className={`text-xs ${textSecondary}`}>{members.length} members</p>
-        </div>
-        <div className="flex items-center gap-1">
-          {tabs.filter(t => !t.adminOnly || isAdmin).map(t => (
+
+        {activeTab === 'dm' ? (
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${getAvatarColor(dmUserName)}`}>
+              {(dmUserName || '?')[0].toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-semibold text-[15px] truncate">{dmUserName}</h2>
+              <p className={`text-[11px] ${textSecondary}`}>Private message</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${getAvatarColor(activeWg?.name || '')}`}>
+              {(activeWg?.name || '?')[0].toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-semibold text-[15px] truncate">{activeWg?.name}</h2>
+              <p className={`text-[11px] ${textSecondary}`}>{members.length} member{members.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center">
+          {tabs.filter(t => !t.adminOnly || isAdminUser).map(t => (
             <button key={t.id} onClick={() => { setActiveTab(t.id); setViewHistoryUserId(null); }}
-              className={`p-2 rounded-lg transition-colors ${activeTab === t.id ? 'bg-[#4285F4] text-white' : isDark ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}>
-              <t.icon className="h-4 w-4" />
+              className={`p-2 rounded-full transition-colors relative ${
+                activeTab === t.id
+                  ? 'text-[#8ab4f8]'
+                  : isDark ? 'text-[#9aa0a6] hover:bg-white/10' : 'text-gray-500 hover:bg-gray-100'
+              }`} title={t.label}>
+              <t.icon className="h-[18px] w-[18px]" />
+              {activeTab === t.id && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-[2px] rounded-full bg-[#8ab4f8]" />}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-hidden flex flex-col">
 
         {/* CHAT TAB */}
         {activeTab === 'chat' && (
-          <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto p-4 space-y-3">
-              {chatMessages.length === 0 ? (
-                <div className={`text-center py-12 ${textSecondary}`}>
-                  <MessageSquare className="h-8 w-8 mx-auto mb-3 opacity-40" />
-                  <p>No messages yet. Start the conversation!</p>
-                </div>
-              ) : chatMessages.filter((m: any) => m.messageType === 'group').map((m: any) => (
-                <div key={m.id} className={`flex gap-3 ${m.senderId === user?.id ? 'flex-row-reverse' : ''}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${m.senderId === user?.id ? 'bg-[#4285F4] text-white' : isDark ? 'bg-white/10 text-white' : 'bg-gray-200 text-gray-700'}`}>
-                    {(m.senderName || '?')[0].toUpperCase()}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className={`flex-1 overflow-y-auto px-3 py-2 ${isDark ? 'bg-[#131314]' : 'bg-[#f8f9fa]'}`}
+              style={{ backgroundImage: isDark ? 'none' : 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
+              {groupMessages.length === 0 ? (
+                <div className={`text-center py-20 ${textSecondary}`}>
+                  <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+                    <MessageSquare className="h-7 w-7 opacity-40" />
                   </div>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${m.senderId === user?.id ? 'bg-[#4285F4] text-white' : isDark ? 'bg-[#1e1f20] border border-[#3c4043]' : 'bg-white border border-gray-200'}`}>
-                    {m.senderId !== user?.id && <p className="text-xs font-semibold mb-1 opacity-70">{m.senderName}</p>}
-                    <p className="text-sm whitespace-pre-wrap">{m.content}</p>
-                    <p className={`text-[10px] mt-1 ${m.senderId === user?.id ? 'text-white/60' : 'opacity-40'}`}>
-                      {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
+                  <p className="text-sm font-medium">No messages yet</p>
+                  <p className="text-xs mt-1 opacity-60">Be the first to say something!</p>
                 </div>
-              ))}
+              ) : (
+                <>
+                  {renderChatBubbles(groupMessages, true)}
+                </>
+              )}
               <div ref={chatEndRef} />
             </div>
 
-            {/* AI Summary / Ask bar */}
-            <div className={`shrink-0 border-t px-4 py-2 ${isDark ? 'border-[#3c4043]' : 'border-gray-200'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Button variant="ghost" size="sm" onClick={fetchAiSummary} disabled={aiSummaryLoading} className="text-xs">
-                  {aiSummaryLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                  AI Summary
-                </Button>
-                <div className="flex-1 flex gap-1">
-                  <input value={aiQuestion} onChange={e => setAiQuestion(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchAiAnswer()}
-                    placeholder="Ask AI about the chat..." className={`flex-1 px-2 py-1 rounded-lg border text-xs ${inputBg}`} />
-                  <Button variant="ghost" size="sm" onClick={fetchAiAnswer} disabled={aiAskLoading || !aiQuestion.trim()} className="text-xs px-2">
-                    {aiAskLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
+            {showAiPanel && (
+              <div className={`shrink-0 border-t px-4 py-3 space-y-2 ${isDark ? 'border-[#3c4043] bg-[#1e1f20]' : 'border-gray-200 bg-white'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className={`text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-[#8ab4f8]' : 'text-blue-600'}`}>
+                    <Sparkles className="h-3.5 w-3.5" /> AI Assistant
+                  </p>
+                  <button onClick={() => setShowAiPanel(false)} className={`p-1 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={fetchAiSummary} disabled={aiSummaryLoading}
+                    className={`rounded-full text-xs h-8 ${isDark ? 'border-[#3c4043] hover:bg-white/5' : ''}`}>
+                    {aiSummaryLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                    Summarize chat
                   </Button>
+                  <div className="flex-1 flex gap-1.5">
+                    <input value={aiQuestion} onChange={e => setAiQuestion(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchAiAnswer()}
+                      placeholder="Ask about the conversation..."
+                      className={`flex-1 px-3 py-1.5 rounded-full border text-xs outline-none focus:border-[#4285F4] transition-colors ${inputBg}`} />
+                    <Button size="sm" onClick={fetchAiAnswer} disabled={aiAskLoading || !aiQuestion.trim()}
+                      className="bg-[#4285F4] hover:bg-[#5a9bf4] rounded-full h-8 w-8 p-0">
+                      {aiAskLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                    </Button>
+                  </div>
                 </div>
+                {aiSummary && (
+                  <div className={`rounded-xl p-3 text-xs ${isDark ? 'bg-blue-500/10 text-blue-200' : 'bg-blue-50 text-blue-800'}`}>
+                    <p className="whitespace-pre-wrap leading-relaxed">{aiSummary}</p>
+                    <button onClick={() => setAiSummary("")} className="text-[10px] mt-2 underline opacity-50 hover:opacity-80">Dismiss</button>
+                  </div>
+                )}
+                {aiAnswer && (
+                  <div className={`rounded-xl p-3 text-xs ${isDark ? 'bg-emerald-500/10 text-emerald-200' : 'bg-green-50 text-green-800'}`}>
+                    <p className="whitespace-pre-wrap leading-relaxed">{aiAnswer}</p>
+                    <button onClick={() => setAiAnswer("")} className="text-[10px] mt-2 underline opacity-50 hover:opacity-80">Dismiss</button>
+                  </div>
+                )}
               </div>
-              {aiSummary && (
-                <div className={`rounded-lg p-3 mb-2 text-xs border ${isDark ? 'bg-blue-500/10 border-blue-500/20 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-                  <p className="font-semibold mb-1 flex items-center gap-1"><Sparkles className="h-3 w-3" /> AI Summary</p>
-                  <p className="whitespace-pre-wrap">{aiSummary}</p>
-                  <button onClick={() => setAiSummary("")} className="text-xs mt-1 underline opacity-60">Dismiss</button>
-                </div>
-              )}
-              {aiAnswer && (
-                <div className={`rounded-lg p-3 mb-2 text-xs border ${isDark ? 'bg-green-500/10 border-green-500/20 text-green-200' : 'bg-green-50 border-green-200 text-green-800'}`}>
-                  <p className="font-semibold mb-1 flex items-center gap-1"><Bot className="h-3 w-3" /> AI Answer</p>
-                  <p className="whitespace-pre-wrap">{aiAnswer}</p>
-                  <button onClick={() => setAiAnswer("")} className="text-xs mt-1 underline opacity-60">Dismiss</button>
-                </div>
-              )}
-            </div>
+            )}
 
-            {/* Message input */}
-            <div className={`shrink-0 border-t px-4 py-3 ${isDark ? 'border-[#3c4043]' : 'border-gray-200'}`}>
-              <div className="flex gap-2">
-                <input value={msgInput} onChange={e => setMsgInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && msgInput.trim()) sendMsgMutation.mutate(); }}
-                  placeholder="Type a message..." className={`flex-1 px-4 py-2.5 rounded-xl border text-sm ${inputBg}`} />
-                <Button onClick={() => sendMsgMutation.mutate()} disabled={!msgInput.trim() || sendMsgMutation.isPending} className="bg-[#4285F4] rounded-xl px-4">
-                  <Send className="h-4 w-4" />
-                </Button>
+            <div className={`shrink-0 px-3 py-2.5 ${isDark ? 'bg-[#1e1f20]' : 'bg-white border-t border-gray-100'}`}>
+              <div className={`flex items-center gap-2 rounded-full px-1 py-1 ${isDark ? 'bg-[#303134]' : 'bg-[#f1f3f4] border border-gray-200'}`}>
+                <button onClick={() => setShowAiPanel(!showAiPanel)}
+                  className={`p-2 rounded-full shrink-0 transition-colors ${showAiPanel ? 'text-[#8ab4f8]' : isDark ? 'text-[#9aa0a6] hover:bg-white/10' : 'text-gray-400 hover:bg-gray-200'}`}>
+                  <Sparkles className="h-5 w-5" />
+                </button>
+                <input ref={inputRef} value={msgInput} onChange={e => setMsgInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && msgInput.trim()) { e.preventDefault(); sendMsgMutation.mutate(); } }}
+                  placeholder="Message" className={`flex-1 bg-transparent outline-none text-sm py-1.5 ${isDark ? 'text-white placeholder-[#9aa0a6]' : 'text-gray-900 placeholder-gray-400'}`} />
+                <button onClick={() => { if (msgInput.trim()) sendMsgMutation.mutate(); }}
+                  disabled={!msgInput.trim() || sendMsgMutation.isPending}
+                  className={`p-2 rounded-full shrink-0 transition-all ${
+                    msgInput.trim()
+                      ? 'bg-[#4285F4] text-white hover:bg-[#5a9bf4] scale-100'
+                      : `${isDark ? 'text-[#9aa0a6]' : 'text-gray-400'} scale-90 opacity-50`
+                  }`}>
+                  {sendMsgMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                </button>
               </div>
             </div>
           </div>
@@ -372,32 +523,40 @@ export default function WorkgroupsPage() {
 
         {/* DM TAB */}
         {activeTab === 'dm' && dmUserId && (
-          <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto p-4 space-y-3">
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className={`flex-1 overflow-y-auto px-3 py-2 ${isDark ? 'bg-[#131314]' : 'bg-[#f8f9fa]'}`}
+              style={{ backgroundImage: isDark ? 'none' : 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
               {dmMessages.length === 0 ? (
-                <div className={`text-center py-12 ${textSecondary}`}>
-                  <MessageCircle className="h-8 w-8 mx-auto mb-3 opacity-40" />
-                  <p>No messages yet with {dmUserName}</p>
-                </div>
-              ) : dmMessages.map((m: any) => (
-                <div key={m.id} className={`flex gap-3 ${m.senderId === user?.id ? 'flex-row-reverse' : ''}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${m.senderId === user?.id ? 'bg-[#4285F4] text-white' : isDark ? 'bg-[#1e1f20] border border-[#3c4043]' : 'bg-white border border-gray-200'}`}>
-                    <p className="text-sm whitespace-pre-wrap">{m.content}</p>
-                    <p className={`text-[10px] mt-1 ${m.senderId === user?.id ? 'text-white/60' : 'opacity-40'}`}>
-                      {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                <div className={`text-center py-20 ${textSecondary}`}>
+                  <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-2xl font-bold ${getAvatarColor(dmUserName)}`}>
+                    {(dmUserName || '?')[0].toUpperCase()}
                   </div>
+                  <p className="text-sm font-medium">{dmUserName}</p>
+                  <p className="text-xs mt-1 opacity-60">Start a private conversation</p>
                 </div>
-              ))}
+              ) : (
+                <>
+                  {renderChatBubbles(dmMessages, false)}
+                </>
+              )}
+              <div ref={dmEndRef} />
             </div>
-            <div className={`shrink-0 border-t px-4 py-3 ${isDark ? 'border-[#3c4043]' : 'border-gray-200'}`}>
-              <div className="flex gap-2">
+
+            <div className={`shrink-0 px-3 py-2.5 ${isDark ? 'bg-[#1e1f20]' : 'bg-white border-t border-gray-100'}`}>
+              <div className={`flex items-center gap-2 rounded-full px-1 py-1 ${isDark ? 'bg-[#303134]' : 'bg-[#f1f3f4] border border-gray-200'}`}>
+                <div className="p-2" />
                 <input value={dmInput} onChange={e => setDmInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && dmInput.trim()) sendDmMutation.mutate(); }}
-                  placeholder={`Message ${dmUserName}...`} className={`flex-1 px-4 py-2.5 rounded-xl border text-sm ${inputBg}`} />
-                <Button onClick={() => sendDmMutation.mutate()} disabled={!dmInput.trim() || sendDmMutation.isPending} className="bg-[#4285F4] rounded-xl px-4">
-                  <Send className="h-4 w-4" />
-                </Button>
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && dmInput.trim()) { e.preventDefault(); sendDmMutation.mutate(); } }}
+                  placeholder={`Message ${dmUserName}`} className={`flex-1 bg-transparent outline-none text-sm py-1.5 ${isDark ? 'text-white placeholder-[#9aa0a6]' : 'text-gray-900 placeholder-gray-400'}`} />
+                <button onClick={() => { if (dmInput.trim()) sendDmMutation.mutate(); }}
+                  disabled={!dmInput.trim() || sendDmMutation.isPending}
+                  className={`p-2 rounded-full shrink-0 transition-all ${
+                    dmInput.trim()
+                      ? 'bg-[#4285F4] text-white hover:bg-[#5a9bf4] scale-100'
+                      : `${isDark ? 'text-[#9aa0a6]' : 'text-gray-400'} scale-90 opacity-50`
+                  }`}>
+                  {sendDmMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                </button>
               </div>
             </div>
           </div>
@@ -405,143 +564,148 @@ export default function WorkgroupsPage() {
 
         {/* MEMBERS TAB */}
         {activeTab === 'members' && (
-          <div className="p-4 space-y-3">
-            {isAdmin && (
-              <div className={`rounded-xl border p-4 mb-4 ${card}`}>
-                <h3 className="text-sm font-semibold mb-2 flex items-center gap-2"><UserPlus className="h-4 w-4" /> Invite Member</h3>
-                <div className="flex gap-2">
-                  <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="user@email.com" className={`flex-1 px-3 py-2 rounded-lg border text-sm ${inputBg}`} />
-                  <Button onClick={() => inviteMutation.mutate()} disabled={!inviteEmail.trim() || inviteMutation.isPending} className="bg-[#4285F4]">
-                    {inviteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
+          <div className="flex-1 overflow-y-auto">
+            {isAdminUser && (
+              <div className="px-4 pt-4 pb-2">
+                <div className={`rounded-2xl border p-4 ${card}`}>
+                  <p className={`text-xs font-medium mb-2 ${textSecondary}`}>Invite member</p>
+                  <div className="flex gap-2">
+                    <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="user@email.com"
+                      className={`flex-1 px-3.5 py-2 rounded-full border text-sm outline-none focus:border-[#4285F4] transition-colors ${inputBg}`} />
+                    <Button onClick={() => inviteMutation.mutate()} disabled={!inviteEmail.trim() || inviteMutation.isPending}
+                      className="bg-[#4285F4] hover:bg-[#5a9bf4] rounded-full h-9 w-9 p-0">
+                      {inviteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
-            {members.map((m: any) => (
-              <div key={m.id} className={`rounded-xl border p-4 ${card} ${m.isBlocked ? 'opacity-50' : ''}`}>
-                <div className="flex items-center justify-between">
+            <div className="px-4 py-2">
+              <p className={`text-xs font-medium mb-2 px-1 ${textSecondary}`}>{members.length} member{members.length !== 1 ? 's' : ''}</p>
+              {members.map((m: any) => (
+                <div key={m.id} className={`rounded-xl px-3 py-3 mb-1 transition-colors ${m.isBlocked ? 'opacity-40' : ''} ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${getAvatarColor(m.userName || m.userEmail || '?')}`}>
                       {(m.userName || m.userEmail || '?')[0].toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm flex items-center gap-1.5 truncate">
                         {m.userName || m.userEmail}
-                        {m.role === 'owner' && <Crown className="h-3.5 w-3.5 text-yellow-500" />}
-                        {m.role === 'admin' && <Shield className="h-3.5 w-3.5 text-blue-400" />}
-                        {m.isBlocked && <Ban className="h-3.5 w-3.5 text-red-500" />}
-                        {m.isRestricted && <Lock className="h-3.5 w-3.5 text-orange-400" />}
+                        {m.role === 'owner' && <Crown className="h-3 w-3 text-yellow-500 shrink-0" />}
+                        {m.role === 'admin' && <Shield className="h-3 w-3 text-blue-400 shrink-0" />}
+                        {m.isBlocked && <Ban className="h-3 w-3 text-red-500 shrink-0" />}
+                        {m.isRestricted && <Lock className="h-3 w-3 text-orange-400 shrink-0" />}
                       </p>
-                      <p className={`text-xs ${textSecondary}`}>{m.userEmail} · {m.role}</p>
+                      <p className={`text-xs truncate ${textSecondary}`}>{m.role}</p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {m.userId !== user?.id && (
-                      <button onClick={() => { setDmUserId(m.userId); setDmUserName(m.userName || m.userEmail); setActiveTab('dm'); }}
-                        className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`} title="Private Message">
-                        <MessageCircle className="h-4 w-4 text-[#8ab4f8]" />
-                      </button>
-                    )}
-                    {isAdmin && m.userId !== user?.id && m.role !== 'owner' && (
-                      <>
-                        {isAdmin && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {m.userId !== user?.id && (
+                        <button onClick={() => { setDmUserId(m.userId); setDmUserName(m.userName || m.userEmail); setActiveTab('dm'); }}
+                          className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10 text-[#8ab4f8]' : 'hover:bg-gray-100 text-blue-500'}`} title="Message">
+                          <MessageCircle className="h-4 w-4" />
+                        </button>
+                      )}
+                      {isAdminUser && m.userId !== user?.id && m.role !== 'owner' && (
+                        <>
                           <button onClick={() => setViewHistoryUserId(viewHistoryUserId === m.userId ? null : m.userId)}
-                            className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`} title="View search history">
+                            className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`} title="View history">
                             <Eye className="h-4 w-4" />
                           </button>
-                        )}
-                        <button onClick={() => blockMutation.mutate({ userId: m.userId, blocked: !m.isBlocked })}
-                          className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`} title={m.isBlocked ? 'Unblock' : 'Block'}>
-                          <Ban className={`h-4 w-4 ${m.isBlocked ? 'text-red-500' : ''}`} />
-                        </button>
-                        <button onClick={() => restrictMutation.mutate({ userId: m.userId, restricted: !m.isRestricted })}
-                          className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`} title={m.isRestricted ? 'Unrestrict' : 'Restrict messaging'}>
-                          <Lock className={`h-4 w-4 ${m.isRestricted ? 'text-orange-400' : ''}`} />
-                        </button>
-                        {isOwner && (
-                          <button onClick={() => roleMutation.mutate({ userId: m.userId, role: m.role === 'admin' ? 'member' : 'admin' })}
-                            className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`} title={m.role === 'admin' ? 'Demote to member' : 'Promote to admin'}>
-                            <Shield className={`h-4 w-4 ${m.role === 'admin' ? 'text-blue-400' : ''}`} />
+                          <button onClick={() => blockMutation.mutate({ userId: m.userId, blocked: !m.isBlocked })}
+                            className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`} title={m.isBlocked ? 'Unblock' : 'Block'}>
+                            <Ban className={`h-4 w-4 ${m.isBlocked ? 'text-red-500' : ''}`} />
                           </button>
-                        )}
-                        <button onClick={() => { if (confirm(`Remove ${m.userName || m.userEmail}?`)) kickMutation.mutate(m.userId); }}
-                          className={`p-2 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-100'}`} title="Kick">
-                          <UserMinus className="h-4 w-4 text-red-400" />
-                        </button>
-                      </>
-                    )}
+                          <button onClick={() => restrictMutation.mutate({ userId: m.userId, restricted: !m.isRestricted })}
+                            className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`} title={m.isRestricted ? 'Unrestrict' : 'Restrict'}>
+                            <Lock className={`h-4 w-4 ${m.isRestricted ? 'text-orange-400' : ''}`} />
+                          </button>
+                          {isOwner && (
+                            <button onClick={() => roleMutation.mutate({ userId: m.userId, role: m.role === 'admin' ? 'member' : 'admin' })}
+                              className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+                              title={m.role === 'admin' ? 'Demote' : 'Promote'}>
+                              <Shield className={`h-4 w-4 ${m.role === 'admin' ? 'text-blue-400' : ''}`} />
+                            </button>
+                          )}
+                          <button onClick={() => { if (confirm(`Remove ${m.userName || m.userEmail}?`)) kickMutation.mutate(m.userId); }}
+                            className={`p-2 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`} title="Remove">
+                            <UserMinus className="h-4 w-4 text-red-400" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
+
+                  {viewHistoryUserId === m.userId && (
+                    <div className={`mt-3 ml-13 rounded-xl border p-3 ${isDark ? 'border-[#3c4043] bg-black/30' : 'border-gray-200 bg-gray-50'}`}>
+                      <h4 className={`text-xs font-semibold mb-2 flex items-center gap-1 ${textSecondary}`}><Search className="h-3 w-3" /> Search History</h4>
+                      {memberHistory.length === 0 ? (
+                        <p className={`text-xs ${textSecondary}`}>No history found.</p>
+                      ) : memberHistory.slice(0, 10).map((h: any) => (
+                        <div key={h.conversation.id} className={`text-xs py-1.5 border-b last:border-0 ${isDark ? 'border-[#3c4043]' : 'border-gray-200'}`}>
+                          <p className="font-medium">{h.conversation.title}</p>
+                          {h.messages[0] && <p className={`truncate mt-0.5 ${textSecondary}`}>{h.messages[0].content}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              ))}
 
-                {viewHistoryUserId === m.userId && (
-                  <div className={`mt-4 rounded-lg border p-3 ${isDark ? 'border-[#3c4043] bg-black/30' : 'border-gray-200 bg-gray-50'}`}>
-                    <h4 className="text-xs font-semibold mb-2 flex items-center gap-1"><Search className="h-3 w-3" /> Search History</h4>
-                    {memberHistory.length === 0 ? (
-                      <p className={`text-xs ${textSecondary}`}>No search history found.</p>
-                    ) : memberHistory.slice(0, 10).map((h: any) => (
-                      <div key={h.conversation.id} className={`text-xs py-1.5 border-b last:border-0 ${isDark ? 'border-[#3c4043]' : 'border-gray-200'}`}>
-                        <p className="font-medium">{h.conversation.title}</p>
-                        {h.messages[0] && <p className={`truncate mt-0.5 ${textSecondary}`}>{h.messages[0].content}</p>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-
-            <div className="pt-4 space-y-2">
               {activeWg?.myRole !== 'owner' && (
-                <Button variant="ghost" onClick={() => { if (confirm('Leave this workgroup?')) leaveMutation.mutate(); }} className="w-full text-red-400 hover:text-red-300">
-                  <LogOut className="h-4 w-4 mr-2" /> Leave Workgroup
-                </Button>
+                <div className="pt-4 pb-6">
+                  <Button variant="ghost" onClick={() => { if (confirm('Leave this workgroup?')) leaveMutation.mutate(); }}
+                    className="w-full text-red-400 hover:text-red-300 rounded-xl">
+                    <LogOut className="h-4 w-4 mr-2" /> Leave Workgroup
+                  </Button>
+                </div>
               )}
             </div>
           </div>
         )}
 
         {/* ADMIN TAB */}
-        {activeTab === 'admin' && isAdmin && (
-          <div className="p-4 space-y-4">
-            <div className={`rounded-xl border p-5 ${card}`}>
-              <h3 className="font-semibold mb-4 flex items-center gap-2"><Settings className="h-5 w-5" /> Workgroup Settings</h3>
-
-              <div className="space-y-4">
+        {activeTab === 'admin' && isAdminUser && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className={`rounded-2xl border p-5 ${card}`}>
+              <h3 className="font-semibold text-sm mb-5 flex items-center gap-2"><Settings className="h-4 w-4" /> Settings</h3>
+              <div className="space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Require Approval</p>
-                    <p className={`text-xs ${textSecondary}`}>Code and email drafts must be approved by an admin before being sent</p>
+                    <p className={`text-xs mt-0.5 ${textSecondary}`}>Code and drafts need admin approval</p>
                   </div>
                   <button onClick={() => toggleApprovalMutation.mutate(!activeWg?.requireApproval)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${activeWg?.requireApproval ? 'bg-[#4285F4]' : isDark ? 'bg-white/10' : 'bg-gray-300'}`}>
-                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${activeWg?.requireApproval ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    className={`w-11 h-6 rounded-full transition-all relative ${activeWg?.requireApproval ? 'bg-[#4285F4]' : isDark ? 'bg-white/10' : 'bg-gray-300'}`}>
+                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${activeWg?.requireApproval ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
 
-                <div className={`rounded-lg border p-4 ${isDark ? 'border-[#3c4043] bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
-                  <p className="text-sm font-medium mb-1">Group Stats</p>
-                  <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className={`rounded-xl p-4 ${isDark ? 'bg-black/30' : 'bg-gray-50'}`}>
+                  <p className={`text-xs font-medium mb-3 ${textSecondary}`}>Group stats</p>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
+                      <p className="text-2xl font-bold">{members.length}</p>
                       <p className={`text-xs ${textSecondary}`}>Members</p>
-                      <p className="text-lg font-bold">{members.length}</p>
                     </div>
                     <div>
+                      <p className="text-2xl font-bold">{members.filter((m: any) => m.role === 'admin' || m.role === 'owner').length}</p>
                       <p className={`text-xs ${textSecondary}`}>Admins</p>
-                      <p className="text-lg font-bold">{members.filter((m: any) => m.role === 'admin' || m.role === 'owner').length}</p>
                     </div>
                     <div>
+                      <p className="text-2xl font-bold text-red-400">{members.filter((m: any) => m.isBlocked).length}</p>
                       <p className={`text-xs ${textSecondary}`}>Blocked</p>
-                      <p className="text-lg font-bold text-red-400">{members.filter((m: any) => m.isBlocked).length}</p>
                     </div>
                     <div>
+                      <p className="text-2xl font-bold text-orange-400">{members.filter((m: any) => m.isRestricted).length}</p>
                       <p className={`text-xs ${textSecondary}`}>Restricted</p>
-                      <p className="text-lg font-bold text-orange-400">{members.filter((m: any) => m.isRestricted).length}</p>
                     </div>
                   </div>
                 </div>
 
                 {isOwner && (
-                  <Button variant="destructive" onClick={() => { if (confirm('Delete this workgroup? This cannot be undone.')) deleteMutation.mutate(); }} className="w-full">
+                  <Button variant="destructive" onClick={() => { if (confirm('Delete this workgroup? This cannot be undone.')) deleteMutation.mutate(); }}
+                    className="w-full rounded-xl">
                     <Trash2 className="h-4 w-4 mr-2" /> Delete Workgroup
                   </Button>
                 )}
@@ -551,39 +715,48 @@ export default function WorkgroupsPage() {
         )}
 
         {/* APPROVALS TAB */}
-        {activeTab === 'approvals' && isAdmin && (
-          <div className="p-4 space-y-3">
+        {activeTab === 'approvals' && isAdminUser && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {!activeWg?.requireApproval && (
-              <div className={`rounded-lg border p-3 text-sm ${isDark ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300' : 'border-yellow-300 bg-yellow-50 text-yellow-800'}`}>
-                <AlertTriangle className="h-4 w-4 inline mr-2" />
-                Approval mode is disabled. Enable it in Admin settings to require approval for code and email drafts.
+              <div className={`rounded-xl border p-3 text-sm flex items-center gap-2 ${isDark ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300' : 'border-yellow-300 bg-yellow-50 text-yellow-800'}`}>
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                Approval mode is off. Enable in Admin settings.
               </div>
             )}
             {approvals.length === 0 ? (
-              <div className={`text-center py-12 ${textSecondary}`}>
-                <Shield className="h-8 w-8 mx-auto mb-3 opacity-40" />
-                <p>No pending approvals</p>
+              <div className={`text-center py-20 ${textSecondary}`}>
+                <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+                  <Shield className="h-7 w-7 opacity-40" />
+                </div>
+                <p className="text-sm font-medium">No pending approvals</p>
               </div>
             ) : approvals.map((a: any) => (
-              <div key={a.id} className={`rounded-xl border p-4 ${card}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="text-sm font-semibold">{a.requesterName}</p>
-                    <p className={`text-xs ${textSecondary}`}>{a.contentType} · {new Date(a.createdAt).toLocaleDateString()}</p>
+              <div key={a.id} className={`rounded-2xl border p-4 ${card}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${getAvatarColor(a.requesterName || '?')}`}>
+                      {(a.requesterName || '?')[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{a.requesterName}</p>
+                      <p className={`text-[11px] ${textSecondary}`}>{a.contentType} · {new Date(a.createdAt).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : a.status === 'approved' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${a.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : a.status === 'approved' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                     {a.status}
                   </span>
                 </div>
-                <div className={`rounded-lg border p-3 text-sm whitespace-pre-wrap ${isDark ? 'border-[#3c4043] bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
+                <div className={`rounded-xl border p-3 text-sm whitespace-pre-wrap ${isDark ? 'border-[#3c4043] bg-black/20' : 'border-gray-200 bg-gray-50'}`}>
                   {a.content.slice(0, 500)}{a.content.length > 500 ? '...' : ''}
                 </div>
                 {a.status === 'pending' && (
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" onClick={() => reviewMutation.mutate({ approvalId: a.id, status: 'approved' })} className="bg-green-600 hover:bg-green-500">
+                    <Button size="sm" onClick={() => reviewMutation.mutate({ approvalId: a.id, status: 'approved' })}
+                      className="bg-emerald-600 hover:bg-emerald-500 rounded-full px-4">
                       <Check className="h-3 w-3 mr-1" /> Approve
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => reviewMutation.mutate({ approvalId: a.id, status: 'rejected', reviewNote: 'Rejected by admin' })}>
+                    <Button size="sm" variant="destructive" onClick={() => reviewMutation.mutate({ approvalId: a.id, status: 'rejected', reviewNote: 'Rejected by admin' })}
+                      className="rounded-full px-4">
                       <X className="h-3 w-3 mr-1" /> Reject
                     </Button>
                   </div>
