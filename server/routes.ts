@@ -4813,7 +4813,9 @@ Return ONLY valid JSON (no markdown):
       if (!email?.trim()) return res.status(400).json({ error: 'Email is required' });
 
       const existing = await db.select().from(workgroupInvites).where(and(eq(workgroupInvites.workgroupId, wgId), eq(workgroupInvites.email, email.trim().toLowerCase()), eq(workgroupInvites.status, 'pending'))).limit(1);
-      if (existing.length > 0) return res.status(400).json({ error: 'Invite already sent' });
+      if (existing.length > 0) {
+        await db.delete(workgroupInvites).where(eq(workgroupInvites.id, existing[0].id));
+      }
 
       const alreadyMember = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userEmail, email.trim().toLowerCase()))).limit(1);
       if (alreadyMember.length > 0) return res.status(400).json({ error: 'User is already a member' });
