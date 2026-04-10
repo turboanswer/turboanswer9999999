@@ -1509,9 +1509,12 @@ export default function Chat() {
               </div>
             </div>
 
+            {!showShareModal.question.trim() && (
+              <p className={`text-xs mb-2 ${isDark ? 'text-yellow-400/70' : 'text-yellow-600'}`}>No question found for this response.</p>
+            )}
             <Button
               onClick={handleShareToWorkgroup}
-              disabled={!shareWgId || shareSending}
+              disabled={!shareWgId || shareSending || !showShareModal.question.trim()}
               className="w-full bg-[#4285F4] hover:bg-[#5a9bf4] text-white font-medium py-2.5 rounded-xl"
             >
               {shareSending ? 'Sending...' : shareMode === 'approval' ? 'Submit for Approval' : 'Send to Group Chat'}
