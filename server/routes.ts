@@ -4832,12 +4832,82 @@ Return ONLY valid JSON (no markdown):
 
       const inviterName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
       const appUrl = 'https://turbo-answer.replit.app';
-      await sendBrevoEmail(
-        email.trim().toLowerCase(),
-        email.trim(),
-        `You've been invited to join "${wg?.name}" on TurboAnswer`,
-        `Hi there!\n\n${inviterName} has invited you to join their workgroup "${wg?.name}" on TurboAnswer.\n\nWorkgroup features include:\n- Team messaging & private DMs\n- Shared AI research with 10 AI models\n- Document sharing\n- AI-powered conversation summaries\n- Admin controls & approval workflows\n\nTo accept this invitation:\n1. Log in or create an account at ${appUrl}\n2. Go to your Workgroups page\n3. Enter this invite code: <strong style="font-size:18px;color:#8ab4f8;">${token}</strong>\n\nOr click here: ${appUrl}/workgroups?invite=${token}\n\nThis invitation expires in 7 days.`
-      );
+      const inviteLink = `${appUrl}/workgroups?invite=${token}`;
+
+      const brevoApiKey = process.env.BREVO_API_KEY;
+      if (brevoApiKey) {
+        const inviteHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#000000;">
+<tr><td align="center" style="padding:40px 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#1e1f20;border-radius:16px;overflow:hidden;">
+<tr><td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #3c4043;">
+<h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;">TurboAnswer</h1>
+<p style="margin:0;font-size:13px;color:#9aa0a6;">Enterprise Workgroups</p>
+</td></tr>
+<tr><td style="padding:32px;">
+<p style="margin:0 0 20px;font-size:16px;color:#e8eaed;line-height:1.5;">Hi there,</p>
+<p style="margin:0 0 20px;font-size:16px;color:#e8eaed;line-height:1.5;"><strong style="color:#8ab4f8;">${inviterName}</strong> has invited you to join the workgroup <strong style="color:#ffffff;">"${wg?.name || 'Team'}"</strong> on TurboAnswer.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
+<tr><td align="center">
+<a href="${inviteLink}" target="_blank" style="display:inline-block;background-color:#4285F4;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;padding:14px 40px;border-radius:28px;">Accept Invitation</a>
+</td></tr>
+</table>
+<p style="margin:24px 0 12px;font-size:13px;color:#9aa0a6;text-align:center;">Or paste this invite code in the Workgroups page:</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center">
+<div style="display:inline-block;background-color:#000000;border:1px solid #3c4043;border-radius:12px;padding:14px 28px;">
+<code style="font-size:15px;color:#8ab4f8;letter-spacing:1px;font-family:'Courier New',monospace;">${token}</code>
+</div>
+</td></tr>
+</table>
+<div style="margin:28px 0 0;padding:20px;background-color:#000000;border-radius:12px;border:1px solid #3c4043;">
+<p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#e8eaed;">What you can do in Workgroups:</p>
+<p style="margin:0 0 6px;font-size:13px;color:#c4c7c5;">&#10003; Team messaging &amp; private DMs</p>
+<p style="margin:0 0 6px;font-size:13px;color:#c4c7c5;">&#10003; AI-powered conversation summaries</p>
+<p style="margin:0 0 6px;font-size:13px;color:#c4c7c5;">&#10003; Share AI research with your team</p>
+<p style="margin:0;font-size:13px;color:#c4c7c5;">&#10003; Admin controls &amp; approval workflows</p>
+</div>
+<p style="margin:20px 0 0;font-size:12px;color:#9aa0a6;text-align:center;">This invitation expires in 7 days.</p>
+</td></tr>
+<tr><td style="padding:20px 32px;border-top:1px solid #3c4043;text-align:center;">
+<p style="margin:0 0 4px;font-size:12px;color:#9aa0a6;">TurboAnswer Inc.</p>
+<p style="margin:0;font-size:11px;color:#6b7280;">support@turboanswer.it.com &middot; (866) 467-7269</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+
+        const inviteText = `Hi there,\n\n${inviterName} has invited you to join the workgroup "${wg?.name}" on TurboAnswer.\n\nAccept your invitation: ${inviteLink}\n\nOr paste this invite code in the Workgroups page: ${token}\n\nThis invitation expires in 7 days.\n\n--\nTurboAnswer Inc.\nsupport@turboanswer.it.com`;
+
+        try {
+          await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'accept': 'application/json',
+              'api-key': brevoApiKey,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              sender: { name: 'TurboAnswer', email: 'support@turboanswer.it.com' },
+              to: [{ email: email.trim().toLowerCase(), name: email.trim() }],
+              subject: `${inviterName} invited you to "${wg?.name}" on TurboAnswer`,
+              htmlContent: inviteHtml,
+              textContent: inviteText,
+              replyTo: { email: 'support@turboanswer.it.com', name: 'TurboAnswer Support' },
+              headers: {
+                'X-Mailer': 'TurboAnswer Notifications',
+                'List-Unsubscribe': '<mailto:support@turboanswer.it.com?subject=Unsubscribe>',
+                'Precedence': 'bulk',
+              },
+            }),
+          });
+        } catch (emailErr: any) { console.error('[Workgroup] Email send error:', emailErr.message); }
+      }
 
       res.json({ success: true, invite });
     } catch (e: any) { console.error('[Workgroup] Invite error:', e.message); res.status(500).json({ error: 'Failed to send invite' }); }
@@ -5119,6 +5189,46 @@ Return ONLY valid JSON (no markdown):
       const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not answer.';
       res.json({ answer });
     } catch (e: any) { res.status(500).json({ error: 'Failed to ask AI' }); }
+  });
+
+  app.post('/api/workgroups/:id/share-qa', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const wgId = parseInt(req.params.id);
+      const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, user.id))).limit(1);
+      if (!member[0]) return res.status(403).json({ error: 'Not a member' });
+      if (member[0].isBlocked) return res.status(403).json({ error: 'You are blocked from this workgroup' });
+      if (member[0].isRestricted) return res.status(403).json({ error: 'You are restricted from sharing in this workgroup' });
+
+      const { question, answer, mode } = req.body;
+      if (!question?.trim() || !answer?.trim()) return res.status(400).json({ error: 'Question and answer are required' });
+
+      const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      const formattedContent = `📋 Shared from TurboAnswer Chat\n\n❓ Question:\n${question.trim()}\n\n💡 AI Response:\n${answer.trim()}`;
+
+      if (mode === 'approval') {
+        const [approval] = await db.insert(workgroupApprovals).values({
+          workgroupId: wgId,
+          requesterId: user.id,
+          requesterName: senderName,
+          contentType: 'ai_qa',
+          content: formattedContent,
+        }).returning();
+        return res.json({ success: true, type: 'approval', approval });
+      }
+
+      const [msg] = await db.insert(workgroupMessages).values({
+        workgroupId: wgId,
+        senderId: user.id,
+        senderName,
+        senderEmail: user.email,
+        content: formattedContent,
+        messageType: 'group',
+      }).returning();
+
+      res.json({ success: true, type: 'message', message: msg });
+    } catch (e: any) { console.error('[Workgroup] Share Q&A error:', e.message); res.status(500).json({ error: 'Failed to share Q&A' }); }
   });
 
   app.post('/api/workgroups/:id/leave', isAuthenticated, async (req: any, res) => {

@@ -80,7 +80,11 @@ export default function WorkgroupsPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const inv = params.get('invite');
-    if (inv) setJoinToken(inv);
+    if (inv) {
+      setJoinToken(inv);
+      setActiveWgId(null);
+      window.history.replaceState({}, '', '/workgroups');
+    }
   }, []);
 
   const { data: workgroups = [], isLoading } = useQuery<any[]>({ queryKey: ['/api/workgroups'] });
@@ -155,12 +159,12 @@ export default function WorkgroupsPage() {
 
   const sendMsgMutation = useMutation({
     mutationFn: async () => apiRequest('POST', `/api/workgroups/${activeWgId}/messages`, { content: msgInput, messageType: 'group' }),
-    onSuccess: () => { setMsgInput(""); refetchMessages(); inputRef.current?.focus(); },
+    onSuccess: () => { setMsgInput(""); queryClient.invalidateQueries({ queryKey: ['/api/workgroups', activeWgId, 'messages'] }); inputRef.current?.focus(); },
   });
 
   const sendDmMutation = useMutation({
     mutationFn: async () => apiRequest('POST', `/api/workgroups/${activeWgId}/messages`, { content: dmInput, recipientId: dmUserId, messageType: 'private' }),
-    onSuccess: () => { setDmInput(""); refetchDMs(); },
+    onSuccess: () => { setDmInput(""); queryClient.invalidateQueries({ queryKey: ['/api/workgroups', activeWgId, 'messages', 'dm', dmUserId] }); },
   });
 
   const kickMutation = useMutation({
@@ -231,7 +235,7 @@ export default function WorkgroupsPage() {
     setAiQuestion("");
   }
 
-  const bg = isDark ? 'bg-[#131314]' : 'bg-gray-50';
+  const bg = isDark ? 'bg-black' : 'bg-gray-50';
   const card = isDark ? 'bg-[#1e1f20] border-[#3c4043]' : 'bg-white border-gray-200';
   const textPrimary = isDark ? 'text-white' : 'text-gray-900';
   const textSecondary = isDark ? 'text-[#c4c7c5]' : 'text-gray-500';
@@ -439,7 +443,7 @@ export default function WorkgroupsPage() {
         {/* CHAT TAB */}
         {activeTab === 'chat' && (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className={`flex-1 overflow-y-auto px-3 py-2 ${isDark ? 'bg-[#131314]' : 'bg-[#f8f9fa]'}`}
+            <div className={`flex-1 overflow-y-auto px-3 py-2 ${isDark ? 'bg-black' : 'bg-[#f8f9fa]'}`}
               style={{ backgroundImage: isDark ? 'none' : 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
               {groupMessages.length === 0 ? (
                 <div className={`text-center py-20 ${textSecondary}`}>
@@ -524,7 +528,7 @@ export default function WorkgroupsPage() {
         {/* DM TAB */}
         {activeTab === 'dm' && dmUserId && (
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className={`flex-1 overflow-y-auto px-3 py-2 ${isDark ? 'bg-[#131314]' : 'bg-[#f8f9fa]'}`}
+            <div className={`flex-1 overflow-y-auto px-3 py-2 ${isDark ? 'bg-black' : 'bg-[#f8f9fa]'}`}
               style={{ backgroundImage: isDark ? 'none' : 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.03) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
               {dmMessages.length === 0 ? (
                 <div className={`text-center py-20 ${textSecondary}`}>

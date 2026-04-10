@@ -49,6 +49,10 @@ export default function Chat() {
   const [betaFeedbackMsg, setBetaFeedbackMsg] = useState("");
   const [betaFeedbackCategory, setBetaFeedbackCategory] = useState("general");
   const [betaFeedbackSent, setBetaFeedbackSent] = useState(false);
+  const [showShareModal, setShowShareModal] = useState<{ question: string; answer: string } | null>(null);
+  const [shareWgId, setShareWgId] = useState<number | null>(null);
+  const [shareMode, setShareMode] = useState<'message' | 'approval'>('message');
+  const [shareSending, setShareSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timedPromoShown = useRef(false);
@@ -373,6 +377,7 @@ export default function Chat() {
   };
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
+  const { data: userWorkgroups = [] } = useQuery<any[]>({ queryKey: ['/api/workgroups'] });
   const isFreeTier = !subscriptionData?.tier || subscriptionData?.tier === 'free';
   const isAnyPopupOpen = showProPopup || showResearchPopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;
   const promoCooldownActive = lastPromoDismissedAt > 0 && (Date.now() - lastPromoDismissedAt) < 600000;
@@ -407,6 +412,32 @@ export default function Chat() {
     if (!convId) return;
     setIsTyping(true);
     sendMessageMutation.mutate({ content: messageContent.trim(), convId });
+  };
+
+  const getQuestionForResponse = (messageIndex: number): string => {
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') return messages[i].content;
+    }
+    return '';
+  };
+
+  const handleShareToWorkgroup = async () => {
+    if (!showShareModal || !shareWgId) return;
+    setShareSending(true);
+    try {
+      await apiRequest('POST', `/api/workgroups/${shareWgId}/share-qa`, {
+        question: showShareModal.question,
+        answer: showShareModal.answer,
+        mode: shareMode,
+      });
+      toast({ title: shareMode === 'approval' ? "Submitted for approval" : "Shared to workgroup" });
+      setShowShareModal(null);
+      setShareWgId(null);
+      setShareMode('message');
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Failed to share", variant: "destructive" });
+    }
+    setShareSending(false);
   };
 
   const handleModelChange = (value: string) => {
@@ -828,7 +859,7 @@ export default function Chat() {
           })()}
 
           {/* Messages */}
-          {messages.map((message) => (
+          {messages.map((message, msgIdx) => (
             <div key={message.id} className={`flex items-end gap-2 sm:gap-3 ${msgSpacingClass} ${message.role === 'user' ? 'justify-end' : ''} ${animationsPref ? 'transition-all' : ''}`}>
               {message.role === 'assistant' && (
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover flex-shrink-0" />
@@ -841,11 +872,27 @@ export default function Chat() {
                 >
                   {renderMessageContent(message.content, message.role)}
                 </div>
-                {showTimestampsPref && (
-                  <div className={`text-[10px] mt-1 ${message.role === 'user' ? 'mr-1 text-right' : 'ml-1'} ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>
-                    {formatTimestamp(message.timestamp)}
-                  </div>
-                )}
+                <div className={`flex items-center gap-2 mt-1 ${message.role === 'user' ? 'justify-end mr-1' : 'ml-1'}`}>
+                  {showTimestampsPref && (
+                    <span className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>
+                      {formatTimestamp(message.timestamp)}
+                    </span>
+                  )}
+                  {message.role === 'assistant' && userWorkgroups.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const q = getQuestionForResponse(msgIdx);
+                        setShowShareModal({ question: q, answer: message.content });
+                        setShareWgId(userWorkgroups[0]?.id || null);
+                      }}
+                      className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${isDark ? 'text-zinc-500 hover:text-[#8ab4f8] hover:bg-white/5' : 'text-gray-400 hover:text-blue-500 hover:bg-gray-100'}`}
+                      title="Send to Workgroup"
+                    >
+                      <Users className="h-3 w-3" />
+                      <span>Share</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {message.role === 'user' && (
@@ -1410,6 +1457,65 @@ export default function Chat() {
             >
               Maybe later
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Share to Workgroup Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowShareModal(null)}>
+          <div className={`${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-gray-200'} border rounded-2xl max-w-sm w-full p-5 relative`} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowShareModal(null)} className={`absolute top-3 right-3 ${isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}`}>
+              <X className="h-5 w-5" />
+            </button>
+            <div className="flex items-center gap-2 mb-4">
+              <Users className={`h-5 w-5 ${isDark ? 'text-[#8ab4f8]' : 'text-blue-500'}`} />
+              <h3 className={`font-bold text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>Send to Workgroup</h3>
+            </div>
+
+            <div className={`rounded-xl border p-3 mb-4 text-xs max-h-32 overflow-y-auto ${isDark ? 'border-zinc-700 bg-zinc-800/50 text-zinc-300' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+              <p className="font-medium mb-1">Q: {showShareModal.question.slice(0, 120)}{showShareModal.question.length > 120 ? '...' : ''}</p>
+              <p className="opacity-70">A: {showShareModal.answer.slice(0, 200)}{showShareModal.answer.length > 200 ? '...' : ''}</p>
+            </div>
+
+            <div className="mb-3">
+              <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Select workgroup</label>
+              <select
+                value={shareWgId || ''}
+                onChange={e => setShareWgId(Number(e.target.value))}
+                className={`w-full px-3 py-2 rounded-xl border text-sm ${isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+              >
+                {userWorkgroups.map((wg: any) => (
+                  <option key={wg.id} value={wg.id}>{wg.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Send as</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShareMode('message')}
+                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-colors border ${shareMode === 'message' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                >
+                  Group Message
+                </button>
+                <button
+                  onClick={() => setShareMode('approval')}
+                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-colors border ${shareMode === 'approval' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                >
+                  Submit for Approval
+                </button>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleShareToWorkgroup}
+              disabled={!shareWgId || shareSending}
+              className="w-full bg-[#4285F4] hover:bg-[#5a9bf4] text-white font-medium py-2.5 rounded-xl"
+            >
+              {shareSending ? 'Sending...' : shareMode === 'approval' ? 'Submit for Approval' : 'Send to Group Chat'}
+            </Button>
           </div>
         </div>
       )}
