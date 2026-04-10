@@ -4929,18 +4929,18 @@ Return ONLY valid JSON (no markdown):
       const user = await getFullUser(req);
       if (!user) return res.status(401).json({ error: 'User not found' });
       const { token } = req.body;
+      console.log('[Workgroup] Join attempt by', user.email, 'with token:', token?.trim()?.slice(0, 8) + '...');
       if (!token?.trim()) return res.status(400).json({ error: 'Invite token is required' });
 
       const [invite] = await db.select().from(workgroupInvites).where(and(eq(workgroupInvites.token, token.trim()), eq(workgroupInvites.status, 'pending')));
-      if (!invite) return res.status(404).json({ error: 'Invalid or expired invite' });
-      if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return res.status(400).json({ error: 'Invite has expired' });
-
-      if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
-        return res.status(403).json({ error: 'This invite was sent to a different email address' });
+      if (!invite) return res.status(404).json({ error: 'Invalid or expired invite code. It may have already been used or does not exist.' });
+      if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
+        await db.update(workgroupInvites).set({ status: 'expired' }).where(eq(workgroupInvites.id, invite.id));
+        return res.status(400).json({ error: 'This invite has expired. Please ask for a new invitation.' });
       }
 
       const alreadyMember = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, invite.workgroupId), eq(workgroupMembers.userId, user.id))).limit(1);
-      if (alreadyMember.length > 0) return res.status(400).json({ error: 'You are already a member' });
+      if (alreadyMember.length > 0) return res.status(400).json({ error: 'You are already a member of this workgroup' });
 
       await db.update(workgroupInvites).set({ status: 'accepted' }).where(eq(workgroupInvites.id, invite.id));
 
