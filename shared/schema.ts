@@ -235,3 +235,86 @@ export const promoCodes = pgTable("promo_codes", {
 export const insertPromoCodeSchema = createInsertSchema(promoCodes).omit({ id: true, usedCount: true, createdAt: true });
 export type InsertPromoCode = z.infer<typeof insertPromoCodeSchema>;
 export type PromoCode = typeof promoCodes.$inferSelect;
+
+export const workgroups = pgTable("workgroups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").default(""),
+  ownerId: text("owner_id").notNull(),
+  ownerEmail: text("owner_email"),
+  requireApproval: boolean("require_approval").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const workgroupMembers = pgTable("workgroup_members", {
+  id: serial("id").primaryKey(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  userId: text("user_id").notNull(),
+  userEmail: text("user_email"),
+  userName: text("user_name"),
+  role: text("role").notNull().default("member"),
+  isBlocked: boolean("is_blocked").default(false).notNull(),
+  isRestricted: boolean("is_restricted").default(false).notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const workgroupInvites = pgTable("workgroup_invites", {
+  id: serial("id").primaryKey(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  email: text("email").notNull(),
+  invitedBy: text("invited_by").notNull(),
+  status: text("status").notNull().default("pending"),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+});
+
+export const workgroupMessages = pgTable("workgroup_messages", {
+  id: serial("id").primaryKey(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  senderId: text("sender_id").notNull(),
+  senderName: text("sender_name"),
+  senderEmail: text("sender_email"),
+  recipientId: text("recipient_id"),
+  content: text("content").notNull(),
+  messageType: text("message_type").notNull().default("group"),
+  fileUrl: text("file_url"),
+  fileName: text("file_name"),
+  isEdited: boolean("is_edited").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const workgroupApprovals = pgTable("workgroup_approvals", {
+  id: serial("id").primaryKey(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  requesterId: text("requester_id").notNull(),
+  requesterName: text("requester_name"),
+  contentType: text("content_type").notNull(),
+  content: text("content").notNull(),
+  status: text("status").notNull().default("pending"),
+  reviewedBy: text("reviewed_by"),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+export const insertWorkgroupSchema = createInsertSchema(workgroups).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertWorkgroup = z.infer<typeof insertWorkgroupSchema>;
+export type Workgroup = typeof workgroups.$inferSelect;
+
+export const insertWorkgroupMemberSchema = createInsertSchema(workgroupMembers).omit({ id: true, joinedAt: true });
+export type InsertWorkgroupMember = z.infer<typeof insertWorkgroupMemberSchema>;
+export type WorkgroupMember = typeof workgroupMembers.$inferSelect;
+
+export const insertWorkgroupInviteSchema = createInsertSchema(workgroupInvites).omit({ id: true, createdAt: true });
+export type InsertWorkgroupInvite = z.infer<typeof insertWorkgroupInviteSchema>;
+export type WorkgroupInvite = typeof workgroupInvites.$inferSelect;
+
+export const insertWorkgroupMessageSchema = createInsertSchema(workgroupMessages).omit({ id: true, createdAt: true });
+export type InsertWorkgroupMessage = z.infer<typeof insertWorkgroupMessageSchema>;
+export type WorkgroupMessage = typeof workgroupMessages.$inferSelect;
+
+export const insertWorkgroupApprovalSchema = createInsertSchema(workgroupApprovals).omit({ id: true, createdAt: true, reviewedAt: true });
+export type InsertWorkgroupApproval = z.infer<typeof insertWorkgroupApprovalSchema>;
+export type WorkgroupApproval = typeof workgroupApprovals.$inferSelect;

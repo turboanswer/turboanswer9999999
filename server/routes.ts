@@ -7,7 +7,9 @@ const __dirname = path.dirname(__filename);
 import multer from "multer";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc, or } from "drizzle-orm";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, users, conversations, messages } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -4696,6 +4698,455 @@ Return ONLY valid JSON (no markdown):
       }
     }
   }, 5 * 60 * 1000); // check every 5 minutes
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ══ WORKGROUP SYSTEM (Enterprise/Research) ══════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+
+  async function getFullUser(req: any) {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return null;
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return user || null;
+  }
+
+  function isResearchOrEnterprise(user: any): boolean {
+    const tier = user?.subscriptionTier;
+    return tier === 'research' || tier === 'enterprise';
+  }
+
+  async function getWorkgroupRole(workgroupId: number, userId: string): Promise<string | null> {
+    const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, workgroupId), eq(workgroupMembers.userId, userId))).limit(1);
+    return member[0]?.role || null;
+  }
+
+  async function isOwnerOrAdmin(workgroupId: number, userId: string): Promise<boolean> {
+    const role = await getWorkgroupRole(workgroupId, userId);
+    return role === 'owner' || role === 'admin';
+  }
+
+  app.post('/api/workgroups', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      if (!isResearchOrEnterprise(user)) return res.status(403).json({ error: 'Research or Enterprise subscription required' });
+      const { name, description } = req.body;
+      if (!name?.trim()) return res.status(400).json({ error: 'Workgroup name is required' });
+
+      const [wg] = await db.insert(workgroups).values({
+        name: name.trim(),
+        description: description?.trim() || '',
+        ownerId: user.id,
+        ownerEmail: user.email,
+      }).returning();
+
+      await db.insert(workgroupMembers).values({
+        workgroupId: wg.id,
+        userId: user.id,
+        userEmail: user.email,
+        userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        role: 'owner',
+      });
+
+      res.json(wg);
+    } catch (e: any) { console.error('[Workgroup] Create error:', e.message); res.status(500).json({ error: 'Failed to create workgroup' }); }
+  });
+
+  app.get('/api/workgroups', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const memberships = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.userId, userId), eq(workgroupMembers.isBlocked, false)));
+      if (memberships.length === 0) return res.json([]);
+      const wgIds = memberships.map(m => m.workgroupId);
+      const wgs = await db.select().from(workgroups).where(or(...wgIds.map(id => eq(workgroups.id, id))));
+      const result = wgs.map(wg => ({ ...wg, myRole: memberships.find(m => m.workgroupId === wg.id)?.role }));
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to list workgroups' }); }
+  });
+
+  app.get('/api/workgroups/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (!role) return res.status(403).json({ error: 'Not a member' });
+      const [wg] = await db.select().from(workgroups).where(eq(workgroups.id, wgId));
+      if (!wg) return res.status(404).json({ error: 'Workgroup not found' });
+      res.json({ ...wg, myRole: role });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to get workgroup' }); }
+  });
+
+  app.patch('/api/workgroups/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, userId))) return res.status(403).json({ error: 'Owner or admin required' });
+      const { name, description, requireApproval } = req.body;
+      const updates: any = { updatedAt: new Date() };
+      if (name !== undefined) updates.name = name.trim();
+      if (description !== undefined) updates.description = description.trim();
+      if (requireApproval !== undefined) updates.requireApproval = !!requireApproval;
+      const [wg] = await db.update(workgroups).set(updates).where(eq(workgroups.id, wgId)).returning();
+      res.json(wg);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to update workgroup' }); }
+  });
+
+  app.get('/api/workgroups/:id/members', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (!role) return res.status(403).json({ error: 'Not a member' });
+      const members = await db.select().from(workgroupMembers).where(eq(workgroupMembers.workgroupId, wgId));
+      res.json(members);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to list members' }); }
+  });
+
+  app.post('/api/workgroups/:id/invite', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, user.id))) return res.status(403).json({ error: 'Owner or admin required' });
+      const { email } = req.body;
+      if (!email?.trim()) return res.status(400).json({ error: 'Email is required' });
+
+      const existing = await db.select().from(workgroupInvites).where(and(eq(workgroupInvites.workgroupId, wgId), eq(workgroupInvites.email, email.trim().toLowerCase()), eq(workgroupInvites.status, 'pending'))).limit(1);
+      if (existing.length > 0) return res.status(400).json({ error: 'Invite already sent' });
+
+      const alreadyMember = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userEmail, email.trim().toLowerCase()))).limit(1);
+      if (alreadyMember.length > 0) return res.status(400).json({ error: 'User is already a member' });
+
+      const crypto = await import('crypto');
+      const token = crypto.randomBytes(24).toString('hex');
+      const [wg] = await db.select().from(workgroups).where(eq(workgroups.id, wgId));
+
+      const [invite] = await db.insert(workgroupInvites).values({
+        workgroupId: wgId,
+        email: email.trim().toLowerCase(),
+        invitedBy: user.id,
+        token,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      }).returning();
+
+      const inviterName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      const appUrl = 'https://turbo-answer.replit.app';
+      await sendBrevoEmail(
+        email.trim().toLowerCase(),
+        email.trim(),
+        `You've been invited to join "${wg?.name}" on TurboAnswer`,
+        `Hi there!\n\n${inviterName} has invited you to join their workgroup "${wg?.name}" on TurboAnswer.\n\nWorkgroup features include:\n- Team messaging & private DMs\n- Shared AI research with 10 AI models\n- Document sharing\n- AI-powered conversation summaries\n- Admin controls & approval workflows\n\nTo accept this invitation:\n1. Log in or create an account at ${appUrl}\n2. Go to your Workgroups page\n3. Enter this invite code: <strong style="font-size:18px;color:#8ab4f8;">${token}</strong>\n\nOr click here: ${appUrl}/workgroups?invite=${token}\n\nThis invitation expires in 7 days.`
+      );
+
+      res.json({ success: true, invite });
+    } catch (e: any) { console.error('[Workgroup] Invite error:', e.message); res.status(500).json({ error: 'Failed to send invite' }); }
+  });
+
+  app.post('/api/workgroups/join', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const { token } = req.body;
+      if (!token?.trim()) return res.status(400).json({ error: 'Invite token is required' });
+
+      const [invite] = await db.select().from(workgroupInvites).where(and(eq(workgroupInvites.token, token.trim()), eq(workgroupInvites.status, 'pending')));
+      if (!invite) return res.status(404).json({ error: 'Invalid or expired invite' });
+      if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return res.status(400).json({ error: 'Invite has expired' });
+
+      if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
+        return res.status(403).json({ error: 'This invite was sent to a different email address' });
+      }
+
+      const alreadyMember = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, invite.workgroupId), eq(workgroupMembers.userId, user.id))).limit(1);
+      if (alreadyMember.length > 0) return res.status(400).json({ error: 'You are already a member' });
+
+      await db.update(workgroupInvites).set({ status: 'accepted' }).where(eq(workgroupInvites.id, invite.id));
+
+      await db.insert(workgroupMembers).values({
+        workgroupId: invite.workgroupId,
+        userId: user.id,
+        userEmail: user.email,
+        userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        role: 'member',
+      });
+
+      const [wg] = await db.select().from(workgroups).where(eq(workgroups.id, invite.workgroupId));
+      res.json({ success: true, workgroup: wg });
+    } catch (e: any) { console.error('[Workgroup] Join error:', e.message); res.status(500).json({ error: 'Failed to join workgroup' }); }
+  });
+
+  app.post('/api/workgroups/:id/kick', isAuthenticated, async (req: any, res) => {
+    try {
+      const myUserId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, myUserId))) return res.status(403).json({ error: 'Owner or admin required' });
+      const { userId } = req.body;
+      const targetRole = await getWorkgroupRole(wgId, userId);
+      if (targetRole === 'owner') return res.status(400).json({ error: 'Cannot kick the owner' });
+      await db.delete(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to kick member' }); }
+  });
+
+  app.post('/api/workgroups/:id/block', isAuthenticated, async (req: any, res) => {
+    try {
+      const myUserId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, myUserId))) return res.status(403).json({ error: 'Owner or admin required' });
+      const { userId, blocked } = req.body;
+      const targetRole = await getWorkgroupRole(wgId, userId);
+      if (targetRole === 'owner') return res.status(400).json({ error: 'Cannot block the owner' });
+      await db.update(workgroupMembers).set({ isBlocked: !!blocked }).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to block/unblock member' }); }
+  });
+
+  app.post('/api/workgroups/:id/restrict', isAuthenticated, async (req: any, res) => {
+    try {
+      const myUserId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, myUserId))) return res.status(403).json({ error: 'Owner or admin required' });
+      const { userId, restricted } = req.body;
+      await db.update(workgroupMembers).set({ isRestricted: !!restricted }).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to restrict member' }); }
+  });
+
+  app.post('/api/workgroups/:id/role', isAuthenticated, async (req: any, res) => {
+    try {
+      const myUserId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const myRole = await getWorkgroupRole(wgId, myUserId);
+      if (myRole !== 'owner') return res.status(403).json({ error: 'Only owner can change roles' });
+      const { userId, role } = req.body;
+      if (!['admin', 'member'].includes(role)) return res.status(400).json({ error: 'Invalid role' });
+      await db.update(workgroupMembers).set({ role }).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to change role' }); }
+  });
+
+  app.get('/api/workgroups/:id/members/:userId/history', isAuthenticated, async (req: any, res) => {
+    try {
+      const myUserId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, myUserId))) return res.status(403).json({ error: 'Owner or admin required' });
+      const targetUserId = req.params.userId;
+      const memberCheck = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, targetUserId))).limit(1);
+      if (memberCheck.length === 0) return res.status(404).json({ error: 'User is not in this workgroup' });
+
+      const convos = await db.select().from(conversations).where(eq(conversations.userId, targetUserId)).orderBy(desc(conversations.createdAt)).limit(50);
+      const result = [];
+      for (const c of convos) {
+        const msgs = await db.select().from(messages).where(eq(messages.conversationId, c.id)).orderBy(messages.timestamp).limit(10);
+        result.push({ conversation: c, messages: msgs });
+      }
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to get member history' }); }
+  });
+
+  app.post('/api/workgroups/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const wgId = parseInt(req.params.id);
+      const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, user.id))).limit(1);
+      if (!member[0]) return res.status(403).json({ error: 'Not a member' });
+      if (member[0].isBlocked) return res.status(403).json({ error: 'You are blocked from this workgroup' });
+      if (member[0].isRestricted) return res.status(403).json({ error: 'You are restricted from messaging' });
+
+      const { content, recipientId, messageType, fileName } = req.body;
+      if (!content?.trim()) return res.status(400).json({ error: 'Message is required' });
+
+      const type = recipientId ? 'private' : (messageType || 'group');
+
+      const [msg] = await db.insert(workgroupMessages).values({
+        workgroupId: wgId,
+        senderId: user.id,
+        senderName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        senderEmail: user.email,
+        recipientId: recipientId || null,
+        content: content.trim(),
+        messageType: type,
+        fileName: fileName || null,
+      }).returning();
+
+      res.json(msg);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to send message' }); }
+  });
+
+  app.get('/api/workgroups/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (!role) return res.status(403).json({ error: 'Not a member' });
+
+      const allMsgs = await db.select().from(workgroupMessages).where(eq(workgroupMessages.workgroupId, wgId)).orderBy(desc(workgroupMessages.createdAt)).limit(200);
+      const filtered = allMsgs.filter(m =>
+        m.messageType === 'group' ||
+        m.senderId === userId ||
+        m.recipientId === userId
+      );
+      res.json(filtered.reverse());
+    } catch (e: any) { res.status(500).json({ error: 'Failed to get messages' }); }
+  });
+
+  app.get('/api/workgroups/:id/messages/dm/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const myUserId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, myUserId);
+      if (!role) return res.status(403).json({ error: 'Not a member' });
+      const otherUserId = req.params.userId;
+
+      const allMsgs = await db.select().from(workgroupMessages).where(eq(workgroupMessages.workgroupId, wgId)).orderBy(workgroupMessages.createdAt).limit(500);
+      const dms = allMsgs.filter(m =>
+        m.messageType === 'private' &&
+        ((m.senderId === myUserId && m.recipientId === otherUserId) ||
+         (m.senderId === otherUserId && m.recipientId === myUserId))
+      );
+      res.json(dms);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to get DMs' }); }
+  });
+
+  app.post('/api/workgroups/:id/approvals', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, user.id);
+      if (!role) return res.status(403).json({ error: 'Not a member' });
+
+      const { contentType, content } = req.body;
+      if (!contentType || !content) return res.status(400).json({ error: 'contentType and content required' });
+
+      const [approval] = await db.insert(workgroupApprovals).values({
+        workgroupId: wgId,
+        requesterId: user.id,
+        requesterName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+        contentType,
+        content,
+      }).returning();
+
+      res.json(approval);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to submit for approval' }); }
+  });
+
+  app.get('/api/workgroups/:id/approvals', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, userId))) return res.status(403).json({ error: 'Owner or admin required' });
+      const approvals = await db.select().from(workgroupApprovals).where(eq(workgroupApprovals.workgroupId, wgId)).orderBy(desc(workgroupApprovals.createdAt));
+      res.json(approvals);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to get approvals' }); }
+  });
+
+  app.post('/api/workgroups/:id/approvals/:approvalId/review', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      if (!(await isOwnerOrAdmin(wgId, userId))) return res.status(403).json({ error: 'Owner or admin required' });
+      const approvalId = parseInt(req.params.approvalId);
+      const { status, reviewNote } = req.body;
+      if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'Status must be approved or rejected' });
+
+      const [updated] = await db.update(workgroupApprovals).set({
+        status,
+        reviewedBy: userId,
+        reviewNote: reviewNote || null,
+        reviewedAt: new Date(),
+      }).where(and(eq(workgroupApprovals.id, approvalId), eq(workgroupApprovals.workgroupId, wgId))).returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to review approval' }); }
+  });
+
+  app.post('/api/workgroups/:id/ai-summary', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (!role) return res.status(403).json({ error: 'Not a member' });
+
+      const recentMsgs = await db.select().from(workgroupMessages).where(and(eq(workgroupMessages.workgroupId, wgId), eq(workgroupMessages.messageType, 'group'))).orderBy(desc(workgroupMessages.createdAt)).limit(100);
+
+      if (recentMsgs.length === 0) return res.json({ summary: 'No messages to summarize yet.' });
+
+      const chatText = recentMsgs.reverse().map(m => `${m.senderName}: ${m.content}`).join('\n');
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) return res.status(500).json({ error: 'AI not configured' });
+
+      const prompt = `You are a helpful team assistant. Below is a recent group chat conversation from a workgroup. Summarize what the team is planning, key decisions made, action items, and important topics discussed. Be concise and organized.\n\nChat:\n${chatText}\n\nProvide:\n1. Summary of discussion\n2. Key decisions\n3. Action items\n4. What the company/team appears to be planning`;
+
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 2000 } }),
+      });
+      if (!r.ok) return res.status(500).json({ error: 'AI summary failed' });
+      const data: any = await r.json();
+      const summary = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not generate summary.';
+      res.json({ summary });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to generate summary' }); }
+  });
+
+  app.post('/api/workgroups/:id/ai-ask', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (!role) return res.status(403).json({ error: 'Not a member' });
+
+      const { question } = req.body;
+      if (!question?.trim()) return res.status(400).json({ error: 'Question is required' });
+
+      const recentMsgs = await db.select().from(workgroupMessages).where(and(eq(workgroupMessages.workgroupId, wgId), eq(workgroupMessages.messageType, 'group'))).orderBy(desc(workgroupMessages.createdAt)).limit(100);
+
+      const chatText = recentMsgs.reverse().map(m => `${m.senderName}: ${m.content}`).join('\n');
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) return res.status(500).json({ error: 'AI not configured' });
+
+      const prompt = `You are a helpful assistant for a team workgroup. Here is the recent group conversation:\n\n${chatText}\n\nThe user asks: ${question}\n\nAnswer based on the conversation context. If the answer isn't in the conversation, say so.`;
+
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 1500 } }),
+      });
+      if (!r.ok) return res.status(500).json({ error: 'AI query failed' });
+      const data: any = await r.json();
+      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not answer.';
+      res.json({ answer });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to ask AI' }); }
+  });
+
+  app.post('/api/workgroups/:id/leave', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (!role) return res.status(404).json({ error: 'Not a member' });
+      if (role === 'owner') return res.status(400).json({ error: 'Owner cannot leave. Transfer ownership first or delete the workgroup.' });
+      await db.delete(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to leave workgroup' }); }
+  });
+
+  app.delete('/api/workgroups/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (role !== 'owner') return res.status(403).json({ error: 'Only the owner can delete a workgroup' });
+      await db.delete(workgroupMessages).where(eq(workgroupMessages.workgroupId, wgId));
+      await db.delete(workgroupApprovals).where(eq(workgroupApprovals.workgroupId, wgId));
+      await db.delete(workgroupInvites).where(eq(workgroupInvites.workgroupId, wgId));
+      await db.delete(workgroupMembers).where(eq(workgroupMembers.workgroupId, wgId));
+      await db.delete(workgroups).where(eq(workgroups.id, wgId));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to delete workgroup' }); }
+  });
 
   return httpServer;
 }

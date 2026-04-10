@@ -49,7 +49,8 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Media Studio**: Enterprise-exclusive video and photo editor with filters, text overlays, and AI-powered suggestions.
 - **AI Scanner**: Free feature to read, transcribe, and summarize images using Gemini vision.
 - **AI Video Generation**: Research/Enterprise feature powered by Google Veo 3.1, supporting video generation from text prompts.
-- **Code Studio**: An in-browser IDE add-on with complexity-based pricing, Monaco editor, multi-file support, and Gemini 3.1 Pro integration.
+- **Code Studio**: An in-browser IDE add-on powered by Claude Opus 4, with complexity-based pricing, Monaco editor, and multi-file support.
+- **Enterprise Workgroups**: Team collaboration system (Research/Enterprise tier) with group chat, private DMs, member management (invite/kick/block/restrict/promote), approval queues, AI-powered conversation summaries (Gemini 2.0 Flash), and admin controls. Tables: workgroups, workgroup_members, workgroup_invites, workgroup_messages, workgroup_approvals. Frontend: `/workgroups` page. Invite tokens use crypto.randomBytes; join validates invited email matches authenticated user.
 - **Embeddable AI Widget**: Universal JavaScript widget for website integration.
 - **Promo Code System**: Database-driven system for discounts and free access.
 - **Beta Testing Program**: Public application and feedback system for new features.

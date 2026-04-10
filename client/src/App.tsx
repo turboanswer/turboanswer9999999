@@ -33,6 +33,7 @@ import MediaEditor from "@/pages/media-editor";
 import VideoStudio from "@/pages/video-studio";
 import CodeStudio from "@/pages/code-studio";
 import BetaApply from "@/pages/beta-apply";
+import Workgroups from "@/pages/workgroups";
 import DataDeletion from "@/pages/data-deletion";
 import TermsConditions from "@/pages/terms-conditions";
 import MobileWelcome from "@/pages/mobile-welcome";
@@ -70,6 +71,7 @@ function AuthenticatedRouter() {
       <Route path="/media-editor" component={MediaEditor} />
       <Route path="/video-studio" component={VideoStudio} />
       <Route path="/code-studio" component={CodeStudio} />
+      <Route path="/workgroups" component={Workgroups} />
       <Route path="/beta" component={BetaApply} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route component={NotFound} />
