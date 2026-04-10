@@ -62,7 +62,8 @@ export default function Login() {
         } catch {}
 
         toast({ title: "Welcome back!", description: "You're now signed in to Turbo Answer." });
-        setLocation("/chat");
+        const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+        setLocation(redirectParam || "/chat");
       } else {
         toast({ title: "Error", description: data.message || "Invalid credentials", variant: "destructive" });
       }

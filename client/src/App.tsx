@@ -97,6 +97,14 @@ function UnauthenticatedRouter() {
       <Route path="/crisis-info" component={CrisisInfo} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/image-studio" component={ImageStudio} />
+      <Route path="/workgroups">{() => {
+        const inviteParam = new URLSearchParams(window.location.search).get('invite');
+        if (inviteParam) {
+          localStorage.setItem('turbo_pending_invite', inviteParam);
+        }
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+        return null;
+      }}</Route>
       <Route path="/beta" component={BetaApply} />
       <Route component={LandingPage} />
     </Switch>

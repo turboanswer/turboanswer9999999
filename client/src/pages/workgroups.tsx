@@ -84,6 +84,13 @@ export default function WorkgroupsPage() {
       setJoinToken(inv);
       setActiveWgId(null);
       window.history.replaceState({}, '', '/workgroups');
+    } else {
+      const stored = localStorage.getItem('turbo_pending_invite');
+      if (stored) {
+        setJoinToken(stored);
+        setActiveWgId(null);
+        localStorage.removeItem('turbo_pending_invite');
+      }
     }
   }, []);
 
