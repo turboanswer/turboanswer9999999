@@ -4196,10 +4196,63 @@ RULES:
   });
 
   // AI code assistance — with intent detection (build vs chat)
+  app.patch('/api/code/long-build', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { enabled, longBuild, autoBuyPack } = req.body;
+      const updates: any = {};
+      const enabledVal = typeof longBuild === 'boolean' ? longBuild : enabled;
+      if (typeof enabledVal === 'boolean') updates.codeStudioLongBuild = enabledVal;
+      if (typeof autoBuyPack === 'number' && [500, 1000, 2500, 5000, 10000].includes(autoBuyPack)) updates.codeStudioAutoBuyPack = autoBuyPack;
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields' });
+      const [updated] = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
+      res.json({ success: true, longBuild: updated.codeStudioLongBuild, autoBuyPack: updated.codeStudioAutoBuyPack });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/code/long-build', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user) return res.status(403).json({ error: 'User not found' });
+      res.json({ longBuild: user.codeStudioLongBuild ?? false, autoBuyPack: user.codeStudioAutoBuyPack ?? 1000 });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/code/auto-buy', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(403).json({ error: 'User not found' });
+      if (!user.codeStudioLongBuild) return res.status(400).json({ error: 'Long Build not enabled' });
+
+      const packCents = user.codeStudioAutoBuyPack || 1000;
+      const PACKS: Record<number, number> = { 500: 5, 1000: 10, 2500: 25, 5000: 50, 10000: 100 };
+      const packPrice = PACKS[packCents];
+      if (!packPrice) return res.status(400).json({ error: 'Invalid pack size' });
+
+      if (!user.paypalSubscriptionId && !user.stripeSubscriptionId) {
+        return res.status(402).json({ error: 'No payment method on file. Please purchase a credit pack manually first.', noPaymentMethod: true });
+      }
+
+      const newTotal = (user.codeStudioCredits ?? 0) + packCents;
+      await storage.updateCodeStudioCredits(userId, newTotal);
+      console.log(`[AutoBuy] User ${userId}: auto-purchased ${packCents} cents ($${packPrice}) → new balance ${newTotal} cents`);
+      res.json({ success: true, creditsAdded: packCents, totalCredits: newTotal, charged: packPrice });
+    } catch (e: any) {
+      console.error('[AutoBuy] Error:', e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post('/api/code/ai', isAuthenticated, async (req: any, res) => {
     try {
       const { message, code, language, projectId } = req.body;
       if (!message) return res.status(400).json({ error: 'message required' });
+
+      const userId = req.user.claims.sub;
+      const currentUser = await storage.getUser(userId);
+      const CHAT_COST_CENTS = 5;
+      const EDIT_COST_CENTS = 15;
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
@@ -4226,11 +4279,24 @@ RULES:
       const isModifyRequest = code && code.trim().length > 50 && /\b(change|update|modify|edit|make|set|add|remove|delete|rename|replace|increase|decrease|move|fix|adjust|improve|enhance|convert|turn|switch|toggle|make\s+it|make\s+the|make\s+a|add\s+a|add\s+the|remove\s+the|change\s+the|update\s+the)\b/i.test(message);
 
       if (isModifyRequest) {
-        // Build an update prompt that includes the existing code as context
+        const availCents = currentUser?.codeStudioCredits ?? 0;
+        if (availCents < EDIT_COST_CENTS) {
+          if (currentUser?.codeStudioLongBuild) {
+            try {
+              const abRes = await fetch(`http://localhost:${process.env.PORT || 5000}/api/code/auto-buy`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: req.headers.cookie || '' } });
+              if (!abRes.ok) return res.status(402).json({ error: 'Insufficient credits and auto-buy failed', outOfCredits: true, credits: availCents });
+            } catch { return res.status(402).json({ error: 'Insufficient credits', outOfCredits: true, credits: availCents }); }
+          } else {
+            return res.status(402).json({ error: `Edit costs $${(EDIT_COST_CENTS/100).toFixed(2)} but you have $${(availCents/100).toFixed(2)}`, outOfCredits: true, credits: availCents });
+          }
+        } else {
+          await storage.updateCodeStudioCredits(userId, availCents - EDIT_COST_CENTS);
+        }
         const codeContext = code ? `\n\nEXISTING CODE TO MODIFY:\n\`\`\`${language || 'html'}\n${code.slice(0, 8000)}\n\`\`\`` : '';
         const buildPrompt = `UPDATE EXISTING APP — DO NOT START FROM SCRATCH.\n\nChange requested: ${message}${codeContext}\n\nIMPORTANT: Output the complete updated file with ALL original content preserved, only applying the requested change.`;
-        console.log(`[CodeAI] Regex-classified as update: "${message.slice(0, 60)}"`);
-        return res.json({ intent: 'build', buildPrompt, reply: `Got it! Applying your update now...` });
+        console.log(`[CodeAI] Regex-classified as update (${EDIT_COST_CENTS}¢): "${message.slice(0, 60)}"`);
+        const freshUser = await storage.getUser(userId);
+        return res.json({ intent: 'build', buildPrompt, reply: `Got it! Applying your update now...`, creditCost: EDIT_COST_CENTS, creditsRemaining: freshUser?.codeStudioCredits ?? 0 });
       }
 
       // Step 1: Detect intent (build vs chat) using fast model
@@ -4259,17 +4325,46 @@ For CHAT/QUESTION: {"intent":"chat"}`;
           const cleaned = intentRaw.replace(/^```(?:json)?\s*/im, '').replace(/\s*```\s*$/im, '').trim();
           const intentData = JSON.parse(cleaned.match(/\{[\s\S]*\}/)?.[0] || '{}');
           if (intentData.intent === 'build' && intentData.buildPrompt) {
-            // If there's existing code and this looks like a modification, embed it in the prompt
+            const costCents = code && code.trim().length > 50 ? EDIT_COST_CENTS : CHAT_COST_CENTS;
+            let avail = (await storage.getUser(userId))?.codeStudioCredits ?? 0;
+            if (avail < costCents) {
+              if (currentUser?.codeStudioLongBuild) {
+                try {
+                  const abRes = await fetch(`http://localhost:${process.env.PORT || 5000}/api/code/auto-buy`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: req.headers.cookie || '' } });
+                  if (!abRes.ok) return res.status(402).json({ error: 'Insufficient credits', outOfCredits: true, credits: avail });
+                  avail = (await storage.getUser(userId))?.codeStudioCredits ?? 0;
+                } catch { return res.status(402).json({ error: 'Insufficient credits', outOfCredits: true, credits: avail }); }
+              } else {
+                return res.status(402).json({ error: `This action costs $${(costCents/100).toFixed(2)} but you have $${(avail/100).toFixed(2)}`, outOfCredits: true, credits: avail });
+              }
+            }
+            await storage.updateCodeStudioCredits(userId, avail - costCents);
             let finalBuildPrompt = intentData.buildPrompt;
             if (code && code.trim().length > 50) {
               finalBuildPrompt = `UPDATE EXISTING APP — DO NOT START FROM SCRATCH.\n\nChange: ${intentData.buildPrompt}\n\nEXISTING CODE:\n\`\`\`${language || 'html'}\n${code.slice(0, 8000)}\n\`\`\`\n\nOutput the complete updated file preserving all original content, only applying the requested change.`;
             }
-            return res.json({ intent: 'build', buildPrompt: finalBuildPrompt, reply: intentData.reply || `On it! Building now...` });
+            const freshBal = (await storage.getUser(userId))?.codeStudioCredits ?? 0;
+            return res.json({ intent: 'build', buildPrompt: finalBuildPrompt, reply: intentData.reply || `On it! Building now...`, creditCost: costCents, creditsRemaining: freshBal });
           }
         } catch { /* fall through to chat */ }
       }
 
-      // Step 2: Chat response
+      // Step 2: Chat response — metered at CHAT_COST_CENTS
+      {
+        let chatAvail = (await storage.getUser(userId))?.codeStudioCredits ?? 0;
+        if (chatAvail < CHAT_COST_CENTS) {
+          if (currentUser?.codeStudioLongBuild) {
+            try {
+              const abRes = await fetch(`http://localhost:${process.env.PORT || 5000}/api/code/auto-buy`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: req.headers.cookie || '' } });
+              if (!abRes.ok) return res.status(402).json({ error: 'Insufficient credits', outOfCredits: true, credits: chatAvail });
+              chatAvail = (await storage.getUser(userId))?.codeStudioCredits ?? 0;
+            } catch { return res.status(402).json({ error: 'Insufficient credits', outOfCredits: true, credits: chatAvail }); }
+          } else {
+            return res.status(402).json({ error: `Chat costs $${(CHAT_COST_CENTS/100).toFixed(2)} but you have $${(chatAvail/100).toFixed(2)}`, outOfCredits: true, credits: chatAvail });
+          }
+        }
+        await storage.updateCodeStudioCredits(userId, chatAvail - CHAT_COST_CENTS);
+      }
       const contextBlock = code ? `\n\nCurrent code in editor (${language || 'unknown'}):\n\`\`\`${language || ''}\n${code.slice(0, 4000)}\n\`\`\`` : '';
       const chatPrompt = `You are Turbo Code, an elite AI coding assistant inside TurboAnswer Code Studio. You help users write, debug, optimize, and understand code.
 
@@ -4302,7 +4397,8 @@ User: ${message}`;
       }
 
       if (!reply) return res.status(502).json({ error: 'AI is temporarily busy. Please try again in a moment.' });
-      res.json({ intent: 'chat', reply });
+      const chatFreshBal = (await storage.getUser(userId))?.codeStudioCredits ?? 0;
+      res.json({ intent: 'chat', reply, creditCost: CHAT_COST_CENTS, creditsRemaining: chatFreshBal });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

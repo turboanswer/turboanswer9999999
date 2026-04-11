@@ -181,6 +181,9 @@ export default function CodeStudio() {
   const [buyingCredits, setBuyingCredits] = useState(false);
   const [selectedPack, setSelectedPack] = useState<number>(1000); // default $10
   const [lastBuildCost, setLastBuildCost] = useState<{ cents: number; tierLabel: string } | null>(null);
+  const [longBuildEnabled, setLongBuildEnabled] = useState(false);
+  const [autoBuyPack, setAutoBuyPack] = useState(1000);
+  const [showLongBuildSettings, setShowLongBuildSettings] = useState(false);
 
   // Complexity-based pricing
   const COMPLEXITY_TIERS: Record<string, { label: string; emoji: string; cents: number; desc: string; color: string }> = {
@@ -213,7 +216,6 @@ export default function CodeStudio() {
 
   useEffect(() => { if (isAuthenticated) loadProjects(); }, [isAuthenticated]);
 
-  // Fetch credit balance on load (and after addon activation)
   useEffect(() => {
     if (user?.codeStudioAddon) {
       fetch("/api/code/credits", { credentials: "include" })
@@ -222,6 +224,15 @@ export default function CodeStudio() {
           if (d) {
             setCredits(d.credits);
             if (d.nextReset) setNextReset(new Date(d.nextReset));
+          }
+        })
+        .catch(() => {});
+      fetch("/api/code/long-build", { credentials: "include" })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d) {
+            setLongBuildEnabled(d.longBuild);
+            setAutoBuyPack(d.autoBuyPack || 1000);
           }
         })
         .catch(() => {});
@@ -362,17 +373,27 @@ export default function CodeStudio() {
       });
       const data = await res.json();
 
+      if (res.status === 402 && data.outOfCredits) {
+        setCredits(data.credits ?? 0);
+        setShowBuyCredits(true);
+        setMessages(prev => [...prev, { id: uid(), role: "system", content: data.error || "Insufficient credits. Add budget to continue." }]);
+        return;
+      }
       if (!res.ok || data.error) {
         setMessages(prev => [...prev, { id: uid(), role: "assistant", content: data.error || "AI is temporarily unavailable. Please try again." }]);
         return;
       }
 
+      if (typeof data.creditsRemaining === 'number') setCredits(data.creditsRemaining);
+
       if (data.intent === "build") {
-        const replyMsg: ChatMsg = { id: uid(), role: "assistant", content: data.reply || "On it! Building now..." };
+        const costNote = data.creditCost ? ` *(${formatDollars(data.creditCost)} charged)*` : '';
+        const replyMsg: ChatMsg = { id: uid(), role: "assistant", content: (data.reply || "On it! Building now...") + costNote };
         setMessages(prev => [...prev, replyMsg]);
         await triggerBuild(data.buildPrompt, msg);
       } else if (data.reply) {
-        setMessages(prev => [...prev, { id: uid(), role: "assistant", content: data.reply }]);
+        const costNote = data.creditCost ? `\n\n*${formatDollars(data.creditCost)} charged · ${formatDollars(data.creditsRemaining ?? 0)} remaining*` : '';
+        setMessages(prev => [...prev, { id: uid(), role: "assistant", content: data.reply + costNote }]);
       } else {
         await triggerBuild(msg, msg);
       }
@@ -815,7 +836,65 @@ export default function CodeStudio() {
               <div style={{ fontSize: 10, color: C.muted }}>Multi-Model AI Agent</div>
             </div>
             <div style={{ fontSize: 10, color: "#7c3aed", background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.2)", padding: "2px 7px", borderRadius: 4, fontWeight: 600 }}>AI</div>
+            {user?.codeStudioAddon && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={() => setShowBuyCredits(true)} style={{ fontSize: 10, color: "#a3e635", background: "rgba(163,230,53,0.08)", border: "1px solid rgba(163,230,53,0.2)", padding: "2px 7px", borderRadius: 4, fontWeight: 600, cursor: "pointer" }}>
+                  {credits !== null ? formatDollars(credits) : "..."}
+                </button>
+                <button
+                  onClick={() => setShowLongBuildSettings(v => !v)}
+                  title={longBuildEnabled ? "Long Build ON — auto-buy enabled" : "Long Build OFF"}
+                  style={{ fontSize: 10, color: longBuildEnabled ? "#22c55e" : C.muted, background: longBuildEnabled ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${longBuildEnabled ? "rgba(34,197,94,0.3)" : C.border}`, padding: "2px 7px", borderRadius: 4, fontWeight: 600, cursor: "pointer" }}>
+                  {longBuildEnabled ? "⚡ LB" : "LB"}
+                </button>
+              </div>
+            )}
           </div>
+
+          {showLongBuildSettings && user?.codeStudioAddon && (
+            <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: "rgba(34,197,94,0.03)", fontSize: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: C.text }}>Long Build Mode</div>
+                  <div style={{ fontSize: 10, color: C.muted }}>Auto-buy credits when balance runs low during builds</div>
+                </div>
+                <button
+                  onClick={async () => {
+                    const next = !longBuildEnabled;
+                    setLongBuildEnabled(next);
+                    await fetch("/api/code/long-build", {
+                      method: "PATCH",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ longBuild: next, autoBuyPack: autoBuyPack }),
+                    });
+                  }}
+                  style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", position: "relative", background: longBuildEnabled ? "#22c55e" : C.border, transition: "background 0.2s" }}>
+                  <div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 3, left: longBuildEnabled ? 21 : 3, transition: "left 0.2s" }} />
+                </button>
+              </div>
+              {longBuildEnabled && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: C.muted }}>Auto-buy pack:</span>
+                  {[500, 1000, 2500].map(amt => (
+                    <button key={amt}
+                      onClick={async () => {
+                        setAutoBuyPack(amt);
+                        await fetch("/api/code/long-build", {
+                          method: "PATCH",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ longBuild: true, autoBuyPack: amt }),
+                        });
+                      }}
+                      style={{ fontSize: 10, fontWeight: autoBuyPack === amt ? 700 : 500, color: autoBuyPack === amt ? "#22c55e" : C.muted, background: autoBuyPack === amt ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${autoBuyPack === amt ? "rgba(34,197,94,0.3)" : C.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>
+                      {formatDollars(amt)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* File Tree (collapsible) */}
           {hasProject && (
