@@ -613,11 +613,7 @@ export default function Chat() {
                   <MessageSquare className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/api-keys">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="API Keys">
-                  <Key className="h-4 w-4" />
-                </Button>
-              </Link>
+
               <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${showQR ? 'text-[#8ab4f8]' : isDark ? 'text-[#8e918f]' : 'text-gray-500'} ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="QR Code">
                 <QrCode className="h-4 w-4" />
               </Button>
