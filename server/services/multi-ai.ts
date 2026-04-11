@@ -331,14 +331,13 @@ export async function generateAIResponse(
       console.log(`[AI] Pro → Gemini Flash Lite`);
       return await callGemini(fullPrompt, 'gemini-3.1-flash-lite-preview', 4000, 0.3, geminiApiKey);
     } else {
-      // Free tier → Gemini 2.0 Flash Lite (basic model, no grounded search, short answers)
+      // Free tier → Gemini 2.0 Flash Lite (basic model, no grounded search, no memory, very short)
       if (!geminiApiKey) return "API key not configured.";
-      const freeContext = _lastResponseUsedGroundedSearch ? "" : additionalContext;
       _lastResponseUsedGroundedSearch = false;
-      const systemPrompt = `You are Turbo Answer (Free). Answer questions briefly and directly. Keep all responses short (2-4 sentences max). Never discuss your own state, feelings, or system load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${freeContext}`;
-      const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${userMessage}` : `${systemPrompt}\n\nUser: ${userMessage}`;
-      console.log(`[AI] Free → Gemini 2.0 Flash Lite (basic)`);
-      return await callGeminiBasic(fullPrompt, 800, 0.5, geminiApiKey);
+      const systemPrompt = `You are a basic AI assistant. Give very short answers only. Maximum 1-2 sentences. Do not give detailed explanations, lists, or step-by-step instructions. If the user asks for something complex, give a brief summary and suggest they upgrade to Pro for a detailed answer. Never discuss your own state or feelings.${languageInstruction ? ' ' + languageInstruction : ''}`;
+      const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}`;
+      console.log(`[AI] Free → Gemini 2.0 Flash Lite (basic, no history)`);
+      return await callGeminiBasic(fullPrompt, 400, 0.7, geminiApiKey);
     }
 
   } catch (error: any) {
