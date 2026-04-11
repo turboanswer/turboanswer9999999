@@ -519,7 +519,7 @@ function downloadAAB(){
 
       const { generateAIResponse } = await import('./services/multi-ai.js');
       const trialUserId = `trial_${req.ip || 'anon'}`;
-      const answer = await generateAIResponse(
+      const rawAnswer = await generateAIResponse(
         question.trim(),
         [],
         "free",
@@ -529,6 +529,7 @@ function downloadAAB(){
         "balanced",
         "casual"
       );
+      const answer = typeof rawAnswer === 'object' ? rawAnswer.text : rawAnswer;
 
       res.json({ answer });
     } catch (error: any) {
@@ -953,6 +954,7 @@ function downloadAAB(){
       const isImageRequest = (imageVerbs.test(content) && imageNouns.test(content)) || (imageIntent.test(content) && imageNouns.test(content));
 
       let aiResponseContent: string;
+      let responseUsedGroundedSearch = false;
 
       if (isImageRequest) {
         try {
@@ -993,7 +995,7 @@ function downloadAAB(){
         const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
         const sender = await storage.getUser(sendingUserId);
         const userTier = sender?.subscriptionTier || 'free';
-        aiResponseContent = await generateAIResponse(
+        const aiResult = await generateAIResponse(
           content,
           conversationHistory,
           userTier,
@@ -1003,38 +1005,34 @@ function downloadAAB(){
           req.body.responseStyle || "balanced",
           req.body.responseTone || "casual"
         );
+        responseUsedGroundedSearch = typeof aiResult === 'object' && aiResult.usedGroundedSearch;
+        aiResponseContent = typeof aiResult === 'object' ? aiResult.text : aiResult;
       }
 
-      const aiMessage = await storage.createMessage({
-        conversationId,
-        content: aiResponseContent,
-        role: "assistant"
-      });
-
-      let verified: "verified" | "unverified" | "unknown" = "unknown";
       const senderForVerify = sendingUserId ? await storage.getUser(sendingUserId) : null;
       const senderTier = senderForVerify?.subscriptionTier || 'free';
-      if (senderTier !== 'free') {
-        try {
-          const { lastResponseUsedGroundedSearch, verifyAIResponse } = await import('./services/multi-ai.js');
-          if (lastResponseUsedGroundedSearch()) {
-            verified = "verified";
-          } else {
-            const geminiKey = process.env.GEMINI_API_KEY;
-            if (geminiKey && aiResponseContent.length > 30) {
-              verified = await verifyAIResponse(aiResponseContent, content, geminiKey);
-            }
-          }
-        } catch {
-          verified = "unknown";
-        }
-      }
 
-      res.json({
-        userMessage,
-        aiMessage,
-        verified
-      });
+      const verifyPromise = (async (): Promise<"verified" | "unverified" | "unknown"> => {
+        if (senderTier === 'free') return "unknown";
+        try {
+          const { verifyAIResponse } = await import('./services/multi-ai.js');
+          if (responseUsedGroundedSearch) return "verified";
+          const geminiKey = process.env.GEMINI_API_KEY;
+          if (geminiKey && aiResponseContent.length > 30) {
+            return await verifyAIResponse(aiResponseContent, content, geminiKey);
+          }
+          return "unknown";
+        } catch {
+          return "unknown";
+        }
+      })();
+
+      const [aiMessage, verified] = await Promise.all([
+        storage.createMessage({ conversationId, content: aiResponseContent, role: "assistant" }),
+        verifyPromise
+      ]);
+
+      res.json({ userMessage, aiMessage, verified });
     } catch (error: any) {
       console.error("Error in message route:", error);
       res.status(500).json({ message: "Something went wrong. Please try again." });
@@ -2866,7 +2864,8 @@ function downloadAAB(){
       
       User message: ${message}`;
       
-      const aiResponse = await generateAIResponse(businessPrompt, [], 'free', 'gemini-pro');
+      const aiRaw = await generateAIResponse(businessPrompt, [], 'free', 'gemini-pro');
+      const aiResponse = typeof aiRaw === 'object' ? aiRaw.text : aiRaw;
       
       await storage.createMessage({
         conversationId,
@@ -3714,8 +3713,10 @@ Reply with exactly one word (micro/simple/standard/complex/advanced):` }] }],
       const longBuildHours = userSettings?.codeStudioLongBuildHours ?? 1;
       const PASSES_BY_HOURS: Record<number, number> = { 1: 1, 3: 2, 6: 3, 9: 4 };
       const totalPasses = longBuildOn ? (PASSES_BY_HOURS[longBuildHours] || 1) : 1;
-      const timeoutMs = totalPasses > 1 ? 360000 : 180000;
+      const perPassMs = 130000;
+      const timeoutMs = (totalPasses * perPassMs) + 60000;
       res.setTimeout(timeoutMs);
+      if (req.socket) req.socket.setTimeout(timeoutMs + 10000);
 
       // ── Complexity-based billing ──────────────────────────────────────────────
       // Tiers: micro=10¢, simple=35¢, standard=75¢, complex=150¢, advanced=300¢
@@ -4000,7 +4001,8 @@ RULES:
       }
 
       // Claude first (prefill technique forces correct output), then Gemini fallbacks
-      let rawText = await callClaude(10000, 110000)
+      const initialTimeout = 120000;
+      let rawText = await callClaude(10000, initialTimeout)
         ?? await callGemini('gemini-3.1-pro-preview', 8192, 95000)
         ?? await callGemini('gemini-2.0-flash', 8192, 45000)
         ?? await callGemini('gemini-2.0-flash-lite', 4096, 30000)
@@ -4036,9 +4038,13 @@ RULES:
 
       // ── LONG BUILD: Iterative improvement passes ──────────────────────────
       if (totalPasses > 1) {
-        console.log(`[LongBuild] Starting ${totalPasses - 1} refinement passes for ${longBuildHours}h build`);
+        const refinePasses = totalPasses - 1;
+        console.log(`[LongBuild] Starting ${refinePasses} refinement passes for ${longBuildHours}h build (total timeout: ${Math.round(timeoutMs/1000)}s)`);
 
         async function improvePass(currentHtml: string, passNum: number, total: number): Promise<string> {
+          const passTimeout = perPassMs;
+          console.log(`[LongBuild] Pass ${passNum}/${total} starting (timeout: ${Math.round(passTimeout/1000)}s, input: ${currentHtml.length} chars)`);
+
           const improvePrompt = `You are a world-class senior UI/UX engineer reviewing and improving a web application.
 
 Below is the CURRENT HTML of the app. Your job for Pass ${passNum}/${total} is to:
@@ -4071,6 +4077,8 @@ ${currentHtml}`;
 
           if (anthropicKey) {
             try {
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), passTimeout);
               const r = await fetch(`${anthropicBase}/v1/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
@@ -4079,24 +4087,30 @@ ${currentHtml}`;
                   max_tokens: 12000,
                   messages: [{ role: 'user', content: improvePrompt }],
                 }),
-                signal: AbortSignal.timeout(120000),
+                signal: controller.signal,
               });
+              clearTimeout(timer);
               if (r.ok) {
                 const d: any = await r.json();
                 const improved = d.content?.[0]?.text || '';
                 const cleaned = improved.replace(/^```(?:html)?\s*/im, '').replace(/\s*```\s*$/im, '').trim();
                 const idx = cleaned.indexOf('<!DOCTYPE html>');
                 if (idx >= 0 && cleaned.length > currentHtml.length * 0.5) {
-                  console.log(`[LongBuild] Pass ${passNum} succeeded — ${cleaned.length} chars (was ${currentHtml.length})`);
+                  console.log(`[LongBuild] Pass ${passNum} Claude succeeded — ${cleaned.length} chars (was ${currentHtml.length})`);
                   return cleaned.slice(idx);
                 }
+                console.log(`[LongBuild] Pass ${passNum} Claude output too short or missing DOCTYPE, trying Gemini`);
+              } else {
+                console.log(`[LongBuild] Pass ${passNum} Claude HTTP ${r.status}, trying Gemini`);
               }
             } catch (e: any) {
-              console.log(`[LongBuild] Claude pass ${passNum} failed:`, e.message);
+              console.log(`[LongBuild] Pass ${passNum} Claude failed: ${e.message}, trying Gemini`);
             }
           }
 
           try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 60000);
             const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -4104,29 +4118,31 @@ ${currentHtml}`;
                 contents: [{ parts: [{ text: improvePrompt }] }],
                 generationConfig: { temperature: 0.3, maxOutputTokens: 10000 },
               }),
-              signal: AbortSignal.timeout(60000),
+              signal: controller.signal,
             });
+            clearTimeout(timer);
             if (r.ok) {
               const d: any = await r.json();
               const improved = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
               const cleaned = improved.replace(/^```(?:html)?\s*/im, '').replace(/\s*```\s*$/im, '').trim();
               const idx = cleaned.indexOf('<!DOCTYPE html>');
               if (idx >= 0 && cleaned.length > currentHtml.length * 0.5) {
-                console.log(`[LongBuild] Gemini pass ${passNum} succeeded — ${cleaned.length} chars`);
+                console.log(`[LongBuild] Pass ${passNum} Gemini succeeded — ${cleaned.length} chars`);
                 return cleaned.slice(idx);
               }
             }
           } catch (e: any) {
-            console.log(`[LongBuild] Gemini pass ${passNum} failed:`, e.message);
+            console.log(`[LongBuild] Pass ${passNum} Gemini failed: ${e.message}`);
           }
 
+          console.log(`[LongBuild] Pass ${passNum} — keeping current version (${currentHtml.length} chars)`);
           return currentHtml;
         }
 
-        for (let pass = 1; pass < totalPasses; pass++) {
-          htmlContent = await improvePass(htmlContent, pass, totalPasses - 1);
+        for (let pass = 1; pass <= refinePasses; pass++) {
+          htmlContent = await improvePass(htmlContent, pass, refinePasses);
         }
-        console.log(`[LongBuild] All ${totalPasses - 1} refinement passes complete. Final size: ${htmlContent.length} chars`);
+        console.log(`[LongBuild] All ${refinePasses} refinement passes complete. Final size: ${htmlContent.length} chars`);
       }
 
       // Extract project name from <title> tag
@@ -5457,7 +5473,8 @@ Rules:
 - Security concerns → department: "engineering", category: "security", priority: "high"
 - If unclear, use department: "general", category: "general"`;
 
-      const result = await generateAIResponse(prompt, [], 'gpt-4o-mini');
+      const rawResult = await generateAIResponse(prompt, [], 'gpt-4o-mini');
+      const result = typeof rawResult === 'object' ? rawResult.text : rawResult;
       const cleaned = result.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleaned);
       return {

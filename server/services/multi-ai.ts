@@ -30,7 +30,7 @@ Provide ONLY factual, current information. Include dates and sources when possib
 If this is about a person's status (alive/dead), explicitly state their current status with the date of any relevant event.`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
@@ -39,7 +39,7 @@ If this is about a person's status (alive/dead), explicitly state their current 
         body: JSON.stringify({
           contents: [{ parts: [{ text: searchPrompt }] }],
           tools: [{ googleSearch: {} }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2000 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 1500 }
         }),
         signal: controller.signal
       }
@@ -132,7 +132,7 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
     const response = await fetch(`${anthropicBase}/v1/messages`, {
       method: 'POST',
       headers: {
@@ -218,6 +218,11 @@ Your single-word verdict:`;
   }
 }
 
+export interface AIResponseResult {
+  text: string;
+  usedGroundedSearch: boolean;
+}
+
 let _lastResponseUsedGroundedSearch = false;
 export function lastResponseUsedGroundedSearch(): boolean {
   return _lastResponseUsedGroundedSearch;
@@ -232,10 +237,11 @@ export async function generateAIResponse(
   userLanguage: string = "en",
   responseStyle: string = "balanced",
   responseTone: string = "casual"
-): Promise<string> {
+): Promise<string | AIResponseResult> {
   try {
     let additionalContext = "";
     let enhancedMessage = userMessage;
+    let usedGroundedSearch = false;
     _lastResponseUsedGroundedSearch = false;
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -247,6 +253,7 @@ export async function generateAIResponse(
         console.log(`[AI] Current events query detected, running grounded search...`);
         const searchResult = await searchCurrentEvents(userMessage, geminiApiKey);
         if (searchResult) {
+          usedGroundedSearch = true;
           _lastResponseUsedGroundedSearch = true;
           additionalContext = `\n\nREAL-TIME SEARCH RESULTS (from live internet search — this information is current and should override your training data):\n${searchResult}`;
           enhancedMessage = `${userMessage}\n\n[IMPORTANT: Real-time search results are provided above. Use this current information to answer. If the search results contradict your training data, ALWAYS trust the search results as they are more recent.]`;
@@ -317,21 +324,22 @@ export async function generateAIResponse(
         const systemPrompt = `You are Turbo Answer Research. Answer questions directly and concisely. Never discuss your own state, feelings, or load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
         const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
         console.log(`[AI] Research/simple → Gemini Flash Lite`);
-        return await callGemini(fullPrompt, 'gemini-3.1-flash-lite-preview', 2000, 0.4, geminiApiKey);
+        const text = await callGemini(fullPrompt, 'gemini-2.0-flash-lite', 2000, 0.4, geminiApiKey);
+        return { text, usedGroundedSearch };
       } else {
         console.log(`[AI] Research/complex → 10-Agent Multi-Agent System`);
         const fullQuestion = additionalContext ? `${enhancedMessage}\n\n${additionalContext}` : enhancedMessage;
-        return await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
+        const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
+        return { text, usedGroundedSearch };
       }
     } else if (selectedModel === 'gemini-pro') {
-      // Pro tier ($6.99) → Gemini Flash
       if (!geminiApiKey) return "API key not configured.";
       const systemPrompt = `You are Turbo Answer. Answer questions directly and helpfully. Never discuss your own state, feelings, or system load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
       const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
       console.log(`[AI] Pro → Gemini Flash Lite`);
-      return await callGemini(fullPrompt, 'gemini-3.1-flash-lite-preview', 4000, 0.3, geminiApiKey);
+      const text = await callGemini(fullPrompt, 'gemini-2.0-flash-lite', 4000, 0.3, geminiApiKey);
+      return { text, usedGroundedSearch };
     } else {
-      // Free tier → Gemini 2.0 Flash Lite (basic model, no memory, very short, but factually correct)
       if (!geminiApiKey) return "API key not configured.";
       const freeSearchContext = additionalContext || "";
       const systemPrompt = `You are a basic AI assistant. Give very short answers only. Maximum 1-2 sentences. Do not give detailed explanations, lists, or step-by-step instructions. If the user asks for something complex, give a brief summary and suggest they upgrade to Pro for a detailed answer. Never discuss your own state or feelings.${languageInstruction ? ' ' + languageInstruction : ''}${freeSearchContext}`;
@@ -360,7 +368,7 @@ async function callGeminiBasic(prompt: string, maxTokens: number, temperature: n
     try {
       const start = Date.now();
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
@@ -391,12 +399,10 @@ async function callGeminiBasic(prompt: string, maxTokens: number, temperature: n
 }
 
 async function callGemini(prompt: string, preferredModel: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
-  const allModels =
-    preferredModel === 'gemini-3.1-pro-preview'
-      ? ['gemini-3.1-pro-preview', 'gemini-2.5-pro', 'gemini-2.0-flash']
-      : preferredModel === 'gemini-3.1-flash-lite-preview'
-        ? ['gemini-2.0-flash', 'gemini-3.1-flash-lite-preview', 'gemini-2.5-flash']
-        : ['gemini-2.0-flash', 'gemini-3.1-flash-lite-preview', 'gemini-2.5-flash'];
+  const fallbacks = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash'];
+  const allModels = preferredModel === 'gemini-3.1-pro-preview'
+    ? ['gemini-3.1-pro-preview', ...fallbacks.filter(m => m !== 'gemini-3.1-pro-preview')]
+    : [preferredModel, ...fallbacks.filter(m => m !== preferredModel)];
 
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
@@ -408,10 +414,9 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
       try {
         const start = Date.now();
         const controller = new AbortController();
-        const timeoutMs = model === 'gemini-3.1-pro-preview' ? 45000
-          : model === 'gemini-2.5-pro' ? 15000
+        const timeoutMs = model === 'gemini-3.1-pro-preview' ? 30000
+          : model === 'gemini-2.0-flash-lite' ? 5000
           : model === 'gemini-2.0-flash' ? 8000
-          : model === 'gemini-3.1-flash-lite-preview' ? 10000
           : 8000;
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
         const response = await fetch(
@@ -422,7 +427,7 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
 
         if (response.status === 429) {
           console.log(`[Gemini] ${model} rate limited (attempt ${attempt + 1}), trying next...`);
-          if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+          if (attempt === 0) await new Promise(r => setTimeout(r, 200));
           continue;
         }
 
@@ -435,7 +440,7 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
         if (data.error) {
           console.error(`[Gemini] ${model} error:`, data.error.message);
           if (data.error.code === 429 && attempt === 0) {
-            await new Promise(r => setTimeout(r, 800));
+            await new Promise(r => setTimeout(r, 300));
           }
           continue;
         }
@@ -454,7 +459,7 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
 
     if (attempt === 0) {
       console.log('[Gemini] All models failed on first attempt, retrying after delay...');
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 300));
     }
   }
 
