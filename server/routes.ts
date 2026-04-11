@@ -8,8 +8,8 @@ import multer from "multer";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and, desc, or, inArray } from "drizzle-orm";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages } from "@shared/schema";
+import { eq, and, desc, or, inArray, gt } from "drizzle-orm";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, debateSessions, debateMessages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -5831,6 +5831,414 @@ Rules:
       await db.delete(workgroups).where(eq(workgroups.id, wgId));
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: 'Failed to delete workgroup' }); }
+  });
+
+  // ============ AI DEBATE ARENA ============
+
+  app.post('/api/debates', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const { topic, modelA, modelB, rounds } = req.body;
+      if (!topic?.trim()) return res.status(400).json({ error: 'Topic is required' });
+
+      const validModels = ['gemini', 'claude', 'openai', 'deepseek'];
+      const mA = validModels.includes(modelA) ? modelA : 'gemini';
+      const mB = validModels.includes(modelB) ? modelB : 'claude';
+      const numRounds = Math.min(Math.max(parseInt(rounds) || 3, 1), 5);
+
+      const [debate] = await db.insert(debateSessions).values({
+        topic: topic.trim(),
+        creatorId: user.id,
+        modelA: mA,
+        modelB: mB,
+        rounds: numRounds,
+      }).returning();
+
+      res.json(debate);
+    } catch (e: any) { console.error('[Debate] Create error:', e.message); res.status(500).json({ error: 'Failed to create debate' }); }
+  });
+
+  app.get('/api/debates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const debates = await db.select().from(debateSessions).where(eq(debateSessions.creatorId, userId)).orderBy(desc(debateSessions.createdAt));
+      res.json(debates);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch debates' }); }
+  });
+
+  app.get('/api/debates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const [debate] = await db.select().from(debateSessions).where(and(eq(debateSessions.id, parseInt(req.params.id)), eq(debateSessions.creatorId, userId)));
+      if (!debate) return res.status(404).json({ error: 'Debate not found' });
+      const msgs = await db.select().from(debateMessages).where(eq(debateMessages.debateId, debate.id)).orderBy(debateMessages.createdAt);
+      res.json({ ...debate, messages: msgs });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch debate' }); }
+  });
+
+  app.post('/api/debates/:id/next-round', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const debateId = parseInt(req.params.id);
+      const [debate] = await db.select().from(debateSessions).where(eq(debateSessions.id, debateId));
+      if (!debate) return res.status(404).json({ error: 'Debate not found' });
+      if (debate.creatorId !== userId) return res.status(403).json({ error: 'Not your debate' });
+      if (debate.status !== 'active') return res.status(400).json({ error: 'Debate is finished' });
+      if (debate.currentRound >= debate.rounds) return res.status(400).json({ error: 'All rounds completed' });
+
+      const nextRound = debate.currentRound + 1;
+      const existingMsgs = await db.select().from(debateMessages).where(eq(debateMessages.debateId, debateId)).orderBy(debateMessages.createdAt);
+      const history = existingMsgs.map(m => `[${m.side.toUpperCase()} - ${m.model}]: ${m.content}`).join('\n\n');
+
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+
+      const proPrompt = `You are in a structured debate. You must argue FOR the following topic. Be persuasive, use evidence and logic. Round ${nextRound} of ${debate.rounds}.
+
+Topic: "${debate.topic}"
+
+${history ? `Previous rounds:\n${history}\n\n` : ''}Your task: Present your STRONGEST argument FOR this position. Be concise (2-3 paragraphs). ${nextRound > 1 ? 'Address and counter the opposing arguments from previous rounds.' : 'Open with your strongest points.'}`;
+
+      const conPrompt = `You are in a structured debate. You must argue AGAINST the following topic. Be persuasive, use evidence and logic. Round ${nextRound} of ${debate.rounds}.
+
+Topic: "${debate.topic}"
+
+${history ? `Previous rounds:\n${history}\n\n` : ''}Your task: Present your STRONGEST argument AGAINST this position. Be concise (2-3 paragraphs). ${nextRound > 1 ? 'Address and counter the opposing arguments from previous rounds.' : 'Open with your strongest points.'}`;
+
+      const modelMap: Record<string, string> = { gemini: 'gemini-2.0-flash', claude: 'claude-sonnet', openai: 'gpt-4o-mini', deepseek: 'deepseek' };
+
+      const [proResult, conResult] = await Promise.all([
+        generateAIResponse(proPrompt, [], 'research', modelMap[debate.modelA] || 'auto-select', `debate_${debateId}_pro`),
+        generateAIResponse(conPrompt, [], 'research', modelMap[debate.modelB] || 'auto-select', `debate_${debateId}_con`),
+      ]);
+
+      const proText = typeof proResult === 'object' ? proResult.text : proResult;
+      const conText = typeof conResult === 'object' ? conResult.text : conResult;
+
+      const [proMsg] = await db.insert(debateMessages).values({
+        debateId, round: nextRound, model: debate.modelA, side: 'for', content: proText,
+      }).returning();
+      const [conMsg] = await db.insert(debateMessages).values({
+        debateId, round: nextRound, model: debate.modelB, side: 'against', content: conText,
+      }).returning();
+
+      const isFinished = nextRound >= debate.rounds;
+      let summary = null;
+
+      if (isFinished) {
+        const allMsgs = [...existingMsgs, proMsg, conMsg];
+        const fullHistory = allMsgs.map(m => `[${m.side.toUpperCase()} - ${m.model}]: ${m.content}`).join('\n\n');
+        const summaryPrompt = `Summarize this debate objectively. Who made stronger arguments? What were the key points? Give a balanced analysis.
+
+Topic: "${debate.topic}"
+
+${fullHistory}
+
+Provide: 1) Key arguments from each side 2) Strengths and weaknesses 3) Your neutral assessment of which side argued more effectively`;
+        const summaryResult = await generateAIResponse(summaryPrompt, [], 'research');
+        summary = typeof summaryResult === 'object' ? summaryResult.text : summaryResult;
+      }
+
+      await db.update(debateSessions).set({
+        currentRound: nextRound,
+        ...(isFinished ? { status: 'completed', summary } : {}),
+      }).where(eq(debateSessions.id, debateId));
+
+      const updatedDebate = await db.select().from(debateSessions).where(eq(debateSessions.id, debateId));
+      const allMessages = await db.select().from(debateMessages).where(eq(debateMessages.debateId, debateId)).orderBy(debateMessages.createdAt);
+
+      res.json({ ...updatedDebate[0], messages: allMessages });
+    } catch (e: any) { console.error('[Debate] Next round error:', e.message); res.status(500).json({ error: 'Failed to advance debate' }); }
+  });
+
+  app.post('/api/debates/:id/interject', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const debateId = parseInt(req.params.id);
+      const { question } = req.body;
+      if (!question?.trim()) return res.status(400).json({ error: 'Question is required' });
+      const [debate] = await db.select().from(debateSessions).where(and(eq(debateSessions.id, debateId), eq(debateSessions.creatorId, userId)));
+      if (!debate) return res.status(404).json({ error: 'Debate not found' });
+
+      const existingMsgs = await db.select().from(debateMessages).where(eq(debateMessages.debateId, debateId)).orderBy(debateMessages.createdAt);
+      const history = existingMsgs.map(m => `[${m.side.toUpperCase()} - ${m.model}]: ${m.content}`).join('\n\n');
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+
+      const modelMap: Record<string, string> = { gemini: 'gemini-2.0-flash', claude: 'claude-sonnet', openai: 'gpt-4o-mini', deepseek: 'deepseek' };
+
+      const [proAnswer, conAnswer] = await Promise.all([
+        generateAIResponse(`You are arguing FOR "${debate.topic}". The moderator asks: "${question}"\n\nDebate so far:\n${history}\n\nAnswer the moderator's question from your perspective (1-2 paragraphs).`, [], 'research', modelMap[debate.modelA]),
+        generateAIResponse(`You are arguing AGAINST "${debate.topic}". The moderator asks: "${question}"\n\nDebate so far:\n${history}\n\nAnswer the moderator's question from your perspective (1-2 paragraphs).`, [], 'research', modelMap[debate.modelB]),
+      ]);
+
+      const proText = typeof proAnswer === 'object' ? proAnswer.text : proAnswer;
+      const conText = typeof conAnswer === 'object' ? conAnswer.text : conAnswer;
+
+      const currentRound = debate.currentRound || 1;
+      await db.insert(debateMessages).values({ debateId, round: currentRound, model: debate.modelA, side: 'for-interject', content: `**Moderator asked:** ${question}\n\n${proText}` });
+      await db.insert(debateMessages).values({ debateId, round: currentRound, model: debate.modelB, side: 'against-interject', content: `**Moderator asked:** ${question}\n\n${conText}` });
+
+      const allMessages = await db.select().from(debateMessages).where(eq(debateMessages.debateId, debateId)).orderBy(debateMessages.createdAt);
+      res.json({ messages: allMessages });
+    } catch (e: any) { console.error('[Debate] Interject error:', e.message); res.status(500).json({ error: 'Failed to process interjection' }); }
+  });
+
+  app.post('/api/debates/:id/vote', isAuthenticated, async (req: any, res) => {
+    try {
+      const debateId = parseInt(req.params.id);
+      const { side } = req.body;
+      if (side !== 'a' && side !== 'b') return res.status(400).json({ error: 'Invalid vote' });
+      const [debate] = await db.select().from(debateSessions).where(eq(debateSessions.id, debateId));
+      if (!debate) return res.status(404).json({ error: 'Debate not found' });
+      if (side === 'a') {
+        await db.update(debateSessions).set({ votesA: debate.votesA + 1 }).where(eq(debateSessions.id, debateId));
+      } else {
+        await db.update(debateSessions).set({ votesB: debate.votesB + 1 }).where(eq(debateSessions.id, debateId));
+      }
+      const [updated] = await db.select().from(debateSessions).where(eq(debateSessions.id, debateId));
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to vote' }); }
+  });
+
+  // ============ COLLABORATIVE AI ROOMS ============
+
+  app.post('/api/collab-rooms', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const { name } = req.body;
+      if (!name?.trim()) return res.status(400).json({ error: 'Room name is required' });
+
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+
+      const [room] = await db.insert(collabRooms).values({
+        name: name.trim(),
+        code,
+        creatorId: user.id,
+        creatorName: userName,
+      }).returning();
+
+      await db.insert(collabRoomMembers).values({
+        roomId: room.id,
+        userId: user.id,
+        userName,
+      });
+
+      res.json(room);
+    } catch (e: any) { console.error('[Collab] Create error:', e.message); res.status(500).json({ error: 'Failed to create room' }); }
+  });
+
+  app.get('/api/collab-rooms', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const memberOf = await db.select().from(collabRoomMembers).where(eq(collabRoomMembers.userId, userId));
+      const roomIds = memberOf.map(m => m.roomId);
+      if (roomIds.length === 0) return res.json([]);
+      const rooms = await db.select().from(collabRooms).where(inArray(collabRooms.id, roomIds)).orderBy(desc(collabRooms.createdAt));
+      const roomsWithCounts = await Promise.all(rooms.map(async (room) => {
+        const members = await db.select().from(collabRoomMembers).where(eq(collabRoomMembers.roomId, room.id));
+        return { ...room, memberCount: members.length };
+      }));
+      res.json(roomsWithCounts);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch rooms' }); }
+  });
+
+  app.post('/api/collab-rooms/join', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const { code } = req.body;
+      if (!code?.trim()) return res.status(400).json({ error: 'Room code is required' });
+
+      const [room] = await db.select().from(collabRooms).where(eq(collabRooms.code, code.trim().toUpperCase()));
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      if (!room.isActive) return res.status(400).json({ error: 'Room is closed' });
+
+      const existing = await db.select().from(collabRoomMembers).where(and(eq(collabRoomMembers.roomId, room.id), eq(collabRoomMembers.userId, user.id)));
+      if (existing.length > 0) return res.json(room);
+
+      const memberCount = await db.select().from(collabRoomMembers).where(eq(collabRoomMembers.roomId, room.id));
+      if (memberCount.length >= room.maxMembers) return res.status(400).json({ error: 'Room is full' });
+
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+      await db.insert(collabRoomMembers).values({ roomId: room.id, userId: user.id, userName });
+
+      await db.insert(collabRoomMessages).values({
+        roomId: room.id,
+        senderId: 'system',
+        senderName: 'System',
+        content: `${userName} joined the room`,
+        role: 'system',
+      });
+
+      res.json(room);
+    } catch (e: any) { console.error('[Collab] Join error:', e.message); res.status(500).json({ error: 'Failed to join room' }); }
+  });
+
+  app.get('/api/collab-rooms/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const roomId = parseInt(req.params.id);
+      const membership = await db.select().from(collabRoomMembers).where(and(eq(collabRoomMembers.roomId, roomId), eq(collabRoomMembers.userId, userId)));
+      if (membership.length === 0) return res.status(403).json({ error: 'Not a member of this room' });
+      const [room] = await db.select().from(collabRooms).where(eq(collabRooms.id, roomId));
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      const members = await db.select().from(collabRoomMembers).where(eq(collabRoomMembers.roomId, roomId));
+      const msgs = await db.select().from(collabRoomMessages).where(eq(collabRoomMessages.roomId, roomId)).orderBy(collabRoomMessages.createdAt);
+      res.json({ ...room, members, messages: msgs });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch room' }); }
+  });
+
+  app.get('/api/collab-rooms/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const roomId = parseInt(req.params.id);
+      const membership = await db.select().from(collabRoomMembers).where(and(eq(collabRoomMembers.roomId, roomId), eq(collabRoomMembers.userId, userId)));
+      if (membership.length === 0) return res.status(403).json({ error: 'Not a member of this room' });
+      const after = req.query.after ? parseInt(req.query.after) : 0;
+      const msgs = await db.select().from(collabRoomMessages).where(and(eq(collabRoomMessages.roomId, roomId), after > 0 ? gt(collabRoomMessages.id, after) : undefined)).orderBy(collabRoomMessages.createdAt);
+      res.json(msgs);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch messages' }); }
+  });
+
+  app.post('/api/collab-rooms/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const roomId = parseInt(req.params.id);
+      const { content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ error: 'Message is required' });
+
+      const member = await db.select().from(collabRoomMembers).where(and(eq(collabRoomMembers.roomId, roomId), eq(collabRoomMembers.userId, user.id)));
+      if (member.length === 0) return res.status(403).json({ error: 'Not a member of this room' });
+
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+      const [userMsg] = await db.insert(collabRoomMessages).values({
+        roomId, senderId: user.id, senderName: userName, content: content.trim(), role: 'user',
+      }).returning();
+
+      const isAIPrompt = content.trim().startsWith('@ai ') || content.trim().startsWith('/ai ');
+      if (isAIPrompt) {
+        const aiQuery = content.trim().replace(/^[@/]ai\s+/i, '');
+        const recentMsgs = await db.select().from(collabRoomMessages).where(eq(collabRoomMessages.roomId, roomId)).orderBy(desc(collabRoomMessages.createdAt)).limit(20);
+        const contextMsgs = recentMsgs.reverse().map(m => ({ role: m.role === 'assistant' ? 'assistant' as const : 'user' as const, content: `${m.senderName}: ${m.content}` }));
+
+        const { generateAIResponse } = await import('./services/multi-ai.js');
+        const userTier = user.subscriptionTier || 'free';
+        const aiResult = await generateAIResponse(
+          `In a collaborative room, ${userName} asks: ${aiQuery}\n\nRoom context (recent messages from all participants):\n${contextMsgs.map(m => m.content).join('\n')}\n\nRespond helpfully to the question, considering the room context.`,
+          [], userTier
+        );
+        const aiText = typeof aiResult === 'object' ? aiResult.text : aiResult;
+
+        const [aiMsg] = await db.insert(collabRoomMessages).values({
+          roomId, senderId: 'ai', senderName: 'TurboAnswer AI', content: aiText, role: 'assistant',
+        }).returning();
+
+        return res.json({ userMessage: userMsg, aiMessage: aiMsg });
+      }
+
+      res.json({ userMessage: userMsg });
+    } catch (e: any) { console.error('[Collab] Message error:', e.message); res.status(500).json({ error: 'Failed to send message' }); }
+  });
+
+  // ============ AI FACT-CHECK CHAIN ============
+
+  app.post('/api/fact-check', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const { messageId, content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ error: 'Content is required' });
+      if (!messageId || typeof messageId !== 'number') return res.status(400).json({ error: 'Valid messageId is required' });
+
+      const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));
+      if (msg) {
+        const [conv] = await db.select().from(conversations).where(eq(conversations.id, msg.conversationId));
+        if (conv && conv.userId !== user.id) return res.status(403).json({ error: 'Not your message' });
+      }
+
+      const existing = await db.select().from(factChecks).where(eq(factChecks.messageId, messageId));
+      if (existing.length > 0) return res.json(existing[0]);
+
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+
+      const factCheckPrompt = `You are a fact-checking AI. Analyze the following text and verify each factual claim. Return ONLY a valid JSON object, no markdown.
+
+Text to fact-check:
+"""
+${content.slice(0, 3000)}
+"""
+
+Return exactly this JSON structure:
+{
+  "verdict": "<VERIFIED|PARTIALLY_VERIFIED|UNVERIFIED|MIXED>",
+  "confidenceScore": <0-100>,
+  "claims": [
+    {
+      "claim": "<extracted factual claim>",
+      "status": "<verified|unverified|partially_verified|opinion|unable_to_verify>",
+      "confidence": <0-100>,
+      "explanation": "<brief explanation of verification>"
+    }
+  ],
+  "summary": "<2-3 sentence overall assessment>"
+}
+
+Rules:
+- Extract ALL factual claims from the text (at least 1, up to 10)
+- Opinions and subjective statements should be marked as "opinion"
+- If you cannot verify a claim, use "unable_to_verify"
+- Be conservative with confidence scores
+- The overall verdict should reflect the majority of claims`;
+
+      const result = await generateAIResponse(factCheckPrompt, [], 'research', 'gemini-2.0-flash');
+      const resultText = typeof result === 'object' ? result.text : result;
+      const cleaned = resultText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        parsed = {
+          verdict: 'UNABLE_TO_VERIFY',
+          confidenceScore: 0,
+          claims: [{ claim: 'Unable to parse fact-check results', status: 'unable_to_verify', confidence: 0, explanation: 'The AI response could not be parsed' }],
+          summary: 'Fact-check analysis could not be completed. Please try again.',
+        };
+      }
+
+      const validVerdicts = ['VERIFIED', 'PARTIALLY_VERIFIED', 'UNVERIFIED', 'MIXED', 'UNABLE_TO_VERIFY'];
+      const verdict = validVerdicts.includes(parsed.verdict) ? parsed.verdict : 'MIXED';
+      const confidence = Math.min(100, Math.max(0, parseInt(parsed.confidenceScore) || 50));
+
+      const [factCheck] = await db.insert(factChecks).values({
+        messageId: messageId || 0,
+        originalContent: content.slice(0, 5000),
+        verdict,
+        confidenceScore: confidence,
+        claims: parsed.claims || [],
+        checkedBy: 'gemini',
+      }).returning();
+
+      res.json({ ...factCheck, summary: parsed.summary });
+    } catch (e: any) { console.error('[FactCheck] Error:', e.message); res.status(500).json({ error: 'Failed to fact-check content' }); }
+  });
+
+  app.get('/api/fact-check/:messageId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const messageId = parseInt(req.params.messageId);
+      const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));
+      if (msg) {
+        const [conv] = await db.select().from(conversations).where(eq(conversations.id, msg.conversationId));
+        if (conv && conv.userId !== userId) return res.status(403).json({ error: 'Not your message' });
+      }
+      const [check] = await db.select().from(factChecks).where(eq(factChecks.messageId, messageId));
+      if (!check) return res.status(404).json({ error: 'No fact-check found' });
+      res.json(check);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch fact-check' }); }
   });
 
   return httpServer;

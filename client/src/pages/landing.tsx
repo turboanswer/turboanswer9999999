@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, Code2, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Star, ChevronRight, Microscope, Cpu, Layers, BarChart3, Film } from "lucide-react";
+import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, Code2, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Star, ChevronRight, Microscope, Cpu, Layers, BarChart3, Film, Swords, Users, CheckCircle } from "lucide-react";
 import { Link } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import { useTheme } from "@/hooks/use-theme";
@@ -24,6 +24,9 @@ export default function LandingPage() {
     { icon: <FileText className="h-7 w-7" />, title: "Document Analysis", desc: "Upload any document and get instant summaries, key insights, and detailed answers.", color: "#10b981", badge: "Free" },
     { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Create images from text descriptions using DALL-E 3. Generate art and designs instantly.", color: "#ec4899", badge: "Pro+" },
     { icon: <Camera className="h-7 w-7" />, title: "Camera Vision", desc: "Point your camera at anything and get instant AI analysis. Scan docs, receipts, and images.", color: "#06b6d4", badge: "Free" },
+    { icon: <Swords className="h-7 w-7" />, title: "AI Debate Arena", desc: "Watch AI models debate any topic. Choose sides, moderate, and see who argues best.", color: "#ef4444", badge: "New" },
+    { icon: <Users className="h-7 w-7" />, title: "Collab AI Rooms", desc: "Real-time multiplayer AI rooms. Chat with friends and AI together in one space.", color: "#a855f7", badge: "New" },
+    { icon: <CheckCircle className="h-7 w-7" />, title: "AI Fact-Check", desc: "Verify any AI response with a second model. Get confidence scores and claim-by-claim analysis.", color: "#14b8a6", badge: "New" },
   ];
 
   const D = isDark;
@@ -380,7 +383,21 @@ export default function LandingPage() {
                         <div className={`text-xs mt-0.5 ${D ? "text-violet-400/70" : "text-violet-500"}`}>Generate AI videos with Google Veo</div>
                       </div>
                     </li>
-                    {["Everything in Pro", "10 AI models analyze in parallel", "GPT-4o + Claude + Mistral + more", "Synthesized expert answers", "Advanced reasoning & math", "Workgroups & team collaboration", "Priority queue access"].map((item, i) => (
+                    <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.04)", border: `1px solid ${D ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.1)"}` }}>
+                      <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5"><Swords className="h-3 w-3 text-white" /></div>
+                      <div>
+                        <span className={`text-sm font-bold ${D ? "text-red-300" : "text-red-700"}`}>AI Debate Arena</span>
+                        <div className={`text-xs mt-0.5 ${D ? "text-red-400/70" : "text-red-500"}`}>Watch AI models debate any topic</div>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(20,184,166,0.08)" : "rgba(20,184,166,0.04)", border: `1px solid ${D ? "rgba(20,184,166,0.15)" : "rgba(20,184,166,0.1)"}` }}>
+                      <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0 mt-0.5"><CheckCircle className="h-3 w-3 text-white" /></div>
+                      <div>
+                        <span className={`text-sm font-bold ${D ? "text-teal-300" : "text-teal-700"}`}>AI Fact-Check Chain</span>
+                        <div className={`text-xs mt-0.5 ${D ? "text-teal-400/70" : "text-teal-500"}`}>Verify AI claims with a second model</div>
+                      </div>
+                    </li>
+                    {["Everything in Pro", "10 AI models analyze in parallel", "GPT-4o + Claude + Mistral + more", "Collab AI Rooms", "Advanced reasoning & math", "Workgroups & team collaboration", "Priority queue access"].map((item, i) => (
                       <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                         <Check size={14} className="text-indigo-500 flex-shrink-0" /> {item}
                       </li>

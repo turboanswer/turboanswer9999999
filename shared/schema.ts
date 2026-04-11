@@ -381,3 +381,81 @@ export type SupportTicket = typeof supportTickets.$inferSelect;
 export const insertSupportTicketMessageSchema = createInsertSchema(supportTicketMessages).omit({ id: true, createdAt: true });
 export type InsertSupportTicketMessage = z.infer<typeof insertSupportTicketMessageSchema>;
 export type SupportTicketMessage = typeof supportTicketMessages.$inferSelect;
+
+export const debateSessions = pgTable("debate_sessions", {
+  id: serial("id").primaryKey(),
+  topic: text("topic").notNull(),
+  creatorId: text("creator_id").notNull(),
+  modelA: text("model_a").notNull().default("gemini"),
+  modelB: text("model_b").notNull().default("claude"),
+  status: text("status").notNull().default("active"),
+  rounds: integer("rounds").notNull().default(3),
+  currentRound: integer("current_round").notNull().default(0),
+  winner: text("winner"),
+  votesA: integer("votes_a").notNull().default(0),
+  votesB: integer("votes_b").notNull().default(0),
+  summary: text("summary"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const debateMessages = pgTable("debate_messages", {
+  id: serial("id").primaryKey(),
+  debateId: integer("debate_id").references(() => debateSessions.id).notNull(),
+  round: integer("round").notNull(),
+  model: text("model").notNull(),
+  side: text("side").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DebateSession = typeof debateSessions.$inferSelect;
+export type InsertDebateSession = z.infer<typeof insertDebateSessionSchema>;
+export const insertDebateSessionSchema = createInsertSchema(debateSessions).omit({ id: true, createdAt: true, currentRound: true, votesA: true, votesB: true, winner: true, summary: true });
+export type DebateMessage = typeof debateMessages.$inferSelect;
+
+export const collabRooms = pgTable("collab_rooms", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  creatorId: text("creator_id").notNull(),
+  creatorName: text("creator_name"),
+  isActive: boolean("is_active").notNull().default(true),
+  maxMembers: integer("max_members").notNull().default(10),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const collabRoomMembers = pgTable("collab_room_members", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").references(() => collabRooms.id).notNull(),
+  userId: text("user_id").notNull(),
+  userName: text("user_name"),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
+export const collabRoomMessages = pgTable("collab_room_messages", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").references(() => collabRooms.id).notNull(),
+  senderId: text("sender_id").notNull(),
+  senderName: text("sender_name"),
+  content: text("content").notNull(),
+  role: text("role").notNull().default("user"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type CollabRoom = typeof collabRooms.$inferSelect;
+export type CollabRoomMember = typeof collabRoomMembers.$inferSelect;
+export type CollabRoomMessage = typeof collabRoomMessages.$inferSelect;
+export const insertCollabRoomSchema = createInsertSchema(collabRooms).omit({ id: true, createdAt: true, code: true, isActive: true });
+
+export const factChecks = pgTable("fact_checks", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").references(() => messages.id).notNull(),
+  originalContent: text("original_content").notNull(),
+  verdict: text("verdict").notNull(),
+  confidenceScore: integer("confidence_score").notNull(),
+  claims: jsonb("claims").notNull().default([]),
+  checkedBy: text("checked_by").notNull().default("gemini"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type FactCheck = typeof factChecks.$inferSelect;

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -55,6 +55,9 @@ export default function Chat() {
   const [shareSending, setShareSending] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
   const [verifiedMessages, setVerifiedMessages] = useState<Record<number, "verified" | "unverified" | "unknown">>({});
+  const [factChecks, setFactChecks] = useState<Record<number, any>>({});
+  const [factCheckLoading, setFactCheckLoading] = useState<Record<number, boolean>>({});
+  const [showFactCheck, setShowFactCheck] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timedPromoShown = useRef(false);
@@ -306,6 +309,30 @@ export default function Chat() {
     } catch {
       toast({ title: "Error", description: "Could not start a conversation", variant: "destructive" });
       return null;
+    }
+  };
+
+  const handleFactCheck = async (messageId: number, content: string) => {
+    if (factChecks[messageId] || factCheckLoading[messageId]) {
+      setShowFactCheck(showFactCheck === messageId ? null : messageId);
+      return;
+    }
+    setFactCheckLoading(prev => ({ ...prev, [messageId]: true }));
+    try {
+      const res = await fetch('/api/fact-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, content }),
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Fact-check failed');
+      const data = await res.json();
+      setFactChecks(prev => ({ ...prev, [messageId]: data }));
+      setShowFactCheck(messageId);
+    } catch (e: any) {
+      toast({ title: "Fact-check failed", description: e.message, variant: "destructive" });
+    } finally {
+      setFactCheckLoading(prev => ({ ...prev, [messageId]: false }));
     }
   };
 
@@ -574,6 +601,16 @@ export default function Chat() {
               <Link href="/workgroups">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Workgroups">
                   <Users className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/debate">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="AI Debate Arena">
+                  <Swords className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/collab">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Collab AI Rooms">
+                  <MessageSquare className="h-4 w-4" />
                 </Button>
               </Link>
               <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${showQR ? 'text-[#8ab4f8]' : isDark ? 'text-[#8e918f]' : 'text-gray-500'} ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="QR Code">
@@ -908,6 +945,28 @@ export default function Chat() {
                       {formatTimestamp(message.timestamp)}
                     </span>
                   )}
+                  {message.role === 'assistant' && (
+                    <button
+                      onClick={() => handleFactCheck(message.id, message.content)}
+                      disabled={factCheckLoading[message.id]}
+                      className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
+                        factChecks[message.id]
+                          ? factChecks[message.id].verdict === 'VERIFIED' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                            : factChecks[message.id].verdict === 'UNVERIFIED' ? 'text-red-400 bg-red-500/10 border border-red-500/20'
+                            : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                          : isDark ? 'text-zinc-500 hover:text-cyan-400 hover:bg-white/5' : 'text-gray-400 hover:text-cyan-600 hover:bg-gray-100'
+                      }`}
+                      title="Fact-check this response with a second AI"
+                    >
+                      {factCheckLoading[message.id] ? (
+                        <><Loader2 className="h-3 w-3 animate-spin" /><span>Checking...</span></>
+                      ) : factChecks[message.id] ? (
+                        <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><span>{factChecks[message.id].confidenceScore}% · {factChecks[message.id].verdict.replace(/_/g, ' ')}</span></>
+                      ) : (
+                        <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg><span>Fact Check</span></>
+                      )}
+                    </button>
+                  )}
                   {message.role === 'assistant' && userWorkgroups.length > 0 && (
                     <button
                       onClick={() => {
@@ -923,6 +982,58 @@ export default function Chat() {
                     </button>
                   )}
                 </div>
+                {showFactCheck === message.id && factChecks[message.id] && (
+                  <div className={`mt-2 rounded-xl p-4 text-xs ${isDark ? 'bg-[#0a0f1a] border border-[#1a2a3a]' : 'bg-blue-50 border border-blue-200'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={
+                          factChecks[message.id].verdict === 'VERIFIED' ? 'text-emerald-400' : factChecks[message.id].verdict === 'UNVERIFIED' ? 'text-red-400' : 'text-amber-400'
+                        }><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                        <span className="font-semibold">AI Fact-Check Report</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          factChecks[message.id].verdict === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-400'
+                          : factChecks[message.id].verdict === 'UNVERIFIED' ? 'bg-red-500/20 text-red-400'
+                          : 'bg-amber-500/20 text-amber-400'
+                        }`}>{factChecks[message.id].verdict.replace(/_/g, ' ')}</span>
+                      </div>
+                      <button onClick={() => setShowFactCheck(null)} className={`${isDark ? 'text-zinc-500 hover:text-white' : 'text-gray-400 hover:text-black'} transition-colors`}>✕</button>
+                    </div>
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={isDark ? 'text-zinc-400' : 'text-gray-600'}>Confidence:</span>
+                        <div className={`flex-1 h-2 rounded-full overflow-hidden ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`}>
+                          <div className={`h-full rounded-full transition-all ${
+                            factChecks[message.id].confidenceScore >= 70 ? 'bg-emerald-500'
+                            : factChecks[message.id].confidenceScore >= 40 ? 'bg-amber-500'
+                            : 'bg-red-500'
+                          }`} style={{ width: `${factChecks[message.id].confidenceScore}%` }} />
+                        </div>
+                        <span className="font-bold">{factChecks[message.id].confidenceScore}%</span>
+                      </div>
+                    </div>
+                    {factChecks[message.id].summary && (
+                      <p className={`mb-3 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>{factChecks[message.id].summary}</p>
+                    )}
+                    <div className="space-y-2">
+                      {(Array.isArray(factChecks[message.id].claims) ? factChecks[message.id].claims : []).map((claim: any, ci: number) => (
+                        <div key={ci} className={`rounded-lg p-2.5 ${isDark ? 'bg-black/40 border border-[#222]' : 'bg-white border border-gray-200'}`}>
+                          <div className="flex items-start gap-2">
+                            <span className={`mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                              claim.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400'
+                              : claim.status === 'unverified' ? 'bg-red-500/20 text-red-400'
+                              : claim.status === 'opinion' ? 'bg-purple-500/20 text-purple-400'
+                              : 'bg-zinc-500/20 text-zinc-400'
+                            }`}>{claim.status?.replace(/_/g, ' ').toUpperCase()}</span>
+                            <div>
+                              <p className={`font-medium ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>{claim.claim}</p>
+                              {claim.explanation && <p className={`mt-0.5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{claim.explanation}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {message.role === 'user' && (

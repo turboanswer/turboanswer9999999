@@ -34,6 +34,8 @@ import VideoStudio from "@/pages/video-studio";
 import CodeStudio from "@/pages/code-studio";
 import BetaApply from "@/pages/beta-apply";
 import Workgroups from "@/pages/workgroups";
+import DebateArena from "@/pages/debate-arena";
+import CollabRooms from "@/pages/collab-rooms";
 import NotificationPopup from "@/components/NotificationPopup";
 import DataDeletion from "@/pages/data-deletion";
 import TermsConditions from "@/pages/terms-conditions";
@@ -73,6 +75,8 @@ function AuthenticatedRouter() {
       <Route path="/video-studio" component={VideoStudio} />
       <Route path="/code-studio" component={CodeStudio} />
       <Route path="/workgroups" component={Workgroups} />
+      <Route path="/debate" component={DebateArena} />
+      <Route path="/collab" component={CollabRooms} />
       <Route path="/beta" component={BetaApply} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route component={NotFound} />
