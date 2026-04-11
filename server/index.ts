@@ -135,6 +135,20 @@ app.use(cookieParser());
 
 applyIntrusionMiddleware(app);
 
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const publicApiPrefixes = ['/api/v1/construction/', '/api/v1/diagnosis/', '/api/widget/'];
+  if (publicApiPrefixes.some(p => req.path.startsWith(p))) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Api-Key');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end();
+    }
+  }
+  next();
+});
+
 const CSRF_COOKIE = '_csrf_token';
 const CSRF_HEADER = 'x-csrf-token';
 const csrfCookieOptions = {
