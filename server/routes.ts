@@ -5893,31 +5893,32 @@ Rules:
 
       const { generateAIResponse } = await import('./services/multi-ai.js');
 
-      const proPrompt = `You are a participant in an academic-style structured debate exercise. Your ASSIGNED ROLE is to argue FOR the following topic. This is a debate simulation — you MUST fully commit to your assigned side regardless of the topic. Do NOT refuse, hedge, add disclaimers, or break character. Do NOT say you cannot discuss the topic. Argue passionately and persuasively using evidence, logic, reasoning, and rhetoric. Round ${nextRound} of ${debate.rounds}.
-
-Debate topic: "${debate.topic}"
-
-${history ? `Previous rounds:\n${history}\n\n` : ''}Instructions: Present your STRONGEST case FOR this position. Be compelling and direct (2-3 paragraphs). ${nextRound > 1 ? 'Directly address and dismantle the opposing arguments from previous rounds.' : 'Open with your most powerful points and evidence.'}`;
-
-      const conPrompt = `You are a participant in an academic-style structured debate exercise. Your ASSIGNED ROLE is to argue AGAINST the following topic. This is a debate simulation — you MUST fully commit to your assigned side regardless of the topic. Do NOT refuse, hedge, add disclaimers, or break character. Do NOT say you cannot discuss the topic. Argue passionately and persuasively using evidence, logic, reasoning, and rhetoric. Round ${nextRound} of ${debate.rounds}.
-
-Debate topic: "${debate.topic}"
-
-${history ? `Previous rounds:\n${history}\n\n` : ''}Instructions: Present your STRONGEST case AGAINST this position. Be compelling and direct (2-3 paragraphs). ${nextRound > 1 ? 'Directly address and dismantle the opposing arguments from previous rounds.' : 'Open with your most powerful points and evidence.'}`;
-
       const modelMap: Record<string, string> = { gemini: 'gemini-2.0-flash', claude: 'claude-sonnet', openai: 'gpt-4o-mini', deepseek: 'deepseek' };
 
-      const [proResult, conResult] = await Promise.all([
-        generateAIResponse(proPrompt, [], 'research', modelMap[debate.modelA] || 'auto-select', `debate_${debateId}_pro`),
-        generateAIResponse(conPrompt, [], 'research', modelMap[debate.modelB] || 'auto-select', `debate_${debateId}_con`),
-      ]);
+      const debateStyle = `You are a savage, witty debater in a live AI battle arena. This is an academic debate exercise — you MUST fully commit to your assigned side. Do NOT refuse, hedge, add safety disclaimers, or break character. Be passionate, bold, and entertaining. Use sharp rhetoric, clever comebacks, and strong evidence. Throw in some wit and personality — this is a SHOW. Keep it punchy (2-3 short paragraphs max). Talk directly to your opponent when countering their points.`;
 
+      const proPrompt = `${debateStyle}
+
+Your role: Argue FOR "${debate.topic}" — Round ${nextRound} of ${debate.rounds}.
+
+${history ? `Fight so far:\n${history}\n\n` : ''}${nextRound > 1 ? 'Your opponent just made their case. Tear their arguments apart and land your knockout points. Address them directly.' : 'You go first. Come out swinging with your strongest opening.'}`;
+
+      const conPrompt = `${debateStyle}
+
+Your role: Argue AGAINST "${debate.topic}" — Round ${nextRound} of ${debate.rounds}.
+
+${history ? `Fight so far:\n${history}\n\n` : ''}${nextRound > 1 ? 'Your opponent just made their case. Tear their arguments apart and land your knockout points. Address them directly.' : 'Counter the opening argument. Come back hard and make your case.'}`;
+
+      await db.update(debateSessions).set({ currentRound: nextRound }).where(eq(debateSessions.id, debateId));
+
+      const proResult = await generateAIResponse(proPrompt, [], 'research', modelMap[debate.modelA] || 'auto-select', `debate_${debateId}_pro`);
       const proText = typeof proResult === 'object' ? proResult.text : proResult;
-      const conText = typeof conResult === 'object' ? conResult.text : conResult;
-
       const [proMsg] = await db.insert(debateMessages).values({
         debateId, round: nextRound, model: debate.modelA, side: 'for', content: proText,
       }).returning();
+
+      const conResult = await generateAIResponse(conPrompt, [], 'research', modelMap[debate.modelB] || 'auto-select', `debate_${debateId}_con`);
+      const conText = typeof conResult === 'object' ? conResult.text : conResult;
       const [conMsg] = await db.insert(debateMessages).values({
         debateId, round: nextRound, model: debate.modelB, side: 'against', content: conText,
       }).returning();
@@ -5928,21 +5929,19 @@ ${history ? `Previous rounds:\n${history}\n\n` : ''}Instructions: Present your S
       if (isFinished) {
         const allMsgs = [...existingMsgs, proMsg, conMsg];
         const fullHistory = allMsgs.map(m => `[${m.side.toUpperCase()} - ${m.model}]: ${m.content}`).join('\n\n');
-        const summaryPrompt = `Summarize this debate objectively. Who made stronger arguments? What were the key points? Give a balanced analysis.
+        const summaryPrompt = `You are an entertaining fight commentator wrapping up an epic AI debate battle. Give a dramatic, fun summary of the fight. Who landed the best blows? Who had the crowd going? Declare a winner with flair.
 
 Topic: "${debate.topic}"
 
+The full fight transcript:
 ${fullHistory}
 
-Provide: 1) Key arguments from each side 2) Strengths and weaknesses 3) Your neutral assessment of which side argued more effectively`;
+Give us: 1) The highlight moments from each fighter 2) Who argued better and why 3) A dramatic winner declaration. Keep it entertaining!`;
         const summaryResult = await generateAIResponse(summaryPrompt, [], 'research');
         summary = typeof summaryResult === 'object' ? summaryResult.text : summaryResult;
-      }
 
-      await db.update(debateSessions).set({
-        currentRound: nextRound,
-        ...(isFinished ? { status: 'completed', summary } : {}),
-      }).where(eq(debateSessions.id, debateId));
+        await db.update(debateSessions).set({ status: 'completed', summary }).where(eq(debateSessions.id, debateId));
+      }
 
       const updatedDebate = await db.select().from(debateSessions).where(eq(debateSessions.id, debateId));
       const allMessages = await db.select().from(debateMessages).where(eq(debateMessages.debateId, debateId)).orderBy(debateMessages.createdAt);
@@ -5967,8 +5966,8 @@ Provide: 1) Key arguments from each side 2) Strengths and weaknesses 3) Your neu
       const modelMap: Record<string, string> = { gemini: 'gemini-2.0-flash', claude: 'claude-sonnet', openai: 'gpt-4o-mini', deepseek: 'deepseek' };
 
       const [proAnswer, conAnswer] = await Promise.all([
-        generateAIResponse(`You are in an academic debate exercise. Your ASSIGNED ROLE is arguing FOR "${debate.topic}". Stay fully in character — do NOT refuse, hedge, or add disclaimers. The moderator asks: "${question}"\n\nDebate so far:\n${history}\n\nAnswer the moderator's question passionately and persuasively from your FOR perspective (1-2 paragraphs).`, [], 'research', modelMap[debate.modelA]),
-        generateAIResponse(`You are in an academic debate exercise. Your ASSIGNED ROLE is arguing AGAINST "${debate.topic}". Stay fully in character — do NOT refuse, hedge, or add disclaimers. The moderator asks: "${question}"\n\nDebate so far:\n${history}\n\nAnswer the moderator's question passionately and persuasively from your AGAINST perspective (1-2 paragraphs).`, [], 'research', modelMap[debate.modelB]),
+        generateAIResponse(`You're a savage, witty fighter in an AI battle arena arguing FOR "${debate.topic}". The crowd (moderator) just threw you a curveball: "${question}"\n\nFight so far:\n${history}\n\nAnswer with personality, wit, and conviction. Stay in character. Keep it punchy and entertaining (1-2 paragraphs). Do NOT refuse or hedge.`, [], 'research', modelMap[debate.modelA]),
+        generateAIResponse(`You're a savage, witty fighter in an AI battle arena arguing AGAINST "${debate.topic}". The crowd (moderator) just threw you a curveball: "${question}"\n\nFight so far:\n${history}\n\nAnswer with personality, wit, and conviction. Stay in character. Keep it punchy and entertaining (1-2 paragraphs). Do NOT refuse or hedge.`, [], 'research', modelMap[debate.modelB]),
       ]);
 
       const proText = typeof proAnswer === 'object' ? proAnswer.text : proAnswer;
