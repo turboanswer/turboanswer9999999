@@ -240,7 +240,9 @@ export async function generateAIResponse(
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    if (isCurrentEventsQuery(userMessage) && geminiApiKey) {
+    const isFree = subscriptionTier === 'free';
+
+    if (isCurrentEventsQuery(userMessage) && geminiApiKey && !isFree) {
       try {
         console.log(`[AI] Current events query detected, running grounded search...`);
         const searchResult = await searchCurrentEvents(userMessage, geminiApiKey);
@@ -329,12 +331,14 @@ export async function generateAIResponse(
       console.log(`[AI] Pro → Gemini Flash Lite`);
       return await callGemini(fullPrompt, 'gemini-3.1-flash-lite-preview', 4000, 0.3, geminiApiKey);
     } else {
-      // Free tier → Gemini Flash Lite
+      // Free tier → Gemini 2.0 Flash Lite (basic model, no grounded search, short answers)
       if (!geminiApiKey) return "API key not configured.";
-      const systemPrompt = `You are Turbo Answer. Answer questions directly and helpfully. Keep responses concise unless detail is needed. Never discuss your own state, feelings, or system load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
-      const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
-      console.log(`[AI] Free → Gemini Flash Lite`);
-      return await callGemini(fullPrompt, 'gemini-3.1-flash-lite-preview', 2000, 0.4, geminiApiKey);
+      const freeContext = _lastResponseUsedGroundedSearch ? "" : additionalContext;
+      _lastResponseUsedGroundedSearch = false;
+      const systemPrompt = `You are Turbo Answer (Free). Answer questions briefly and directly. Keep all responses short (2-4 sentences max). Never discuss your own state, feelings, or system load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${freeContext}`;
+      const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${userMessage}` : `${systemPrompt}\n\nUser: ${userMessage}`;
+      console.log(`[AI] Free → Gemini 2.0 Flash Lite (basic)`);
+      return await callGeminiBasic(fullPrompt, 800, 0.5, geminiApiKey);
     }
 
   } catch (error: any) {
@@ -344,6 +348,47 @@ export async function generateAIResponse(
     }
     return "Please try again.";
   }
+}
+
+async function callGeminiBasic(prompt: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
+  const models = ['gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature, maxOutputTokens: maxTokens }
+  });
+
+  for (const model of models) {
+    try {
+      const start = Date.now();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
+      );
+      clearTimeout(timeout);
+
+      if (response.status === 429 || response.status === 503 || response.status === 500) {
+        console.log(`[Gemini] ${model} error ${response.status}, trying next...`);
+        continue;
+      }
+
+      const data = await response.json();
+      if (data.error) {
+        console.error(`[Gemini] ${model} error:`, data.error.message);
+        continue;
+      }
+
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) continue;
+      console.log(`[Gemini] ${model} responded in ${Date.now() - start}ms`);
+      return content;
+    } catch (err: any) {
+      console.log(`[Gemini] ${model} failed: ${err.message}`);
+      continue;
+    }
+  }
+  return "Please try again in a moment.";
 }
 
 async function callGemini(prompt: string, preferredModel: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {

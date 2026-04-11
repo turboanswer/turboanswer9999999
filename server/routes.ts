@@ -991,10 +991,12 @@ function downloadAAB(){
 
         const { generateAIResponse } = await import('./services/multi-ai.js');
         const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
+        const sender = await storage.getUser(sendingUserId);
+        const userTier = sender?.subscriptionTier || 'free';
         aiResponseContent = await generateAIResponse(
           content,
           conversationHistory,
-          "premium",
+          userTier,
           req.body.selectedModel || "auto-select",
           userId,
           req.body.language || "en",
@@ -1010,18 +1012,22 @@ function downloadAAB(){
       });
 
       let verified: "verified" | "unverified" | "unknown" = "unknown";
-      try {
-        const { lastResponseUsedGroundedSearch, verifyAIResponse } = await import('./services/multi-ai.js');
-        if (lastResponseUsedGroundedSearch()) {
-          verified = "verified";
-        } else {
-          const geminiKey = process.env.GEMINI_API_KEY;
-          if (geminiKey && aiResponseContent.length > 30) {
-            verified = await verifyAIResponse(aiResponseContent, content, geminiKey);
+      const senderForVerify = sendingUserId ? await storage.getUser(sendingUserId) : null;
+      const senderTier = senderForVerify?.subscriptionTier || 'free';
+      if (senderTier !== 'free') {
+        try {
+          const { lastResponseUsedGroundedSearch, verifyAIResponse } = await import('./services/multi-ai.js');
+          if (lastResponseUsedGroundedSearch()) {
+            verified = "verified";
+          } else {
+            const geminiKey = process.env.GEMINI_API_KEY;
+            if (geminiKey && aiResponseContent.length > 30) {
+              verified = await verifyAIResponse(aiResponseContent, content, geminiKey);
+            }
           }
+        } catch {
+          verified = "unknown";
         }
-      } catch {
-        verified = "unknown";
       }
 
       res.json({
