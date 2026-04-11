@@ -8,8 +8,8 @@ import multer from "multer";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and, desc, or, inArray, gt } from "drizzle-orm";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, debateSessions, debateMessages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks } from "@shared/schema";
+import { eq, and, desc, or, inArray, gt, lt, sql } from "drizzle-orm";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, debateSessions, debateMessages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks, apiKeys, apiUsageLogs } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -6238,6 +6238,437 @@ Rules:
       if (!check) return res.status(404).json({ error: 'No fact-check found' });
       res.json(check);
     } catch (e: any) { res.status(500).json({ error: 'Failed to fetch fact-check' }); }
+  });
+
+  // ============ EXTERNAL API — CONSTRUCTION IMAGE ANALYSIS ============
+
+  const crypto = await import('crypto');
+
+  function generateApiKey(): { fullKey: string; prefix: string; hash: string } {
+    const rawKey = `ta_${crypto.randomBytes(32).toString('hex')}`;
+    const prefix = rawKey.slice(0, 10);
+    const hash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    return { fullKey: rawKey, prefix, hash };
+  }
+
+  function hashApiKey(key: string): string {
+    return crypto.createHash('sha256').update(key).digest('hex');
+  }
+
+  async function validateApiKey(req: any, res: any): Promise<any | null> {
+    const authHeader = req.headers['authorization'] || req.headers['x-api-key'];
+    if (!authHeader) {
+      res.status(401).json({ error: 'Missing API key. Provide via Authorization: Bearer <key> or X-Api-Key header.' });
+      return null;
+    }
+    const key = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!key || !key.startsWith('ta_')) {
+      res.status(401).json({ error: 'Invalid API key format.' });
+      return null;
+    }
+    const keyHash = hashApiKey(key);
+    const [apiKey] = await db.select().from(apiKeys).where(and(eq(apiKeys.keyHash, keyHash), eq(apiKeys.isActive, true)));
+    if (!apiKey) {
+      res.status(401).json({ error: 'Invalid or deactivated API key.' });
+      return null;
+    }
+
+    const now = new Date();
+    const lastReset = apiKey.lastResetAt ? new Date(apiKey.lastResetAt) : new Date(0);
+    const hoursSinceReset = (now.getTime() - lastReset.getTime()) / (1000 * 60 * 60);
+    let currentDailyUsage = apiKey.dailyUsage;
+    if (hoursSinceReset >= 24) {
+      await db.update(apiKeys).set({ dailyUsage: 0, lastResetAt: now }).where(eq(apiKeys.id, apiKey.id));
+      currentDailyUsage = 0;
+    }
+
+    if (currentDailyUsage >= apiKey.rateLimit) {
+      res.status(429).json({ error: 'Daily rate limit exceeded.', limit: apiKey.rateLimit, usage: currentDailyUsage, resetsIn: `${Math.ceil(24 - hoursSinceReset)} hours` });
+      return null;
+    }
+
+    return apiKey;
+  }
+
+  async function logApiUsage(apiKeyId: number, endpoint: string, method: string, statusCode: number, responseTimeMs?: number, imageSize?: number, queryType?: string) {
+    try {
+      await db.insert(apiUsageLogs).values({ apiKeyId, endpoint, method, statusCode, responseTimeMs, imageSize, queryType });
+      await db.update(apiKeys).set({
+        dailyUsage: sql`${apiKeys.dailyUsage} + 1`,
+        totalUsage: sql`${apiKeys.totalUsage} + 1`,
+        lastUsedAt: new Date(),
+      }).where(eq(apiKeys.id, apiKeyId));
+    } catch (e) { console.error('[API] Log error:', e); }
+  }
+
+  app.post('/api/keys', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+
+      const { name, rateLimit: customLimit } = req.body;
+      if (!name?.trim()) return res.status(400).json({ error: 'API key name is required' });
+
+      const existingKeys = await db.select().from(apiKeys).where(eq(apiKeys.userId, user.id));
+      if (existingKeys.length >= 5) return res.status(400).json({ error: 'Maximum 5 API keys allowed per account' });
+
+      const { fullKey, prefix, hash } = generateApiKey();
+      const limit = Math.min(Math.max(parseInt(customLimit) || 100, 10), 10000);
+
+      const [newKey] = await db.insert(apiKeys).values({
+        userId: user.id,
+        keyHash: hash,
+        keyPrefix: prefix,
+        name: name.trim(),
+        rateLimit: limit,
+        isActive: true,
+        permissions: ["construction_analyze", "construction_schedule", "construction_advice"],
+      }).returning();
+
+      res.json({
+        id: newKey.id,
+        name: newKey.name,
+        key: fullKey,
+        prefix: newKey.keyPrefix,
+        rateLimit: newKey.rateLimit,
+        permissions: newKey.permissions,
+        message: 'Save this key now — it will not be shown again.',
+      });
+    } catch (e: any) { console.error('[API Keys] Create error:', e.message); res.status(500).json({ error: 'Failed to create API key' }); }
+  });
+
+  app.get('/api/keys', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+
+      const keys = await db.select({
+        id: apiKeys.id,
+        name: apiKeys.name,
+        keyPrefix: apiKeys.keyPrefix,
+        rateLimit: apiKeys.rateLimit,
+        dailyUsage: apiKeys.dailyUsage,
+        totalUsage: apiKeys.totalUsage,
+        isActive: apiKeys.isActive,
+        permissions: apiKeys.permissions,
+        lastUsedAt: apiKeys.lastUsedAt,
+        createdAt: apiKeys.createdAt,
+      }).from(apiKeys).where(eq(apiKeys.userId, user.id)).orderBy(desc(apiKeys.createdAt));
+
+      res.json(keys);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch API keys' }); }
+  });
+
+  app.delete('/api/keys/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+
+      const keyId = parseInt(req.params.id);
+      const [key] = await db.select().from(apiKeys).where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, user.id)));
+      if (!key) return res.status(404).json({ error: 'API key not found' });
+
+      await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.id, keyId));
+      res.json({ success: true, message: 'API key deactivated' });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to delete API key' }); }
+  });
+
+  app.get('/api/keys/:id/usage', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+
+      const keyId = parseInt(req.params.id);
+      const [key] = await db.select().from(apiKeys).where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, user.id)));
+      if (!key) return res.status(404).json({ error: 'API key not found' });
+
+      const logs = await db.select().from(apiUsageLogs).where(eq(apiUsageLogs.apiKeyId, keyId)).orderBy(desc(apiUsageLogs.createdAt)).limit(100);
+      res.json({ key: { name: key.name, prefix: key.keyPrefix, dailyUsage: key.dailyUsage, totalUsage: key.totalUsage, rateLimit: key.rateLimit }, logs });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to fetch usage' }); }
+  });
+
+  const constructionApiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, message: { error: 'Too many requests, please slow down.' } });
+
+  app.post('/api/v1/construction/analyze', constructionApiLimiter, async (req: any, res) => {
+    const startTime = Date.now();
+    let apiKeyRecord: any = null;
+    try {
+      apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const { image, query, type } = req.body;
+
+      if (!image) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 400, Date.now() - startTime, 0, type);
+        return res.status(400).json({ error: 'Image is required. Provide base64 encoded image data (with or without data URI prefix).' });
+      }
+
+      const validTypes = ['damage_assessment', 'material_identification', 'repair_estimate', 'safety_inspection', 'progress_tracking', 'general'];
+      const analysisType = validTypes.includes(type) ? type : 'general';
+
+      const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
+      const imageSize = Math.round(base64Data.length * 0.75);
+
+      if (imageSize > 10 * 1024 * 1024) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 400, Date.now() - startTime, imageSize, analysisType);
+        return res.status(400).json({ error: 'Image too large. Maximum 10MB.' });
+      }
+
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+      const typePrompts: Record<string, string> = {
+        damage_assessment: `You are a professional construction damage assessor. Analyze this image for structural damage, water damage, cracks, deterioration, or any issues. Provide:
+1. **Damage Type**: What kind of damage is visible
+2. **Severity**: Rate 1-10 (1=cosmetic, 10=structural failure)
+3. **Affected Area**: What parts of the structure are affected
+4. **Urgency**: Immediate/Soon/Can Wait
+5. **Recommended Action**: What repairs are needed
+6. **Estimated Complexity**: Simple DIY / Professional Required / Specialist Required
+7. **Safety Concerns**: Any immediate safety issues`,
+
+        material_identification: `You are a construction materials expert. Identify all construction materials visible in this image. For each material provide:
+1. **Material Name**: Exact identification
+2. **Condition**: New/Good/Fair/Poor/Failed
+3. **Approximate Age**: If determinable
+4. **Common Uses**: What this material is typically used for
+5. **Compatibility Notes**: What it works well with or conflicts with
+6. **Replacement Recommendations**: If replacement is needed, suggest modern alternatives`,
+
+        repair_estimate: `You are a construction repair estimator. Analyze this image and provide a detailed repair assessment:
+1. **Issues Found**: List all visible problems
+2. **Repair Steps**: Step-by-step repair plan in order of priority
+3. **Materials Needed**: List of materials with approximate quantities
+4. **Tools Required**: What tools are needed
+5. **Skill Level**: DIY-friendly / Intermediate / Professional only
+6. **Time Estimate**: Approximate labor hours
+7. **Cost Range**: Low/Medium/High budget estimate (relative, not exact dollars)
+8. **Priority**: Which repairs should be done first`,
+
+        safety_inspection: `You are a construction safety inspector. Analyze this image for safety concerns:
+1. **Hazards Identified**: List all visible safety hazards
+2. **Risk Level**: Critical/High/Medium/Low for each hazard
+3. **Code Violations**: Any apparent building code issues
+4. **Immediate Actions**: What needs to happen right now
+5. **PPE Required**: Personal protective equipment needed for work in this area
+6. **Recommended Inspections**: What professional inspections are needed
+7. **Occupancy Impact**: Is it safe for people to be in this area`,
+
+        progress_tracking: `You are a construction project manager reviewing site progress. Analyze this image:
+1. **Current Phase**: What stage of construction/renovation is shown
+2. **Work Completed**: What has been done
+3. **Work Remaining**: What still needs to be done
+4. **Quality Assessment**: Rate the visible workmanship (1-10)
+5. **Issues Spotted**: Any problems with the current work
+6. **Next Steps**: What should happen next
+7. **Weather Considerations**: Any weather-related concerns visible`,
+
+        general: `You are a construction expert. Analyze this image and provide comprehensive construction-related insights:
+1. **Description**: What is shown in the image
+2. **Construction Assessment**: Overall condition and observations
+3. **Issues or Concerns**: Any problems visible
+4. **Recommendations**: What actions to take
+5. **Professional Needed**: Whether professional help is recommended`
+      };
+
+      const userQueryAddition = query ? `\n\nThe user specifically asks: "${query}"\nAddress their question directly in your analysis.` : '';
+      const finalPrompt = `${typePrompts[analysisType]}${userQueryAddition}\n\nProvide your analysis in clear, structured format. Be specific and actionable. This is for a construction/repair scheduling platform.`;
+
+      const result = await model.generateContent([
+        finalPrompt,
+        { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+      ]);
+
+      const response = await result.response;
+      const analysisText = response.text();
+
+      const responseTime = Date.now() - startTime;
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 200, responseTime, imageSize, analysisType);
+
+      res.json({
+        success: true,
+        analysis: {
+          type: analysisType,
+          content: analysisText,
+          query: query || null,
+        },
+        meta: {
+          model: 'gemini-2.5-flash',
+          responseTimeMs: responseTime,
+          imageSize,
+          timestamp: new Date().toISOString(),
+        },
+        usage: {
+          dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
+          dailyLimit: apiKeyRecord.rateLimit,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Construction API] Analyze error:', e.message);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 500, Date.now() - startTime);
+      res.status(500).json({ error: 'Analysis failed. Please try again.', details: e.message });
+    }
+  });
+
+  app.post('/api/v1/construction/advice', constructionApiLimiter, async (req: any, res) => {
+    const startTime = Date.now();
+    let apiKeyRecord: any = null;
+    try {
+      apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const { question, context, category } = req.body;
+      if (!question?.trim()) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 400, Date.now() - startTime, 0, 'advice');
+        return res.status(400).json({ error: 'Question is required.' });
+      }
+
+      const validCategories = ['plumbing', 'electrical', 'roofing', 'foundation', 'framing', 'drywall', 'painting', 'flooring', 'hvac', 'landscaping', 'permits', 'scheduling', 'budgeting', 'general'];
+      const cat = validCategories.includes(category) ? category : 'general';
+
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+      const prompt = `You are a professional construction advisor. A user has a question about construction/repair work.
+
+Category: ${cat}
+${context ? `Context: ${context}\n` : ''}
+Question: "${question}"
+
+Provide expert construction advice. Be specific, practical, and safety-conscious. Include:
+- Direct answer to their question
+- Step-by-step guidance if applicable
+- Safety warnings if relevant
+- When to call a professional vs DIY
+- Any relevant building codes or permits to consider
+- Material and tool recommendations
+
+Keep it professional but conversational. This is for a construction scheduling and repair platform.`;
+
+      const result = await generateAIResponse(prompt, [], 'research', 'gemini-2.0-flash');
+      const advice = typeof result === 'object' ? result.text : result;
+
+      const responseTime = Date.now() - startTime;
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 200, responseTime, 0, cat);
+
+      res.json({
+        success: true,
+        advice: {
+          content: advice,
+          category: cat,
+          question,
+        },
+        meta: {
+          model: 'gemini-2.0-flash',
+          responseTimeMs: responseTime,
+          timestamp: new Date().toISOString(),
+        },
+        usage: {
+          dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
+          dailyLimit: apiKeyRecord.rateLimit,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Construction API] Advice error:', e.message);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 500, Date.now() - startTime, 0, 'advice');
+      res.status(500).json({ error: 'Failed to generate advice.', details: e.message });
+    }
+  });
+
+  app.post('/api/v1/construction/schedule', constructionApiLimiter, async (req: any, res) => {
+    const startTime = Date.now();
+    let apiKeyRecord: any = null;
+    try {
+      apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const { tasks, constraints, image } = req.body;
+      if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 400, Date.now() - startTime, 0, 'schedule');
+        return res.status(400).json({ error: 'Tasks array is required with at least one task.' });
+      }
+
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+
+      let imageAnalysis = '';
+      if (image) {
+        try {
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+          const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+          const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
+          const imgResult = await model.generateContent([
+            'Briefly describe the construction site/area shown. Focus on current state, work needed, and any factors that affect scheduling.',
+            { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+          ]);
+          imageAnalysis = `\n\nSite photo analysis: ${imgResult.response.text()}`;
+        } catch (e) { imageAnalysis = ''; }
+      }
+
+      const taskList = tasks.map((t: any, i: number) => `${i + 1}. ${t.name || t}${t.duration ? ` (estimated: ${t.duration})` : ''}${t.priority ? ` [Priority: ${t.priority}]` : ''}`).join('\n');
+
+      const prompt = `You are a construction project scheduler and manager. Create an optimized repair/construction work schedule.
+
+Tasks to schedule:
+${taskList}
+
+${constraints ? `Constraints/Notes: ${constraints}` : ''}${imageAnalysis}
+
+Create a detailed schedule that includes:
+1. **Recommended Order**: The optimal sequence of tasks (considering dependencies, drying times, etc.)
+2. **Timeline**: Estimated duration for each task and total project timeline
+3. **Dependencies**: Which tasks must be completed before others can start
+4. **Weather Considerations**: Any weather-sensitive tasks
+5. **Resource Conflicts**: Tasks that can't run in parallel
+6. **Critical Path**: Which tasks are on the critical path
+7. **Milestones**: Key checkpoints for the project
+8. **Crew Recommendations**: What type of workers/specialists are needed for each phase
+
+Format this as a clear, actionable schedule that a construction manager could follow.`;
+
+      const result = await generateAIResponse(prompt, [], 'research', 'gemini-2.0-flash');
+      const schedule = typeof result === 'object' ? result.text : result;
+
+      const responseTime = Date.now() - startTime;
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 200, responseTime, 0, 'schedule');
+
+      res.json({
+        success: true,
+        schedule: {
+          content: schedule,
+          taskCount: tasks.length,
+          hasImageContext: !!image,
+        },
+        meta: {
+          model: 'gemini-2.0-flash',
+          responseTimeMs: responseTime,
+          timestamp: new Date().toISOString(),
+        },
+        usage: {
+          dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
+          dailyLimit: apiKeyRecord.rateLimit,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Construction API] Schedule error:', e.message);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 500, Date.now() - startTime, 0, 'schedule');
+      res.status(500).json({ error: 'Failed to generate schedule.', details: e.message });
+    }
+  });
+
+  app.get('/api/v1/construction/health', (req, res) => {
+    res.json({
+      status: 'operational',
+      version: '1.0.0',
+      endpoints: [
+        { path: '/api/v1/construction/analyze', method: 'POST', description: 'Analyze construction/repair images' },
+        { path: '/api/v1/construction/advice', method: 'POST', description: 'Get construction advice' },
+        { path: '/api/v1/construction/schedule', method: 'POST', description: 'Generate repair work schedules' },
+        { path: '/api/v1/construction/health', method: 'GET', description: 'API health check' },
+      ],
+      authentication: 'API key via Authorization: Bearer <key> or X-Api-Key header',
+      analyzeTypes: ['damage_assessment', 'material_identification', 'repair_estimate', 'safety_inspection', 'progress_tracking', 'general'],
+      adviceCategories: ['plumbing', 'electrical', 'roofing', 'foundation', 'framing', 'drywall', 'painting', 'flooring', 'hvac', 'landscaping', 'permits', 'scheduling', 'budgeting', 'general'],
+    });
   });
 
   return httpServer;

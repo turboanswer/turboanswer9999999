@@ -54,6 +54,12 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **AI Debate Arena**: Interactive feature where two AI models debate any user-chosen topic. Users select models (Gemini, Claude, GPT-4o, DeepSeek), set rounds (1-5), moderate with interjections, and vote on winners. Tables: `debate_sessions`, `debate_messages`. Frontend: `/debate`.
 - **Collaborative AI Rooms**: Real-time multiplayer rooms where multiple users chat together with AI. Room creation with shareable 6-char codes, member management, 3-second polling for updates, `@ai` prefix triggers AI responses. Tables: `collab_rooms`, `collab_room_members`, `collab_room_messages`. Frontend: `/collab`.
 - **AI Fact-Check Chain**: Independent AI verification of any chat response. Click "Fact Check" on any AI message to send it to a second model for claim-by-claim analysis with confidence scores, verdicts (VERIFIED/PARTIALLY_VERIFIED/UNVERIFIED/MIXED), and detailed explanations. Table: `fact_checks`. Integrated into chat UI.
+- **External Construction API**: RESTful API system for integrating TurboAnswer's AI into external construction/repair websites. Features: API key management (generate/list/delete keys, max 5 per account), SHA-256 hashed key storage, daily rate limiting with auto-reset, usage logging. Three endpoints authenticated via `Authorization: Bearer ta_...` or `X-Api-Key` header:
+  - `POST /api/v1/construction/analyze` — AI image analysis with 6 specialized types (damage_assessment, material_identification, repair_estimate, safety_inspection, progress_tracking, general). Uses Gemini 2.5 Flash vision. Accepts base64 images up to 10MB.
+  - `POST /api/v1/construction/advice` — Expert construction advice across 14 categories (plumbing, electrical, roofing, foundation, framing, drywall, painting, flooring, hvac, landscaping, permits, scheduling, budgeting, general).
+  - `POST /api/v1/construction/schedule` — AI-powered work scheduling with task dependencies, critical path, crew recommendations. Optional site photo analysis.
+  - `GET /api/v1/construction/health` — Public health check with endpoint listing.
+  Tables: `api_keys`, `api_usage_logs`. Frontend: `/api-keys` with key management UI + full API documentation.
 - **Embeddable AI Widget**: Universal JavaScript widget for website integration.
 - **Promo Code System**: Database-driven system for discounts and free access.
 - **Beta Testing Program**: Public application and feedback system for new features.

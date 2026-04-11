@@ -459,3 +459,36 @@ export const factChecks = pgTable("fact_checks", {
 });
 
 export type FactCheck = typeof factChecks.$inferSelect;
+
+export const apiKeys = pgTable("api_keys", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  keyHash: text("key_hash").notNull().unique(),
+  keyPrefix: text("key_prefix").notNull(),
+  name: text("name").notNull(),
+  permissions: jsonb("permissions").notNull().default(["construction_analyze"]),
+  rateLimit: integer("rate_limit").notNull().default(100),
+  dailyUsage: integer("daily_usage").notNull().default(0),
+  totalUsage: integer("total_usage").notNull().default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  lastResetAt: timestamp("last_reset_at").defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({ id: true, createdAt: true, dailyUsage: true, totalUsage: true, lastUsedAt: true, lastResetAt: true });
+
+export const apiUsageLogs = pgTable("api_usage_logs", {
+  id: serial("id").primaryKey(),
+  apiKeyId: integer("api_key_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  method: text("method").notNull(),
+  statusCode: integer("status_code").notNull(),
+  responseTimeMs: integer("response_time_ms"),
+  imageSize: integer("image_size"),
+  queryType: text("query_type"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ApiUsageLog = typeof apiUsageLogs.$inferSelect;
