@@ -165,6 +165,8 @@ app.get('/api/csrf-token', (req: Request, res: Response) => {
 const CSRF_EXEMPT_PATHS = [
   '/api/paypal/webhook',
   '/api/widget/',
+  '/api/v1/construction/',
+  '/api/v1/diagnosis/',
 ];
 
 app.use((req: Request, res: Response, next: NextFunction) => {

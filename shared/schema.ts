@@ -498,3 +498,38 @@ export const apiUsageLogs = pgTable("api_usage_logs", {
 });
 
 export type ApiUsageLog = typeof apiUsageLogs.$inferSelect;
+
+export const diagnoses = pgTable("diagnoses", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  imageData: text("image_data").notNull(),
+  problem: text("problem").notNull(),
+  severity: integer("severity").notNull(),
+  category: text("category").notNull(),
+  possibleCauses: jsonb("possible_causes").$type<string[]>().notNull().default([]),
+  immediateActions: jsonb("immediate_actions").$type<string[]>().notNull().default([]),
+  isEmergency: boolean("is_emergency").notNull().default(false),
+  needsProfessional: boolean("needs_professional").notNull().default(false),
+  fullAnalysis: text("full_analysis").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDiagnosisSchema = createInsertSchema(diagnoses).omit({ id: true, createdAt: true });
+export type InsertDiagnosis = z.infer<typeof insertDiagnosisSchema>;
+export type Diagnosis = typeof diagnoses.$inferSelect;
+
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  diagnosisId: integer("diagnosis_id").references(() => diagnoses.id).notNull(),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  priority: text("priority").notNull().default("normal"),
+  status: text("status").notNull().default("scheduled"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+export type Appointment = typeof appointments.$inferSelect;

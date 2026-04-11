@@ -9,7 +9,7 @@ import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, and, desc, or, inArray, gt, lt, sql } from "drizzle-orm";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, debateSessions, debateMessages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks, apiKeys, apiUsageLogs } from "@shared/schema";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, debateSessions, debateMessages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks, apiKeys, apiUsageLogs, diagnoses, appointments } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -6309,6 +6309,8 @@ Rules:
     '/api/v1/construction/schedule': 8,
     '/api/v1/construction/estimate': 6,
     '/api/v1/construction/permits': 3,
+    '/api/v1/diagnosis/analyze': 6,
+    '/api/v1/diagnosis/appointments': 1,
   };
 
   async function checkMonthlyBudget(apiKeyRecord: any, res: any): Promise<boolean> {
@@ -7024,16 +7026,405 @@ Be specific to the location mentioned. Reference actual local building departmen
     }
   });
 
+  // ─── Smart Diagnosis & Appointment Scheduler API ───
+
+  app.post('/api/v1/diagnosis/analyze', constructionApiLimiter, async (req: any, res) => {
+    const startTime = Date.now();
+    let apiKeyRecord: any = null;
+    try {
+      apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+      if (!(await checkMonthlyBudget(apiKeyRecord, res))) return;
+
+      const { image, mimeType } = req.body;
+
+      if (!image) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/diagnosis/analyze', 'POST', 400, 0, Date.now() - startTime);
+        return res.status(400).json({ error: 'Image is required. Provide base64 encoded image data (with or without data URI prefix).' });
+      }
+
+      const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
+      const imageSize = Math.round(base64Data.length * 0.75);
+
+      if (imageSize > 10 * 1024 * 1024) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/diagnosis/analyze', 'POST', 400, 0, Date.now() - startTime, imageSize);
+        return res.status(400).json({ error: 'Image too large. Maximum 10MB.' });
+      }
+
+      const { diagnoseImage } = await import('./services/smart-diagnosis');
+      const result = await diagnoseImage(base64Data, mimeType || 'image/jpeg');
+
+      const userId = apiKeyRecord.userId;
+      const [saved] = await db.insert(diagnoses).values({
+        userId,
+        imageData: base64Data,
+        problem: result.problem,
+        severity: result.severity,
+        category: result.category,
+        possibleCauses: result.possibleCauses,
+        immediateActions: result.immediateActions,
+        isEmergency: result.isEmergency,
+        needsProfessional: result.needsProfessional,
+        fullAnalysis: result.fullAnalysis,
+      }).returning();
+
+      const responseTime = Date.now() - startTime;
+      const tierMultiplier = TIER_CONFIG[apiKeyRecord.tier]?.costMultiplier || 1;
+      const costCents = Math.round((ENDPOINT_COSTS_CENTS['/api/v1/diagnosis/analyze'] || 6) * tierMultiplier);
+      await logApiUsage(apiKeyRecord.id, '/api/v1/diagnosis/analyze', 'POST', 200, costCents, responseTime, imageSize, result.category);
+
+      const updatedSpend = (apiKeyRecord.monthlySpend || 0) + costCents;
+      res.json({
+        success: true,
+        diagnosis: {
+          id: saved.id,
+          problem: result.problem,
+          severity: result.severity,
+          severityLabel: result.severity <= 1 ? 'Minor' : result.severity <= 2 ? 'Moderate' : result.severity <= 3 ? 'Significant' : result.severity <= 4 ? 'Serious' : 'Critical',
+          category: result.category,
+          possibleCauses: result.possibleCauses,
+          immediateActions: result.immediateActions,
+          isEmergency: result.isEmergency,
+          needsProfessional: result.needsProfessional,
+          suggestedPriority: result.isEmergency ? 'emergency' : 'normal',
+          fullAnalysis: result.fullAnalysis,
+          createdAt: saved.createdAt,
+        },
+        meta: {
+          model: 'gemini-2.0-flash',
+          responseTimeMs: responseTime,
+          imageSize,
+          timestamp: new Date().toISOString(),
+        },
+        usage: {
+          dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
+          dailyLimit: apiKeyRecord.rateLimit,
+          costCents,
+          monthlySpent: `$${(updatedSpend / 100).toFixed(2)}`,
+          monthlyBudget: `$${((apiKeyRecord.monthlyBudget || 2500) / 100).toFixed(2)}`,
+          monthlyRemaining: `$${(Math.max(0, (apiKeyRecord.monthlyBudget || 2500) - updatedSpend) / 100).toFixed(2)}`,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Diagnosis API] Analyze error:', e.message);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/diagnosis/analyze', 'POST', 500, 0, Date.now() - startTime);
+      res.status(500).json({ error: 'Diagnosis failed. Please try again.' });
+    }
+  });
+
+  app.get('/api/v1/diagnosis/history', constructionApiLimiter, async (req: any, res) => {
+    try {
+      const apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+
+      const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(diagnoses)
+        .where(eq(diagnoses.userId, apiKeyRecord.userId));
+      const totalCount = Number(countResult?.count || 0);
+
+      const userDiagnoses = await db.select().from(diagnoses)
+        .where(eq(diagnoses.userId, apiKeyRecord.userId))
+        .orderBy(desc(diagnoses.createdAt))
+        .limit(limit)
+        .offset(offset);
+
+      res.json({
+        success: true,
+        diagnoses: userDiagnoses.map(d => ({
+          id: d.id,
+          problem: d.problem,
+          severity: d.severity,
+          severityLabel: d.severity <= 1 ? 'Minor' : d.severity <= 2 ? 'Moderate' : d.severity <= 3 ? 'Significant' : d.severity <= 4 ? 'Serious' : 'Critical',
+          category: d.category,
+          possibleCauses: d.possibleCauses,
+          immediateActions: d.immediateActions,
+          isEmergency: d.isEmergency,
+          needsProfessional: d.needsProfessional,
+          fullAnalysis: d.fullAnalysis,
+          createdAt: d.createdAt,
+        })),
+        pagination: { limit, offset, totalCount, returned: userDiagnoses.length },
+      });
+    } catch (e: any) {
+      console.error('[Diagnosis API] History error:', e.message);
+      res.status(500).json({ error: 'Failed to fetch diagnosis history.' });
+    }
+  });
+
+  app.get('/api/v1/diagnosis/:id', constructionApiLimiter, async (req: any, res) => {
+    try {
+      const apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const diagnosisId = parseInt(req.params.id);
+      if (isNaN(diagnosisId)) return res.status(400).json({ error: 'Invalid diagnosis ID.' });
+      const [diagnosis] = await db.select().from(diagnoses)
+        .where(and(eq(diagnoses.id, diagnosisId), eq(diagnoses.userId, apiKeyRecord.userId)));
+
+      if (!diagnosis) {
+        return res.status(404).json({ error: 'Diagnosis not found.' });
+      }
+
+      const diagAppointments = await db.select().from(appointments)
+        .where(and(eq(appointments.diagnosisId, diagnosisId), eq(appointments.userId, apiKeyRecord.userId)))
+        .orderBy(desc(appointments.createdAt));
+
+      res.json({
+        success: true,
+        diagnosis: {
+          id: diagnosis.id,
+          problem: diagnosis.problem,
+          severity: diagnosis.severity,
+          severityLabel: diagnosis.severity <= 1 ? 'Minor' : diagnosis.severity <= 2 ? 'Moderate' : diagnosis.severity <= 3 ? 'Significant' : diagnosis.severity <= 4 ? 'Serious' : 'Critical',
+          category: diagnosis.category,
+          possibleCauses: diagnosis.possibleCauses,
+          immediateActions: diagnosis.immediateActions,
+          isEmergency: diagnosis.isEmergency,
+          needsProfessional: diagnosis.needsProfessional,
+          fullAnalysis: diagnosis.fullAnalysis,
+          createdAt: diagnosis.createdAt,
+        },
+        appointments: diagAppointments.map(a => ({
+          id: a.id,
+          scheduledDate: a.scheduledDate,
+          priority: a.priority,
+          status: a.status,
+          notes: a.notes,
+          createdAt: a.createdAt,
+        })),
+      });
+    } catch (e: any) {
+      console.error('[Diagnosis API] Get error:', e.message);
+      res.status(500).json({ error: 'Failed to fetch diagnosis.' });
+    }
+  });
+
+  app.post('/api/v1/diagnosis/appointments', constructionApiLimiter, async (req: any, res) => {
+    const startTime = Date.now();
+    let apiKeyRecord: any = null;
+    try {
+      apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+      if (!(await checkMonthlyBudget(apiKeyRecord, res))) return;
+
+      const { diagnosisId, scheduledDate, priority, notes } = req.body;
+
+      if (!diagnosisId || !scheduledDate) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/diagnosis/appointments', 'POST', 400, 0, Date.now() - startTime);
+        return res.status(400).json({ error: 'diagnosisId and scheduledDate are required.' });
+      }
+
+      const [diagnosis] = await db.select().from(diagnoses)
+        .where(and(eq(diagnoses.id, diagnosisId), eq(diagnoses.userId, apiKeyRecord.userId)));
+
+      if (!diagnosis) {
+        return res.status(404).json({ error: 'Diagnosis not found. Create a diagnosis first via /api/v1/diagnosis/analyze.' });
+      }
+
+      const parsedDate = new Date(scheduledDate);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid scheduledDate. Use ISO 8601 format (e.g., "2025-06-15T14:00:00Z").' });
+      }
+
+      if (parsedDate < new Date()) {
+        return res.status(400).json({ error: 'scheduledDate must be in the future.' });
+      }
+
+      const validPriorities = ['normal', 'emergency'];
+      const appointmentPriority = validPriorities.includes(priority) ? priority : (diagnosis.isEmergency ? 'emergency' : 'normal');
+
+      const [appointment] = await db.insert(appointments).values({
+        userId: apiKeyRecord.userId,
+        diagnosisId,
+        scheduledDate: parsedDate,
+        priority: appointmentPriority,
+        status: 'scheduled',
+        notes: notes || null,
+      }).returning();
+
+      const responseTime = Date.now() - startTime;
+      const tierMultiplier = TIER_CONFIG[apiKeyRecord.tier]?.costMultiplier || 1;
+      const costCents = Math.round((ENDPOINT_COSTS_CENTS['/api/v1/diagnosis/appointments'] || 1) * tierMultiplier);
+      await logApiUsage(apiKeyRecord.id, '/api/v1/diagnosis/appointments', 'POST', 200, costCents, responseTime, 0, 'appointment_create');
+
+      const updatedSpend = (apiKeyRecord.monthlySpend || 0) + costCents;
+      res.json({
+        success: true,
+        appointment: {
+          id: appointment.id,
+          diagnosisId: appointment.diagnosisId,
+          scheduledDate: appointment.scheduledDate,
+          priority: appointment.priority,
+          status: appointment.status,
+          notes: appointment.notes,
+          createdAt: appointment.createdAt,
+          linkedDiagnosis: {
+            problem: diagnosis.problem,
+            severity: diagnosis.severity,
+            category: diagnosis.category,
+            isEmergency: diagnosis.isEmergency,
+          },
+        },
+        usage: {
+          dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
+          dailyLimit: apiKeyRecord.rateLimit,
+          costCents,
+          monthlySpent: `$${(updatedSpend / 100).toFixed(2)}`,
+          monthlyBudget: `$${((apiKeyRecord.monthlyBudget || 2500) / 100).toFixed(2)}`,
+          monthlyRemaining: `$${(Math.max(0, (apiKeyRecord.monthlyBudget || 2500) - updatedSpend) / 100).toFixed(2)}`,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Diagnosis API] Create appointment error:', e.message);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/diagnosis/appointments', 'POST', 500, 0, Date.now() - startTime);
+      res.status(500).json({ error: 'Failed to create appointment.' });
+    }
+  });
+
+  app.get('/api/v1/diagnosis/appointments/list', constructionApiLimiter, async (req: any, res) => {
+    try {
+      const apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const status = req.query.status as string;
+      const priority = req.query.priority as string;
+
+      let query = db.select().from(appointments)
+        .where(eq(appointments.userId, apiKeyRecord.userId))
+        .orderBy(desc(appointments.scheduledDate));
+
+      const allAppointments = await query;
+
+      let filtered = allAppointments;
+      if (status) filtered = filtered.filter(a => a.status === status);
+      if (priority) filtered = filtered.filter(a => a.priority === priority);
+
+      const diagIds = [...new Set(filtered.map(a => a.diagnosisId))];
+      const linkedDiagnoses: Record<number, any> = {};
+      if (diagIds.length > 0) {
+        const diagRecords = await db.select().from(diagnoses).where(inArray(diagnoses.id, diagIds));
+        for (const d of diagRecords) {
+          linkedDiagnoses[d.id] = { problem: d.problem, severity: d.severity, category: d.category, isEmergency: d.isEmergency };
+        }
+      }
+
+      res.json({
+        success: true,
+        appointments: filtered.map(a => ({
+          id: a.id,
+          diagnosisId: a.diagnosisId,
+          scheduledDate: a.scheduledDate,
+          priority: a.priority,
+          status: a.status,
+          notes: a.notes,
+          createdAt: a.createdAt,
+          updatedAt: a.updatedAt,
+          linkedDiagnosis: linkedDiagnoses[a.diagnosisId] || null,
+        })),
+        total: filtered.length,
+      });
+    } catch (e: any) {
+      console.error('[Diagnosis API] List appointments error:', e.message);
+      res.status(500).json({ error: 'Failed to fetch appointments.' });
+    }
+  });
+
+  app.patch('/api/v1/diagnosis/appointments/:id', constructionApiLimiter, async (req: any, res) => {
+    try {
+      const apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const appointmentId = parseInt(req.params.id);
+      if (isNaN(appointmentId)) return res.status(400).json({ error: 'Invalid appointment ID.' });
+
+      const [existing] = await db.select().from(appointments)
+        .where(and(eq(appointments.id, appointmentId), eq(appointments.userId, apiKeyRecord.userId)));
+
+      if (!existing) {
+        return res.status(404).json({ error: 'Appointment not found.' });
+      }
+
+      const updates: any = { updatedAt: new Date() };
+      if (req.body.scheduledDate) {
+        const parsed = new Date(req.body.scheduledDate);
+        if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'Invalid scheduledDate format.' });
+        if (parsed < new Date()) return res.status(400).json({ error: 'scheduledDate must be in the future.' });
+        updates.scheduledDate = parsed;
+      }
+      if (req.body.priority && ['normal', 'emergency'].includes(req.body.priority)) {
+        updates.priority = req.body.priority;
+      }
+      if (req.body.status && ['scheduled', 'confirmed', 'completed', 'cancelled'].includes(req.body.status)) {
+        updates.status = req.body.status;
+      }
+      if (req.body.notes !== undefined) {
+        updates.notes = req.body.notes;
+      }
+
+      const [updated] = await db.update(appointments).set(updates).where(eq(appointments.id, appointmentId)).returning();
+
+      res.json({
+        success: true,
+        appointment: {
+          id: updated.id,
+          diagnosisId: updated.diagnosisId,
+          scheduledDate: updated.scheduledDate,
+          priority: updated.priority,
+          status: updated.status,
+          notes: updated.notes,
+          createdAt: updated.createdAt,
+          updatedAt: updated.updatedAt,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Diagnosis API] Update appointment error:', e.message);
+      res.status(500).json({ error: 'Failed to update appointment.' });
+    }
+  });
+
+  app.delete('/api/v1/diagnosis/appointments/:id', constructionApiLimiter, async (req: any, res) => {
+    try {
+      const apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+
+      const appointmentId = parseInt(req.params.id);
+      if (isNaN(appointmentId)) return res.status(400).json({ error: 'Invalid appointment ID.' });
+
+      const [existing] = await db.select().from(appointments)
+        .where(and(eq(appointments.id, appointmentId), eq(appointments.userId, apiKeyRecord.userId)));
+
+      if (!existing) {
+        return res.status(404).json({ error: 'Appointment not found.' });
+      }
+
+      await db.delete(appointments).where(eq(appointments.id, appointmentId));
+
+      res.json({ success: true, message: 'Appointment cancelled and removed.' });
+    } catch (e: any) {
+      console.error('[Diagnosis API] Delete appointment error:', e.message);
+      res.status(500).json({ error: 'Failed to delete appointment.' });
+    }
+  });
+
   app.get('/api/v1/construction/health', (req, res) => {
     res.json({
       status: 'operational',
-      version: '1.1.0',
+      version: '1.2.0',
       endpoints: [
         { path: '/api/v1/construction/analyze', method: 'POST', description: 'Analyze construction/repair images' },
         { path: '/api/v1/construction/advice', method: 'POST', description: 'Get construction advice' },
         { path: '/api/v1/construction/schedule', method: 'POST', description: 'Generate repair work schedules' },
         { path: '/api/v1/construction/estimate', method: 'POST', description: 'Generate material lists & job cost estimates' },
         { path: '/api/v1/construction/permits', method: 'POST', description: 'Location-based permit requirements & guidance' },
+        { path: '/api/v1/diagnosis/analyze', method: 'POST', description: 'Smart Diagnosis — upload a photo of a problem for AI diagnostic report' },
+        { path: '/api/v1/diagnosis/history', method: 'GET', description: 'Retrieve past diagnoses' },
+        { path: '/api/v1/diagnosis/:id', method: 'GET', description: 'Get a specific diagnosis with linked appointments' },
+        { path: '/api/v1/diagnosis/appointments', method: 'POST', description: 'Schedule an appointment from a diagnosis' },
+        { path: '/api/v1/diagnosis/appointments/list', method: 'GET', description: 'List all appointments (filter by status/priority)' },
+        { path: '/api/v1/diagnosis/appointments/:id', method: 'PATCH', description: 'Update an appointment (reschedule, change priority, add notes)' },
+        { path: '/api/v1/diagnosis/appointments/:id', method: 'DELETE', description: 'Cancel and remove an appointment' },
         { path: '/api/v1/construction/health', method: 'GET', description: 'API health check' },
       ],
       authentication: 'API key via Authorization: Bearer <key> or X-Api-Key header',
@@ -7042,6 +7433,9 @@ Be specific to the location mentioned. Reference actual local building departmen
       adviceCategories: ['plumbing', 'electrical', 'roofing', 'foundation', 'framing', 'drywall', 'painting', 'flooring', 'hvac', 'landscaping', 'permits', 'scheduling', 'budgeting', 'general'],
       estimateJobTypes: ['kitchen_remodel', 'bathroom_renovation', 'roof_replacement', 'deck_build', 'foundation_repair', 'room_addition', 'siding_replacement', 'window_replacement', 'flooring', 'painting_interior', 'painting_exterior', 'fence_build', 'garage_build', 'basement_finish', 'hvac_replacement'],
       permitPropertyTypes: ['residential', 'commercial', 'multi_family', 'industrial'],
+      diagnosisCategories: ['plumbing', 'electrical', 'appliance', 'structural', 'automotive', 'hvac', 'roofing', 'landscaping', 'pest', 'general'],
+      appointmentPriorities: ['normal', 'emergency'],
+      appointmentStatuses: ['scheduled', 'confirmed', 'completed', 'cancelled'],
     });
   });
 

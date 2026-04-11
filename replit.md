@@ -61,6 +61,15 @@ Subscription preference: Lifetime free premium access through promo code system 
   - `POST /api/v1/construction/estimate` — Material lists & cost estimates based on job type, square footage, rooms, floors. Admin keys include wholesale pricing & margins. 6¢/call.
   - `POST /api/v1/construction/permits` — Location-based permit requirements, building codes, application process, inspections, fees. 3¢/call.
   - `GET /api/v1/construction/health` — Public health check with endpoint listing.
+  - **Smart Diagnosis & Appointment Scheduler API** — External API for diagnosing real-world problems (plumbing, electrical, appliance, structural, etc.) from photos and scheduling appointments:
+    - `POST /api/v1/diagnosis/analyze` — Upload a photo for AI diagnostic report (problem ID, severity 1-5, causes, immediate actions, emergency flag, professional recommendation). 6¢/call.
+    - `GET /api/v1/diagnosis/history` — Retrieve past diagnoses (paginated).
+    - `GET /api/v1/diagnosis/:id` — Get specific diagnosis with linked appointments.
+    - `POST /api/v1/diagnosis/appointments` — Schedule appointment linked to a diagnosis (auto-suggests priority based on severity). 1¢/call.
+    - `GET /api/v1/diagnosis/appointments/list` — List appointments (filterable by status/priority).
+    - `PATCH /api/v1/diagnosis/appointments/:id` — Update appointment (reschedule, change priority/status, edit notes).
+    - `DELETE /api/v1/diagnosis/appointments/:id` — Cancel and remove an appointment.
+    Tables: `diagnoses`, `appointments`. Service: `server/services/smart-diagnosis.ts`.
   Tier pricing: Pro=1x, Research=0.8x, Enterprise=0.5x cost multiplier. Tables: `api_keys` (with `keyType` field), `api_usage_logs`. Frontend: `/api-keys` with key management UI, API docs, pricing table, admin/public key selector, and website integration code snippets (HTML/JS widget, React component, permit checker).
 - **Embeddable AI Widget**: Universal JavaScript widget for website integration.
 - **Promo Code System**: Database-driven system for discounts and free access.
