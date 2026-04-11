@@ -736,6 +736,12 @@ function downloadAAB(){
     }
   });
 
+  const OWNER_EMAIL = 'support@turboanswer.it.com';
+
+  function isOwnerAccount(user: any): boolean {
+    return user?.email?.toLowerCase() === OWNER_EMAIL;
+  }
+
   // Send a message and get AI response
   const FREE_DAILY_LIMIT = 25;
 
@@ -746,8 +752,8 @@ function downloadAAB(){
       const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
       const tier = user.subscriptionTier || 'free';
-      if (tier !== 'free') {
-        return res.json({ used: 0, limit: -1, remaining: -1, tier });
+      if (tier !== 'free' || isOwnerAccount(user)) {
+        return res.json({ used: 0, limit: -1, remaining: -1, tier: isOwnerAccount(user) ? 'owner' : tier });
       }
       const now = new Date();
       const resetAt = user.dailyQuestionsResetAt ? new Date(user.dailyQuestionsResetAt) : null;
@@ -788,7 +794,7 @@ function downloadAAB(){
           }
         }
 
-        if ((sender?.subscriptionTier || 'free') === 'free') {
+        if ((sender?.subscriptionTier || 'free') === 'free' && !isOwnerAccount(sender)) {
           const now = new Date();
           const resetAt = sender?.dailyQuestionsResetAt ? new Date(sender.dailyQuestionsResetAt) : null;
           let used = sender?.dailyQuestionsUsed || 0;
@@ -6351,7 +6357,9 @@ Rules:
       const userTier = user.subscriptionTier || 'free';
       const tierCfg = TIER_CONFIG[userTier] || TIER_CONFIG.free;
 
-      if (userTier === 'free') {
+      const ownerBypass = isOwnerAccount(user);
+
+      if (userTier === 'free' && !ownerBypass) {
         return res.status(403).json({ error: 'API access requires a Pro, Research, or Enterprise subscription. Free tier has limited text-only advice access.' });
       }
 
@@ -6359,26 +6367,27 @@ Rules:
       if (!name?.trim()) return res.status(400).json({ error: 'API key name is required' });
 
       const requestedKeyType = keyType === 'admin' ? 'admin' : 'public';
-      if (requestedKeyType === 'admin' && user.role !== 'admin') {
-        return res.status(403).json({ error: 'Only administrators can create admin API keys. Admin keys give access to internal cost breakdowns, supplier pricing, and profit margins.' });
+      if (requestedKeyType === 'admin' && !user.isEmployee && !ownerBypass) {
+        return res.status(403).json({ error: 'Only administrators/employees can create admin API keys. Admin keys give access to internal cost breakdowns, supplier pricing, and profit margins.' });
       }
 
       const existingKeys = await db.select().from(apiKeys).where(and(eq(apiKeys.userId, user.id), eq(apiKeys.isActive, true)));
-      if (existingKeys.length >= tierCfg.maxKeys) return res.status(400).json({ error: `Your ${userTier} plan allows a maximum of ${tierCfg.maxKeys} active API key${tierCfg.maxKeys > 1 ? 's' : ''}.` });
+      if (!ownerBypass && existingKeys.length >= tierCfg.maxKeys) return res.status(400).json({ error: `Your ${userTier} plan allows a maximum of ${tierCfg.maxKeys} active API key${tierCfg.maxKeys > 1 ? 's' : ''}.` });
 
       const { fullKey, prefix, hash } = generateApiKey();
 
+      const ownerPerms = ["construction_analyze", "construction_advice", "construction_schedule", "construction_estimate", "construction_permits"];
       const [newKey] = await db.insert(apiKeys).values({
         userId: user.id,
         keyHash: hash,
         keyPrefix: prefix,
         name: name.trim(),
-        tier: userTier,
+        tier: ownerBypass ? 'enterprise' : userTier,
         keyType: requestedKeyType,
-        rateLimit: tierCfg.dailyLimit,
-        monthlyBudget: tierCfg.monthlyBudgetCents,
+        rateLimit: ownerBypass ? 999999 : tierCfg.dailyLimit,
+        monthlyBudget: ownerBypass ? 9999999 : tierCfg.monthlyBudgetCents,
         isActive: true,
-        permissions: tierCfg.permissions,
+        permissions: ownerBypass ? ownerPerms : tierCfg.permissions,
       }).returning();
 
       res.json({
@@ -6434,8 +6443,13 @@ Rules:
       const [key] = await db.select().from(apiKeys).where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, user.id)));
       if (!key) return res.status(404).json({ error: 'API key not found' });
 
-      await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.id, keyId));
-      res.json({ success: true, message: 'API key deactivated' });
+      if (!key.isActive) {
+        await db.delete(apiKeys).where(eq(apiKeys.id, keyId));
+        res.json({ success: true, message: 'API key permanently deleted' });
+      } else {
+        await db.update(apiKeys).set({ isActive: false }).where(eq(apiKeys.id, keyId));
+        res.json({ success: true, message: 'API key disabled. Delete again to permanently remove.' });
+      }
     } catch (e: any) { res.status(500).json({ error: 'Failed to delete API key' }); }
   });
 

@@ -49,11 +49,12 @@ export default function ApiKeysPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest('DELETE', `/api/keys/${id}`);
+      const res = await apiRequest('DELETE', `/api/keys/${id}`);
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/keys'] });
-      toast({ title: "API key deactivated" });
+      toast({ title: data.message || "API key updated" });
     },
   });
 
@@ -136,14 +137,14 @@ export default function ApiKeysPage() {
                     <p className="text-[10px] text-[#555]">For your website, apps, and customer-facing tools. Shows consumer-friendly estimates.</p>
                   </button>
                   <button onClick={() => setKeyType('admin')}
-                    className={`p-4 rounded-xl border text-left transition-all ${keyType === 'admin' ? 'bg-orange-500/5 border-orange-500/30' : 'bg-[#111] border-[#222] hover:border-[#333]'} ${(user as any)?.role !== 'admin' ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    disabled={(user as any)?.role !== 'admin'}>
+                    className={`p-4 rounded-xl border text-left transition-all ${keyType === 'admin' ? 'bg-orange-500/5 border-orange-500/30' : 'bg-[#111] border-[#222] hover:border-[#333]'} ${!(user as any)?.isEmployee ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    disabled={!(user as any)?.isEmployee}>
                     <div className="flex items-center gap-2 mb-1">
                       <Shield className={`h-4 w-4 ${keyType === 'admin' ? 'text-orange-400' : 'text-[#555]'}`} />
                       <span className={`text-xs font-bold ${keyType === 'admin' ? 'text-orange-400' : 'text-[#888]'}`}>Admin Key</span>
                     </div>
                     <p className="text-[10px] text-[#555]">
-                      {(user as any)?.role === 'admin' ? 'For employees. Includes supplier pricing, profit margins, internal cost breakdowns.' : 'Admin access required to create employee keys.'}
+                      {(user as any)?.isEmployee ? 'For employees. Includes supplier pricing, profit margins, internal cost breakdowns.' : 'Admin/employee access required to create employee keys.'}
                     </p>
                   </button>
                 </div>
@@ -343,7 +344,7 @@ console.log(data.analysis.content);`}</pre>
               const tierBg: Record<string, string> = { free: 'bg-gray-500/10 border-gray-500/20', pro: 'bg-blue-500/10 border-blue-500/20', research: 'bg-purple-500/10 border-purple-500/20', enterprise: 'bg-yellow-500/10 border-yellow-500/20' };
 
               return (
-                <div key={k.id} className="rounded-xl bg-[#0a0a0a] border border-[#1a1a1a] p-5 hover:border-[#222] transition-colors">
+                <div key={k.id} className={`rounded-xl bg-[#0a0a0a] border border-[#1a1a1a] p-5 hover:border-[#222] transition-colors ${!k.isActive ? 'opacity-50' : ''}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${k.isActive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
@@ -372,11 +373,11 @@ console.log(data.analysis.content);`}</pre>
                       ) : (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">DISABLED</span>
                       )}
-                      {k.isActive && (
-                        <button onClick={() => deleteMutation.mutate(k.id)} className="p-2 rounded-lg text-[#444] hover:text-red-400 hover:bg-red-500/10 transition-colors">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                      <button onClick={() => deleteMutation.mutate(k.id)}
+                        className={`p-2 rounded-lg transition-colors ${k.isActive ? 'text-[#444] hover:text-yellow-400 hover:bg-yellow-500/10' : 'text-[#444] hover:text-red-400 hover:bg-red-500/10'}`}
+                        title={k.isActive ? 'Disable this key' : 'Permanently remove this key'}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
 
