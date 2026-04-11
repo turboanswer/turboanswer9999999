@@ -218,6 +218,11 @@ Your single-word verdict:`;
   }
 }
 
+let _lastResponseUsedGroundedSearch = false;
+export function lastResponseUsedGroundedSearch(): boolean {
+  return _lastResponseUsedGroundedSearch;
+}
+
 export async function generateAIResponse(
   userMessage: string,
   conversationHistory: Array<{role: string, content: string}> = [],
@@ -231,6 +236,7 @@ export async function generateAIResponse(
   try {
     let additionalContext = "";
     let enhancedMessage = userMessage;
+    _lastResponseUsedGroundedSearch = false;
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
@@ -239,6 +245,7 @@ export async function generateAIResponse(
         console.log(`[AI] Current events query detected, running grounded search...`);
         const searchResult = await searchCurrentEvents(userMessage, geminiApiKey);
         if (searchResult) {
+          _lastResponseUsedGroundedSearch = true;
           additionalContext = `\n\nREAL-TIME SEARCH RESULTS (from live internet search — this information is current and should override your training data):\n${searchResult}`;
           enhancedMessage = `${userMessage}\n\n[IMPORTANT: Real-time search results are provided above. Use this current information to answer. If the search results contradict your training data, ALWAYS trust the search results as they are more recent.]`;
         }

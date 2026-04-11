@@ -1011,10 +1011,14 @@ function downloadAAB(){
 
       let verified: "verified" | "unverified" | "unknown" = "unknown";
       try {
-        const geminiKey = process.env.GEMINI_API_KEY;
-        if (geminiKey && aiResponseContent.length > 30) {
-          const { verifyAIResponse } = await import('./services/multi-ai.js');
-          verified = await verifyAIResponse(aiResponseContent, content, geminiKey);
+        const { lastResponseUsedGroundedSearch, verifyAIResponse } = await import('./services/multi-ai.js');
+        if (lastResponseUsedGroundedSearch()) {
+          verified = "verified";
+        } else {
+          const geminiKey = process.env.GEMINI_API_KEY;
+          if (geminiKey && aiResponseContent.length > 30) {
+            verified = await verifyAIResponse(aiResponseContent, content, geminiKey);
+          }
         }
       } catch {
         verified = "unknown";
