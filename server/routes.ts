@@ -9,7 +9,7 @@ import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, and, desc, or } from "drizzle-orm";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, users, conversations, messages } from "@shared/schema";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, users, conversations, messages } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -5034,19 +5034,33 @@ Return ONLY valid JSON (no markdown):
 
   app.post('/api/workgroups/:id/approvals/:approvalId/review', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
       const wgId = parseInt(req.params.id);
-      if (!(await isOwnerOrAdmin(wgId, userId))) return res.status(403).json({ error: 'Owner or admin required' });
+      if (!(await isOwnerOrAdmin(wgId, user.id))) return res.status(403).json({ error: 'Owner or admin required' });
       const approvalId = parseInt(req.params.approvalId);
       const { status, reviewNote } = req.body;
       if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'Status must be approved or rejected' });
 
       const [updated] = await db.update(workgroupApprovals).set({
         status,
-        reviewedBy: userId,
+        reviewedBy: user.id,
         reviewNote: reviewNote || null,
         reviewedAt: new Date(),
       }).where(and(eq(workgroupApprovals.id, approvalId), eq(workgroupApprovals.workgroupId, wgId))).returning();
+
+      if (status === 'approved' && updated) {
+        const reviewerName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+        await db.insert(workgroupMessages).values({
+          workgroupId: wgId,
+          senderId: updated.requesterId,
+          senderName: updated.requesterName || 'Unknown',
+          senderEmail: user.email,
+          content: `✅ [Approved by ${reviewerName}]\n\n${updated.content}`,
+          messageType: 'group',
+        });
+      }
+
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: 'Failed to review approval' }); }
   });
@@ -5148,6 +5162,133 @@ Return ONLY valid JSON (no markdown):
 
       res.json({ success: true, type: 'message', message: msg });
     } catch (e: any) { console.error('[Workgroup] Share Q&A error:', e.message); res.status(500).json({ error: 'Failed to share Q&A' }); }
+  });
+
+  app.post('/api/workgroups/:id/support-tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const wgId = parseInt(req.params.id);
+      const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, user.id))).limit(1);
+      if (!member[0]) return res.status(403).json({ error: 'Not a member' });
+
+      if (member[0].isBlocked) return res.status(403).json({ error: 'You are blocked from this workgroup' });
+
+      const { subject, context, priority } = req.body;
+      if (!subject?.trim()) return res.status(400).json({ error: 'Subject is required' });
+
+      const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+
+      const admins = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), or(eq(workgroupMembers.role, 'owner'), eq(workgroupMembers.role, 'admin')))).limit(1);
+      const assignedAdmin = admins[0] || null;
+
+      const [ticket] = await db.insert(supportTickets).values({
+        workgroupId: wgId,
+        requesterId: user.id,
+        requesterName: senderName,
+        assignedTo: assignedAdmin?.userId || null,
+        assignedName: assignedAdmin?.userName || null,
+        subject: subject.trim(),
+        context: context?.trim() || null,
+        priority: priority || 'normal',
+      }).returning();
+
+      await db.insert(supportTicketMessages).values({
+        ticketId: ticket.id,
+        senderId: user.id,
+        senderName,
+        content: context?.trim() || subject.trim(),
+      });
+
+      await db.insert(workgroupMessages).values({
+        workgroupId: wgId,
+        senderId: user.id,
+        senderName: 'System',
+        senderEmail: user.email,
+        content: `🎫 New Support Ticket #${ticket.id}\n\nFrom: ${senderName}\nSubject: ${subject.trim()}\nPriority: ${priority || 'normal'}\n\nReview this ticket in the Support tab.`,
+        messageType: 'group',
+      });
+
+      res.json({ success: true, ticket });
+    } catch (e: any) { console.error('[Support] Create ticket error:', e.message); res.status(500).json({ error: 'Failed to create ticket' }); }
+  });
+
+  app.get('/api/workgroups/:id/support-tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), eq(workgroupMembers.userId, userId))).limit(1);
+      if (!member[0]) return res.status(403).json({ error: 'Not a member' });
+      const isAdmin = member[0].role === 'owner' || member[0].role === 'admin';
+      let tickets;
+      if (isAdmin) {
+        tickets = await db.select().from(supportTickets).where(eq(supportTickets.workgroupId, wgId)).orderBy(desc(supportTickets.createdAt));
+      } else {
+        tickets = await db.select().from(supportTickets).where(and(eq(supportTickets.workgroupId, wgId), eq(supportTickets.requesterId, userId))).orderBy(desc(supportTickets.createdAt));
+      }
+      res.json(tickets);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to list tickets' }); }
+  });
+
+  app.get('/api/support-tickets/:ticketId/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const ticketId = parseInt(req.params.ticketId);
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, ticket.workgroupId), eq(workgroupMembers.userId, userId))).limit(1);
+      if (!member[0]) return res.status(403).json({ error: 'Not a member' });
+      const isAdmin = member[0].role === 'owner' || member[0].role === 'admin';
+      if (!isAdmin && ticket.requesterId !== userId) return res.status(403).json({ error: 'Not authorized' });
+
+      const msgs = await db.select().from(supportTicketMessages).where(eq(supportTicketMessages.ticketId, ticketId)).orderBy(supportTicketMessages.createdAt);
+      res.json(msgs);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to get ticket messages' }); }
+  });
+
+  app.post('/api/support-tickets/:ticketId/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      const ticketId = parseInt(req.params.ticketId);
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      if (ticket.status === 'resolved') return res.status(400).json({ error: 'Ticket is resolved' });
+      const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, ticket.workgroupId), eq(workgroupMembers.userId, user.id))).limit(1);
+      if (!member[0]) return res.status(403).json({ error: 'Not a member' });
+      const isAdmin = member[0].role === 'owner' || member[0].role === 'admin';
+      if (!isAdmin && ticket.requesterId !== user.id) return res.status(403).json({ error: 'Not authorized' });
+      if (member[0].isBlocked) return res.status(403).json({ error: 'You are blocked from this workgroup' });
+
+      const { content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ error: 'Message is required' });
+
+      const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+      const [msg] = await db.insert(supportTicketMessages).values({
+        ticketId,
+        senderId: user.id,
+        senderName,
+        content: content.trim(),
+      }).returning();
+
+      res.json(msg);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to send message' }); }
+  });
+
+  app.post('/api/support-tickets/:ticketId/resolve', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const ticketId = parseInt(req.params.ticketId);
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, ticket.workgroupId), eq(workgroupMembers.userId, userId))).limit(1);
+      if (!member[0]) return res.status(403).json({ error: 'Not a member' });
+      const isAdmin = member[0].role === 'owner' || member[0].role === 'admin';
+      if (!isAdmin && ticket.requesterId !== userId) return res.status(403).json({ error: 'Not authorized' });
+
+      const [updated] = await db.update(supportTickets).set({ status: 'resolved', resolvedAt: new Date() }).where(eq(supportTickets.id, ticketId)).returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to resolve ticket' }); }
   });
 
   app.post('/api/workgroups/:id/leave', isAuthenticated, async (req: any, res) => {

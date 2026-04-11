@@ -11,9 +11,10 @@ import {
   Crown, UserMinus, Ban, Eye, ChevronRight, Search, Bot, Lock,
   Check, X, AlertTriangle, LogOut, Trash2, Copy, RefreshCw,
   MessageCircle, FileText, Sparkles, Loader2, Share2,
+  TicketCheck, CircleDot, CheckCircle2,
 } from "lucide-react";
 
-type Tab = "chat" | "members" | "shared" | "admin" | "approvals" | "dm";
+type Tab = "chat" | "members" | "shared" | "support" | "admin" | "approvals" | "dm";
 
 function formatMessageDate(date: Date): string {
   const now = new Date();
@@ -74,6 +75,12 @@ export default function WorkgroupsPage() {
   const [aiQuestion, setAiQuestion] = useState("");
   const [viewHistoryUserId, setViewHistoryUserId] = useState<string | null>(null);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [activeTicketId, setActiveTicketId] = useState<number | null>(null);
+  const [ticketMsgInput, setTicketMsgInput] = useState("");
+  const [showNewTicket, setShowNewTicket] = useState(false);
+  const [newTicketSubject, setNewTicketSubject] = useState("");
+  const [newTicketContext, setNewTicketContext] = useState("");
+  const ticketChatEndRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const dmEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -125,6 +132,18 @@ export default function WorkgroupsPage() {
     enabled: !!activeWgId && !!viewHistoryUserId,
   });
 
+  const { data: supportTicketsList = [] } = useQuery<any[]>({
+    queryKey: ['/api/workgroups', activeWgId, 'support-tickets'],
+    enabled: !!activeWgId,
+    refetchInterval: activeTab === 'support' ? 5000 : 30000,
+  });
+
+  const { data: ticketMessages = [] } = useQuery<any[]>({
+    queryKey: ['/api/support-tickets', activeTicketId, 'messages'],
+    enabled: !!activeTicketId,
+    refetchInterval: 3000,
+  });
+
   useEffect(() => {
     if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
@@ -132,6 +151,10 @@ export default function WorkgroupsPage() {
   useEffect(() => {
     if (dmEndRef.current) dmEndRef.current.scrollIntoView({ behavior: 'smooth' });
   }, [dmMessages]);
+
+  useEffect(() => {
+    if (ticketChatEndRef.current) ticketChatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [ticketMessages]);
 
   const createMutation = useMutation({
     mutationFn: async () => apiRequest('POST', '/api/workgroups', { name: createName, description: createDesc }),
@@ -220,6 +243,38 @@ export default function WorkgroupsPage() {
   const deleteMutation = useMutation({
     mutationFn: async () => apiRequest('DELETE', `/api/workgroups/${activeWgId}`),
     onSuccess: () => { setActiveWgId(null); queryClient.invalidateQueries({ queryKey: ['/api/workgroups'] }); toast({ title: "Workgroup deleted" }); },
+  });
+
+  const createTicketMutation = useMutation({
+    mutationFn: async () => apiRequest('POST', `/api/workgroups/${activeWgId}/support-tickets`, { subject: newTicketSubject, context: newTicketContext, priority: 'normal' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workgroups', activeWgId, 'support-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workgroups', activeWgId, 'messages'] });
+      setShowNewTicket(false);
+      setNewTicketSubject("");
+      setNewTicketContext("");
+      toast({ title: "Support ticket created!" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const sendTicketMsgMutation = useMutation({
+    mutationFn: async () => apiRequest('POST', `/api/support-tickets/${activeTicketId}/messages`, { content: ticketMsgInput }),
+    onSuccess: () => {
+      setTicketMsgInput("");
+      queryClient.invalidateQueries({ queryKey: ['/api/support-tickets', activeTicketId, 'messages'] });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to send message", variant: "destructive" }),
+  });
+
+  const resolveTicketMutation = useMutation({
+    mutationFn: async (ticketId: number) => apiRequest('POST', `/api/support-tickets/${ticketId}/resolve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workgroups', activeWgId, 'support-tickets'] });
+      setActiveTicketId(null);
+      toast({ title: "Ticket resolved" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to resolve ticket", variant: "destructive" }),
   });
 
   const [aiSummary, setAiSummary] = useState("");
@@ -397,9 +452,12 @@ export default function WorkgroupsPage() {
   const isAdminUser = activeWg?.myRole === 'owner' || activeWg?.myRole === 'admin';
   const isOwner = activeWg?.myRole === 'owner';
 
-  const tabs: { id: Tab; label: string; icon: any; adminOnly?: boolean }[] = [
+  const openTicketCount = supportTicketsList.filter((t: any) => t.status === 'open').length;
+
+  const tabs: { id: Tab; label: string; icon: any; adminOnly?: boolean; badge?: number }[] = [
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'shared', label: 'Shared', icon: Share2 },
+    { id: 'support', label: 'Support', icon: TicketCheck, badge: openTicketCount || undefined },
     { id: 'members', label: 'Members', icon: Users },
     { id: 'admin', label: 'Admin', icon: Settings, adminOnly: true },
     { id: 'approvals', label: 'Approvals', icon: Shield, adminOnly: true },
@@ -496,13 +554,16 @@ export default function WorkgroupsPage() {
 
         <div className="flex items-center">
           {tabs.filter(t => !t.adminOnly || isAdminUser).map(t => (
-            <button key={t.id} onClick={() => { setActiveTab(t.id); setViewHistoryUserId(null); }}
+            <button key={t.id} onClick={() => { setActiveTab(t.id); setViewHistoryUserId(null); setActiveTicketId(null); }}
               className={`p-2 rounded-full transition-colors relative ${
                 activeTab === t.id
                   ? 'text-[#8ab4f8]'
                   : isDark ? 'text-[#9aa0a6] hover:bg-white/10' : 'text-gray-500 hover:bg-gray-100'
               }`} title={t.label}>
               <t.icon className="h-[18px] w-[18px]" />
+              {t.badge && t.badge > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{t.badge}</span>
+              )}
               {activeTab === t.id && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-[2px] rounded-full bg-[#8ab4f8]" />}
             </button>
           ))}
@@ -691,6 +752,141 @@ export default function WorkgroupsPage() {
                 </div>
               );
             })()}
+          </div>
+        )}
+
+        {/* SUPPORT TAB */}
+        {activeTab === 'support' && (
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {activeTicketId ? (
+              (() => {
+                const ticket = supportTicketsList.find((t: any) => t.id === activeTicketId);
+                if (!ticket) return null;
+                return (
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className={`shrink-0 px-4 py-3 flex items-center justify-between border-b ${isDark ? 'border-[#222222] bg-[#111111]' : 'border-gray-200 bg-gray-50'}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <button onClick={() => setActiveTicketId(null)} className={`p-1 rounded-full ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-200'}`}>
+                          <ArrowLeft className="h-4 w-4" />
+                        </button>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">#{ticket.id} {ticket.subject}</p>
+                          <p className={`text-[10px] ${textSecondary}`}>
+                            {ticket.requesterName} &middot; {ticket.status === 'open' ? 'Open' : 'Resolved'}
+                          </p>
+                        </div>
+                      </div>
+                      {ticket.status === 'open' && (
+                        <button onClick={() => resolveTicketMutation.mutate(ticket.id)}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium ${isDark ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
+                          <CheckCircle2 className="h-3 w-3" /> Resolve
+                        </button>
+                      )}
+                    </div>
+                    <div className={`flex-1 overflow-y-auto px-3 py-2 ${isDark ? 'bg-black' : 'bg-[#f8f9fa]'}`}>
+                      {ticketMessages.map((m: any) => {
+                        const isMine = m.senderId === user?.id;
+                        return (
+                          <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-2`}>
+                            <div className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm ${
+                              isMine
+                                ? (isDark ? 'bg-[#004a77] text-[#e8f0fe]' : 'bg-[#d3e3fd] text-[#1a1a1a]')
+                                : (isDark ? 'bg-[#303134] text-[#e8eaed]' : 'bg-white text-[#1a1a1a] border border-gray-200')
+                            }`}>
+                              {!isMine && <p className={`text-[10px] font-semibold mb-0.5 ${isDark ? 'text-[#8ab4f8]' : 'text-blue-600'}`}>{m.senderName}</p>}
+                              <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                              <p className={`text-[9px] mt-1 ${isDark ? 'text-white/30' : 'text-gray-400'}`}>
+                                {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={ticketChatEndRef} />
+                    </div>
+                    {ticket.status === 'open' && (
+                      <div className={`shrink-0 px-3 py-2.5 ${isDark ? 'bg-[#1e1f20]' : 'bg-white border-t border-gray-100'}`}>
+                        <div className={`flex items-center gap-2 rounded-full px-1 py-1 ${isDark ? 'bg-[#303134]' : 'bg-[#f1f3f4] border border-gray-200'}`}>
+                          <div className="p-2" />
+                          <input value={ticketMsgInput} onChange={e => setTicketMsgInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && ticketMsgInput.trim()) { e.preventDefault(); sendTicketMsgMutation.mutate(); } }}
+                            placeholder="Type a message..." className={`flex-1 bg-transparent outline-none text-sm py-1.5 ${isDark ? 'text-white placeholder-[#9aa0a6]' : 'text-gray-900 placeholder-gray-400'}`} />
+                          <button onClick={() => { if (ticketMsgInput.trim()) sendTicketMsgMutation.mutate(); }}
+                            disabled={!ticketMsgInput.trim() || sendTicketMsgMutation.isPending}
+                            className={`p-2 rounded-full shrink-0 transition-all ${ticketMsgInput.trim() ? 'bg-[#4285F4] text-white hover:bg-[#5a9bf4]' : `${isDark ? 'text-[#9aa0a6]' : 'text-gray-400'} opacity-50`}`}>
+                            {sendTicketMsgMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${textSecondary}`}>Support Tickets</p>
+                  <button onClick={() => setShowNewTicket(true)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium ${isDark ? 'bg-white text-black hover:bg-white/90' : 'bg-black text-white hover:bg-gray-900'}`}>
+                    <Plus className="h-3 w-3" /> New Ticket
+                  </button>
+                </div>
+
+                {showNewTicket && (
+                  <div className={`rounded-2xl border p-4 mb-4 ${isDark ? 'bg-[#111111] border-[#222222]' : 'bg-white border-gray-200'}`}>
+                    <h4 className="text-sm font-semibold mb-3">Open a Support Ticket</h4>
+                    <input value={newTicketSubject} onChange={e => setNewTicketSubject(e.target.value)} placeholder="Subject (e.g., Customer refund request)"
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-sm mb-2 outline-none focus:border-[#8ab4f8] transition-colors ${isDark ? 'bg-black border-[#333333] text-white placeholder-[#555555]' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`} />
+                    <textarea value={newTicketContext} onChange={e => setNewTicketContext(e.target.value)} placeholder="Describe the issue or paste AI conversation context..." rows={3}
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-sm mb-3 outline-none focus:border-[#8ab4f8] transition-colors resize-none ${isDark ? 'bg-black border-[#333333] text-white placeholder-[#555555]' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`} />
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => { setShowNewTicket(false); setNewTicketSubject(""); setNewTicketContext(""); }}
+                        className={`px-3 py-1.5 rounded-xl text-xs ${isDark ? 'text-[#888888] hover:bg-white/5' : 'text-gray-500 hover:bg-gray-100'}`}>Cancel</button>
+                      <button onClick={() => createTicketMutation.mutate()} disabled={!newTicketSubject.trim() || createTicketMutation.isPending}
+                        className={`px-4 py-1.5 rounded-xl text-xs font-semibold ${isDark ? 'bg-white text-black hover:bg-white/90' : 'bg-black text-white hover:bg-gray-900'} disabled:opacity-30`}>
+                        {createTicketMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Submit Ticket"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {supportTicketsList.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className={`w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+                      <TicketCheck className="h-6 w-6 opacity-40" />
+                    </div>
+                    <p className={`text-sm font-medium ${textSecondary}`}>No support tickets</p>
+                    <p className={`text-xs mt-1 ${isDark ? 'text-[#555555]' : 'text-gray-400'}`}>Create a ticket to get help from an admin</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {supportTicketsList.map((t: any) => (
+                      <button key={t.id} onClick={() => setActiveTicketId(t.id)}
+                        className={`w-full text-left rounded-2xl p-4 transition-all ${isDark ? 'bg-[#111111] border border-[#222222] hover:border-[#333333]' : 'bg-white border border-gray-200 hover:border-gray-300'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {t.status === 'open' ? (
+                              <CircleDot className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                            ) : (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            )}
+                            <p className="text-sm font-medium truncate">#{t.id} {t.subject}</p>
+                          </div>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                            t.status === 'open' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'
+                          }`}>{t.status}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className={`text-xs ${textSecondary}`}>{t.requesterName}</p>
+                          <span className={`text-[10px] ${textSecondary}`}>&middot;</span>
+                          <p className={`text-[10px] ${textSecondary}`}>{new Date(t.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

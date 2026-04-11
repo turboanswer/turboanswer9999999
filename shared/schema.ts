@@ -318,3 +318,35 @@ export type WorkgroupMessage = typeof workgroupMessages.$inferSelect;
 export const insertWorkgroupApprovalSchema = createInsertSchema(workgroupApprovals).omit({ id: true, createdAt: true, reviewedAt: true });
 export type InsertWorkgroupApproval = z.infer<typeof insertWorkgroupApprovalSchema>;
 export type WorkgroupApproval = typeof workgroupApprovals.$inferSelect;
+
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  requesterId: text("requester_id").notNull(),
+  requesterName: text("requester_name"),
+  assignedTo: text("assigned_to"),
+  assignedName: text("assigned_name"),
+  subject: text("subject").notNull(),
+  context: text("context"),
+  status: text("status").notNull().default("open"),
+  priority: text("priority").notNull().default("normal"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const supportTicketMessages = pgTable("support_ticket_messages", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").references(() => supportTickets.id).notNull(),
+  senderId: text("sender_id").notNull(),
+  senderName: text("sender_name"),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({ id: true, createdAt: true, resolvedAt: true });
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
+export const insertSupportTicketMessageSchema = createInsertSchema(supportTicketMessages).omit({ id: true, createdAt: true });
+export type InsertSupportTicketMessage = z.infer<typeof insertSupportTicketMessageSchema>;
+export type SupportTicketMessage = typeof supportTicketMessages.$inferSelect;

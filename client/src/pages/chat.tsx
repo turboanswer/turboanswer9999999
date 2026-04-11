@@ -51,8 +51,9 @@ export default function Chat() {
   const [betaFeedbackSent, setBetaFeedbackSent] = useState(false);
   const [showShareModal, setShowShareModal] = useState<{ question: string; answer: string } | null>(null);
   const [shareWgId, setShareWgId] = useState<number | null>(null);
-  const [shareMode, setShareMode] = useState<'message' | 'approval'>('message');
+  const [shareMode, setShareMode] = useState<'message' | 'approval' | 'ticket'>('message');
   const [shareSending, setShareSending] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timedPromoShown = useRef(false);
@@ -425,15 +426,27 @@ export default function Chat() {
     if (!showShareModal || !shareWgId) return;
     setShareSending(true);
     try {
-      await apiRequest('POST', `/api/workgroups/${shareWgId}/share-qa`, {
-        question: showShareModal.question,
-        answer: showShareModal.answer,
-        mode: shareMode,
-      });
-      toast({ title: shareMode === 'approval' ? "Submitted for approval" : "Shared to workgroup" });
+      if (shareMode === 'ticket') {
+        const subject = ticketSubject.trim() || showShareModal.question.slice(0, 100);
+        const context = `**AI Q&A Context:**\n\nQ: ${showShareModal.question}\n\nA: ${showShareModal.answer}`;
+        await apiRequest('POST', `/api/workgroups/${shareWgId}/support-tickets`, {
+          subject,
+          context,
+          priority: 'normal',
+        });
+        toast({ title: "Support ticket created in workgroup" });
+      } else {
+        await apiRequest('POST', `/api/workgroups/${shareWgId}/share-qa`, {
+          question: showShareModal.question,
+          answer: showShareModal.answer,
+          mode: shareMode,
+        });
+        toast({ title: shareMode === 'approval' ? "Submitted for approval" : "Shared to workgroup" });
+      }
       setShowShareModal(null);
       setShareWgId(null);
       setShareMode('message');
+      setTicketSubject("");
     } catch (e: any) {
       toast({ title: "Error", description: e.message || "Failed to share", variant: "destructive" });
     }
@@ -1496,28 +1509,46 @@ export default function Chat() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShareMode('message')}
-                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-colors border ${shareMode === 'message' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'message' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
                 >
-                  Group Message
+                  Message
                 </button>
                 <button
                   onClick={() => setShareMode('approval')}
-                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-colors border ${shareMode === 'approval' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'approval' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
                 >
-                  Submit for Approval
+                  Approval
+                </button>
+                <button
+                  onClick={() => setShareMode('ticket')}
+                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'ticket' ? (isDark ? 'bg-amber-500/20 border-amber-500 text-amber-400' : 'bg-amber-50 border-amber-400 text-amber-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                >
+                  Support Ticket
                 </button>
               </div>
             </div>
+
+            {shareMode === 'ticket' && (
+              <div className="mb-3">
+                <label className={`text-xs font-medium mb-1.5 block ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>Ticket subject (optional)</label>
+                <input
+                  value={ticketSubject}
+                  onChange={e => setTicketSubject(e.target.value)}
+                  placeholder="Auto-filled from question if empty"
+                  className={`w-full px-3 py-2 rounded-xl border text-sm ${isDark ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                />
+              </div>
+            )}
 
             {!showShareModal.question.trim() && (
               <p className={`text-xs mb-2 ${isDark ? 'text-yellow-400/70' : 'text-yellow-600'}`}>No question found for this response.</p>
             )}
             <Button
               onClick={handleShareToWorkgroup}
-              disabled={!shareWgId || shareSending || !showShareModal.question.trim()}
-              className="w-full bg-[#4285F4] hover:bg-[#5a9bf4] text-white font-medium py-2.5 rounded-xl"
+              disabled={!shareWgId || shareSending || (shareMode !== 'ticket' && !showShareModal.question.trim())}
+              className={`w-full font-medium py-2.5 rounded-xl ${shareMode === 'ticket' ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-[#4285F4] hover:bg-[#5a9bf4] text-white'}`}
             >
-              {shareSending ? 'Sending...' : shareMode === 'approval' ? 'Submit for Approval' : 'Send to Group Chat'}
+              {shareSending ? 'Sending...' : shareMode === 'ticket' ? 'Create Support Ticket' : shareMode === 'approval' ? 'Submit for Approval' : 'Send to Group Chat'}
             </Button>
           </div>
         </div>
