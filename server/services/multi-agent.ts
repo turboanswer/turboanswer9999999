@@ -83,7 +83,7 @@ async function callOpenRouter(model: string, prompt: string, maxTokens: number, 
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://turboanswer.it.com',
+        'HTTP-Referer': 'https://turbo-answer.replit.app',
         'X-Title': 'TurboAnswer Research',
       },
       body: JSON.stringify({

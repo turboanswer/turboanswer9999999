@@ -336,19 +336,24 @@ export default function CodeStudio() {
   }, []);
 
   const isEnterprise = user?.subscriptionTier === 'enterprise' && user?.subscriptionStatus === 'active';
+  const isOwner = (user as any)?.email === 'support@turboanswer.it.com';
 
   const addonMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/create-addon-subscription"),
     onSuccess: async (res: any) => {
       const d = await res.json();
       if (d.free) {
-        toast({ title: "🎉 Code Studio Activated!", description: "Included free with your Enterprise plan!" });
+        toast({ title: "🎉 Code Studio Activated!", description: d.message || "Included free!" });
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       } else if (d.url) {
         window.location.href = d.url;
       }
     },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (e: any) => {
+      let msg = e.message || "Unknown error";
+      try { const parsed = JSON.parse(msg.replace(/^\d+:\s*/, '')); msg = parsed.error || msg; } catch {}
+      toast({ title: "Failed to start subscription", description: msg, variant: "destructive" });
+    },
   });
 
   async function buyCredits(packSize: number) {
@@ -771,14 +776,14 @@ export default function CodeStudio() {
           <div style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, fontSize: 12, color: C.muted }}>
             Priced by <strong style={{ color: C.text }}>task complexity</strong> — Simple $0.35 · Standard $0.75 · Complex $1.50. Budget packs from $5. Pack budget never expires.
           </div>
-          {isEnterprise && (
+          {(isEnterprise || isOwner) && (
             <div style={{ marginBottom: 12, padding: "10px 16px", background: "rgba(251,188,5,0.08)", border: "1px solid rgba(251,188,5,0.3)", borderRadius: 10, fontSize: 13, color: "#FCD34D", fontWeight: 600, textAlign: "center" as const }}>
-              🏆 Enterprise Perk — Code Studio is FREE for you ($15/mo value)
+              {isOwner ? "👑 Owner Account — Code Studio is FREE for you" : "🏆 Enterprise Perk — Code Studio is FREE for you ($15/mo value)"}
             </div>
           )}
           <button onClick={() => addonMutation.mutate()} disabled={addonMutation.isPending}
-            style={{ width: "100%", background: isEnterprise ? "linear-gradient(135deg, #FBBC05, #f59e0b)" : "linear-gradient(135deg, #059669, #10b981)", color: isEnterprise ? "#000" : "#fff", border: "none", padding: "14px 24px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginBottom: 16, opacity: addonMutation.isPending ? 0.7 : 1 }}>
-            {addonMutation.isPending ? "Activating..." : isEnterprise ? "🎉 Activate Free — Enterprise Benefit" : "Start Free Trial — $0 for 7 days"}
+            style={{ width: "100%", background: (isEnterprise || isOwner) ? "linear-gradient(135deg, #FBBC05, #f59e0b)" : "linear-gradient(135deg, #059669, #10b981)", color: (isEnterprise || isOwner) ? "#000" : "#fff", border: "none", padding: "14px 24px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginBottom: 16, opacity: addonMutation.isPending ? 0.7 : 1 }}>
+            {addonMutation.isPending ? "Activating..." : isOwner ? "👑 Activate Free — Owner Account" : isEnterprise ? "🎉 Activate Free — Enterprise Benefit" : "Start Free Trial — $0 for 7 days"}
           </button>
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Have a promo code?</div>

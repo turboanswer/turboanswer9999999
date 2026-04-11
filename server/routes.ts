@@ -1191,7 +1191,7 @@ function downloadAAB(){
         }
       }
 
-      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || req.get('host')}`;
+      const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
       const result = await createSubscription(
         tier as 'pro' | 'research' | 'enterprise',
         user.email,
@@ -1688,6 +1688,13 @@ function downloadAAB(){
       if (!user) return res.status(401).json({ error: 'User not found' });
       if (user.codeStudioAddon) return res.status(400).json({ error: 'You already have Code Studio active' });
 
+      // Owner account: auto-activate free, no PayPal needed
+      if (isOwnerAccount(user)) {
+        await storage.updateCodeStudioAddon(userId, true, 'owner_included');
+        console.log(`[Addon] Code Studio auto-activated FREE for owner ${userId}`);
+        return res.json({ free: true, success: true, message: 'Code Studio activated for owner account!' });
+      }
+
       // Enterprise members: activate for free, no PayPal needed
       if (user.subscriptionTier === 'enterprise' && user.subscriptionStatus === 'active') {
         await storage.updateCodeStudioAddon(userId, true, 'enterprise_included');
@@ -1695,17 +1702,19 @@ function downloadAAB(){
         return res.json({ free: true, success: true, message: 'Code Studio included free with Enterprise!' });
       }
 
-      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0] || req.get('host')}`;
+      const host = req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
+      const appUrl = `https://${host}`;
+      console.log(`[Addon] Creating subscription for user ${userId}, return base: ${appUrl}`);
       const result = await createAddonSubscription(
         user.email,
         userId,
-        `${baseUrl}/code-studio?addon=activated`,
-        `${baseUrl}/code-studio?addon=cancelled`,
+        `${appUrl}/code-studio?addon=activated`,
+        `${appUrl}/code-studio?addon=cancelled`,
       );
       res.json({ url: result.approvalUrl, subscriptionId: result.subscriptionId });
     } catch (error: any) {
-      console.error('[Addon] Create subscription error:', error.message);
-      res.status(500).json({ error: 'Failed to create add-on subscription' });
+      console.error('[Addon] Create subscription error:', error.message, error.stack);
+      res.status(500).json({ error: `Failed to create add-on subscription: ${error.message}` });
     }
   });
 
