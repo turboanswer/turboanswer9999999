@@ -18,12 +18,12 @@ export default function LandingPage() {
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   const features = [
-    { icon: <Brain className="h-7 w-7" />, title: "Multi-Model AI Chat", desc: "Powered by 10 different AI models working together — GPT-4o, Claude, Mistral, Llama, DeepSeek, and more.", color: "#3b82f6" },
-    { icon: <Code2 className="h-7 w-7" />, title: "Code Studio", desc: "Build full web apps from one sentence. 10 AI agents collaborate with Claude Opus 4.", color: "#8b5cf6" },
-    { icon: <Film className="h-7 w-7" />, title: "AI Video Studio", desc: "Create stunning videos from text descriptions using Google Veo 3.1.", color: "#a855f7" },
-    { icon: <FileText className="h-7 w-7" />, title: "Document Analysis", desc: "Upload any document and get instant summaries, key insights, and detailed answers.", color: "#10b981" },
-    { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Create images from text descriptions using DALL-E 3. Generate art and designs instantly.", color: "#ec4899" },
-    { icon: <Camera className="h-7 w-7" />, title: "Camera Vision", desc: "Point your camera at anything and get instant AI analysis. Scan docs, receipts, and images.", color: "#06b6d4" },
+    { icon: <Brain className="h-7 w-7" />, title: "Multi-Model AI Chat", desc: "Powered by 10 different AI models working together — GPT-4o, Claude, Mistral, Llama, DeepSeek, and more.", color: "#3b82f6", badge: "Research+" },
+    { icon: <Code2 className="h-7 w-7" />, title: "Code Studio", desc: "Build full web apps from one sentence. 10 AI agents collaborate with Claude Opus 4.", color: "#8b5cf6", badge: "Research+" },
+    { icon: <Film className="h-7 w-7" />, title: "AI Video Studio", desc: "Create stunning videos from text descriptions using Google Veo 3.1.", color: "#a855f7", badge: "Research+" },
+    { icon: <FileText className="h-7 w-7" />, title: "Document Analysis", desc: "Upload any document and get instant summaries, key insights, and detailed answers.", color: "#10b981", badge: "Free" },
+    { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Create images from text descriptions using DALL-E 3. Generate art and designs instantly.", color: "#ec4899", badge: "Pro+" },
+    { icon: <Camera className="h-7 w-7" />, title: "Camera Vision", desc: "Point your camera at anything and get instant AI analysis. Scan docs, receipts, and images.", color: "#06b6d4", badge: "Free" },
   ];
 
   const D = isDark;
@@ -206,10 +206,17 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map(({ icon, title, desc, color }) => (
+            {features.map(({ icon, title, desc, color, badge }) => (
               <div key={title} className={`group rounded-2xl p-7 cursor-pointer transition-all duration-300 border h-full ${D ? "hover:border-white/[0.12]" : "hover:border-gray-200 hover:shadow-lg"}`} style={{ background: D ? `linear-gradient(145deg, ${color}12, #0a0a0a)` : "#fff", borderColor: D ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" }}>
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style={{ background: `${color}15`, color }}>
-                  {icon}
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: `${color}15`, color }}>
+                    {icon}
+                  </div>
+                  {badge && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wide ${badge === "Free" ? "bg-green-500/10 text-green-500 border border-green-500/20" : badge === "Pro+" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" : "bg-blue-500/10 text-blue-400 border border-blue-500/20"}`}>
+                      {badge}
+                    </span>
+                  )}
                 </div>
                 <h3 className={`text-lg font-bold mb-2 ${D ? "text-white" : "text-gray-900"}`}>{title}</h3>
                 <p className={`text-sm leading-relaxed ${D ? "text-gray-500" : "text-gray-500"}`}>{desc}</p>
@@ -299,6 +306,39 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className={`py-16 sm:py-20 px-5 relative z-10 ${D ? "" : ""}`}>
+        <div className="max-w-5xl mx-auto">
+          <h2 className={`text-2xl sm:text-4xl font-black text-center mb-10 ${D ? "text-white" : "text-gray-900"}`}>
+            Free vs <span className="text-blue-500">Paid</span> — What You Get
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label: "AI Model", free: "Basic Lite", paid: "Advanced Flash / 10 Models", icon: <Brain className="h-5 w-5" /> },
+              { label: "Answer Length", free: "Short (2-4 sentences)", paid: "Detailed (full explanations)", icon: <FileText className="h-5 w-5" /> },
+              { label: "Live Web Search", free: "Not included", paid: "Real-time current events", icon: <Search className="h-5 w-5" /> },
+              { label: "Verified Answers", free: "Not included", paid: "Green verified badge", icon: <Check className="h-5 w-5" /> },
+            ].map((item, i) => (
+              <div key={i} className="rounded-2xl p-5 border" style={{ background: D ? "rgba(255,255,255,0.02)" : "#fff", borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }}>
+                  {item.icon}
+                </div>
+                <p className={`text-sm font-bold mb-3 ${D ? "text-white" : "text-gray-900"}`}>{item.label}</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${D ? "bg-zinc-800 text-zinc-400" : "bg-gray-100 text-gray-500"}`}>FREE</span>
+                    <span className={`text-xs ${D ? "text-gray-500" : "text-gray-400"}`}>{item.free}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">PRO+</span>
+                    <span className={`text-xs font-medium ${D ? "text-gray-300" : "text-gray-700"}`}>{item.paid}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="pricing" className={`py-20 sm:py-32 px-5 relative z-10 ${D ? "" : "bg-gray-50/50"}`}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
@@ -314,17 +354,25 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
             <div className="rounded-2xl p-7 border" style={{ background: D ? "rgba(255,255,255,0.02)" : "#fff", borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
               <h3 className={`text-xl font-bold mb-2 ${D ? "text-white" : "text-gray-900"}`}>Free</h3>
-              <div className="flex items-baseline gap-1 mb-5">
+              <div className="flex items-baseline gap-1 mb-2">
                 <span className={`text-4xl font-black ${D ? "text-white" : "text-gray-900"}`}>$0</span>
                 <span className={`text-sm ${D ? "text-gray-500" : "text-gray-400"}`}>/month</span>
               </div>
-              <ul className="space-y-3 mb-7">
-                {["AI chat conversations", "Document analysis", "100+ languages", "Dark & light themes", "Mobile access"].map((item, i) => (
+              <p className={`text-xs mb-5 ${D ? "text-gray-500" : "text-gray-400"}`}>Basic AI · Short answers · Limited features</p>
+              <ul className="space-y-3 mb-3">
+                {["Basic AI model (Gemini Lite)", "Short, concise answers", "15 questions per day", "Document analysis", "Camera & image scanning", "100+ languages", "Dark & light themes"].map((item, i) => (
                   <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                     <Check size={14} className="text-green-500 flex-shrink-0" /> {item}
                   </li>
                 ))}
               </ul>
+              <div className="space-y-2 mb-7">
+                {["Live web search", "Verified answers", "AI image generation", "Code Studio", "AI Video Studio"].map((item, i) => (
+                  <div key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-600" : "text-gray-400"}`}>
+                    <X size={14} className="flex-shrink-0 opacity-50" /> {item}
+                  </div>
+                ))}
+              </div>
               <Link href={ctaHref}>
                 <Button variant="outline" className={`w-full rounded-xl h-12 font-semibold ${D ? "border-white/10 hover:bg-white/5 text-gray-300" : "border-gray-200 hover:bg-gray-50 text-gray-700"}`}>
                   {isAuthenticated ? "Go to Chat" : "Get Started Free"}
@@ -368,7 +416,7 @@ export default function LandingPage() {
                         <div className={`text-xs mt-0.5 ${D ? "text-violet-400/70" : "text-violet-500"}`}>Generate AI videos with Google Veo</div>
                       </div>
                     </li>
-                    {["Everything in Pro", "10 AI models in parallel", "10 expert perspectives", "Synthesized answers", "Advanced reasoning & math", "Priority queue access"].map((item, i) => (
+                    {["Everything in Pro", "10 AI models analyze in parallel", "GPT-4o + Claude + Mistral + more", "Synthesized expert answers", "Advanced reasoning & math", "Workgroups & team collaboration", "Priority queue access"].map((item, i) => (
                       <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                         <Check size={14} className="text-indigo-500 flex-shrink-0" /> {item}
                       </li>
@@ -402,7 +450,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <ul className="space-y-3 mb-7">
-                  {["Everything in Free", "Advanced AI model", "Faster responses", "Priority processing", "AI image generation", "Advanced analysis"].map((item, i) => (
+                  {["Advanced AI model (Gemini Flash)", "Longer, detailed answers", "Unlimited questions", "Live web search for current events", "Verified answer badges", "AI image generation (DALL-E 3)", "Priority response speed", "Everything in Free included"].map((item, i) => (
                     <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                       <Check size={14} className="text-purple-500 flex-shrink-0" /> {item}
                     </li>

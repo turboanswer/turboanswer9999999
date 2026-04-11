@@ -502,9 +502,9 @@ export default function MobileChatUI({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="gemini-flash">Free</SelectItem>
-              <SelectItem value="gemini-pro">Pro</SelectItem>
-              <SelectItem value="claude-research">Research</SelectItem>
+              <SelectItem value="gemini-flash">Free (Basic)</SelectItem>
+              <SelectItem value="gemini-pro">Pro (Advanced)</SelectItem>
+              <SelectItem value="claude-research">Research (10 AI)</SelectItem>
               <SelectItem value="enterprise-research">Enterprise</SelectItem>
             </SelectContent>
           </Select>

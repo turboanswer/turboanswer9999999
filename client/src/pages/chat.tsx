@@ -536,9 +536,9 @@ export default function Chat() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gemini-flash">Free</SelectItem>
-                <SelectItem value="gemini-pro">Pro $6.99</SelectItem>
-                <SelectItem value="claude-research">Research $30</SelectItem>
+                <SelectItem value="gemini-flash">Free (Basic AI)</SelectItem>
+                <SelectItem value="gemini-pro">Pro $6.99 (Advanced)</SelectItem>
+                <SelectItem value="claude-research">Research $30 (10 Models)</SelectItem>
                 <SelectItem value="enterprise-research">Enterprise $100</SelectItem>
               </SelectContent>
             </Select>
@@ -736,7 +736,7 @@ export default function Chat() {
             <div className="flex items-center gap-2 min-w-0">
               <Sparkles className="h-4 w-4 text-white flex-shrink-0" />
               <p className="text-white text-xs sm:text-sm font-medium truncate">
-                Upgrade to Pro for faster, smarter AI responses
+                You're on Basic AI · Upgrade for longer answers, live search & verified results
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -1032,7 +1032,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "Advanced AI model — deeper reasoning", "Priority response speed", "Everything in Free included"].map((text, i) => (
+              {["7 days free — cancel anytime", "Advanced AI (Gemini Flash vs basic Lite)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation (DALL-E 3)", "Unlimited questions (vs 15/day free)"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className={`w-4 h-4 flex-shrink-0 ${i === 0 ? 'text-green-400' : 'text-green-400'}`} />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-green-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
