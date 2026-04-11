@@ -69,47 +69,114 @@ export default function LandingPage() {
         )}
       </nav>
 
-      <section className="relative overflow-hidden" style={{ minHeight: "90vh" }}>
-        {D && <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 60% at 50% 35%, rgba(37,99,235,0.28) 0%, rgba(37,99,235,0.08) 40%, transparent 70%)" }} />}
-        {!D && <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 60% at 50% 35%, rgba(37,99,235,0.08) 0%, rgba(37,99,235,0.03) 40%, transparent 70%)" }} />}
+      <section className="relative overflow-hidden" style={{ minHeight: "100vh", background: D ? "linear-gradient(135deg, #0a1628 0%, #0f2044 25%, #1a3a6e 50%, #0f2044 75%, #0a1628 100%)" : "linear-gradient(135deg, #1e40af 0%, #2563eb 30%, #3b82f6 50%, #2563eb 70%, #1e40af 100%)" }}>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <svg className="absolute bottom-0 left-0 right-0 w-full" viewBox="0 0 1440 400" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: D ? 0.15 : 0.12 }}>
+            <g transform="translate(120, 80)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-15, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(15, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-5, 14, 73)" />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(5, 26, 73)" />
+            </g>
+            <g transform="translate(280, 120) scale(0.85)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-10, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(10, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+            </g>
+            <g transform="translate(450, 60) scale(1.1)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-20, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(20, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-8, 14, 73)" />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(8, 26, 73)" />
+            </g>
+            <g transform="translate(650, 130) scale(0.75)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-12, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(12, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+            </g>
+            <g transform="translate(840, 90) scale(0.95)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-8, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(8, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-3, 14, 73)" />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(3, 26, 73)" />
+            </g>
+            <g transform="translate(1020, 140) scale(0.8)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-15, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(15, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+            </g>
+            <g transform="translate(1200, 70)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-5, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(5, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-6, 14, 73)" />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(6, 26, 73)" />
+            </g>
+            <g transform="translate(1350, 110) scale(0.7)">
+              <ellipse cx="20" cy="12" rx="16" ry="16" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="10" y="28" width="20" height="45" rx="8" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="0" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(-18, 6, 32)" />
+              <rect x="28" y="32" width="12" height="35" rx="4" fill={D ? "#0a1628" : "#1e3a8a"} transform="rotate(18, 34, 32)" />
+              <rect x="8" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+              <rect x="21" y="73" width="11" height="50" rx="5" fill={D ? "#0a1628" : "#1e3a8a"} />
+            </g>
+          </svg>
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.15), transparent 60%)" }} />
+        </div>
 
-        <div className="relative z-10 max-w-5xl mx-auto px-5 pt-32 sm:pt-44 pb-20 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-10" style={{ background: D ? "rgba(59,130,246,0.08)" : "rgba(59,130,246,0.06)", borderColor: D ? "rgba(59,130,246,0.2)" : "rgba(59,130,246,0.2)" }}>
-            <Sparkles size={14} className="text-blue-500" />
-            <span className={`text-sm font-medium ${D ? "text-blue-300" : "text-blue-600"}`}>Next-Gen AI Intelligence</span>
-            <Sparkles size={14} className="text-blue-500" />
+        <div className="relative z-10 max-w-5xl mx-auto px-5 pt-32 sm:pt-40 pb-24 text-center">
+          <div className="flex justify-center mb-8">
+            <TurboLogo size={80} animated={false} />
           </div>
 
-          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight leading-[0.92] mb-8">
-            <span className={D ? "text-white" : "text-gray-900"}>Your AI That</span><br />
-            <span style={{ background: "linear-gradient(135deg, #3b82f6, #6366f1, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Thinks, Creates
-            </span><br />
-            <span style={{ background: "linear-gradient(135deg, #6366f1, #3b82f6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              & Analyzes
-            </span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-8" style={{ background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.15)" }}>
+            <Sparkles size={14} className="text-blue-200" />
+            <span className="text-sm font-medium text-blue-100">Next-Gen AI Intelligence</span>
+            <Sparkles size={14} className="text-blue-200" />
+          </div>
+
+          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-8 text-white">
+            Your AI That<br />
+            <span className="text-blue-200">Thinks, Creates</span><br />
+            <span className="text-blue-300">& Analyzes</span>
           </h1>
 
-          <p className={`text-lg sm:text-xl max-w-2xl mx-auto mb-12 leading-relaxed ${D ? "text-gray-400" : "text-gray-500"}`}>
+          <p className="text-lg sm:text-xl max-w-2xl mx-auto mb-12 leading-relaxed text-blue-100/70">
             Chat naturally. Analyze documents. Generate images. 100+ languages.
             All in one powerful AI assistant that works on any device.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
             <Link href={ctaHref}>
-              <button className={`flex items-center gap-2.5 px-9 py-4 rounded-xl text-base font-bold transition-all shadow-lg ${D ? "bg-white text-black hover:bg-gray-100 shadow-white/10" : "bg-gray-900 text-white hover:bg-gray-800 shadow-gray-900/20"}`}>
+              <button className="flex items-center gap-2.5 px-9 py-4 rounded-xl text-base font-bold transition-all shadow-lg bg-white text-blue-900 hover:bg-blue-50 shadow-white/20">
                 {ctaLabel} <ArrowRight size={18} />
               </button>
             </Link>
-            <button onClick={() => setShowQR(true)} className={`flex items-center gap-2.5 px-9 py-4 rounded-xl text-base font-bold border transition-all ${D ? "text-white hover:bg-white/5 border-white/15" : "text-gray-700 hover:bg-gray-50 border-gray-200"}`}>
+            <button onClick={() => setShowQR(true)} className="flex items-center gap-2.5 px-9 py-4 rounded-xl text-base font-bold border text-white hover:bg-white/10 transition-all border-white/20">
               <QrCode size={18} /> Open on Phone
             </button>
           </div>
 
-          <div className={`flex flex-wrap items-center justify-center gap-8 text-sm ${D ? "text-gray-500" : "text-gray-400"}`}>
-            <span className="flex items-center gap-2"><Check size={15} className="text-green-500" /> Free forever</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-green-500" /> No credit card</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-green-500" /> Works on all devices</span>
+          <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-blue-200/60">
+            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Free forever</span>
+            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> No credit card</span>
+            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Works on all devices</span>
           </div>
         </div>
       </section>

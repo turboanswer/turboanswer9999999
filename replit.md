@@ -39,7 +39,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 ### Key Features
 - **Multi-Model AI System**: Tiered access (Free, Pro, Research, Enterprise) with intelligent routing based on query complexity. Simple queries default to Gemini Flash Lite. Complex Research/Enterprise queries use a 10-agent multi-perspective system — 10 specialized AI agents each powered by a different AI model via OpenRouter (GPT-4o, Claude Sonnet 4, Mistral Large, Gemini 2.5 Flash, Command R+, Llama 3.1 70B, Qwen 2.5 72B, DeepSeek V3, Perplexity Sonar Pro, Nemotron 70B). All 10 analyze in parallel, then Claude synthesizes into one comprehensive answer. Fallback: Claude → Gemini if OpenRouter unavailable.
 - **Voice Command**: Speech recognition, "Turbo" assistant name, optional wake word, auto-send, text-to-speech.
-- **Comprehensive Knowledge**: Expert-level knowledge across various domains, including real-time weather and time zones.
+- **Comprehensive Knowledge**: Expert-level knowledge across various domains, including real-time weather, time zones, and **live current events search** (Gemini grounded search for questions about recent news, deaths, breaking events — automatically detects and fetches real-time information to override outdated training data).
 - **Subscription Management**: PayPal Subscriptions API for plan management, including a 7-day free trial.
 - **Admin Panel**: Five-tab interface for user, subscription, system, and alert management, including complimentary access and proactive self-diagnosis.
 - **Performance**: API rate limiting, response compression, in-memory caching for expensive endpoints, optimized DB connection pool.
@@ -76,3 +76,4 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Anthropic API**: Claude models
 - **Brevo**: Transactional email delivery
 - **Twilio**: SMS verification for registration
+- **Gemini Grounded Search**: Real-time web search for current events queries

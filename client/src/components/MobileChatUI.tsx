@@ -82,6 +82,7 @@ interface Props {
   formatTimestamp: (ts: string | Date) => string;
   showDailyLimitModal: boolean;
   setShowDailyLimitModal: (v: boolean) => void;
+  verifiedMessages?: Record<number, "verified" | "unverified" | "unknown">;
 }
 
 export default function MobileChatUI({
@@ -95,6 +96,7 @@ export default function MobileChatUI({
   entCoupon, setEntCoupon, entCouponApplied, setEntCouponApplied,
   toast, messagesEndRef, renderMessageContent, formatTimestamp,
   showDailyLimitModal, setShowDailyLimitModal,
+  verifiedMessages = {},
 }: Props) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -585,11 +587,22 @@ export default function MobileChatUI({
                       {renderMessageContent(msg.content, msg.role)}
                     </div>
                   )}
-                  {showTimestampsPref && (
-                    <p className="text-[10px] mt-1 px-1" style={{ color: TEXT_TS }}>
-                      {formatTimestamp(msg.timestamp)}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2 mt-1 px-1">
+                    {msg.role === 'assistant' && verifiedMessages[msg.id] && verifiedMessages[msg.id] !== "unknown" && (
+                      <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${verifiedMessages[msg.id] === "verified" ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'}`}>
+                        {verifiedMessages[msg.id] === "verified" ? (
+                          <><svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg> Verified</>
+                        ) : (
+                          <><svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 4V8.5M8 11.5H8.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg> Unverified</>
+                        )}
+                      </span>
+                    )}
+                    {showTimestampsPref && (
+                      <span className="text-[10px]" style={{ color: TEXT_TS }}>
+                        {formatTimestamp(msg.timestamp)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

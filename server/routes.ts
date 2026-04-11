@@ -1009,9 +1009,21 @@ function downloadAAB(){
         role: "assistant"
       });
 
+      let verified: "verified" | "unverified" | "unknown" = "unknown";
+      try {
+        const geminiKey = process.env.GEMINI_API_KEY;
+        if (geminiKey && aiResponseContent.length > 30) {
+          const { verifyAIResponse } = await import('./services/multi-ai.js');
+          verified = await verifyAIResponse(aiResponseContent, content, geminiKey);
+        }
+      } catch {
+        verified = "unknown";
+      }
+
       res.json({
         userMessage,
-        aiMessage
+        aiMessage,
+        verified
       });
     } catch (error: any) {
       console.error("Error in message route:", error);

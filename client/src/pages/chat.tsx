@@ -54,6 +54,7 @@ export default function Chat() {
   const [shareMode, setShareMode] = useState<'message' | 'approval' | 'ticket'>('message');
   const [shareSending, setShareSending] = useState(false);
   const [ticketSubject, setTicketSubject] = useState("");
+  const [verifiedMessages, setVerifiedMessages] = useState<Record<number, "verified" | "unverified" | "unknown">>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timedPromoShown = useRef(false);
@@ -231,10 +232,13 @@ export default function Chat() {
       }
       return data;
     },
-    onSuccess: (_data, { convId }) => {
+    onSuccess: (data: any, { convId }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
       setMessageContent("");
       setIsTyping(false);
+      if (data?.aiMessage?.id && data?.verified) {
+        setVerifiedMessages(prev => ({ ...prev, [data.aiMessage.id]: data.verified as "verified" | "unverified" | "unknown" }));
+      }
       if (isFreeTier) {
         setMessageCountSinceLastPromo(prev => prev + 1);
       }
@@ -510,6 +514,7 @@ export default function Chat() {
         messagesEndRef={messagesEndRef}
         renderMessageContent={renderMessageContent}
         formatTimestamp={formatTimestamp}
+        verifiedMessages={verifiedMessages}
       />
     );
   }
@@ -886,6 +891,15 @@ export default function Chat() {
                   {renderMessageContent(message.content, message.role)}
                 </div>
                 <div className={`flex items-center gap-2 mt-1 ${message.role === 'user' ? 'justify-end mr-1' : 'ml-1'}`}>
+                  {message.role === 'assistant' && verifiedMessages[message.id] && verifiedMessages[message.id] !== "unknown" && (
+                    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${verifiedMessages[message.id] === "verified" ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'}`}>
+                      {verifiedMessages[message.id] === "verified" ? (
+                        <><svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg> Verified</>
+                      ) : (
+                        <><svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 4V8.5M8 11.5H8.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg> Unverified</>
+                      )}
+                    </span>
+                  )}
                   {showTimestampsPref && (
                     <span className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>
                       {formatTimestamp(message.timestamp)}
