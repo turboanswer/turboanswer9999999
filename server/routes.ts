@@ -6290,12 +6290,52 @@ Rules:
     return apiKey;
   }
 
-  async function logApiUsage(apiKeyId: number, endpoint: string, method: string, statusCode: number, responseTimeMs?: number, imageSize?: number, queryType?: string) {
+  const TIER_CONFIG: Record<string, { maxKeys: number; dailyLimit: number; monthlyBudgetCents: number; permissions: string[]; costMultiplier: number }> = {
+    free: { maxKeys: 1, dailyLimit: 20, monthlyBudgetCents: 0, permissions: ["construction_advice"], costMultiplier: 1 },
+    pro: { maxKeys: 3, dailyLimit: 200, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule"], costMultiplier: 1 },
+    research: { maxKeys: 5, dailyLimit: 500, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule"], costMultiplier: 0.8 },
+    enterprise: { maxKeys: 10, dailyLimit: 2000, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule"], costMultiplier: 0.5 },
+  };
+
+  const ENDPOINT_COSTS_CENTS: Record<string, number> = {
+    '/api/v1/construction/analyze': 5,
+    '/api/v1/construction/advice': 2,
+    '/api/v1/construction/schedule': 8,
+  };
+
+  async function checkMonthlyBudget(apiKeyRecord: any, res: any): Promise<boolean> {
+    const now = new Date();
+    const resetDate = apiKeyRecord.monthlyResetAt ? new Date(apiKeyRecord.monthlyResetAt) : new Date(0);
+    const daysSinceReset = (now.getTime() - resetDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (daysSinceReset >= 30) {
+      await db.update(apiKeys).set({ monthlySpend: 0, monthlyResetAt: now }).where(eq(apiKeys.id, apiKeyRecord.id));
+      apiKeyRecord.monthlySpend = 0;
+      apiKeyRecord.monthlyResetAt = now;
+    }
+
+    const currentSpend = apiKeyRecord.monthlySpend || 0;
+    if (apiKeyRecord.monthlyBudget > 0 && currentSpend >= apiKeyRecord.monthlyBudget) {
+      const daysUntilReset = Math.max(0, Math.ceil(30 - daysSinceReset));
+      res.status(402).json({
+        error: 'Monthly API budget exhausted.',
+        spent: `$${(currentSpend / 100).toFixed(2)}`,
+        budget: `$${(apiKeyRecord.monthlyBudget / 100).toFixed(2)}`,
+        resetsIn: `${daysUntilReset} days`,
+        tip: 'Your $25.00 monthly budget resets each billing cycle.',
+      });
+      return false;
+    }
+    return true;
+  }
+
+  async function logApiUsage(apiKeyId: number, endpoint: string, method: string, statusCode: number, costCents: number, responseTimeMs?: number, imageSize?: number, queryType?: string) {
     try {
-      await db.insert(apiUsageLogs).values({ apiKeyId, endpoint, method, statusCode, responseTimeMs, imageSize, queryType });
+      await db.insert(apiUsageLogs).values({ apiKeyId, endpoint, method, statusCode, costCents, responseTimeMs, imageSize, queryType });
       await db.update(apiKeys).set({
         dailyUsage: sql`${apiKeys.dailyUsage} + 1`,
         totalUsage: sql`${apiKeys.totalUsage} + 1`,
+        monthlySpend: sql`${apiKeys.monthlySpend} + ${costCents}`,
         lastUsedAt: new Date(),
       }).where(eq(apiKeys.id, apiKeyId));
     } catch (e) { console.error('[API] Log error:', e); }
@@ -6306,23 +6346,31 @@ Rules:
       const user = await getFullUser(req);
       if (!user) return res.status(401).json({ error: 'User not found' });
 
-      const { name, rateLimit: customLimit } = req.body;
+      const userTier = user.subscriptionTier || 'free';
+      const tierCfg = TIER_CONFIG[userTier] || TIER_CONFIG.free;
+
+      if (userTier === 'free') {
+        return res.status(403).json({ error: 'API access requires a Pro, Research, or Enterprise subscription. Free tier has limited text-only advice access.' });
+      }
+
+      const { name } = req.body;
       if (!name?.trim()) return res.status(400).json({ error: 'API key name is required' });
 
-      const existingKeys = await db.select().from(apiKeys).where(eq(apiKeys.userId, user.id));
-      if (existingKeys.length >= 5) return res.status(400).json({ error: 'Maximum 5 API keys allowed per account' });
+      const existingKeys = await db.select().from(apiKeys).where(and(eq(apiKeys.userId, user.id), eq(apiKeys.isActive, true)));
+      if (existingKeys.length >= tierCfg.maxKeys) return res.status(400).json({ error: `Your ${userTier} plan allows a maximum of ${tierCfg.maxKeys} active API key${tierCfg.maxKeys > 1 ? 's' : ''}.` });
 
       const { fullKey, prefix, hash } = generateApiKey();
-      const limit = Math.min(Math.max(parseInt(customLimit) || 100, 10), 10000);
 
       const [newKey] = await db.insert(apiKeys).values({
         userId: user.id,
         keyHash: hash,
         keyPrefix: prefix,
         name: name.trim(),
-        rateLimit: limit,
+        tier: userTier,
+        rateLimit: tierCfg.dailyLimit,
+        monthlyBudget: tierCfg.monthlyBudgetCents,
         isActive: true,
-        permissions: ["construction_analyze", "construction_schedule", "construction_advice"],
+        permissions: tierCfg.permissions,
       }).returning();
 
       res.json({
@@ -6330,7 +6378,9 @@ Rules:
         name: newKey.name,
         key: fullKey,
         prefix: newKey.keyPrefix,
+        tier: userTier,
         rateLimit: newKey.rateLimit,
+        monthlyBudget: `$${(tierCfg.monthlyBudgetCents / 100).toFixed(2)}`,
         permissions: newKey.permissions,
         message: 'Save this key now — it will not be shown again.',
       });
@@ -6346,9 +6396,13 @@ Rules:
         id: apiKeys.id,
         name: apiKeys.name,
         keyPrefix: apiKeys.keyPrefix,
+        tier: apiKeys.tier,
         rateLimit: apiKeys.rateLimit,
         dailyUsage: apiKeys.dailyUsage,
         totalUsage: apiKeys.totalUsage,
+        monthlySpend: apiKeys.monthlySpend,
+        monthlyBudget: apiKeys.monthlyBudget,
+        monthlyResetAt: apiKeys.monthlyResetAt,
         isActive: apiKeys.isActive,
         permissions: apiKeys.permissions,
         lastUsedAt: apiKeys.lastUsedAt,
@@ -6395,11 +6449,17 @@ Rules:
     try {
       apiKeyRecord = await validateApiKey(req, res);
       if (!apiKeyRecord) return;
+      if (!(await checkMonthlyBudget(apiKeyRecord, res))) return;
+
+      const perms = apiKeyRecord.permissions as string[];
+      if (!perms.includes('construction_analyze')) {
+        return res.status(403).json({ error: 'Your API key tier does not include image analysis. Upgrade to Pro or higher.' });
+      }
 
       const { image, query, type } = req.body;
 
       if (!image) {
-        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 400, Date.now() - startTime, 0, type);
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 400, 0, Date.now() - startTime, 0, type);
         return res.status(400).json({ error: 'Image is required. Provide base64 encoded image data (with or without data URI prefix).' });
       }
 
@@ -6410,7 +6470,7 @@ Rules:
       const imageSize = Math.round(base64Data.length * 0.75);
 
       if (imageSize > 10 * 1024 * 1024) {
-        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 400, Date.now() - startTime, imageSize, analysisType);
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 400, 0, Date.now() - startTime, imageSize, analysisType);
         return res.status(400).json({ error: 'Image too large. Maximum 10MB.' });
       }
 
@@ -6484,8 +6544,11 @@ Rules:
       const analysisText = response.text();
 
       const responseTime = Date.now() - startTime;
-      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 200, responseTime, imageSize, analysisType);
+      const tierMultiplier = TIER_CONFIG[apiKeyRecord.tier]?.costMultiplier || 1;
+      const costCents = Math.round((ENDPOINT_COSTS_CENTS['/api/v1/construction/analyze'] || 5) * tierMultiplier);
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 200, costCents, responseTime, imageSize, analysisType);
 
+      const updatedSpend = (apiKeyRecord.monthlySpend || 0) + costCents;
       res.json({
         success: true,
         analysis: {
@@ -6502,11 +6565,15 @@ Rules:
         usage: {
           dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
           dailyLimit: apiKeyRecord.rateLimit,
+          costCents,
+          monthlySpent: `$${(updatedSpend / 100).toFixed(2)}`,
+          monthlyBudget: `$${((apiKeyRecord.monthlyBudget || 2500) / 100).toFixed(2)}`,
+          monthlyRemaining: `$${(Math.max(0, (apiKeyRecord.monthlyBudget || 2500) - updatedSpend) / 100).toFixed(2)}`,
         },
       });
     } catch (e: any) {
       console.error('[Construction API] Analyze error:', e.message);
-      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 500, Date.now() - startTime);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/analyze', 'POST', 500, 0, Date.now() - startTime);
       res.status(500).json({ error: 'Analysis failed. Please try again.', details: e.message });
     }
   });
@@ -6517,10 +6584,16 @@ Rules:
     try {
       apiKeyRecord = await validateApiKey(req, res);
       if (!apiKeyRecord) return;
+      if (!(await checkMonthlyBudget(apiKeyRecord, res))) return;
+
+      const perms = apiKeyRecord.permissions as string[];
+      if (!perms.includes('construction_advice')) {
+        return res.status(403).json({ error: 'Your API key tier does not include construction advice. Upgrade to Pro or higher.' });
+      }
 
       const { question, context, category } = req.body;
       if (!question?.trim()) {
-        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 400, Date.now() - startTime, 0, 'advice');
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 400, 0, Date.now() - startTime, 0, 'advice');
         return res.status(400).json({ error: 'Question is required.' });
       }
 
@@ -6548,8 +6621,11 @@ Keep it professional but conversational. This is for a construction scheduling a
       const advice = typeof result === 'object' ? result.text : result;
 
       const responseTime = Date.now() - startTime;
-      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 200, responseTime, 0, cat);
+      const tierMultiplier = TIER_CONFIG[apiKeyRecord.tier]?.costMultiplier || 1;
+      const costCents = Math.round((ENDPOINT_COSTS_CENTS['/api/v1/construction/advice'] || 2) * tierMultiplier);
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 200, costCents, responseTime, 0, cat);
 
+      const updatedSpend = (apiKeyRecord.monthlySpend || 0) + costCents;
       res.json({
         success: true,
         advice: {
@@ -6565,11 +6641,15 @@ Keep it professional but conversational. This is for a construction scheduling a
         usage: {
           dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
           dailyLimit: apiKeyRecord.rateLimit,
+          costCents,
+          monthlySpent: `$${(updatedSpend / 100).toFixed(2)}`,
+          monthlyBudget: `$${((apiKeyRecord.monthlyBudget || 2500) / 100).toFixed(2)}`,
+          monthlyRemaining: `$${(Math.max(0, (apiKeyRecord.monthlyBudget || 2500) - updatedSpend) / 100).toFixed(2)}`,
         },
       });
     } catch (e: any) {
       console.error('[Construction API] Advice error:', e.message);
-      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 500, Date.now() - startTime, 0, 'advice');
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/advice', 'POST', 500, 0, Date.now() - startTime, 0, 'advice');
       res.status(500).json({ error: 'Failed to generate advice.', details: e.message });
     }
   });
@@ -6580,10 +6660,16 @@ Keep it professional but conversational. This is for a construction scheduling a
     try {
       apiKeyRecord = await validateApiKey(req, res);
       if (!apiKeyRecord) return;
+      if (!(await checkMonthlyBudget(apiKeyRecord, res))) return;
+
+      const perms = apiKeyRecord.permissions as string[];
+      if (!perms.includes('construction_schedule')) {
+        return res.status(403).json({ error: 'Your API key tier does not include scheduling. Upgrade to Pro or higher.' });
+      }
 
       const { tasks, constraints, image } = req.body;
       if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
-        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 400, Date.now() - startTime, 0, 'schedule');
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 400, 0, Date.now() - startTime, 0, 'schedule');
         return res.status(400).json({ error: 'Tasks array is required with at least one task.' });
       }
 
@@ -6629,8 +6715,11 @@ Format this as a clear, actionable schedule that a construction manager could fo
       const schedule = typeof result === 'object' ? result.text : result;
 
       const responseTime = Date.now() - startTime;
-      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 200, responseTime, 0, 'schedule');
+      const tierMultiplier = TIER_CONFIG[apiKeyRecord.tier]?.costMultiplier || 1;
+      const costCents = Math.round((ENDPOINT_COSTS_CENTS['/api/v1/construction/schedule'] || 8) * tierMultiplier);
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 200, costCents, responseTime, 0, 'schedule');
 
+      const updatedSpend = (apiKeyRecord.monthlySpend || 0) + costCents;
       res.json({
         success: true,
         schedule: {
@@ -6646,11 +6735,15 @@ Format this as a clear, actionable schedule that a construction manager could fo
         usage: {
           dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
           dailyLimit: apiKeyRecord.rateLimit,
+          costCents,
+          monthlySpent: `$${(updatedSpend / 100).toFixed(2)}`,
+          monthlyBudget: `$${((apiKeyRecord.monthlyBudget || 2500) / 100).toFixed(2)}`,
+          monthlyRemaining: `$${(Math.max(0, (apiKeyRecord.monthlyBudget || 2500) - updatedSpend) / 100).toFixed(2)}`,
         },
       });
     } catch (e: any) {
       console.error('[Construction API] Schedule error:', e.message);
-      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 500, Date.now() - startTime, 0, 'schedule');
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/schedule', 'POST', 500, 0, Date.now() - startTime, 0, 'schedule');
       res.status(500).json({ error: 'Failed to generate schedule.', details: e.message });
     }
   });

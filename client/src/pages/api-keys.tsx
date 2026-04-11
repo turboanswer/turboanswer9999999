@@ -251,61 +251,116 @@ console.log(data.analysis.content);`}</pre>
           </div>
         ) : (
           <div className="space-y-3">
-            {keys.map((k: any) => (
-              <div key={k.id} className="rounded-xl bg-[#0a0a0a] border border-[#1a1a1a] p-5 hover:border-[#222] transition-colors">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${k.isActive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                      <Key className={`h-4 w-4 ${k.isActive ? 'text-emerald-400' : 'text-red-400'}`} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">{k.name}</h3>
-                      <code className="text-[10px] text-[#555] font-mono">{k.keyPrefix}•••••••••••</code>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {k.isActive ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ACTIVE</span>
-                    ) : (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">DISABLED</span>
-                    )}
-                    {k.isActive && (
-                      <button onClick={() => deleteMutation.mutate(k.id)} className="p-2 rounded-lg text-[#444] hover:text-red-400 hover:bg-red-500/10 transition-colors">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+            {keys.map((k: any) => {
+              const spendDollars = ((k.monthlySpend || 0) / 100).toFixed(2);
+              const budgetDollars = ((k.monthlyBudget || 2500) / 100).toFixed(2);
+              const spendPercent = k.monthlyBudget > 0 ? Math.min(100, Math.round(((k.monthlySpend || 0) / k.monthlyBudget) * 100)) : 0;
+              const isOverBudget = spendPercent >= 100;
+              const tierColors: Record<string, string> = { free: 'text-gray-400', pro: 'text-blue-400', research: 'text-purple-400', enterprise: 'text-yellow-400' };
+              const tierBg: Record<string, string> = { free: 'bg-gray-500/10 border-gray-500/20', pro: 'bg-blue-500/10 border-blue-500/20', research: 'bg-purple-500/10 border-purple-500/20', enterprise: 'bg-yellow-500/10 border-yellow-500/20' };
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-[#111] rounded-lg p-3 border border-[#1a1a1a]">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Activity className="h-3 w-3 text-[#555]" />
-                      <span className="text-[10px] text-[#555] uppercase tracking-wider">Today</span>
+              return (
+                <div key={k.id} className="rounded-xl bg-[#0a0a0a] border border-[#1a1a1a] p-5 hover:border-[#222] transition-colors">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${k.isActive ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                        <Key className={`h-4 w-4 ${k.isActive ? 'text-emerald-400' : 'text-red-400'}`} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-white">{k.name}</h3>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${tierBg[k.tier] || tierBg.free} ${tierColors[k.tier] || tierColors.free}`}>{k.tier}</span>
+                        </div>
+                        <code className="text-[10px] text-[#555] font-mono">{k.keyPrefix}•••••••••••</code>
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-white">{k.dailyUsage} <span className="text-[10px] text-[#444] font-normal">/ {k.rateLimit}</span></span>
+                    <div className="flex items-center gap-2">
+                      {k.isActive ? (
+                        isOverBudget ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">BUDGET USED</span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ACTIVE</span>
+                        )
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">DISABLED</span>
+                      )}
+                      {k.isActive && (
+                        <button onClick={() => deleteMutation.mutate(k.id)} className="p-2 rounded-lg text-[#444] hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="bg-[#111] rounded-lg p-3 border border-[#1a1a1a]">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <BarChart3 className="h-3 w-3 text-[#555]" />
-                      <span className="text-[10px] text-[#555] uppercase tracking-wider">Total</span>
+
+                  <div className="mb-3 bg-[#111] rounded-lg p-3 border border-[#1a1a1a]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] text-[#555] uppercase tracking-wider">Monthly Budget</span>
+                      <span className={`text-xs font-bold ${isOverBudget ? 'text-orange-400' : 'text-emerald-400'}`}>${spendDollars} / ${budgetDollars}</span>
                     </div>
-                    <span className="text-sm font-bold text-white">{k.totalUsage}</span>
+                    <div className="h-2 rounded-full bg-[#1a1a1a] overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-500 ${isOverBudget ? 'bg-orange-500' : spendPercent > 80 ? 'bg-yellow-500' : 'bg-emerald-500'}`} style={{ width: `${spendPercent}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[9px] text-[#444]">{spendPercent}% used</span>
+                      <span className="text-[9px] text-[#444]">Resets {k.monthlyResetAt ? `${Math.max(0, 30 - Math.floor((Date.now() - new Date(k.monthlyResetAt).getTime()) / (1000 * 60 * 60 * 24)))}d` : '30d'}</span>
+                    </div>
                   </div>
-                  <div className="bg-[#111] rounded-lg p-3 border border-[#1a1a1a]">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Clock className="h-3 w-3 text-[#555]" />
-                      <span className="text-[10px] text-[#555] uppercase tracking-wider">Last Used</span>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-[#111] rounded-lg p-3 border border-[#1a1a1a]">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Activity className="h-3 w-3 text-[#555]" />
+                        <span className="text-[10px] text-[#555] uppercase tracking-wider">Today</span>
+                      </div>
+                      <span className="text-sm font-bold text-white">{k.dailyUsage} <span className="text-[10px] text-[#444] font-normal">/ {k.rateLimit}</span></span>
                     </div>
-                    <span className="text-xs text-white">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}</span>
+                    <div className="bg-[#111] rounded-lg p-3 border border-[#1a1a1a]">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <BarChart3 className="h-3 w-3 text-[#555]" />
+                        <span className="text-[10px] text-[#555] uppercase tracking-wider">Total</span>
+                      </div>
+                      <span className="text-sm font-bold text-white">{k.totalUsage}</span>
+                    </div>
+                    <div className="bg-[#111] rounded-lg p-3 border border-[#1a1a1a]">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Clock className="h-3 w-3 text-[#555]" />
+                        <span className="text-[10px] text-[#555] uppercase tracking-wider">Last Used</span>
+                      </div>
+                      <span className="text-xs text-white">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        <div className="mt-10 rounded-2xl bg-[#0a0a0a] border border-[#1a1a1a] p-6">
+        <div className="mt-10 rounded-2xl bg-[#0a0a0a] border border-[#1a1a1a] p-6 mb-6">
+          <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Zap className="h-4 w-4 text-yellow-400" /> Pricing &amp; Limits</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[#1a1a1a]">
+                  <th className="text-left py-2 text-[#555] font-medium"></th>
+                  <th className="text-center py-2 text-gray-400 font-bold">Free</th>
+                  <th className="text-center py-2 text-blue-400 font-bold">Pro</th>
+                  <th className="text-center py-2 text-purple-400 font-bold">Research</th>
+                  <th className="text-center py-2 text-yellow-400 font-bold">Enterprise</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#aaa]">
+                <tr className="border-b border-[#111]"><td className="py-2 text-[#555]">API Keys</td><td className="text-center">--</td><td className="text-center">3</td><td className="text-center">5</td><td className="text-center">10</td></tr>
+                <tr className="border-b border-[#111]"><td className="py-2 text-[#555]">Daily Limit</td><td className="text-center">--</td><td className="text-center">200</td><td className="text-center">500</td><td className="text-center">2,000</td></tr>
+                <tr className="border-b border-[#111]"><td className="py-2 text-[#555]">Monthly Budget</td><td className="text-center">--</td><td className="text-center">$25</td><td className="text-center">$25</td><td className="text-center">$25</td></tr>
+                <tr className="border-b border-[#111]"><td className="py-2 text-[#555]">Analyze (per call)</td><td className="text-center">--</td><td className="text-center">5c</td><td className="text-center">4c</td><td className="text-center">2.5c</td></tr>
+                <tr className="border-b border-[#111]"><td className="py-2 text-[#555]">Advice (per call)</td><td className="text-center">--</td><td className="text-center">2c</td><td className="text-center">1.6c</td><td className="text-center">1c</td></tr>
+                <tr><td className="py-2 text-[#555]">Schedule (per call)</td><td className="text-center">--</td><td className="text-center">8c</td><td className="text-center">6.4c</td><td className="text-center">4c</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-[#0a0a0a] border border-[#1a1a1a] p-6">
           <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Zap className="h-4 w-4 text-yellow-400" /> What Can You Build?</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="bg-[#111] rounded-xl p-4 border border-[#1a1a1a]">
