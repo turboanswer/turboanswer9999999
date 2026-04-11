@@ -103,27 +103,6 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   },
 };
 
-function classifyQueryComplexity(message: string): 'simple' | 'complex' {
-  const msg = message.trim();
-  const msgLower = msg.toLowerCase();
-  const len = msg.length;
-
-  if (len < 25) return 'simple';
-
-  if (/```|`[^`]{10,}`|\bfunction\s*[\w(]|\bconst\s+\w+\s*=\s*(async\s*)?\(|\bdef\s+\w|\bclass\s+\w|\b#include|\bfor\s*\(|\bwhile\s*\(/.test(msg)) return 'complex';
-
-  if (/\b(?:1\.|2\.|3\.|first[,\s]|second[,\s]|step\s+1\b|and\s+also\b|furthermore\b|additionally\b|moreover\b)/.test(msgLower)) return 'complex';
-
-  if (/\b(?:implement|algorithm|architecture|optimize|refactor|debug\s+(?:this|my)|analyze|analyse|compare\s+and|explain\s+(?:in\s+detail|how|why|the\s+difference)|write\s+a\s+(?:function|class|program|script|app|test)|design\s+(?:a|the|an))\b/.test(msgLower)) return 'complex';
-
-  if (len > 220) return 'complex';
-
-  if (/^(?:what\s+is\b|what'?s\b|who\s+(?:is|was)\b|where\s+is\b|when\s+(?:is|did|was)\b|how\s+(?:much|many|old)\b|define\b|capital\s+of\b|meaning\s+of\b|translate\b)/.test(msgLower)) return 'simple';
-
-  if (/^(?:hi\b|hello\b|hey\b|thanks\b|thank\s+you\b|ok\b|okay\b|sure\b|yes\b|no\b|bye\b|good\s+(?:morning|afternoon|evening)\b|how\s+are\s+you\b|can\s+you\s+help\b)/.test(msgLower)) return 'simple';
-
-  return 'simple';
-}
 
 async function callClaude(prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
   const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
@@ -317,21 +296,10 @@ export async function generateAIResponse(
     const recentHistory = conversationHistory.slice(-2).map(m => `${m.role}: ${m.content.slice(0, 300)}`).join('\n');
 
     if (selectedModel === 'claude-research' || selectedModel === 'enterprise-research') {
-      const complexity = classifyQueryComplexity(userMessage);
-
-      if (complexity === 'simple') {
-        if (!geminiApiKey) return "API key not configured.";
-        const systemPrompt = `You are Turbo Answer Research. Answer questions directly and concisely. Never discuss your own state, feelings, or load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
-        const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
-        console.log(`[AI] Research/simple → Gemini Flash Lite`);
-        const text = await callGemini(fullPrompt, 'gemini-2.0-flash-lite', 2000, 0.4, geminiApiKey);
-        return { text, usedGroundedSearch };
-      } else {
-        console.log(`[AI] Research/complex → 10-Agent Multi-Agent System`);
-        const fullQuestion = additionalContext ? `${enhancedMessage}\n\n${additionalContext}` : enhancedMessage;
-        const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
-        return { text, usedGroundedSearch };
-      }
+      console.log(`[AI] ${selectedModel} → 10-Agent Multi-Agent System (OpenRouter)`);
+      const fullQuestion = additionalContext ? `${enhancedMessage}\n\n${additionalContext}` : enhancedMessage;
+      const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
+      return { text, usedGroundedSearch };
     } else if (selectedModel === 'gemini-pro') {
       if (!geminiApiKey) return "API key not configured.";
       const systemPrompt = `You are Turbo Answer. Answer questions directly and helpfully. Never discuss your own state, feelings, or system load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
