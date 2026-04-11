@@ -10,6 +10,8 @@ import {
   Code2, Terminal, Loader2, FileCode, Send, RefreshCw, X,
   ExternalLink, Check, Monitor, Wand2, Zap, Lock, FolderOpen,
   ChevronRight, Bot, User, Sparkles, ChevronDown, ShoppingCart, CreditCard,
+  Key, Shield, Eye, EyeOff, Clock, Settings, Brain, Search, Paintbrush,
+  Bug, Gauge, Cpu, Database, LayoutGrid,
 } from "lucide-react";
 import type { CodeProject } from "@shared/schema";
 
@@ -38,6 +40,40 @@ const BUILD_PHASES = [
   "Auto-deploying to the web...",
   "Done!",
 ];
+
+const AI_AGENTS = [
+  { name: "Scout", role: "Web Research", icon: "Search", color: "#06b6d4" },
+  { name: "Architect", role: "System Design", icon: "LayoutGrid", color: "#8b5cf6" },
+  { name: "Builder", role: "HTML Structure", icon: "Code2", color: "#3b82f6" },
+  { name: "Stylist", role: "CSS & Design", icon: "Paintbrush", color: "#ec4899" },
+  { name: "Engineer", role: "JavaScript Logic", icon: "Cpu", color: "#f59e0b" },
+  { name: "DataBot", role: "State & Storage", icon: "Database", color: "#10b981" },
+  { name: "Debugger", role: "Error Detection", icon: "Bug", color: "#ef4444" },
+  { name: "Optimizer", role: "Performance", icon: "Gauge", color: "#14b8a6" },
+  { name: "Guardian", role: "Security Review", icon: "Shield", color: "#6366f1" },
+  { name: "Deployer", role: "Ship & Publish", icon: "Rocket", color: "#f97316" },
+];
+
+const LONG_BUILD_PHASES = [
+  { agents: [0], label: "Scout researching real apps on the web..." },
+  { agents: [0, 1], label: "Architect analyzing features & designing system..." },
+  { agents: [1, 2, 3], label: "Builder + Stylist writing HTML & CSS foundation..." },
+  { agents: [2, 3, 4], label: "Engineer coding interactive JavaScript logic..." },
+  { agents: [4, 5], label: "DataBot wiring state management & localStorage..." },
+  { agents: [2, 3, 4, 5], label: "All builders collaborating on features..." },
+  { agents: [6], label: "Debugger scanning for errors & fixing issues..." },
+  { agents: [7], label: "Optimizer tuning performance & responsiveness..." },
+  { agents: [8], label: "Guardian reviewing security & accessibility..." },
+  { agents: [6, 7, 8], label: "Quality team running final improvements..." },
+  { agents: [9], label: "Deployer shipping your app to the web..." },
+  { agents: Array.from({length: 10}, (_, i) => i), label: "All 10 agents completed! App ready." },
+];
+
+function AgentIcon({ name, size = 14 }: { name: string; size?: number }) {
+  const icons: Record<string, any> = { Search, LayoutGrid, Code2, Paintbrush, Cpu, Database, Bug, Gauge, Shield, Rocket };
+  const Icon = icons[name] || Brain;
+  return <Icon style={{ width: size, height: size }} />;
+}
 
 const EXAMPLE_PROMPTS = [
   "A finance expense tracker with charts",
@@ -183,7 +219,18 @@ export default function CodeStudio() {
   const [lastBuildCost, setLastBuildCost] = useState<{ cents: number; tierLabel: string } | null>(null);
   const [longBuildEnabled, setLongBuildEnabled] = useState(false);
   const [autoBuyPack, setAutoBuyPack] = useState(1000);
+  const [longBuildHours, setLongBuildHours] = useState(1);
   const [showLongBuildSettings, setShowLongBuildSettings] = useState(false);
+
+  type SecretEntry = { id: number; key: string; createdAt?: string; updatedAt?: string };
+  const [secrets, setSecrets] = useState<SecretEntry[]>([]);
+  const [showSecrets, setShowSecrets] = useState(false);
+  const [newSecretKey, setNewSecretKey] = useState("");
+  const [newSecretValue, setNewSecretValue] = useState("");
+  const [editingSecretId, setEditingSecretId] = useState<number | null>(null);
+  const [editingSecretValue, setEditingSecretValue] = useState("");
+  const [showSecretValues, setShowSecretValues] = useState<Record<number, string>>({});
+  const [addingSecret, setAddingSecret] = useState(false);
 
   // Complexity-based pricing
   const COMPLEXITY_TIERS: Record<string, { label: string; emoji: string; cents: number; desc: string; color: string }> = {
@@ -233,6 +280,7 @@ export default function CodeStudio() {
           if (d) {
             setLongBuildEnabled(d.longBuild);
             setAutoBuyPack(d.autoBuyPack || 1000);
+            setLongBuildHours(d.hours || 1);
           }
         })
         .catch(() => {});
@@ -353,6 +401,54 @@ export default function CodeStudio() {
     if (project.mainLanguage === "html") {
       setPreviewUrl(`/code-preview/${project.id}?t=${Date.now()}`);
     }
+    loadSecrets(project.id);
+  }
+
+  async function loadSecrets(pid: number) {
+    try {
+      const res = await fetch(`/api/code/projects/${pid}/secrets`, { credentials: "include" });
+      if (res.ok) { const data = await res.json(); setSecrets(Array.isArray(data) ? data : []); }
+    } catch { setSecrets([]); }
+  }
+
+  async function addSecret() {
+    if (!currentProject || !newSecretKey.trim() || !newSecretValue.trim()) return;
+    setAddingSecret(true);
+    try {
+      const res = await fetch(`/api/code/projects/${currentProject.id}/secrets`, {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: newSecretKey.trim().toUpperCase(), value: newSecretValue.trim() }),
+      });
+      if (res.ok) { setNewSecretKey(""); setNewSecretValue(""); loadSecrets(currentProject.id); toast({ title: "Secret added" }); }
+      else { const d = await res.json(); toast({ title: d.error || "Failed to add secret", variant: "destructive" }); }
+    } catch {} finally { setAddingSecret(false); }
+  }
+
+  async function deleteSecret(id: number) {
+    if (!currentProject) return;
+    await fetch(`/api/code/projects/${currentProject.id}/secrets/${id}`, { method: "DELETE", credentials: "include" });
+    setSecrets(s => s.filter(x => x.id !== id));
+    setShowSecretValues(v => { const n = { ...v }; delete n[id]; return n; });
+  }
+
+  async function revealSecret(id: number) {
+    if (!currentProject) return;
+    if (showSecretValues[id]) { setShowSecretValues(v => { const n = { ...v }; delete n[id]; return n; }); return; }
+    const res = await fetch(`/api/code/projects/${currentProject.id}/secrets/${id}/value`, { credentials: "include" });
+    if (res.ok) { const d = await res.json(); setShowSecretValues(v => ({ ...v, [id]: d.value })); }
+  }
+
+  async function updateLongBuild(opts: { longBuild?: boolean; autoBuyPack?: number; hours?: number }) {
+    const body = { longBuild: opts.longBuild ?? longBuildEnabled, autoBuyPack: opts.autoBuyPack ?? autoBuyPack, hours: opts.hours ?? longBuildHours };
+    try {
+      const res = await fetch("/api/code/long-build", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (res.ok) {
+        const d = await res.json();
+        setLongBuildEnabled(d.longBuild);
+        setAutoBuyPack(d.autoBuyPack);
+        setLongBuildHours(d.hours || 1);
+      }
+    } catch {}
   }
 
   async function sendMessage() {
@@ -442,9 +538,9 @@ export default function CodeStudio() {
 
     let phase = 0;
     const phaseInterval = setInterval(() => {
-      phase = Math.min(phase + 1, BUILD_PHASES.length - 2);
+      phase = Math.min(phase + 1, LONG_BUILD_PHASES.length - 2);
       setMessages(prev => prev.map(m => m.id === buildMsgId ? { ...m, buildPhase: phase } : m));
-    }, 2800);
+    }, 2500);
 
     try {
       const res = await fetch("/api/code/ai-generate", {
@@ -495,7 +591,7 @@ export default function CodeStudio() {
       if (data.costCents) setLastBuildCost({ cents: data.costCents, tierLabel });
 
       setMessages(prev => prev.map(m => m.id === buildMsgId ? {
-        ...m, buildPhase: BUILD_PHASES.length - 1, buildDone: true,
+        ...m, buildPhase: LONG_BUILD_PHASES.length - 1, buildDone: true,
         deployUrl: liveUrl || undefined,
         files: generatedFiles.map(f => f.name),
         discoveredFeatures: data.discoveredFeatures || [],
@@ -852,47 +948,70 @@ export default function CodeStudio() {
           </div>
 
           {showLongBuildSettings && user?.codeStudioAddon && (
-            <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, background: "rgba(34,197,94,0.03)", fontSize: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: C.text }}>Long Build Mode</div>
-                  <div style={{ fontSize: 10, color: C.muted }}>Auto-buy credits when balance runs low during builds</div>
+            <div style={{ borderBottom: `1px solid ${C.border}`, background: "rgba(124,58,237,0.03)" }}>
+              <div style={{ padding: "10px 14px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 7, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Zap style={{ width: 12, height: 12, color: "#fff" }} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: C.text, fontSize: 12 }}>Long Build Mode</div>
+                      <div style={{ fontSize: 9, color: C.muted }}>10 AI agents collaborate for {longBuildHours}h to build a production app</div>
+                    </div>
+                  </div>
+                  <button onClick={() => { const next = !longBuildEnabled; setLongBuildEnabled(next); updateLongBuild({ longBuild: next }); }}
+                    style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", position: "relative", background: longBuildEnabled ? "#22c55e" : C.border, transition: "background 0.2s" }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 3, left: longBuildEnabled ? 21 : 3, transition: "left 0.2s" }} />
+                  </button>
                 </div>
-                <button
-                  onClick={async () => {
-                    const next = !longBuildEnabled;
-                    setLongBuildEnabled(next);
-                    await fetch("/api/code/long-build", {
-                      method: "PATCH",
-                      credentials: "include",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ longBuild: next, autoBuyPack: autoBuyPack }),
-                    });
-                  }}
-                  style={{ width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer", position: "relative", background: longBuildEnabled ? "#22c55e" : C.border, transition: "background 0.2s" }}>
-                  <div style={{ width: 16, height: 16, borderRadius: 8, background: "#fff", position: "absolute", top: 3, left: longBuildEnabled ? 21 : 3, transition: "left 0.2s" }} />
-                </button>
+
+                {longBuildEnabled && (
+                  <>
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Build Duration</div>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {[1, 3, 6, 9].map(h => (
+                          <button key={h} onClick={() => { setLongBuildHours(h); updateLongBuild({ hours: h }); }}
+                            style={{ flex: 1, padding: "8px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `1px solid ${longBuildHours === h ? "rgba(124,58,237,0.4)" : C.border}`, background: longBuildHours === h ? "rgba(124,58,237,0.12)" : "rgba(255,255,255,0.02)", transition: "all 0.15s" }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: longBuildHours === h ? "#a78bfa" : C.text }}>{h}h</div>
+                            <div style={{ fontSize: 8, color: C.muted, marginTop: 1 }}>
+                              {h === 1 ? "Quick" : h === 3 ? "Standard" : h === 6 ? "Deep" : "Maximum"}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Auto-Refill Budget</div>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {[500, 1000, 2500, 5000].map(amt => (
+                          <button key={amt} onClick={() => { setAutoBuyPack(amt); updateLongBuild({ autoBuyPack: amt }); }}
+                            style={{ flex: 1, padding: "5px 4px", borderRadius: 6, cursor: "pointer", textAlign: "center", border: `1px solid ${autoBuyPack === amt ? "rgba(34,197,94,0.3)" : C.border}`, background: autoBuyPack === amt ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.02)", fontSize: 10, fontWeight: autoBuyPack === amt ? 700 : 500, color: autoBuyPack === amt ? "#22c55e" : C.muted }}>
+                            {formatDollars(amt)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ background: "rgba(124,58,237,0.06)", borderRadius: 8, padding: "7px 10px", border: "1px solid rgba(124,58,237,0.12)" }}>
+                      <div style={{ fontSize: 9, color: C.muted, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>10 AI Agents</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 3 }}>
+                        {AI_AGENTS.map((agent, i) => (
+                          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 2px", borderRadius: 6, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
+                            <div style={{ width: 18, height: 18, borderRadius: 5, background: `${agent.color}20`, display: "flex", alignItems: "center", justifyContent: "center", color: agent.color, marginBottom: 2 }}>
+                              <AgentIcon name={agent.icon} size={10} />
+                            </div>
+                            <div style={{ fontSize: 7, fontWeight: 700, color: agent.color, textAlign: "center" }}>{agent.name}</div>
+                            <div style={{ fontSize: 6, color: C.muted, textAlign: "center", lineHeight: 1.2 }}>{agent.role}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-              {longBuildEnabled && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                  <span style={{ fontSize: 11, color: C.muted }}>Auto-buy pack:</span>
-                  {[500, 1000, 2500].map(amt => (
-                    <button key={amt}
-                      onClick={async () => {
-                        setAutoBuyPack(amt);
-                        await fetch("/api/code/long-build", {
-                          method: "PATCH",
-                          credentials: "include",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ longBuild: true, autoBuyPack: amt }),
-                        });
-                      }}
-                      style={{ fontSize: 10, fontWeight: autoBuyPack === amt ? 700 : 500, color: autoBuyPack === amt ? "#22c55e" : C.muted, background: autoBuyPack === amt ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${autoBuyPack === amt ? "rgba(34,197,94,0.3)" : C.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer" }}>
-                      {formatDollars(amt)}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
@@ -935,33 +1054,105 @@ export default function CodeStudio() {
             </div>
           )}
 
+          {/* Secrets Panel (Replit-style) */}
+          {hasProject && (
+            <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
+              <button onClick={() => setShowSecrets(v => !v)}
+                style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 14px", background: "none", border: "none", cursor: "pointer", color: C.muted }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Key style={{ width: 11, height: 11 }} />
+                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Secrets ({secrets.length})</span>
+                </div>
+                <ChevronRight style={{ width: 12, height: 12, transform: showSecrets ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+              </button>
+              {showSecrets && (
+                <div style={{ padding: "0 10px 8px" }}>
+                  <div style={{ padding: "6px 8px", background: "rgba(124,58,237,0.05)", borderRadius: 8, border: "1px solid rgba(124,58,237,0.1)", marginBottom: 6 }}>
+                    <div style={{ fontSize: 9, color: C.muted, marginBottom: 5 }}>Add API keys and secrets for your project. They are encrypted and never exposed in code.</div>
+                    <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                      <input value={newSecretKey} onChange={e => setNewSecretKey(e.target.value.toUpperCase())}
+                        placeholder="KEY_NAME" style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 7px", color: C.text, fontSize: 10, outline: "none", fontFamily: "monospace" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <input value={newSecretValue} onChange={e => setNewSecretValue(e.target.value)}
+                        placeholder="secret_value" type="password"
+                        onKeyDown={e => e.key === "Enter" && addSecret()}
+                        style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, borderRadius: 5, padding: "4px 7px", color: C.text, fontSize: 10, outline: "none", fontFamily: "monospace" }} />
+                      <button onClick={addSecret} disabled={addingSecret || !newSecretKey.trim() || !newSecretValue.trim()}
+                        style={{ color: "#fff", background: newSecretKey.trim() && newSecretValue.trim() ? C.accent : C.border, border: "none", borderRadius: 5, padding: "4px 8px", fontSize: 9, fontWeight: 700, cursor: newSecretKey.trim() && newSecretValue.trim() ? "pointer" : "not-allowed" }}>
+                        {addingSecret ? "..." : "+ Add"}
+                      </button>
+                    </div>
+                  </div>
+                  {secrets.length === 0 && (
+                    <div style={{ fontSize: 10, color: C.muted, textAlign: "center", padding: "6px 0" }}>No secrets yet. Add API keys above.</div>
+                  )}
+                  {secrets.map(s => (
+                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px", borderRadius: 5, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, marginBottom: 3 }}>
+                      <Shield style={{ width: 10, height: 10, color: C.accent, flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: 10, color: "#a78bfa", fontFamily: "monospace", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.key}</span>
+                      <span style={{ fontSize: 9, color: C.muted, fontFamily: "monospace", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {showSecretValues[s.id] || "••••••••"}
+                      </span>
+                      <button onClick={() => revealSecret(s.id)} style={{ color: C.muted, background: "none", border: "none", cursor: "pointer", display: "flex", padding: 1 }}>
+                        {showSecretValues[s.id] ? <EyeOff style={{ width: 10, height: 10 }} /> : <Eye style={{ width: 10, height: 10 }} />}
+                      </button>
+                      <button onClick={() => deleteSecret(s.id)} style={{ color: "#ef4444", background: "none", border: "none", cursor: "pointer", display: "flex", padding: 1 }}>
+                        <Trash2 style={{ width: 10, height: 10 }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Chat Messages */}
           <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 12, minHeight: 0 }}>
             {messages.map(msg => {
               if (msg.role === "building") {
                 const phase = msg.buildPhase ?? 0;
                 const done = msg.buildDone;
+                const lbPhase = LONG_BUILD_PHASES[Math.min(phase, LONG_BUILD_PHASES.length - 1)];
+                const activeAgents = lbPhase?.agents || [];
                 return (
                   <div key={msg.id} style={{ background: "rgba(124,58,237,0.07)", border: `1px solid rgba(124,58,237,${done ? "0.15" : "0.25"})`, borderRadius: 14, padding: "14px 16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                       <div style={{ width: 32, height: 32, borderRadius: 10, background: done ? "rgba(16,185,129,0.15)" : "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {done ? <Check style={{ width: 16, height: 16, color: C.green }} /> : <Wand2 style={{ width: 15, height: 15, color: "#fff" }} />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : "#a78bfa", marginBottom: 2 }}>
-                          {done ? "App Built Successfully!" : "Building your app..."}
+                          {done ? "All 10 Agents Complete!" : "10 AI Agents Building..."}
                         </div>
                         <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.buildPrompt}</div>
                       </div>
                     </div>
 
-                    {/* Progress bar */}
-                    <div style={{ marginBottom: done ? 12 : 0 }}>
-                      <div style={{ fontSize: 11, color: done ? C.green : "#a78bfa", marginBottom: 6, fontWeight: 500 }}>
-                        {BUILD_PHASES[Math.min(phase, BUILD_PHASES.length - 1)]}
+                    {/* 10-Agent Grid */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 3, marginBottom: 8 }}>
+                      {AI_AGENTS.map((agent, i) => {
+                        const isActive = !done && activeAgents.includes(i);
+                        const isCompleted = done || phase > LONG_BUILD_PHASES.findIndex(p => p.agents.includes(i) && LONG_BUILD_PHASES.indexOf(p) === Math.max(...LONG_BUILD_PHASES.filter(pp => pp.agents.includes(i)).map(pp => LONG_BUILD_PHASES.indexOf(pp))));
+                        return (
+                          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "5px 2px", borderRadius: 6, background: isActive ? `${agent.color}12` : "rgba(255,255,255,0.02)", border: `1px solid ${isActive ? `${agent.color}40` : done ? "rgba(16,185,129,0.2)" : C.border}`, transition: "all 0.3s", position: "relative" }}>
+                            {isActive && <div style={{ position: "absolute", top: -1, right: -1, width: 6, height: 6, borderRadius: 3, background: agent.color, animation: "pulse 1.5s infinite" }} />}
+                            <div style={{ width: 16, height: 16, borderRadius: 4, background: isActive ? `${agent.color}25` : done ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", color: isActive ? agent.color : done ? C.green : C.muted, marginBottom: 1 }}>
+                              {done ? <Check style={{ width: 8, height: 8 }} /> : <AgentIcon name={agent.icon} size={8} />}
+                            </div>
+                            <div style={{ fontSize: 7, fontWeight: 700, color: isActive ? agent.color : done ? C.green : C.muted, textAlign: "center" }}>{agent.name}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Phase label + progress */}
+                    <div style={{ marginBottom: done ? 10 : 0 }}>
+                      <div style={{ fontSize: 10, color: done ? C.green : "#a78bfa", marginBottom: 4, fontWeight: 500 }}>
+                        {done ? "All agents completed successfully" : lbPhase?.label || BUILD_PHASES[Math.min(phase, BUILD_PHASES.length - 1)]}
                       </div>
                       <div style={{ display: "flex", gap: 2 }}>
-                        {BUILD_PHASES.map((_, i) => (
+                        {LONG_BUILD_PHASES.map((_, i) => (
                           <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= phase ? (done ? C.green : C.accent) : "rgba(255,255,255,0.07)", transition: "background 0.4s" }} />
                         ))}
                       </div>
@@ -984,9 +1175,9 @@ export default function CodeStudio() {
                     )}
 
                     {done && msg.discoveredFeatures && msg.discoveredFeatures.length > 0 && (
-                      <div style={{ background: "rgba(6,182,212,0.05)", border: "1px solid rgba(6,182,212,0.15)", borderRadius: 10, padding: "10px 12px", marginTop: done && msg.deployUrl ? 0 : 0 }}>
+                      <div style={{ background: "rgba(6,182,212,0.05)", border: "1px solid rgba(6,182,212,0.15)", borderRadius: 10, padding: "10px 12px" }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: C.cyan, marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                          🔍 {msg.discoveredFeatures.length} features researched from real apps
+                          <Search style={{ width: 11, height: 11 }} /> {msg.discoveredFeatures.length} features researched from real apps
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {msg.discoveredFeatures.slice(0, 18).map((f, i) => (

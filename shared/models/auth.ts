@@ -61,6 +61,7 @@ export const users = pgTable("users", {
   codeStudioCreditsResetAt: timestamp("code_studio_credits_reset_at"),
   codeStudioLongBuild: boolean("code_studio_long_build").default(false),
   codeStudioAutoBuyPack: integer("code_studio_auto_buy_pack").default(1000),
+  codeStudioLongBuildHours: integer("code_studio_long_build_hours").default(1),
   phoneNumber: varchar("phone_number"),
   weeklyDigestEnabled: boolean("weekly_digest_enabled").default(false),
   dailyQuestionsUsed: integer("daily_questions_used").default(0),

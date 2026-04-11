@@ -218,6 +218,20 @@ export const insertCodeProjectSchema = createInsertSchema(codeProjects).omit({ i
 export type InsertCodeProject = z.infer<typeof insertCodeProjectSchema>;
 export type CodeProject = typeof codeProjects.$inferSelect;
 
+export const codeProjectSecrets = pgTable("code_project_secrets", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  userId: text("user_id").notNull(),
+  key: text("key").notNull(),
+  value: text("value").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCodeProjectSecretSchema = createInsertSchema(codeProjectSecrets).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCodeProjectSecret = z.infer<typeof insertCodeProjectSecretSchema>;
+export type CodeProjectSecret = typeof codeProjectSecrets.$inferSelect;
+
 // Promo Codes
 export const promoCodes = pgTable("promo_codes", {
   id: serial("id").primaryKey(),

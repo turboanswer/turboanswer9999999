@@ -3573,6 +3573,56 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
     next();
   });
 
+  // ── Project Secrets CRUD (Replit-style) ─────────────────────────────────────
+  const { codeProjectSecrets } = await import('../shared/schema');
+
+  app.get('/api/code/projects/:projectId/secrets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const projectId = Number(req.params.projectId);
+      const secrets = await db.select({ id: codeProjectSecrets.id, key: codeProjectSecrets.key, createdAt: codeProjectSecrets.createdAt, updatedAt: codeProjectSecrets.updatedAt })
+        .from(codeProjectSecrets)
+        .where(and(eq(codeProjectSecrets.projectId, projectId), eq(codeProjectSecrets.userId, userId)));
+      res.json(secrets);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post('/api/code/projects/:projectId/secrets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const projectId = Number(req.params.projectId);
+      const { key, value } = req.body;
+      if (!key?.trim() || !value?.trim()) return res.status(400).json({ error: 'Key and value required' });
+      if (!/^[A-Z_][A-Z0-9_]*$/i.test(key.trim())) return res.status(400).json({ error: 'Key must be alphanumeric with underscores (e.g. API_KEY)' });
+      const existing = await db.select().from(codeProjectSecrets).where(and(eq(codeProjectSecrets.projectId, projectId), eq(codeProjectSecrets.userId, userId), eq(codeProjectSecrets.key, key.trim())));
+      if (existing.length > 0) {
+        const [updated] = await db.update(codeProjectSecrets).set({ value: value.trim(), updatedAt: new Date() }).where(eq(codeProjectSecrets.id, existing[0].id)).returning();
+        return res.json({ id: updated.id, key: updated.key, updatedAt: updated.updatedAt });
+      }
+      const [created] = await db.insert(codeProjectSecrets).values({ projectId, userId, key: key.trim(), value: value.trim() }).returning();
+      res.json({ id: created.id, key: created.key, createdAt: created.createdAt });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete('/api/code/projects/:projectId/secrets/:secretId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const secretId = Number(req.params.secretId);
+      await db.delete(codeProjectSecrets).where(and(eq(codeProjectSecrets.id, secretId), eq(codeProjectSecrets.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/code/projects/:projectId/secrets/:secretId/value', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const secretId = Number(req.params.secretId);
+      const [secret] = await db.select().from(codeProjectSecrets).where(and(eq(codeProjectSecrets.id, secretId), eq(codeProjectSecrets.userId, userId)));
+      if (!secret) return res.status(404).json({ error: 'Secret not found' });
+      res.json({ key: secret.key, value: secret.value });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Estimate complexity of a build prompt → returns tier + cost before building
   app.post('/api/code/estimate-complexity', isAuthenticated, async (req: any, res) => {
     const { prompt } = req.body;
@@ -4199,14 +4249,15 @@ RULES:
   app.patch('/api/code/long-build', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { enabled, longBuild, autoBuyPack } = req.body;
+      const { enabled, longBuild, autoBuyPack, hours } = req.body;
       const updates: any = {};
       const enabledVal = typeof longBuild === 'boolean' ? longBuild : enabled;
       if (typeof enabledVal === 'boolean') updates.codeStudioLongBuild = enabledVal;
       if (typeof autoBuyPack === 'number' && [500, 1000, 2500, 5000, 10000].includes(autoBuyPack)) updates.codeStudioAutoBuyPack = autoBuyPack;
+      if (typeof hours === 'number' && [1, 3, 6, 9].includes(hours)) updates.codeStudioLongBuildHours = hours;
       if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields' });
       const [updated] = await db.update(users).set(updates).where(eq(users.id, userId)).returning();
-      res.json({ success: true, longBuild: updated.codeStudioLongBuild, autoBuyPack: updated.codeStudioAutoBuyPack });
+      res.json({ success: true, longBuild: updated.codeStudioLongBuild, autoBuyPack: updated.codeStudioAutoBuyPack, hours: updated.codeStudioLongBuildHours });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -4214,7 +4265,7 @@ RULES:
     try {
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) return res.status(403).json({ error: 'User not found' });
-      res.json({ longBuild: user.codeStudioLongBuild ?? false, autoBuyPack: user.codeStudioAutoBuyPack ?? 1000 });
+      res.json({ longBuild: user.codeStudioLongBuild ?? false, autoBuyPack: user.codeStudioAutoBuyPack ?? 1000, hours: user.codeStudioLongBuildHours ?? 1 });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
