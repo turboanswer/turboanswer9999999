@@ -242,7 +242,7 @@ export async function generateAIResponse(
 
     const isFree = subscriptionTier === 'free';
 
-    if (isCurrentEventsQuery(userMessage) && geminiApiKey && !isFree) {
+    if (isCurrentEventsQuery(userMessage) && geminiApiKey) {
       try {
         console.log(`[AI] Current events query detected, running grounded search...`);
         const searchResult = await searchCurrentEvents(userMessage, geminiApiKey);
@@ -331,10 +331,10 @@ export async function generateAIResponse(
       console.log(`[AI] Pro → Gemini Flash Lite`);
       return await callGemini(fullPrompt, 'gemini-3.1-flash-lite-preview', 4000, 0.3, geminiApiKey);
     } else {
-      // Free tier → Gemini 2.0 Flash Lite (basic model, no grounded search, no memory, very short)
+      // Free tier → Gemini 2.0 Flash Lite (basic model, no memory, very short, but factually correct)
       if (!geminiApiKey) return "API key not configured.";
-      _lastResponseUsedGroundedSearch = false;
-      const systemPrompt = `You are a basic AI assistant. Give very short answers only. Maximum 1-2 sentences. Do not give detailed explanations, lists, or step-by-step instructions. If the user asks for something complex, give a brief summary and suggest they upgrade to Pro for a detailed answer. Never discuss your own state or feelings.${languageInstruction ? ' ' + languageInstruction : ''}`;
+      const freeSearchContext = additionalContext || "";
+      const systemPrompt = `You are a basic AI assistant. Give very short answers only. Maximum 1-2 sentences. Do not give detailed explanations, lists, or step-by-step instructions. If the user asks for something complex, give a brief summary and suggest they upgrade to Pro for a detailed answer. Never discuss your own state or feelings.${languageInstruction ? ' ' + languageInstruction : ''}${freeSearchContext}`;
       const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}`;
       console.log(`[AI] Free → Gemini 2.0 Flash Lite (basic, no history)`);
       return await callGeminiBasic(fullPrompt, 400, 0.7, geminiApiKey);
