@@ -6292,15 +6292,17 @@ Rules:
 
   const TIER_CONFIG: Record<string, { maxKeys: number; dailyLimit: number; monthlyBudgetCents: number; permissions: string[]; costMultiplier: number }> = {
     free: { maxKeys: 1, dailyLimit: 20, monthlyBudgetCents: 0, permissions: ["construction_advice"], costMultiplier: 1 },
-    pro: { maxKeys: 3, dailyLimit: 200, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule"], costMultiplier: 1 },
-    research: { maxKeys: 5, dailyLimit: 500, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule"], costMultiplier: 0.8 },
-    enterprise: { maxKeys: 10, dailyLimit: 2000, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule"], costMultiplier: 0.5 },
+    pro: { maxKeys: 3, dailyLimit: 200, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule", "construction_estimate", "construction_permits"], costMultiplier: 1 },
+    research: { maxKeys: 5, dailyLimit: 500, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule", "construction_estimate", "construction_permits"], costMultiplier: 0.8 },
+    enterprise: { maxKeys: 10, dailyLimit: 2000, monthlyBudgetCents: 2500, permissions: ["construction_analyze", "construction_advice", "construction_schedule", "construction_estimate", "construction_permits"], costMultiplier: 0.5 },
   };
 
   const ENDPOINT_COSTS_CENTS: Record<string, number> = {
     '/api/v1/construction/analyze': 5,
     '/api/v1/construction/advice': 2,
     '/api/v1/construction/schedule': 8,
+    '/api/v1/construction/estimate': 6,
+    '/api/v1/construction/permits': 3,
   };
 
   async function checkMonthlyBudget(apiKeyRecord: any, res: any): Promise<boolean> {
@@ -6353,8 +6355,13 @@ Rules:
         return res.status(403).json({ error: 'API access requires a Pro, Research, or Enterprise subscription. Free tier has limited text-only advice access.' });
       }
 
-      const { name } = req.body;
+      const { name, keyType } = req.body;
       if (!name?.trim()) return res.status(400).json({ error: 'API key name is required' });
+
+      const requestedKeyType = keyType === 'admin' ? 'admin' : 'public';
+      if (requestedKeyType === 'admin' && user.role !== 'admin') {
+        return res.status(403).json({ error: 'Only administrators can create admin API keys. Admin keys give access to internal cost breakdowns, supplier pricing, and profit margins.' });
+      }
 
       const existingKeys = await db.select().from(apiKeys).where(and(eq(apiKeys.userId, user.id), eq(apiKeys.isActive, true)));
       if (existingKeys.length >= tierCfg.maxKeys) return res.status(400).json({ error: `Your ${userTier} plan allows a maximum of ${tierCfg.maxKeys} active API key${tierCfg.maxKeys > 1 ? 's' : ''}.` });
@@ -6367,6 +6374,7 @@ Rules:
         keyPrefix: prefix,
         name: name.trim(),
         tier: userTier,
+        keyType: requestedKeyType,
         rateLimit: tierCfg.dailyLimit,
         monthlyBudget: tierCfg.monthlyBudgetCents,
         isActive: true,
@@ -6379,10 +6387,13 @@ Rules:
         key: fullKey,
         prefix: newKey.keyPrefix,
         tier: userTier,
+        keyType: requestedKeyType,
         rateLimit: newKey.rateLimit,
         monthlyBudget: `$${(tierCfg.monthlyBudgetCents / 100).toFixed(2)}`,
         permissions: newKey.permissions,
-        message: 'Save this key now — it will not be shown again.',
+        message: requestedKeyType === 'admin'
+          ? 'Admin key created. This key returns internal pricing, supplier costs, and profit margins. Keep it secure — it will not be shown again.'
+          : 'Save this key now — it will not be shown again.',
       });
     } catch (e: any) { console.error('[API Keys] Create error:', e.message); res.status(500).json({ error: 'Failed to create API key' }); }
   });
@@ -6397,6 +6408,7 @@ Rules:
         name: apiKeys.name,
         keyPrefix: apiKeys.keyPrefix,
         tier: apiKeys.tier,
+        keyType: apiKeys.keyType,
         rateLimit: apiKeys.rateLimit,
         dailyUsage: apiKeys.dailyUsage,
         totalUsage: apiKeys.totalUsage,
@@ -6748,19 +6760,274 @@ Format this as a clear, actionable schedule that a construction manager could fo
     }
   });
 
+  app.post('/api/v1/construction/estimate', constructionApiLimiter, async (req: any, res) => {
+    const startTime = Date.now();
+    let apiKeyRecord: any = null;
+    try {
+      apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+      if (!(await checkMonthlyBudget(apiKeyRecord, res))) return;
+
+      const perms = apiKeyRecord.permissions as string[];
+      if (!perms.includes('construction_estimate')) {
+        return res.status(403).json({ error: 'Your API key tier does not include job estimates. Upgrade to Pro or higher.' });
+      }
+
+      const { jobType, squareFootage, rooms, floors, location, description, image, materials } = req.body;
+      if (!jobType?.trim()) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/estimate', 'POST', 400, 0, Date.now() - startTime, 0, 'estimate');
+        return res.status(400).json({ error: 'jobType is required. Examples: "kitchen_remodel", "roof_replacement", "bathroom_renovation", "deck_build", "foundation_repair"' });
+      }
+
+      const isAdmin = apiKeyRecord.keyType === 'admin';
+
+      let imageAnalysis = '';
+      if (image) {
+        try {
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+          const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+          const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
+          const imgResult = await model.generateContent([
+            'Analyze this construction site/property photo. Describe: dimensions you can estimate, materials visible, current condition, and factors that affect cost estimation.',
+            { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+          ]);
+          imageAnalysis = `\n\nSite Photo Analysis: ${imgResult.response.text()}`;
+        } catch (e) { imageAnalysis = ''; }
+      }
+
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+      const adminSection = isAdmin ? `
+
+INTERNAL EMPLOYEE DATA (include these sections):
+- **Supplier Pricing**: Wholesale material costs from major suppliers (Home Depot Pro, ABC Supply, Ferguson)
+- **Profit Margins**: Recommended markup percentages (materials: 15-25%, labor: 30-50%)
+- **Internal Cost Breakdown**: Separate wholesale cost vs customer price for each line item
+- **Subcontractor Rates**: Typical sub rates by trade in the region
+- **Overhead Allocation**: Insurance, permits, waste disposal, equipment rental percentages
+- **Risk Buffer**: Recommended contingency percentage based on job complexity` : `
+
+IMPORTANT: This is a PUBLIC/consumer-facing estimate. Do NOT include:
+- Wholesale or supplier pricing
+- Profit margins or markup percentages
+- Internal cost breakdowns (wholesale vs retail)
+- Subcontractor rates or overhead allocation
+Only show final consumer-facing prices.`;
+
+      const prompt = `You are a professional construction estimator. Generate a detailed job estimate.
+
+Job Type: ${jobType}
+${squareFootage ? `Square Footage: ${squareFootage} sq ft` : ''}
+${rooms ? `Rooms/Areas: ${rooms}` : ''}
+${floors ? `Floors/Stories: ${floors}` : ''}
+${location ? `Location: ${location}` : ''}
+${description ? `Description: ${description}` : ''}
+${materials ? `Preferred Materials: ${materials}` : ''}${imageAnalysis}
+
+Generate a comprehensive estimate including:
+
+**MATERIALS LIST**:
+- Every material needed with exact quantities calculated from the dimensions
+- Unit costs (per board, per sq ft, per bag, etc.)
+- Material subtotal
+
+**LABOR ESTIMATE**:
+- Hours by trade (carpenter, electrician, plumber, etc.)
+- Hourly rates by trade
+- Labor subtotal
+
+**COST SUMMARY**:
+- Materials total
+- Labor total  
+- Permits & fees (estimated)
+- Waste/disposal
+- Equipment rental if needed
+- **Total Estimate Range** (low - high)
+- Timeline estimate
+${adminSection}
+
+Be specific with quantities — calculate board feet of lumber, sheets of drywall, gallons of paint, etc. based on the square footage and scope provided. Use current 2024-2025 market pricing.`;
+
+      const result = await generateAIResponse(prompt, [], 'research', 'gemini-2.0-flash');
+      const estimate = typeof result === 'object' ? result.text : result;
+
+      const responseTime = Date.now() - startTime;
+      const tierMultiplier = TIER_CONFIG[apiKeyRecord.tier]?.costMultiplier || 1;
+      const costCents = Math.round((ENDPOINT_COSTS_CENTS['/api/v1/construction/estimate'] || 6) * tierMultiplier);
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/estimate', 'POST', 200, costCents, responseTime, 0, 'estimate');
+
+      const updatedSpend = (apiKeyRecord.monthlySpend || 0) + costCents;
+      res.json({
+        success: true,
+        estimate: {
+          content: estimate,
+          jobType,
+          squareFootage: squareFootage || null,
+          rooms: rooms || null,
+          floors: floors || null,
+          location: location || null,
+          hasImageContext: !!image,
+          keyType: isAdmin ? 'admin' : 'public',
+          includesInternalData: isAdmin,
+        },
+        meta: {
+          model: 'gemini-2.0-flash',
+          responseTimeMs: responseTime,
+          timestamp: new Date().toISOString(),
+        },
+        usage: {
+          dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
+          dailyLimit: apiKeyRecord.rateLimit,
+          costCents,
+          monthlySpent: `$${(updatedSpend / 100).toFixed(2)}`,
+          monthlyBudget: `$${((apiKeyRecord.monthlyBudget || 2500) / 100).toFixed(2)}`,
+          monthlyRemaining: `$${(Math.max(0, (apiKeyRecord.monthlyBudget || 2500) - updatedSpend) / 100).toFixed(2)}`,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Construction API] Estimate error:', e.message);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/estimate', 'POST', 500, 0, Date.now() - startTime, 0, 'estimate');
+      res.status(500).json({ error: 'Failed to generate estimate.', details: e.message });
+    }
+  });
+
+  app.post('/api/v1/construction/permits', constructionApiLimiter, async (req: any, res) => {
+    const startTime = Date.now();
+    let apiKeyRecord: any = null;
+    try {
+      apiKeyRecord = await validateApiKey(req, res);
+      if (!apiKeyRecord) return;
+      if (!(await checkMonthlyBudget(apiKeyRecord, res))) return;
+
+      const perms = apiKeyRecord.permissions as string[];
+      if (!perms.includes('construction_permits')) {
+        return res.status(403).json({ error: 'Your API key tier does not include permit advice. Upgrade to Pro or higher.' });
+      }
+
+      const { jobType, location, scope, propertyType } = req.body;
+      if (!jobType?.trim() || !location?.trim()) {
+        await logApiUsage(apiKeyRecord.id, '/api/v1/construction/permits', 'POST', 400, 0, Date.now() - startTime, 0, 'permits');
+        return res.status(400).json({ error: 'Both jobType and location are required. Location should include city/county and state (e.g., "Austin, TX" or "Los Angeles County, CA").' });
+      }
+
+      const isAdmin = apiKeyRecord.keyType === 'admin';
+
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+      const adminSection = isAdmin ? `
+
+INTERNAL EMPLOYEE DATA (include these sections):
+- **Permit Fee Ranges**: Typical fee schedules for this jurisdiction
+- **Processing Times**: Current average wait times and expedite options
+- **Inspector Notes**: Common inspection failure points for this work type
+- **Compliance Risks**: Areas where contractors commonly get fined
+- **Relationship Contacts**: Types of officials/departments to coordinate with
+- **Expedite Strategies**: Legal ways to speed up the permitting process` : `
+
+IMPORTANT: This is a PUBLIC/consumer-facing response. Do NOT include:
+- Internal fee schedules or expedite strategies
+- Inspector relationship advice
+- Compliance risk details meant for contractors
+Keep the guidance helpful for homeowners and general public.`;
+
+      const prompt = `You are a construction permit specialist with expertise in US building codes and local regulations.
+
+Job Type: ${jobType}
+Location: ${location}
+${scope ? `Scope/Details: ${scope}` : ''}
+${propertyType ? `Property Type: ${propertyType}` : 'Property Type: residential'}
+
+Provide comprehensive permit guidance for this specific location:
+
+**PERMITS REQUIRED**:
+- List every permit likely needed (building, electrical, plumbing, mechanical, grading, demo, etc.)
+- Which are definitely required vs. potentially required based on scope
+- Exemptions that might apply (e.g., minor repairs under a threshold)
+
+**LOCAL REQUIREMENTS**:
+- Relevant building codes (IBC/IRC version adopted by this jurisdiction)
+- Specific local amendments or restrictions
+- Setback requirements, height limits, or zoning considerations
+- HOA considerations if applicable
+
+**APPLICATION PROCESS**:
+- Step-by-step permit application process for this jurisdiction
+- Required documents (plans, surveys, engineering reports)
+- Whether licensed contractor is required or owner-builder is allowed
+
+**INSPECTIONS**:
+- Required inspection stages (foundation, framing, rough-in, final, etc.)
+- What inspectors look for at each stage
+
+**ESTIMATED COSTS & TIMELINE**:
+- Permit fee estimates
+- Typical processing time
+- Total timeline from application to final inspection
+
+**PENALTIES FOR SKIPPING PERMITS**:
+- Fines and consequences
+- Impact on insurance and resale
+${adminSection}
+
+Be specific to the location mentioned. Reference actual local building departments and codes where possible.`;
+
+      const result = await generateAIResponse(prompt, [], 'research', 'gemini-2.0-flash');
+      const permitAdvice = typeof result === 'object' ? result.text : result;
+
+      const responseTime = Date.now() - startTime;
+      const tierMultiplier = TIER_CONFIG[apiKeyRecord.tier]?.costMultiplier || 1;
+      const costCents = Math.round((ENDPOINT_COSTS_CENTS['/api/v1/construction/permits'] || 3) * tierMultiplier);
+      await logApiUsage(apiKeyRecord.id, '/api/v1/construction/permits', 'POST', 200, costCents, responseTime, 0, 'permits');
+
+      const updatedSpend = (apiKeyRecord.monthlySpend || 0) + costCents;
+      res.json({
+        success: true,
+        permits: {
+          content: permitAdvice,
+          jobType,
+          location,
+          propertyType: propertyType || 'residential',
+          keyType: isAdmin ? 'admin' : 'public',
+          includesInternalData: isAdmin,
+        },
+        meta: {
+          model: 'gemini-2.0-flash',
+          responseTimeMs: responseTime,
+          timestamp: new Date().toISOString(),
+        },
+        usage: {
+          dailyRemaining: apiKeyRecord.rateLimit - apiKeyRecord.dailyUsage - 1,
+          dailyLimit: apiKeyRecord.rateLimit,
+          costCents,
+          monthlySpent: `$${(updatedSpend / 100).toFixed(2)}`,
+          monthlyBudget: `$${((apiKeyRecord.monthlyBudget || 2500) / 100).toFixed(2)}`,
+          monthlyRemaining: `$${(Math.max(0, (apiKeyRecord.monthlyBudget || 2500) - updatedSpend) / 100).toFixed(2)}`,
+        },
+      });
+    } catch (e: any) {
+      console.error('[Construction API] Permits error:', e.message);
+      if (apiKeyRecord) await logApiUsage(apiKeyRecord.id, '/api/v1/construction/permits', 'POST', 500, 0, Date.now() - startTime, 0, 'permits');
+      res.status(500).json({ error: 'Failed to generate permit advice.', details: e.message });
+    }
+  });
+
   app.get('/api/v1/construction/health', (req, res) => {
     res.json({
       status: 'operational',
-      version: '1.0.0',
+      version: '1.1.0',
       endpoints: [
         { path: '/api/v1/construction/analyze', method: 'POST', description: 'Analyze construction/repair images' },
         { path: '/api/v1/construction/advice', method: 'POST', description: 'Get construction advice' },
         { path: '/api/v1/construction/schedule', method: 'POST', description: 'Generate repair work schedules' },
+        { path: '/api/v1/construction/estimate', method: 'POST', description: 'Generate material lists & job cost estimates' },
+        { path: '/api/v1/construction/permits', method: 'POST', description: 'Location-based permit requirements & guidance' },
         { path: '/api/v1/construction/health', method: 'GET', description: 'API health check' },
       ],
       authentication: 'API key via Authorization: Bearer <key> or X-Api-Key header',
+      keyTypes: { admin: 'Employee keys with internal pricing/margins', public: 'General public keys with consumer-friendly data' },
       analyzeTypes: ['damage_assessment', 'material_identification', 'repair_estimate', 'safety_inspection', 'progress_tracking', 'general'],
       adviceCategories: ['plumbing', 'electrical', 'roofing', 'foundation', 'framing', 'drywall', 'painting', 'flooring', 'hvac', 'landscaping', 'permits', 'scheduling', 'budgeting', 'general'],
+      estimateJobTypes: ['kitchen_remodel', 'bathroom_renovation', 'roof_replacement', 'deck_build', 'foundation_repair', 'room_addition', 'siding_replacement', 'window_replacement', 'flooring', 'painting_interior', 'painting_exterior', 'fence_build', 'garage_build', 'basement_finish', 'hvac_replacement'],
+      permitPropertyTypes: ['residential', 'commercial', 'multi_family', 'industrial'],
     });
   });
 

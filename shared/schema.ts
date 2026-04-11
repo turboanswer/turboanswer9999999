@@ -467,6 +467,7 @@ export const apiKeys = pgTable("api_keys", {
   keyPrefix: text("key_prefix").notNull(),
   name: text("name").notNull(),
   tier: text("tier").notNull().default("free"),
+  keyType: text("key_type").notNull().default("public"),
   permissions: jsonb("permissions").notNull().default(["construction_analyze"]),
   rateLimit: integer("rate_limit").notNull().default(100),
   dailyUsage: integer("daily_usage").notNull().default(0),
