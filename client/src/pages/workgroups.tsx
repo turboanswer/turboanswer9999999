@@ -64,6 +64,7 @@ export default function WorkgroupsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
+  const [createDept, setCreateDept] = useState("general");
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [joinToken, setJoinToken] = useState("");
   const [codeDigits, setCodeDigits] = useState<string[]>(["", "", "", "", "", ""]);
@@ -157,12 +158,13 @@ export default function WorkgroupsPage() {
   }, [ticketMessages]);
 
   const createMutation = useMutation({
-    mutationFn: async () => apiRequest('POST', '/api/workgroups', { name: createName, description: createDesc }),
+    mutationFn: async () => apiRequest('POST', '/api/workgroups', { name: createName, description: createDesc, department: createDept }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/workgroups'] });
       setShowCreate(false);
       setCreateName("");
       setCreateDesc("");
+      setCreateDept("general");
       toast({ title: "Workgroup created!" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -411,7 +413,24 @@ export default function WorkgroupsPage() {
               <input value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Group name"
                 className="w-full px-4 py-3 rounded-xl bg-black border border-[#333333] text-sm text-white placeholder-[#555555] outline-none focus:border-[#8ab4f8] transition-colors mb-3" />
               <textarea value={createDesc} onChange={e => setCreateDesc(e.target.value)} placeholder="Description (optional)" rows={2}
-                className="w-full px-4 py-3 rounded-xl bg-black border border-[#333333] text-sm text-white placeholder-[#555555] outline-none focus:border-[#8ab4f8] transition-colors resize-none mb-4" />
+                className="w-full px-4 py-3 rounded-xl bg-black border border-[#333333] text-sm text-white placeholder-[#555555] outline-none focus:border-[#8ab4f8] transition-colors resize-none mb-3" />
+              <div className="mb-4">
+                <label className="text-xs text-[#888888] mb-1.5 block">Category / Purpose</label>
+                <select value={createDept} onChange={e => setCreateDept(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black border border-[#333333] text-sm text-white outline-none focus:border-[#8ab4f8] transition-colors appearance-none cursor-pointer">
+                  <option value="general">General</option>
+                  <option value="billing">Billing & Payments</option>
+                  <option value="support">Technical Support</option>
+                  <option value="security">Security</option>
+                  <option value="it">IT & Infrastructure</option>
+                  <option value="hr">Human Resources</option>
+                  <option value="sales">Sales</option>
+                  <option value="engineering">Engineering</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="legal">Legal & Compliance</option>
+                  <option value="operations">Operations</option>
+                </select>
+              </div>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-xl text-sm text-[#888888] hover:bg-white/5 transition-colors">Cancel</button>
                 <button onClick={() => createMutation.mutate()} disabled={!createName.trim() || createMutation.isPending}
@@ -446,7 +465,12 @@ export default function WorkgroupsPage() {
                       {wg.myRole === 'owner' && <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />}
                       {wg.myRole === 'admin' && <Shield className="h-3.5 w-3.5 text-blue-400 shrink-0" />}
                     </div>
-                    {wg.description && <p className="text-sm truncate mt-0.5 text-[#666666]">{wg.description}</p>}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {wg.department && wg.department !== 'general' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[#1a1a2e] text-[#8ab4f8] border border-[#8ab4f8]/20 uppercase tracking-wider">{wg.department}</span>
+                      )}
+                      {wg.description && <p className="text-sm truncate text-[#666666]">{wg.description}</p>}
+                    </div>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-[#444444]" />
                 </button>

@@ -8,7 +8,7 @@ import multer from "multer";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and, desc, or } from "drizzle-orm";
+import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
@@ -946,6 +946,100 @@ function downloadAAB(){
       if (easterEggMatch) {
         const aiMsg = await storage.createMessage({ conversationId, content: easterEggMatch.response, role: "assistant" });
         return res.json({ userMessage, aiMessage: aiMsg });
+      }
+
+      const ticketActionVerbs = /\b(open|create|submit|file|make|start|send|raise|log)\s+(a\s+)?(support\s+)?ticket\b/i;
+      const ticketActionPhrases = /\b(i need|i want|please|can you|could you)\s+(a\s+)?(support\s+ticket|bug\s+report|issue\s+report)\b/i;
+      const ticketExclude = /\b(how\s+(do|can|to|does)|what\s+is|where\s+(do|can)|explain|tell\s+me\s+about|steps\s+to)\b/i;
+      const isTicketRequest = (ticketActionVerbs.test(content) || ticketActionPhrases.test(content)) && !ticketExclude.test(content);
+
+      if (isTicketRequest && sendingUserId) {
+        try {
+          const sender = await storage.getUser(sendingUserId);
+          if (!sender) throw new Error('User not found');
+
+          const subjectText = content
+            .replace(/\b(can you|could you|please|i want to|i need to|i'd like to)\s*/gi, '')
+            .replace(/\b(open|create|submit|file|make|start|send|raise|log)\s+(a\s+)?(support\s+)?(ticket|report)\s*(about|for|regarding|on|:)?\s*/gi, '')
+            .trim() || content;
+
+          const memberships = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.userId, sendingUserId), eq(workgroupMembers.isBlocked, false)));
+
+          if (memberships.length === 0) {
+            const aiMsg = await storage.createMessage({ conversationId, content: "I'd love to create a support ticket for you, but you need to be in a workgroup first. Head to the Workgroups page to create or join one, then you can submit tickets there.", role: "assistant" });
+            return res.json({ userMessage, aiMessage: aiMsg, verified: "unknown" });
+          }
+
+          const classification = await classifyTicket(subjectText);
+          const senderName = `${sender.firstName || ''} ${sender.lastName || ''}`.trim() || sender.email || 'User';
+
+          let targetWgId = memberships[0].workgroupId;
+          if (memberships.length > 1) {
+            const wgIds = memberships.map(m => m.workgroupId);
+            const memberWgs = await db.select().from(workgroups).where(inArray(workgroups.id, wgIds));
+            const deptMatch = memberWgs.find(wg => wg.department === classification.department);
+            if (deptMatch) targetWgId = deptMatch.id;
+          }
+
+          const admins = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, targetWgId), or(eq(workgroupMembers.role, 'owner'), eq(workgroupMembers.role, 'admin'))));
+          const assignedAdmin = admins[0] || null;
+
+          const [ticket] = await db.insert(supportTickets).values({
+            workgroupId: targetWgId,
+            requesterId: sendingUserId,
+            requesterName: senderName,
+            assignedTo: assignedAdmin?.userId || null,
+            assignedName: assignedAdmin?.userName || null,
+            subject: subjectText.slice(0, 200),
+            context: content,
+            priority: classification.priority,
+            category: classification.category,
+            department: classification.department,
+          }).returning();
+
+          await db.insert(supportTicketMessages).values({
+            ticketId: ticket.id,
+            senderId: sendingUserId,
+            senderName,
+            content: content,
+          });
+
+          const [targetWg] = await db.select().from(workgroups).where(eq(workgroups.id, targetWgId));
+          const wgName = targetWg?.name || 'your workgroup';
+          const deptLabel = classification.department.charAt(0).toUpperCase() + classification.department.slice(1);
+          const catLabel = classification.category.replace(/_/g, ' ');
+
+          await db.insert(workgroupMessages).values({
+            workgroupId: targetWgId,
+            senderId: sendingUserId,
+            senderName: 'System',
+            senderEmail: sender.email,
+            content: `🎫 New Support Ticket #${ticket.id}\n\nFrom: ${senderName}\nSubject: ${subjectText.slice(0, 100)}\nCategory: ${catLabel}\nDepartment: ${deptLabel}\nPriority: ${ticket.priority}\n\nCreated via AI Chat. Review in the Support tab.`,
+            messageType: 'group',
+          });
+
+          for (const admin of admins) {
+            await db.insert(ticketNotifications).values({
+              userId: admin.userId,
+              ticketId: ticket.id,
+              workgroupId: targetWgId,
+              title: `New Ticket: ${subjectText.slice(0, 60)}`,
+              body: `From ${senderName} · ${deptLabel} · ${catLabel} (via AI Chat)`,
+              type: 'new_ticket',
+            });
+          }
+
+          const aiMsg = await storage.createMessage({
+            conversationId,
+            content: `I've created support ticket #${ticket.id} for you in **${wgName}**.\n\n**Subject:** ${subjectText.slice(0, 100)}\n**Category:** ${catLabel}\n**Department:** ${deptLabel}\n**Priority:** ${classification.priority}\n\nYou can track it in the Support tab of your workgroup.`,
+            role: "assistant"
+          });
+          return res.json({ userMessage, aiMessage: aiMsg, verified: "unknown" });
+        } catch (ticketError: any) {
+          console.error('[AI Ticket] Error:', ticketError.message);
+          const aiMsg = await storage.createMessage({ conversationId, content: `I tried to create a support ticket but ran into an issue. You can create one manually from the Workgroups page → Support tab.`, role: "assistant" });
+          return res.json({ userMessage, aiMessage: aiMsg, verified: "unknown" });
+        }
       }
 
       const imageNouns = /\b(image|picture|photo|illustration|artwork|drawing|painting|visual|icon|logo|graphic|poster|banner|wallpaper|avatar|portrait|diagram|infographic|meme|thumbnail|cover)\b/i;
@@ -5019,14 +5113,18 @@ Return ONLY valid JSON (no markdown):
       const user = await getFullUser(req);
       if (!user) return res.status(401).json({ error: 'User not found' });
       if (!isResearchOrEnterprise(user)) return res.status(403).json({ error: 'Research or Enterprise subscription required' });
-      const { name, description } = req.body;
+      const { name, description, department } = req.body;
       if (!name?.trim()) return res.status(400).json({ error: 'Workgroup name is required' });
+
+      const validDepts = ['general', 'billing', 'support', 'security', 'it', 'hr', 'sales', 'engineering', 'marketing', 'legal', 'operations'];
+      const dept = validDepts.includes(department) ? department : 'general';
 
       const [wg] = await db.insert(workgroups).values({
         name: name.trim(),
         description: description?.trim() || '',
         ownerId: user.id,
         ownerEmail: user.email,
+        department: dept,
       }).returning();
 
       await db.insert(workgroupMembers).values({
@@ -5670,7 +5768,7 @@ Rules:
       const role = await getWorkgroupRole(wgId, userId);
       if (role !== 'owner' && role !== 'admin') return res.status(403).json({ error: 'Admin only' });
       const { department } = req.body;
-      const validDepts = ['general', 'billing', 'engineering', 'support', 'hr', 'sales', 'legal'];
+      const validDepts = ['general', 'billing', 'engineering', 'support', 'hr', 'sales', 'legal', 'security', 'it', 'marketing', 'operations'];
       if (!validDepts.includes(department)) return res.status(400).json({ error: 'Invalid department' });
       const [updated] = await db.update(workgroups).set({ department }).where(eq(workgroups.id, wgId)).returning();
       res.json(updated);
