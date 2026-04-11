@@ -9,7 +9,7 @@ import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, and, desc, or } from "drizzle-orm";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, users, conversations, messages } from "@shared/schema";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -5164,6 +5164,47 @@ Return ONLY valid JSON (no markdown):
     } catch (e: any) { console.error('[Workgroup] Share Q&A error:', e.message); res.status(500).json({ error: 'Failed to share Q&A' }); }
   });
 
+  async function classifyTicket(subject: string, context?: string): Promise<{ category: string; department: string; priority: string }> {
+    const departments = ['billing', 'engineering', 'support', 'hr', 'sales', 'legal', 'general'];
+    const categories = ['billing', 'refund', 'payment', 'bug', 'feature_request', 'account', 'access', 'performance', 'security', 'general'];
+    try {
+      const { generateAIResponse } = await import('./services/multi-ai.js');
+      const prompt = `Classify this support ticket. Return ONLY a JSON object, no markdown.
+
+Subject: ${subject}
+${context ? `Context: ${context.slice(0, 500)}` : ''}
+
+Return exactly: {"category":"<one of: ${categories.join(', ')}>","department":"<one of: ${departments.join(', ')}>","priority":"<low|normal|high|urgent>"}
+
+Rules:
+- Anything about cost, billing, charges, subscription, payment, refund, invoice → department: "billing", category: "billing" or "refund" or "payment"
+- Bug reports, errors, crashes → department: "engineering", category: "bug"
+- Feature requests → department: "engineering", category: "feature_request"
+- Account access, login, permissions → department: "support", category: "account" or "access"
+- Security concerns → department: "engineering", category: "security", priority: "high"
+- If unclear, use department: "general", category: "general"`;
+
+      const result = await generateAIResponse(prompt, [], 'gpt-4o-mini');
+      const cleaned = result.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      return {
+        category: categories.includes(parsed.category) ? parsed.category : 'general',
+        department: departments.includes(parsed.department) ? parsed.department : 'general',
+        priority: ['low', 'normal', 'high', 'urgent'].includes(parsed.priority) ? parsed.priority : 'normal',
+      };
+    } catch (e) {
+      console.error('[AI Classify] Failed:', e);
+      const text = `${subject} ${context || ''}`.toLowerCase();
+      const isBilling = /bill|cost|charge|payment|refund|invoice|subscription|price|fee/.test(text);
+      const isBug = /bug|error|crash|broken|not working|fail/.test(text);
+      return {
+        category: isBilling ? 'billing' : isBug ? 'bug' : 'general',
+        department: isBilling ? 'billing' : isBug ? 'engineering' : 'general',
+        priority: /urgent|asap|critical|emergency/.test(text) ? 'high' : 'normal',
+      };
+    }
+  }
+
   app.post('/api/workgroups/:id/support-tickets', isAuthenticated, async (req: any, res) => {
     try {
       const user = await getFullUser(req);
@@ -5179,18 +5220,32 @@ Return ONLY valid JSON (no markdown):
 
       const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
 
-      const admins = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, wgId), or(eq(workgroupMembers.role, 'owner'), eq(workgroupMembers.role, 'admin')))).limit(1);
+      const classification = await classifyTicket(subject.trim(), context?.trim());
+
+      const allWorkgroups = await db.select().from(workgroups).where(eq(workgroups.ownerId, (await db.select().from(workgroups).where(eq(workgroups.id, wgId)))[0]?.ownerId || ''));
+      let targetWgId = wgId;
+      const deptMatch = allWorkgroups.find(wg => wg.department === classification.department && wg.id !== wgId);
+      if (deptMatch) {
+        const isMemberOfTarget = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, deptMatch.id), eq(workgroupMembers.userId, user.id))).limit(1);
+        if (isMemberOfTarget[0]) {
+          targetWgId = deptMatch.id;
+        }
+      }
+
+      const admins = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, targetWgId), or(eq(workgroupMembers.role, 'owner'), eq(workgroupMembers.role, 'admin'))));
       const assignedAdmin = admins[0] || null;
 
       const [ticket] = await db.insert(supportTickets).values({
-        workgroupId: wgId,
+        workgroupId: targetWgId,
         requesterId: user.id,
         requesterName: senderName,
         assignedTo: assignedAdmin?.userId || null,
         assignedName: assignedAdmin?.userName || null,
         subject: subject.trim(),
         context: context?.trim() || null,
-        priority: priority || 'normal',
+        priority: priority || classification.priority,
+        category: classification.category,
+        department: classification.department,
       }).returning();
 
       await db.insert(supportTicketMessages).values({
@@ -5200,16 +5255,31 @@ Return ONLY valid JSON (no markdown):
         content: context?.trim() || subject.trim(),
       });
 
+      const deptLabel = classification.department.charAt(0).toUpperCase() + classification.department.slice(1);
+      const catLabel = classification.category.replace(/_/g, ' ');
+      const routedNote = targetWgId !== wgId ? `\n📌 Auto-routed to ${deptLabel} department` : '';
+
       await db.insert(workgroupMessages).values({
-        workgroupId: wgId,
+        workgroupId: targetWgId,
         senderId: user.id,
         senderName: 'System',
         senderEmail: user.email,
-        content: `🎫 New Support Ticket #${ticket.id}\n\nFrom: ${senderName}\nSubject: ${subject.trim()}\nPriority: ${priority || 'normal'}\n\nReview this ticket in the Support tab.`,
+        content: `🎫 New Support Ticket #${ticket.id}\n\nFrom: ${senderName}\nSubject: ${subject.trim()}\nCategory: ${catLabel}\nDepartment: ${deptLabel}\nPriority: ${ticket.priority}${routedNote}\n\nReview this ticket in the Support tab.`,
         messageType: 'group',
       });
 
-      res.json({ success: true, ticket });
+      for (const admin of admins) {
+        await db.insert(ticketNotifications).values({
+          userId: admin.userId,
+          ticketId: ticket.id,
+          workgroupId: targetWgId,
+          title: `New Ticket: ${subject.trim().slice(0, 60)}`,
+          body: `From ${senderName} · ${deptLabel} · ${catLabel}`,
+          type: 'new_ticket',
+        });
+      }
+
+      res.json({ success: true, ticket, routed: targetWgId !== wgId, targetWorkgroup: targetWgId });
     } catch (e: any) { console.error('[Support] Create ticket error:', e.message); res.status(500).json({ error: 'Failed to create ticket' }); }
   });
 
@@ -5271,6 +5341,18 @@ Return ONLY valid JSON (no markdown):
         content: content.trim(),
       }).returning();
 
+      const notifyUserId = isAdmin ? ticket.requesterId : (ticket.assignedTo || null);
+      if (notifyUserId && notifyUserId !== user.id) {
+        await db.insert(ticketNotifications).values({
+          userId: notifyUserId,
+          ticketId: ticket.id,
+          workgroupId: ticket.workgroupId,
+          title: `Reply on Ticket #${ticket.id}`,
+          body: `${senderName}: ${content.trim().slice(0, 80)}`,
+          type: 'ticket_reply',
+        });
+      }
+
       res.json(msg);
     } catch (e: any) { res.status(500).json({ error: 'Failed to send message' }); }
   });
@@ -5289,6 +5371,51 @@ Return ONLY valid JSON (no markdown):
       const [updated] = await db.update(supportTickets).set({ status: 'resolved', resolvedAt: new Date() }).where(eq(supportTickets.id, ticketId)).returning();
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: 'Failed to resolve ticket' }); }
+  });
+
+  app.patch('/api/workgroups/:id/department', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const wgId = parseInt(req.params.id);
+      const role = await getWorkgroupRole(wgId, userId);
+      if (role !== 'owner' && role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+      const { department } = req.body;
+      const validDepts = ['general', 'billing', 'engineering', 'support', 'hr', 'sales', 'legal'];
+      if (!validDepts.includes(department)) return res.status(400).json({ error: 'Invalid department' });
+      const [updated] = await db.update(workgroups).set({ department }).where(eq(workgroups.id, wgId)).returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to update department' }); }
+  });
+
+  app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const notifs = await db.select().from(ticketNotifications)
+        .where(and(eq(ticketNotifications.userId, userId), eq(ticketNotifications.dismissed, false)))
+        .orderBy(desc(ticketNotifications.createdAt));
+      res.json(notifs);
+    } catch (e: any) { res.status(500).json({ error: 'Failed to get notifications' }); }
+  });
+
+  app.post('/api/notifications/:id/dismiss', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const notifId = parseInt(req.params.id);
+      await db.update(ticketNotifications)
+        .set({ dismissed: true })
+        .where(and(eq(ticketNotifications.id, notifId), eq(ticketNotifications.userId, userId)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to dismiss' }); }
+  });
+
+  app.post('/api/notifications/dismiss-all', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      await db.update(ticketNotifications)
+        .set({ dismissed: true })
+        .where(and(eq(ticketNotifications.userId, userId), eq(ticketNotifications.dismissed, false)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: 'Failed to dismiss all' }); }
   });
 
   app.post('/api/workgroups/:id/leave', isAuthenticated, async (req: any, res) => {

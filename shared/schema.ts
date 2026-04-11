@@ -243,6 +243,7 @@ export const workgroups = pgTable("workgroups", {
   ownerId: text("owner_id").notNull(),
   ownerEmail: text("owner_email"),
   requireApproval: boolean("require_approval").default(false).notNull(),
+  department: text("department").default("general"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -330,6 +331,8 @@ export const supportTickets = pgTable("support_tickets", {
   context: text("context"),
   status: text("status").notNull().default("open"),
   priority: text("priority").notNull().default("normal"),
+  category: text("category").default("general"),
+  department: text("department").default("general"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
 });
@@ -342,6 +345,20 @@ export const supportTicketMessages = pgTable("support_ticket_messages", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const ticketNotifications = pgTable("ticket_notifications", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  ticketId: integer("ticket_id").references(() => supportTickets.id).notNull(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  type: text("type").notNull().default("new_ticket"),
+  dismissed: boolean("dismissed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type TicketNotification = typeof ticketNotifications.$inferSelect;
 
 export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({ id: true, createdAt: true, resolvedAt: true });
 export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;

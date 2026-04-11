@@ -11,7 +11,7 @@ import {
   Crown, UserMinus, Ban, Eye, ChevronRight, Search, Bot, Lock,
   Check, X, AlertTriangle, LogOut, Trash2, Copy, RefreshCw,
   MessageCircle, FileText, Sparkles, Loader2, Share2,
-  TicketCheck, CircleDot, CheckCircle2,
+  TicketCheck, CircleDot, CheckCircle2, Building2, Tag,
 } from "lucide-react";
 
 type Tab = "chat" | "members" | "shared" | "support" | "admin" | "approvals" | "dm";
@@ -275,6 +275,15 @@ export default function WorkgroupsPage() {
       toast({ title: "Ticket resolved" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to resolve ticket", variant: "destructive" }),
+  });
+
+  const setDepartmentMutation = useMutation({
+    mutationFn: async (department: string) => apiRequest('PATCH', `/api/workgroups/${activeWgId}/department`, { department }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workgroups'] });
+      toast({ title: "Department updated" });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const [aiSummary, setAiSummary] = useState("");
@@ -771,9 +780,17 @@ export default function WorkgroupsPage() {
                         </button>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold truncate">#{ticket.id} {ticket.subject}</p>
-                          <p className={`text-[10px] ${textSecondary}`}>
-                            {ticket.requesterName} &middot; {ticket.status === 'open' ? 'Open' : 'Resolved'}
-                          </p>
+                          <div className={`flex items-center gap-1.5 text-[10px] ${textSecondary}`}>
+                            <span>{ticket.requesterName}</span>
+                            <span>&middot;</span>
+                            <span>{ticket.status === 'open' ? 'Open' : 'Resolved'}</span>
+                            {ticket.category && ticket.category !== 'general' && (
+                              <>
+                                <span>&middot;</span>
+                                <span className={`font-medium ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{ticket.category.replace(/_/g, ' ')}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                       {ticket.status === 'open' && (
@@ -876,10 +893,27 @@ export default function WorkgroupsPage() {
                             t.status === 'open' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'
                           }`}>{t.status}</span>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                           <p className={`text-xs ${textSecondary}`}>{t.requesterName}</p>
                           <span className={`text-[10px] ${textSecondary}`}>&middot;</span>
                           <p className={`text-[10px] ${textSecondary}`}>{new Date(t.createdAt).toLocaleDateString()}</p>
+                          {t.category && t.category !== 'general' && (
+                            <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isDark ? 'bg-blue-500/15 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                              <Tag className="h-2.5 w-2.5" />{t.category.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                          {t.department && t.department !== 'general' && (
+                            <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${isDark ? 'bg-purple-500/15 text-purple-400' : 'bg-purple-50 text-purple-600'}`}>
+                              <Building2 className="h-2.5 w-2.5" />{t.department}
+                            </span>
+                          )}
+                          {t.priority && t.priority !== 'normal' && (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                              t.priority === 'urgent' ? 'bg-red-500/20 text-red-400' :
+                              t.priority === 'high' ? 'bg-orange-500/20 text-orange-400' :
+                              'bg-gray-500/20 text-gray-400'
+                            }`}>{t.priority}</span>
+                          )}
                         </div>
                       </button>
                     ))}
@@ -1033,6 +1067,27 @@ export default function WorkgroupsPage() {
                     className={`w-11 h-6 rounded-full transition-all relative ${activeWg?.requireApproval ? 'bg-[#4285F4]' : isDark ? 'bg-white/10' : 'bg-gray-300'}`}>
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${activeWg?.requireApproval ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="h-4 w-4 opacity-60" />
+                    <p className="text-sm font-medium">Department</p>
+                  </div>
+                  <p className={`text-xs mb-2 ${textSecondary}`}>Tickets matching this department get auto-routed here</p>
+                  <select
+                    value={activeWg?.department || 'general'}
+                    onChange={e => setDepartmentMutation.mutate(e.target.value)}
+                    className={`w-full px-3 py-2.5 rounded-xl border text-sm ${isDark ? 'bg-black border-[#333] text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                  >
+                    <option value="general">General</option>
+                    <option value="billing">Billing</option>
+                    <option value="engineering">Engineering</option>
+                    <option value="support">Support</option>
+                    <option value="hr">HR</option>
+                    <option value="sales">Sales</option>
+                    <option value="legal">Legal</option>
+                  </select>
                 </div>
 
                 <div className={`rounded-xl p-4 ${isDark ? 'bg-black/30' : 'bg-gray-50'}`}>

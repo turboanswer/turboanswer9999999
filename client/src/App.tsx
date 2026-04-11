@@ -34,6 +34,7 @@ import VideoStudio from "@/pages/video-studio";
 import CodeStudio from "@/pages/code-studio";
 import BetaApply from "@/pages/beta-apply";
 import Workgroups from "@/pages/workgroups";
+import NotificationPopup from "@/components/NotificationPopup";
 import DataDeletion from "@/pages/data-deletion";
 import TermsConditions from "@/pages/terms-conditions";
 import MobileWelcome from "@/pages/mobile-welcome";
@@ -200,6 +201,7 @@ function AppContent() {
           </div>
         </div>
       )}
+      {isAuthenticated && <NotificationPopup />}
       {isAuthenticated ? <AuthenticatedRouter /> : <UnauthenticatedRouter />}
     </>
   );
