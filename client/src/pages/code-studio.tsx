@@ -155,17 +155,17 @@ function renderMessage(content: string) {
 }
 
 const C = {
-  bg: "#0c0c12",
-  sidebar: "#080810",
-  panel: "#0f0f18",
-  border: "rgba(255,255,255,0.07)",
-  borderHover: "rgba(255,255,255,0.13)",
-  text: "#e2e2ff",
-  muted: "#52526a",
-  accent: "#7c3aed",
-  accentLight: "rgba(124,58,237,0.12)",
-  cyan: "#06b6d4",
-  green: "#10b981",
+  bg: "#0d1117",
+  sidebar: "#010409",
+  panel: "#0d1117",
+  border: "rgba(255,255,255,0.06)",
+  borderHover: "rgba(255,255,255,0.12)",
+  text: "#e6edf3",
+  muted: "#7d8590",
+  accent: "#2f81f7",
+  accentLight: "rgba(47,129,247,0.1)",
+  cyan: "#58a6ff",
+  green: "#3fb950",
 };
 
 export default function CodeStudio() {
@@ -536,11 +536,14 @@ export default function CodeStudio() {
     setBuildingMsgId(buildMsgId);
     setMessages(prev => [...prev, { id: buildMsgId, role: "building", content: "", buildPrompt, buildPhase: 0, buildDone: false }]);
 
+    const passCount = longBuildEnabled ? ({ 1: 1, 3: 2, 6: 3, 9: 4 }[longBuildHours] || 1) : 1;
+    const phaseDelay = passCount > 1 ? (longBuildHours * 12000) / LONG_BUILD_PHASES.length : 2500;
+
     let phase = 0;
     const phaseInterval = setInterval(() => {
       phase = Math.min(phase + 1, LONG_BUILD_PHASES.length - 2);
       setMessages(prev => prev.map(m => m.id === buildMsgId ? { ...m, buildPhase: phase } : m));
-    }, 2500);
+    }, phaseDelay);
 
     try {
       const res = await fetch("/api/code/ai-generate", {
@@ -809,7 +812,7 @@ export default function CodeStudio() {
         <div style={{ width: 1, height: 20, background: C.border }} />
 
         <Code2 style={{ width: 16, height: 16, color: C.accent, flexShrink: 0 }} />
-        <span style={{ fontWeight: 700, fontSize: 14, background: "linear-gradient(135deg, #a78bfa, #67e8f9)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: C.text, letterSpacing: "-0.01em" }}>
           Code Studio
         </span>
 
@@ -910,7 +913,7 @@ export default function CodeStudio() {
           </div>
         ) : (
           <button onClick={() => setShowDeployModal(true)} disabled={!hasProject}
-            style={{ display: "flex", alignItems: "center", gap: 5, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", border: "none", borderRadius: 7, padding: "6px 16px", color: "#fff", cursor: hasProject ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 700, opacity: !hasProject ? 0.35 : 1 }}>
+            style={{ display: "flex", alignItems: "center", gap: 5, background: C.accent, border: "none", borderRadius: 7, padding: "6px 16px", color: "#fff", cursor: hasProject ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 700, opacity: !hasProject ? 0.35 : 1 }}>
             <Rocket style={{ width: 12, height: 12 }} /> Deploy
           </button>
         )}
@@ -924,14 +927,14 @@ export default function CodeStudio() {
 
           {/* Agent Header */}
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <Sparkles style={{ width: 14, height: 14, color: "#fff" }} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Turbo Code Agent</div>
-              <div style={{ fontSize: 10, color: C.muted }}>Multi-Model AI Agent</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>AI Agent</div>
+              <div style={{ fontSize: 10, color: C.muted }}>Claude Opus 4 + Gemini</div>
             </div>
-            <div style={{ fontSize: 10, color: "#7c3aed", background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.2)", padding: "2px 7px", borderRadius: 4, fontWeight: 600 }}>AI</div>
+            <div style={{ fontSize: 10, color: C.accent, background: C.accentLight, border: `1px solid rgba(47,129,247,0.2)`, padding: "2px 7px", borderRadius: 4, fontWeight: 600 }}>AI</div>
             {user?.codeStudioAddon && (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <button onClick={() => setShowBuyCredits(true)} style={{ fontSize: 10, color: "#a3e635", background: "rgba(163,230,53,0.08)", border: "1px solid rgba(163,230,53,0.2)", padding: "2px 7px", borderRadius: 4, fontWeight: 600, cursor: "pointer" }}>
@@ -948,16 +951,18 @@ export default function CodeStudio() {
           </div>
 
           {showLongBuildSettings && user?.codeStudioAddon && (
-            <div style={{ borderBottom: `1px solid ${C.border}`, background: "rgba(124,58,237,0.03)" }}>
+            <div style={{ borderBottom: `1px solid ${C.border}`, background: "rgba(47,129,247,0.03)" }}>
               <div style={{ padding: "10px 14px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 7, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 7, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Zap style={{ width: 12, height: 12, color: "#fff" }} />
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, color: C.text, fontSize: 12 }}>Long Build Mode</div>
-                      <div style={{ fontSize: 9, color: C.muted }}>10 AI agents collaborate for {longBuildHours}h to build a production app</div>
+                      <div style={{ fontSize: 9, color: C.muted }}>
+                        {longBuildHours === 1 ? "1 build pass" : longBuildHours === 3 ? "2 refinement passes" : longBuildHours === 6 ? "3 refinement passes" : "4 refinement passes"} with 10 AI agents
+                      </div>
                     </div>
                   </div>
                   <button onClick={() => { const next = !longBuildEnabled; setLongBuildEnabled(next); updateLongBuild({ longBuild: next }); }}
@@ -969,15 +974,19 @@ export default function CodeStudio() {
                 {longBuildEnabled && (
                   <>
                     <div style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Build Duration</div>
+                      <div style={{ fontSize: 10, color: C.muted, fontWeight: 600, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.08em" }}>Build Quality</div>
                       <div style={{ display: "flex", gap: 4 }}>
-                        {[1, 3, 6, 9].map(h => (
+                        {([
+                          { h: 1, label: "Quick", sub: "1 pass" },
+                          { h: 3, label: "Standard", sub: "2 passes" },
+                          { h: 6, label: "Deep", sub: "3 passes" },
+                          { h: 9, label: "Maximum", sub: "4 passes" },
+                        ] as const).map(({ h, label, sub }) => (
                           <button key={h} onClick={() => { setLongBuildHours(h); updateLongBuild({ hours: h }); }}
-                            style={{ flex: 1, padding: "8px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `1px solid ${longBuildHours === h ? "rgba(124,58,237,0.4)" : C.border}`, background: longBuildHours === h ? "rgba(124,58,237,0.12)" : "rgba(255,255,255,0.02)", transition: "all 0.15s" }}>
-                            <div style={{ fontSize: 14, fontWeight: 800, color: longBuildHours === h ? "#a78bfa" : C.text }}>{h}h</div>
-                            <div style={{ fontSize: 8, color: C.muted, marginTop: 1 }}>
-                              {h === 1 ? "Quick" : h === 3 ? "Standard" : h === 6 ? "Deep" : "Maximum"}
-                            </div>
+                            style={{ flex: 1, padding: "8px 4px", borderRadius: 8, cursor: "pointer", textAlign: "center", border: `1px solid ${longBuildHours === h ? "rgba(47,129,247,0.4)" : C.border}`, background: longBuildHours === h ? "rgba(47,129,247,0.12)" : "rgba(255,255,255,0.02)", transition: "all 0.15s" }}>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: longBuildHours === h ? C.accent : C.text }}>{h}h</div>
+                            <div style={{ fontSize: 8, color: longBuildHours === h ? C.cyan : C.muted, marginTop: 1 }}>{label}</div>
+                            <div style={{ fontSize: 7, color: C.muted, marginTop: 1 }}>{sub}</div>
                           </button>
                         ))}
                       </div>
@@ -995,7 +1004,7 @@ export default function CodeStudio() {
                       </div>
                     </div>
 
-                    <div style={{ background: "rgba(124,58,237,0.06)", borderRadius: 8, padding: "7px 10px", border: "1px solid rgba(124,58,237,0.12)" }}>
+                    <div style={{ background: "rgba(47,129,247,0.04)", borderRadius: 8, padding: "7px 10px", border: `1px solid rgba(47,129,247,0.12)` }}>
                       <div style={{ fontSize: 9, color: C.muted, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>10 AI Agents</div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 3 }}>
                         {AI_AGENTS.map((agent, i) => (
@@ -1116,13 +1125,13 @@ export default function CodeStudio() {
                 const lbPhase = LONG_BUILD_PHASES[Math.min(phase, LONG_BUILD_PHASES.length - 1)];
                 const activeAgents = lbPhase?.agents || [];
                 return (
-                  <div key={msg.id} style={{ background: "rgba(124,58,237,0.07)", border: `1px solid rgba(124,58,237,${done ? "0.15" : "0.25"})`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div key={msg.id} style={{ background: C.accentLight, border: `1px solid rgba(47,129,247,${done ? "0.12" : "0.2"})`, borderRadius: 14, padding: "14px 16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 10, background: done ? "rgba(16,185,129,0.15)" : "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 10, background: done ? "rgba(63,185,80,0.15)" : C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {done ? <Check style={{ width: 16, height: 16, color: C.green }} /> : <Wand2 style={{ width: 15, height: 15, color: "#fff" }} />}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : "#a78bfa", marginBottom: 2 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : C.cyan, marginBottom: 2 }}>
                           {done ? "All 10 Agents Complete!" : "10 AI Agents Building..."}
                         </div>
                         <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.buildPrompt}</div>
@@ -1148,7 +1157,7 @@ export default function CodeStudio() {
 
                     {/* Phase label + progress */}
                     <div style={{ marginBottom: done ? 10 : 0 }}>
-                      <div style={{ fontSize: 10, color: done ? C.green : "#a78bfa", marginBottom: 4, fontWeight: 500 }}>
+                      <div style={{ fontSize: 10, color: done ? C.green : C.cyan, marginBottom: 4, fontWeight: 500 }}>
                         {done ? "All agents completed successfully" : lbPhase?.label || BUILD_PHASES[Math.min(phase, BUILD_PHASES.length - 1)]}
                       </div>
                       <div style={{ display: "flex", gap: 2 }}>
@@ -1193,10 +1202,10 @@ export default function CodeStudio() {
               const isUser = msg.role === "user";
               return (
                 <div key={msg.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", flexDirection: isUser ? "row-reverse" : "row" }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 9, background: isUser ? "rgba(124,58,237,0.25)" : "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                    {isUser ? <User style={{ width: 13, height: 13, color: "#a78bfa" }} /> : <Bot style={{ width: 13, height: 13, color: "#fff" }} />}
+                  <div style={{ width: 28, height: 28, borderRadius: 9, background: isUser ? "rgba(47,129,247,0.2)" : C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                    {isUser ? <User style={{ width: 13, height: 13, color: C.cyan }} /> : <Bot style={{ width: 13, height: 13, color: "#fff" }} />}
                   </div>
-                  <div style={{ maxWidth: "82%", background: isUser ? "rgba(124,58,237,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${isUser ? "rgba(124,58,237,0.2)" : C.border}`, borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px", padding: "10px 13px", fontSize: 13, color: C.text, lineHeight: 1.65 }}>
+                  <div style={{ maxWidth: "82%", background: isUser ? "rgba(47,129,247,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${isUser ? "rgba(47,129,247,0.15)" : C.border}`, borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px", padding: "10px 13px", fontSize: 13, color: C.text, lineHeight: 1.65 }}>
                     {renderMessage(msg.content)}
                   </div>
                 </div>
@@ -1204,7 +1213,7 @@ export default function CodeStudio() {
             })}
             {agentLoading && !buildingMsgId && (
               <div style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
-                <div style={{ width: 28, height: 28, borderRadius: 9, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 9, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Bot style={{ width: 13, height: 13, color: "#fff" }} />
                 </div>
                 <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: "4px 14px 14px 14px", padding: "12px 16px", display: "flex", gap: 5, alignItems: "center" }}>
@@ -1264,7 +1273,7 @@ export default function CodeStudio() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderTop: `1px solid ${C.border}` }}>
                 <span style={{ fontSize: 10, color: C.muted }}>Enter to send · Shift+Enter for new line</span>
                 <button onClick={sendMessage} disabled={!input.trim() || agentLoading || !!buildingMsgId}
-                  style={{ display: "flex", alignItems: "center", gap: 6, background: input.trim() && !agentLoading && !buildingMsgId ? "linear-gradient(135deg, #7c3aed, #06b6d4)" : "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "7px 14px", color: "#fff", cursor: input.trim() && !agentLoading && !buildingMsgId ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600, transition: "all 0.15s" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 6, background: input.trim() && !agentLoading && !buildingMsgId ? C.accent : "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "7px 14px", color: "#fff", cursor: input.trim() && !agentLoading && !buildingMsgId ? "pointer" : "not-allowed", fontSize: 12, fontWeight: 600, transition: "all 0.15s" }}>
                   {agentLoading || buildingMsgId
                     ? <><Loader2 style={{ width: 13, height: 13, animation: "spin 1s linear infinite" }} /> Working...</>
                     : <><Zap style={{ width: 13, height: 13 }} /> Build</>}
@@ -1282,7 +1291,7 @@ export default function CodeStudio() {
               <div style={{ height: 38, flexShrink: 0, display: "flex", alignItems: "center", borderBottom: `1px solid ${C.border}`, background: C.panel, overflowX: "auto" }}>
                 {files.map(file => (
                   <button key={file.name} onClick={() => setActiveFile(file.name)}
-                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 16px", height: "100%", background: activeFile === file.name ? C.bg : "transparent", border: "none", borderRight: `1px solid ${C.border}`, cursor: "pointer", color: activeFile === file.name ? "#c4b5fd" : C.muted, fontSize: 12, whiteSpace: "nowrap", borderBottom: activeFile === file.name ? `2px solid ${C.accent}` : "2px solid transparent", transition: "all 0.15s" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 16px", height: "100%", background: activeFile === file.name ? C.bg : "transparent", border: "none", borderRight: `1px solid ${C.border}`, cursor: "pointer", color: activeFile === file.name ? C.text : C.muted, fontSize: 12, whiteSpace: "nowrap", borderBottom: activeFile === file.name ? `2px solid ${C.accent}` : "2px solid transparent", transition: "all 0.15s" }}>
                     <FileCode style={{ width: 11, height: 11, opacity: 0.7 }} />
                     {file.name}
                   </button>
@@ -1320,7 +1329,7 @@ export default function CodeStudio() {
           ) : (
             /* Welcome / Empty State */
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 48, textAlign: "center" }}>
-              <div style={{ width: 72, height: 72, borderRadius: 20, background: "linear-gradient(135deg, #7c3aed22, #06b6d422)", border: "1px solid rgba(124,58,237,0.2)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
+              <div style={{ width: 72, height: 72, borderRadius: 20, background: C.accentLight, border: `1px solid rgba(47,129,247,0.2)`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 24 }}>
                 <Wand2 style={{ width: 34, height: 34, color: C.accent }} />
               </div>
               <h2 style={{ fontSize: 26, fontWeight: 800, color: C.text, marginBottom: 10, letterSpacing: "-0.02em" }}>Tell the Agent what to build</h2>
@@ -1331,7 +1340,7 @@ export default function CodeStudio() {
                 {EXAMPLE_PROMPTS.map(ex => (
                   <button key={ex} onClick={() => { setInput(ex); textareaRef.current?.focus(); }}
                     style={{ padding: "10px 14px", background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 10, color: C.muted, fontSize: 12, cursor: "pointer", textAlign: "left", lineHeight: 1.4, transition: "all 0.15s" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(124,58,237,0.4)"; (e.currentTarget as HTMLButtonElement).style.color = C.text; }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(47,129,247,0.3)"; (e.currentTarget as HTMLButtonElement).style.color = C.text; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.border; (e.currentTarget as HTMLButtonElement).style.color = C.muted; }}>
                     {ex}
                   </button>
@@ -1350,7 +1359,7 @@ export default function CodeStudio() {
               { id: "output" as const, icon: <Terminal style={{ width: 12, height: 12 }} />, label: "Terminal" },
             ].map(p => (
               <button key={p.id} onClick={() => setRightPanel(p.id)}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 12px", height: "100%", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 500, color: rightPanel === p.id ? "#c4b5fd" : C.muted, borderBottom: rightPanel === p.id ? `2px solid ${C.accent}` : "2px solid transparent", transition: "all 0.15s" }}>
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 12px", height: "100%", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 500, color: rightPanel === p.id ? C.text : C.muted, borderBottom: rightPanel === p.id ? `2px solid ${C.accent}` : "2px solid transparent", transition: "all 0.15s" }}>
                 {p.icon} {p.label}
               </button>
             ))}
@@ -1443,7 +1452,7 @@ export default function CodeStudio() {
               </div>
             )}
             <button onClick={deployProject} disabled={isDeploying}
-              style={{ width: "100%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", border: "none", borderRadius: 10, padding: "13px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: isDeploying ? 0.7 : 1 }}>
+              style={{ width: "100%", background: C.accent, border: "none", borderRadius: 10, padding: "13px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: isDeploying ? 0.7 : 1 }}>
               {isDeploying ? "Deploying..." : deployUrl ? "Redeploy" : "Deploy to Web"}
             </button>
           </div>
@@ -1502,7 +1511,7 @@ export default function CodeStudio() {
                     Cancel
                   </button>
                   <button onClick={confirmBuild}
-                    style={{ padding: "13px", borderRadius: 10, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", border: "none", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
+                    style={{ padding: "13px", borderRadius: 10, background: C.accent, border: "none", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>
                     Build It — {complexityEstimate.display}
                   </button>
                 </div>
@@ -1517,7 +1526,7 @@ export default function CodeStudio() {
           <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 20, width: "100%", maxWidth: 480, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.7)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #7c3aed, #06b6d4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: C.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Zap style={{ width: 18, height: 18, color: "#fff" }} />
                 </div>
                 <div>
@@ -1562,8 +1571,8 @@ export default function CodeStudio() {
                   <button key={pack.cents}
                     onClick={() => setSelectedPack(pack.cents)}
                     style={{
-                      background: selectedPack === pack.cents ? "rgba(124,58,237,0.15)" : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${selectedPack === pack.cents ? "rgba(124,58,237,0.5)" : C.border}`,
+                      background: selectedPack === pack.cents ? C.accentLight : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${selectedPack === pack.cents ? "rgba(47,129,247,0.4)" : C.border}`,
                       borderRadius: 10, padding: "12px 10px", cursor: "pointer", textAlign: "center" as const, transition: "all 0.15s",
                     }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>${pack.price}</div>
@@ -1577,7 +1586,7 @@ export default function CodeStudio() {
             <button
               onClick={() => buyCredits(selectedPack)}
               disabled={buyingCredits}
-              style={{ width: "100%", background: "linear-gradient(135deg, #7c3aed, #06b6d4)", border: "none", borderRadius: 10, padding: "14px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: buyingCredits ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              style={{ width: "100%", background: C.accent, border: "none", borderRadius: 10, padding: "14px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: buyingCredits ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               {buyingCredits ? <Loader2 style={{ width: 16, height: 16, animation: "spin 1s linear infinite" }} /> : <CreditCard style={{ width: 16, height: 16 }} />}
               {buyingCredits ? "Redirecting to PayPal..." : `Add $${CREDIT_PACKS.find(p => p.cents === selectedPack)?.price ?? "?"} Budget — Pay with PayPal`}
             </button>

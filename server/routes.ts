@@ -3682,11 +3682,18 @@ Reply with exactly one word (micro/simple/standard/complex/advanced):` }] }],
 
   // AI-generate a complete project from a single prompt
   app.post('/api/code/ai-generate', isAuthenticated, async (req: any, res) => {
-    res.setTimeout(180000);
     try {
       const userId = req.user.claims.sub;
       const { prompt, projectId, referenceUrl } = req.body;
       if (!prompt?.trim()) return res.status(400).json({ error: 'Prompt required' });
+
+      const userSettings = await storage.getUser(userId);
+      const longBuildOn = userSettings?.codeStudioLongBuild ?? false;
+      const longBuildHours = userSettings?.codeStudioLongBuildHours ?? 1;
+      const PASSES_BY_HOURS: Record<number, number> = { 1: 1, 3: 2, 6: 3, 9: 4 };
+      const totalPasses = longBuildOn ? (PASSES_BY_HOURS[longBuildHours] || 1) : 1;
+      const timeoutMs = totalPasses > 1 ? 360000 : 180000;
+      res.setTimeout(timeoutMs);
 
       // ── Complexity-based billing ──────────────────────────────────────────────
       // Tiers: micro=10¢, simple=35¢, standard=75¢, complex=150¢, advanced=300¢
@@ -4005,6 +4012,101 @@ RULES:
         return res.status(502).json({ error: 'AI returned incomplete output. Please try again.' });
       }
 
+      // ── LONG BUILD: Iterative improvement passes ──────────────────────────
+      if (totalPasses > 1) {
+        console.log(`[LongBuild] Starting ${totalPasses - 1} refinement passes for ${longBuildHours}h build`);
+
+        async function improvePass(currentHtml: string, passNum: number, total: number): Promise<string> {
+          const improvePrompt = `You are a world-class senior UI/UX engineer reviewing and improving a web application.
+
+Below is the CURRENT HTML of the app. Your job for Pass ${passNum}/${total} is to:
+
+${passNum === 1 ? `- ADD 3-5 missing features that a professional version of this app would have
+- Improve the visual design: better spacing, colors, typography, micro-interactions
+- Add smooth CSS animations and transitions
+- Make forms more polished with better validation UX
+- Add loading states, empty states, and error handling` : ''}
+${passNum === 2 ? `- Polish every detail: hover effects, focus states, transitions
+- Add advanced features: keyboard shortcuts, drag-and-drop, filters, search
+- Improve responsive design for mobile and tablet
+- Add subtle animations: fade-ins, slide transitions, skeleton loaders
+- Make the data layer more robust with better localStorage patterns` : ''}
+${passNum >= 3 ? `- Final professional polish: pixel-perfect alignment, consistent spacing
+- Add accessibility: ARIA labels, keyboard navigation, focus indicators
+- Performance optimization: lazy rendering, debounced inputs
+- Add final touches: tooltips, confirmation dialogs, undo functionality
+- Ensure every feature works perfectly end-to-end` : ''}
+
+CRITICAL RULES:
+- Output ONLY the complete improved HTML file, starting with <!DOCTYPE html>
+- Keep ALL existing features working — do NOT remove anything
+- Make meaningful improvements, not just cosmetic changes
+- The app must be self-contained in a single HTML file
+- No markdown fences, no explanation — just the HTML
+
+CURRENT APP HTML:
+${currentHtml}`;
+
+          if (anthropicKey) {
+            try {
+              const r = await fetch(`${anthropicBase}/v1/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+                body: JSON.stringify({
+                  model: 'claude-opus-4-20250514',
+                  max_tokens: 12000,
+                  messages: [{ role: 'user', content: improvePrompt }],
+                }),
+                signal: AbortSignal.timeout(120000),
+              });
+              if (r.ok) {
+                const d: any = await r.json();
+                const improved = d.content?.[0]?.text || '';
+                const cleaned = improved.replace(/^```(?:html)?\s*/im, '').replace(/\s*```\s*$/im, '').trim();
+                const idx = cleaned.indexOf('<!DOCTYPE html>');
+                if (idx >= 0 && cleaned.length > currentHtml.length * 0.5) {
+                  console.log(`[LongBuild] Pass ${passNum} succeeded — ${cleaned.length} chars (was ${currentHtml.length})`);
+                  return cleaned.slice(idx);
+                }
+              }
+            } catch (e: any) {
+              console.log(`[LongBuild] Claude pass ${passNum} failed:`, e.message);
+            }
+          }
+
+          try {
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: improvePrompt }] }],
+                generationConfig: { temperature: 0.3, maxOutputTokens: 10000 },
+              }),
+              signal: AbortSignal.timeout(60000),
+            });
+            if (r.ok) {
+              const d: any = await r.json();
+              const improved = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              const cleaned = improved.replace(/^```(?:html)?\s*/im, '').replace(/\s*```\s*$/im, '').trim();
+              const idx = cleaned.indexOf('<!DOCTYPE html>');
+              if (idx >= 0 && cleaned.length > currentHtml.length * 0.5) {
+                console.log(`[LongBuild] Gemini pass ${passNum} succeeded — ${cleaned.length} chars`);
+                return cleaned.slice(idx);
+              }
+            }
+          } catch (e: any) {
+            console.log(`[LongBuild] Gemini pass ${passNum} failed:`, e.message);
+          }
+
+          return currentHtml;
+        }
+
+        for (let pass = 1; pass < totalPasses; pass++) {
+          htmlContent = await improvePass(htmlContent, pass, totalPasses - 1);
+        }
+        console.log(`[LongBuild] All ${totalPasses - 1} refinement passes complete. Final size: ${htmlContent.length} chars`);
+      }
+
       // Extract project name from <title> tag
       const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
       const projectName = titleMatch?.[1]?.trim() || prompt.slice(0, 50);
@@ -4057,6 +4159,8 @@ RULES:
         costCents,
         costDisplay: `$${(costCents / 100).toFixed(2)}`,
         balanceDisplay: `$${(finalBalance / 100).toFixed(2)}`,
+        longBuildPasses: totalPasses,
+        longBuildHours: longBuildOn ? longBuildHours : 0,
       });
     } catch (e: any) {
       console.error('[CodeAI] Generate error:', e.message);
