@@ -14,6 +14,9 @@ FROM node:20-slim AS production
 WORKDIR /app
 
 ENV NODE_ENV=production
+# Default port — overridden automatically by Cloud Run, Railway, etc.
+# For Azure App Service: set WEBSITES_PORT=8080 in App Settings
+ENV PORT=8080
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 appuser
@@ -26,7 +29,6 @@ COPY --from=builder /app/dist ./dist
 RUN chown -R appuser:nodejs /app
 USER appuser
 
-# Cloud Run injects PORT automatically — do not hardcode it
 EXPOSE 8080
 
 CMD ["node", "dist/index.js"]
