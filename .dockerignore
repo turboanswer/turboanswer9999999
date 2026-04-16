@@ -26,3 +26,5 @@ railway.json
 attached_assets
 generated-videos
 capacitor.config.ts
+screenshots
+*.log
