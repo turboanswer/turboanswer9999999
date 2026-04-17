@@ -71,6 +71,60 @@ const AGENT_PERSPECTIVES = [
   },
 ];
 
+function tryComputeArithmetic(question: string): string | null {
+  const cleaned = question
+    .replace(/[×x✕⋅·]/gi, '*')
+    .replace(/÷/g, '/')
+    .replace(/\bplus\b/gi, '+')
+    .replace(/\bminus\b/gi, '-')
+    .replace(/\btimes\b|\bmultiplied by\b/gi, '*')
+    .replace(/\bdivided by\b/gi, '/')
+    .replace(/\bmod(?:ulo)?\b/gi, '%')
+    .replace(/\bto the power of\b|\^/gi, '**')
+    .replace(/[, _]/g, '');
+  const expr = cleaned.match(/(?:\d+(?:\.\d+)?(?:\s*(?:\*\*|[+\-*/%])\s*\d+(?:\.\d+)?)+)/);
+  if (!expr) return null;
+  const e = expr[0].replace(/\s+/g, '');
+  if (!/^[\d+\-*/%.()*]+$/.test(e.replace(/\*\*/g, ''))) return null;
+  const allInts = !e.includes('.');
+  try {
+    if (allInts) {
+      const tokens = e.match(/\d+|\*\*|[+\-*/%]/g);
+      if (!tokens) return null;
+      const vals: bigint[] = [];
+      const ops: string[] = [];
+      const prec = (op: string) => op === '**' ? 3 : (op === '*' || op === '/' || op === '%') ? 2 : 1;
+      const apply = () => {
+        const op = ops.pop()!;
+        const b = vals.pop()!;
+        const a = vals.pop()!;
+        if (op === '+') vals.push(a + b);
+        else if (op === '-') vals.push(a - b);
+        else if (op === '*') vals.push(a * b);
+        else if (op === '/') vals.push(a / b);
+        else if (op === '%') vals.push(a % b);
+        else if (op === '**') vals.push(a ** b);
+      };
+      for (const t of tokens) {
+        if (/^\d+$/.test(t)) vals.push(BigInt(t));
+        else {
+          while (ops.length && prec(ops[ops.length - 1]) >= prec(t)) apply();
+          ops.push(t);
+        }
+      }
+      while (ops.length) apply();
+      return vals[0].toString();
+    } else {
+      // eslint-disable-next-line no-new-func
+      const result = Function(`"use strict"; return (${e});`)();
+      if (typeof result === 'number' && Number.isFinite(result)) return String(result);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 async function callOpenRouter(model: string, prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
@@ -171,8 +225,11 @@ async function callGemini(prompt: string, maxTokens: number, temperature: number
   return null;
 }
 
-async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: string): Promise<{ id: string; name: string; model: string; response: string } | null> {
-  const prompt = `${perspective.prompt}\n\nQuestion: ${question}\n\nGive a focused analysis in 2-4 paragraphs. Be specific, not generic. No preamble — go straight into your analysis.`;
+async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: string, verifiedAnswer?: string | null): Promise<{ id: string; name: string; model: string; response: string } | null> {
+  const groundTruth = verifiedAnswer
+    ? `\n\nVERIFIED ARITHMETIC RESULT (computed exactly with arbitrary-precision math, treat as ground truth — do NOT recompute or contradict it): ${verifiedAnswer}\n`
+    : '';
+  const prompt = `${perspective.prompt}\n\nQuestion: ${question}${groundTruth}\nGive a focused analysis in 2-4 paragraphs. Be specific, not generic. No preamble — go straight into your analysis.`;
 
   let response: string | null = null;
   let actualModel = perspective.modelLabel;
@@ -204,7 +261,12 @@ export async function runMultiAgentResearch(question: string, languageInstructio
   console.log(`[Multi-Agent] Starting 10-agent analysis with 10 different AI models...`);
   const startTime = Date.now();
 
-  const agentPromises = AGENT_PERSPECTIVES.map(p => callAgent(p, question));
+  const verifiedAnswer = tryComputeArithmetic(question);
+  if (verifiedAnswer) {
+    console.log(`[Multi-Agent] Detected arithmetic — verified result: ${verifiedAnswer.length > 80 ? verifiedAnswer.slice(0, 80) + '…' : verifiedAnswer}`);
+  }
+
+  const agentPromises = AGENT_PERSPECTIVES.map(p => callAgent(p, question, verifiedAnswer));
   const results = await Promise.allSettled(agentPromises);
 
   const agentResponses = results
@@ -223,10 +285,14 @@ export async function runMultiAgentResearch(question: string, languageInstructio
     `### ${a.name} (${a.model})\n${a.response}`
   ).join('\n\n');
 
+  const verifiedBlock = verifiedAnswer
+    ? `\nVERIFIED ARITHMETIC RESULT (computed exactly with arbitrary-precision math — this is the authoritative answer; quote it verbatim, do NOT recompute, round, or contradict it): ${verifiedAnswer}\n`
+    : '';
+
   const synthesisPrompt = `You are the Lead Synthesizer for TurboAnswer Research. You have received analysis from ${agentResponses.length} expert agents, each powered by a different AI model and examining the same question from a different perspective.
 
 QUESTION: ${question}
-
+${verifiedBlock}
 AGENT ANALYSES:
 ${synthesisInput}
 
