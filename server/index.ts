@@ -15,6 +15,10 @@ import { applyIntrusionMiddleware, setThreatCallback } from "./services/intrusio
 
 const app = express();
 
+// Trust the first reverse proxy (Azure App Service, Cloud Run, etc.)
+// Required so req.ip, req.secure, and rate-limiting work behind a proxy.
+app.set('trust proxy', 1);
+
 async function initPayPal() {
   try {
     if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
@@ -32,6 +36,11 @@ async function initPayPal() {
 app.use(compression());
 
 app.disable('x-powered-by');
+
+// Health check endpoint for Azure App Service / Cloud Run / Kubernetes probes.
+// Must respond before any heavy middleware so platform health checks pass.
+app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
+app.get('/healthz', (_req, res) => res.status(200).json({ status: 'ok' }));
 
 app.use((req, res, next) => {
   const allowed = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -273,7 +282,6 @@ process.on('unhandledRejection', (reason: any) => {
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
   }, () => {
     console.log(`Server is running on port ${port}`);
     log(`serving on port ${port}`);
