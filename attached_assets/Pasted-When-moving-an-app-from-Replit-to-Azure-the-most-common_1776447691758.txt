@@ -1,0 +1,18 @@
+When moving an app from Replit to Azure, the most common reason it fails is the environment mismatch. Replit is a highly customized, sandboxed environment that automates many configurations that you must handle manually in Azure. 
+Common Technical Blockers
+
+    Port Hardcoding: Replit often uses port 8080, 3000, or dynamic ports. Azure App Service specifically looks for your app to listen on the port provided by the PORT environment variable. If your code is hardcoded to a specific port, Azure will fail the health check and stop the container.
+    Host Binding: In Replit, your server might listen on localhost or 127.0.0.1. For Azure to route traffic to it, your server must listen on 0.0.0.0.
+    Missing Dependencies: Replit automatically installs many system-level packages (via Nix) that aren't present in standard Azure runtimes. If you haven't explicitly listed every library in a requirements.txt or package.json, the app will crash on startup.
+    Environment Variables (Secrets): Any secrets you stored in Replit's "Secrets" tab must be manually re-added to Azure App Settings or Key Vault. The app will fail if it can't find these keys during initialization. 
+
+Recommended Fixes
+
+    Use a Docker Container: The most reliable way to bridge the gap is to wrap your app in a Docker container. This packages your exact Replit environment (OS, libraries, and code) so it runs identically on Azure.
+    Update Your Listen Logic: Ensure your startup code looks like this (example in Python/Node):
+        Incorrect: app.run(port=3000)
+        Correct: app.run(host='0.0.0.0', port=os.environ.get('PORT', 8080))
+    Check Startup Commands: Azure needs a specific "Startup Command" (like gunicorn app:app for Python or npm start for Node). If this isn't configured in the Azure Portal, the service won't know how to launch your file.
+    Use the Integrated Path: Replit recently launched a deep integration with Azure that allows the Replit Agent to provision and deploy directly to Azure Container Apps, which handles these configurations for you automatically. 
+
+To help you further, could you share the error message you see in the Azure "Log Stream" or the specific programming language you're using?
