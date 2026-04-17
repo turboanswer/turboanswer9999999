@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import crypto from "crypto";
 import path from "path";
@@ -87,6 +87,18 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Strip port from IP (Azure proxies include port in req.ip), then defer to the
+// library's ipKeyGenerator helper for proper IPv6 normalization.
+const stripPort = (ip: string): string => {
+  const ipv4 = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/);
+  if (ipv4) return ipv4[1];
+  const ipv6 = ip.match(/^\[([^\]]+)\]:\d+$/);
+  if (ipv6) return ipv6[1];
+  return ip;
+};
+
+const limiterKey = (req: Request): string => ipKeyGenerator(stripPort(req.ip || ''));
+
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 200,
@@ -94,6 +106,7 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down.' },
   skip: (req) => !req.path.startsWith('/api'),
+  keyGenerator: limiterKey,
 });
 
 const authLimiter = rateLimit({
@@ -101,30 +114,35 @@ const authLimiter = rateLimit({
   max: 10,
   message: { error: 'Too many login attempts. Please try again later.' },
   skipSuccessfulRequests: true,
+  keyGenerator: limiterKey,
 });
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 5,
   message: { error: 'Too many registration attempts. Please try again later.' },
+  keyGenerator: limiterKey,
 });
 
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   message: { error: 'AI rate limit reached. Please wait a moment.' },
+  keyGenerator: limiterKey,
 });
 
 const passwordResetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: { error: 'Too many password reset requests. Please try again later.' },
+  keyGenerator: limiterKey,
 });
 
 const sensitiveApiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many requests. Please slow down.' },
+  keyGenerator: limiterKey,
 });
 
 app.use(apiLimiter);
