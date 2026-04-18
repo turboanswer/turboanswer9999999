@@ -111,19 +111,6 @@ export default function LandingPage() {
 
             {/* LEFT — distinctive headline */}
             <div className="text-left">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border mb-7" style={{
-                background: D ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.06)",
-                borderColor: D ? "rgba(16,185,129,0.25)" : "rgba(16,185,129,0.20)",
-              }}>
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: "#10b981" }} />
-                  <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#10b981" }} />
-                </span>
-                <span className="text-xs font-bold tracking-wider uppercase" style={{ color: D ? "#34d399" : "#059669" }}>
-                  Verified by 2nd AI · Live now
-                </span>
-              </div>
-
               <h1 className={`font-black tracking-tight leading-[0.92] mb-6 ${D ? "text-white" : "text-gray-900"}`}
                 style={{ fontSize: "clamp(2.5rem, 6vw, 5rem)" }}>
                 The AI you<br />
