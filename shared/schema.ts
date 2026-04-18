@@ -382,37 +382,6 @@ export const insertSupportTicketMessageSchema = createInsertSchema(supportTicket
 export type InsertSupportTicketMessage = z.infer<typeof insertSupportTicketMessageSchema>;
 export type SupportTicketMessage = typeof supportTicketMessages.$inferSelect;
 
-export const debateSessions = pgTable("debate_sessions", {
-  id: serial("id").primaryKey(),
-  topic: text("topic").notNull(),
-  creatorId: text("creator_id").notNull(),
-  modelA: text("model_a").notNull().default("gemini"),
-  modelB: text("model_b").notNull().default("claude"),
-  status: text("status").notNull().default("active"),
-  rounds: integer("rounds").notNull().default(3),
-  currentRound: integer("current_round").notNull().default(0),
-  winner: text("winner"),
-  votesA: integer("votes_a").notNull().default(0),
-  votesB: integer("votes_b").notNull().default(0),
-  summary: text("summary"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const debateMessages = pgTable("debate_messages", {
-  id: serial("id").primaryKey(),
-  debateId: integer("debate_id").references(() => debateSessions.id).notNull(),
-  round: integer("round").notNull(),
-  model: text("model").notNull(),
-  side: text("side").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export type DebateSession = typeof debateSessions.$inferSelect;
-export type InsertDebateSession = z.infer<typeof insertDebateSessionSchema>;
-export const insertDebateSessionSchema = createInsertSchema(debateSessions).omit({ id: true, createdAt: true, currentRound: true, votesA: true, votesB: true, winner: true, summary: true });
-export type DebateMessage = typeof debateMessages.$inferSelect;
-
 export const collabRooms = pgTable("collab_rooms", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
