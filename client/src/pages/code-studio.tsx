@@ -168,6 +168,148 @@ const C = {
   green: "#3fb950",
 };
 
+function DeployPanel(props: any) {
+  const { C, currentProject, customDomain, setCustomDomain, deployUrl, isDeploying, deployProject, copied, copyUrl, onClose, toast, loadProjects, setDeployUrl } = props;
+  const [deployments, setDeployments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"current" | "all">("current");
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/code/deployments", { credentials: "include" });
+      if (res.ok) setDeployments(await res.json());
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  const unpublish = async (id: number) => {
+    try {
+      await fetch(`/api/code/undeploy/${id}`, { method: "POST", credentials: "include" });
+      toast({ title: "Unpublished" });
+      if (currentProject?.id === id) setDeployUrl(null);
+      refresh();
+      loadProjects?.();
+    } catch (e: any) { toast({ title: "Failed", description: e.message, variant: "destructive" }); }
+  };
+
+  const copyShare = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast({ title: "Copied!", description: url });
+  };
+
+  const totalViews = deployments.reduce((sum, d) => sum + (d.viewCount || 0), 0);
+  const liveCount = deployments.filter(d => d.isPublished).length;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, backdropFilter: "blur(8px)", padding: 20 }}>
+      <div style={{ background: "#13131e", border: `1px solid ${C.border}`, borderRadius: 18, padding: 0, width: "100%", maxWidth: 640, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 40px 80px rgba(0,0,0,0.6)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Rocket style={{ width: 22, height: 22, color: C.accent }} />
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: C.text }}>Deployments</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{liveCount} live · {totalViews.toLocaleString()} total views</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}><X style={{ width: 18, height: 18 }} /></button>
+        </div>
+
+        <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
+          {currentProject && (
+            <button onClick={() => setTab("current")}
+              style={{ flex: 1, padding: "11px 0", background: "none", border: "none", borderBottom: tab === "current" ? `2px solid ${C.accent}` : "2px solid transparent", color: tab === "current" ? C.text : C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              Deploy Current
+            </button>
+          )}
+          <button onClick={() => setTab("all")}
+            style={{ flex: 1, padding: "11px 0", background: "none", border: "none", borderBottom: tab === "all" ? `2px solid ${C.accent}` : "2px solid transparent", color: tab === "all" ? C.text : C.muted, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            All Deployments ({deployments.length})
+          </button>
+        </div>
+
+        <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+          {tab === "current" && currentProject && (
+            <div>
+              <p style={{ color: C.muted, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
+                Publishing <strong style={{ color: C.text }}>{currentProject.name}</strong> to a public URL anyone can visit.
+              </p>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ fontSize: 12, color: C.muted, display: "block", marginBottom: 6 }}>Custom domain (optional)</label>
+                <input value={customDomain} onChange={e => setCustomDomain(e.target.value)} placeholder="myapp.com"
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", color: C.text, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              {deployUrl && (
+                <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <a href={deployUrl} target="_blank" rel="noopener noreferrer" style={{ color: C.green, fontSize: 13, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{window.location.origin}{deployUrl}</a>
+                  <button onClick={copyUrl} style={{ color: copied ? C.green : C.muted, background: "none", border: "none", cursor: "pointer" }}>
+                    {copied ? <Check style={{ width: 14, height: 14 }} /> : <Copy style={{ width: 14, height: 14 }} />}
+                  </button>
+                </div>
+              )}
+              <button onClick={async () => { await deployProject(); await refresh(); }} disabled={isDeploying}
+                style={{ width: "100%", background: C.accent, border: "none", borderRadius: 10, padding: "13px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: isDeploying ? 0.7 : 1 }}>
+                {isDeploying ? "Deploying..." : deployUrl ? "Redeploy" : "Deploy to Web"}
+              </button>
+            </div>
+          )}
+
+          {tab === "all" && (
+            <div>
+              {loading ? (
+                <div style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>Loading deployments...</div>
+              ) : deployments.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>No projects yet. Build something first!</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {deployments.map(d => (
+                    <div key={d.id} style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: 4, background: d.isPublished ? C.green : C.muted, flexShrink: 0 }} />
+                            <span style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, display: "flex", alignItems: "center", gap: 12 }}>
+                            <span>{d.isPublished ? "Live" : "Draft"}</span>
+                            <span>{(d.viewCount || 0).toLocaleString()} views</span>
+                          </div>
+                        </div>
+                        {d.isPublished && d.publicUrl && (
+                          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                            <button onClick={() => copyShare(d.publicUrl)} title="Copy link"
+                              style={{ color: C.muted, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 6, padding: "6px 8px", cursor: "pointer", display: "flex" }}>
+                              <Copy style={{ width: 12, height: 12 }} />
+                            </button>
+                            <a href={d.publicUrl} target="_blank" rel="noopener noreferrer" title="Open"
+                              style={{ color: C.green, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 6, padding: "6px 8px", display: "flex" }}>
+                              <ExternalLink style={{ width: 12, height: 12 }} />
+                            </a>
+                            <button onClick={() => unpublish(d.id)} title="Unpublish"
+                              style={{ color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: "6px 8px", cursor: "pointer", display: "flex" }}>
+                              <X style={{ width: 12, height: 12 }} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {d.publicUrl && (
+                        <div style={{ fontSize: 10, color: C.muted, fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "5px 8px", background: "rgba(0,0,0,0.3)", borderRadius: 5 }}>
+                          {d.publicUrl}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CodeStudio() {
   const [, navigate] = useLocation();
   const { isAuthenticated, user, isLoading: authLoading } = useAuth();
@@ -1431,37 +1573,21 @@ export default function CodeStudio() {
 
       {/* ── Deploy Modal ── */}
       {showDeployModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, backdropFilter: "blur(6px)" }}>
-          <div style={{ background: "#13131e", border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, width: "100%", maxWidth: 440, boxShadow: "0 40px 80px rgba(0,0,0,0.6)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Rocket style={{ width: 20, height: 20, color: C.accent }} />
-                <span style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Deploy Project</span>
-              </div>
-              <button onClick={() => setShowDeployModal(false)} style={{ color: C.muted, background: "none", border: "none", cursor: "pointer" }}><X style={{ width: 18, height: 18 }} /></button>
-            </div>
-            <p style={{ color: C.muted, fontSize: 13, marginBottom: 18, lineHeight: 1.5 }}>
-              Published to a public URL at <strong style={{ color: C.text }}>{window.location.origin}/p/your-slug</strong>
-            </p>
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 12, color: C.muted, display: "block", marginBottom: 6 }}>Custom domain (optional)</label>
-              <input value={customDomain} onChange={e => setCustomDomain(e.target.value)} placeholder="myapp.com"
-                style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", color: C.text, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-            </div>
-            {deployUrl && (
-              <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <a href={deployUrl} target="_blank" rel="noopener noreferrer" style={{ color: C.green, fontSize: 13, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis" }}>{window.location.origin}{deployUrl}</a>
-                <button onClick={copyUrl} style={{ color: copied ? C.green : C.muted, background: "none", border: "none", cursor: "pointer" }}>
-                  {copied ? <Check style={{ width: 14, height: 14 }} /> : <Copy style={{ width: 14, height: 14 }} />}
-                </button>
-              </div>
-            )}
-            <button onClick={deployProject} disabled={isDeploying}
-              style={{ width: "100%", background: C.accent, border: "none", borderRadius: 10, padding: "13px 24px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", opacity: isDeploying ? 0.7 : 1 }}>
-              {isDeploying ? "Deploying..." : deployUrl ? "Redeploy" : "Deploy to Web"}
-            </button>
-          </div>
-        </div>
+        <DeployPanel
+          C={C}
+          currentProject={currentProject}
+          customDomain={customDomain}
+          setCustomDomain={setCustomDomain}
+          deployUrl={deployUrl}
+          isDeploying={isDeploying}
+          deployProject={deployProject}
+          copied={copied}
+          copyUrl={copyUrl}
+          onClose={() => setShowDeployModal(false)}
+          toast={toast}
+          loadProjects={loadProjects}
+          setDeployUrl={setDeployUrl}
+        />
       )}
 
       {/* ── Complexity Estimate Confirmation Modal ── */}

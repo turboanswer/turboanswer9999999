@@ -4316,6 +4316,60 @@ ${currentHtml}`;
         console.log(`[LongBuild] All ${refinePasses} refinement passes complete. Final size: ${htmlContent.length} chars`);
       }
 
+      // ── AUTO-FIX PASS: lint the HTML, if issues found run an AI repair ──────
+      function lintHtml(html: string): string[] {
+        const issues: string[] = [];
+        if (!/<!DOCTYPE\s+html/i.test(html)) issues.push('Missing <!DOCTYPE html> declaration');
+        if (!/<html[\s>]/i.test(html)) issues.push('Missing <html> tag');
+        if (!/<\/html>/i.test(html)) issues.push('Missing </html> closing tag');
+        if (!/<body[\s>]/i.test(html)) issues.push('Missing <body> tag');
+        if (!/<\/body>/i.test(html)) issues.push('Missing </body> closing tag');
+        const openScripts = (html.match(/<script[\s>]/gi) || []).length;
+        const closeScripts = (html.match(/<\/script>/gi) || []).length;
+        if (openScripts !== closeScripts) issues.push(`Unbalanced script tags: ${openScripts} opens vs ${closeScripts} closes`);
+        const openStyles = (html.match(/<style[\s>]/gi) || []).length;
+        const closeStyles = (html.match(/<\/style>/gi) || []).length;
+        if (openStyles !== closeStyles) issues.push(`Unbalanced style tags: ${openStyles} opens vs ${closeStyles} closes`);
+        if (/```/.test(html)) issues.push('Markdown code fences leaked into HTML');
+        if (/^\s*(html|javascript|js|css)\s*$/im.test(html.split('\n')[0] || '')) issues.push('Markdown language tag at top of file');
+        if (html.length < 500) issues.push('HTML is too short to be a real app');
+        return issues;
+      }
+      try {
+        const issues = lintHtml(htmlContent);
+        if (issues.length > 0) {
+          console.log(`[CodeAI AutoFix] Found ${issues.length} issues, running repair pass:`, issues.slice(0, 3));
+          const fixPrompt = `You are a senior web developer. The following HTML has these issues that MUST be fixed:\n${issues.map(i => `- ${i}`).join('\n')}\n\nReturn ONLY the corrected complete HTML document. No explanation, no markdown fences. Start with <!DOCTYPE html> and end with </html>. Preserve every feature and visual element of the original.\n\nORIGINAL HTML:\n${htmlContent.slice(0, 50000)}`;
+          const fixRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: fixPrompt }] }],
+              generationConfig: { temperature: 0.1, maxOutputTokens: 32768 },
+            }),
+            signal: AbortSignal.timeout(60000),
+          });
+          if (fixRes.ok) {
+            const fixData: any = await fixRes.json();
+            let fixed = fixData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            fixed = fixed.replace(/^```(?:html|HTML)?\s*\n?/g, '').replace(/\n?```\s*$/g, '').trim();
+            if (fixed.length > 500 && /<!DOCTYPE/i.test(fixed) && /<\/html>/i.test(fixed)) {
+              const remaining = lintHtml(fixed);
+              if (remaining.length < issues.length) {
+                console.log(`[CodeAI AutoFix] Repaired: ${issues.length} issues → ${remaining.length} remaining`);
+                htmlContent = fixed;
+              } else {
+                console.log(`[CodeAI AutoFix] Repair didn't reduce issues, keeping original`);
+              }
+            } else {
+              console.log(`[CodeAI AutoFix] Repair output invalid, keeping original`);
+            }
+          }
+        }
+      } catch (e: any) {
+        console.log('[CodeAI AutoFix] Skipped:', e.message);
+      }
+
       // Extract project name from <title> tag
       const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
       const projectName = titleMatch?.[1]?.trim() || prompt.slice(0, 50);
@@ -4567,6 +4621,33 @@ ${currentHtml}`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // List all deployments with stats
+  app.get('/api/code/deployments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const proto = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      const baseUrl = `${proto}://${host}`;
+      const projects = await db.select().from(codeProjects).where(eq(codeProjects.userId, userId));
+      const deployments = projects.map(p => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        isPublished: p.isPublished,
+        publishedAt: p.publishedAt,
+        viewCount: p.viewCount ?? 0,
+        publicUrl: p.slug && p.isPublished ? `${baseUrl}/p/${p.slug}` : null,
+        previewUrl: `${baseUrl}/code-preview/${p.id}`,
+        updatedAt: p.updatedAt,
+      }));
+      deployments.sort((a, b) => {
+        if (a.isPublished !== b.isPublished) return a.isPublished ? -1 : 1;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+      res.json(deployments);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // AI code assistance — with intent detection (build vs chat)
   app.patch('/api/code/long-build', isAuthenticated, async (req: any, res) => {
     try {
@@ -4775,15 +4856,19 @@ User: ${message}`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // Serve published project
+  // Serve published project (with secret injection + view counter)
   app.get('/p/:slug', async (req, res) => {
     try {
       const [project] = await db.select().from(codeProjects)
         .where(and(eq(codeProjects.slug, req.params.slug), eq(codeProjects.isPublished, true)));
       if (!project) return res.status(404).send('<h1>Project not found</h1><p>This project may have been unpublished or the link is incorrect.</p>');
 
+      // Increment view count (non-blocking)
+      db.update(codeProjects).set({ viewCount: (project.viewCount ?? 0) + 1 }).where(eq(codeProjects.id, project.id)).catch(() => {});
+
       const files = project.files as { name: string; content: string; language: string }[];
-      const html = buildProjectHtml(project.name, files, project.mainLanguage);
+      const secrets = await loadProjectSecrets(project.id, project.userId);
+      const html = buildProjectHtml(project.name, files, project.mainLanguage, secrets);
       res.setHeader('Content-Type', 'text/html');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
@@ -4805,7 +4890,8 @@ User: ${message}`;
       if (!project) return res.status(404).send('Project not found');
 
       const files = project.files as { name: string; content: string; language: string }[];
-      const html = buildProjectHtml(project.name, files, project.mainLanguage);
+      const secrets = await loadProjectSecrets(project.id, userId);
+      const html = buildProjectHtml(project.name, files, project.mainLanguage, secrets);
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -4921,7 +5007,7 @@ console.log(\`Welcome, \${user.name}!\`);` },
     return `${base}-${id}`;
   }
 
-  function buildProjectHtml(projectName: string, files: { name: string; content: string; language: string }[], mainLang: string): string {
+  function buildProjectHtml(projectName: string, files: { name: string; content: string; language: string }[], mainLang: string, secrets?: Record<string, string>): string {
     if (mainLang !== 'html') {
       const allCode = files.map(f => `<h3>${f.name}</h3><pre><code class="language-${f.language}">${escapeHtml(f.content)}</code></pre>`).join('\n');
       return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHtml(projectName)}</title>
@@ -4936,23 +5022,39 @@ console.log(\`Welcome, \${user.name}!\`);` },
 
     for (const file of files) {
       if (file.language === 'css') {
-        // Match any <link> tag that references this CSS file, regardless of attribute order
-        const cssRegex = new RegExp(
-          `<link[^>]*href=["']${file.name}["'][^>]*>`,
-          'gi'
-        );
+        const cssRegex = new RegExp(`<link[^>]*href=["']${file.name}["'][^>]*>`, 'gi');
         html = html.replace(cssRegex, `<style>${file.content}</style>`);
       }
       if (file.language === 'javascript') {
-        // Match any <script> tag that references this JS file, regardless of other attributes
-        const jsRegex = new RegExp(
-          `<script[^>]*src=["']${file.name}["'][^>]*>\\s*</script>`,
-          'gi'
-        );
+        const jsRegex = new RegExp(`<script[^>]*src=["']${file.name}["'][^>]*>\\s*</script>`, 'gi');
         html = html.replace(jsRegex, `<script>${file.content}</script>`);
       }
     }
+
+    // Inject secrets as window.SECRETS so generated apps can use API keys
+    const secretsScript = secrets && Object.keys(secrets).length > 0
+      ? `<script>window.SECRETS=${JSON.stringify(secrets)};window.getSecret=function(k){return window.SECRETS[k]||"";};</script>`
+      : `<script>window.SECRETS={};window.getSecret=function(){return "";};</script>`;
+
+    if (/<head[^>]*>/i.test(html)) {
+      html = html.replace(/<head([^>]*)>/i, `<head$1>${secretsScript}`);
+    } else if (/<html[^>]*>/i.test(html)) {
+      html = html.replace(/<html([^>]*)>/i, `<html$1><head>${secretsScript}</head>`);
+    } else {
+      html = secretsScript + html;
+    }
     return html;
+  }
+
+  async function loadProjectSecrets(projectId: number, userId: string): Promise<Record<string, string>> {
+    try {
+      const rows = await db.select({ key: codeProjectSecrets.key, value: codeProjectSecrets.value })
+        .from(codeProjectSecrets)
+        .where(and(eq(codeProjectSecrets.projectId, projectId), eq(codeProjectSecrets.userId, userId)));
+      const map: Record<string, string> = {};
+      for (const r of rows) map[r.key] = r.value;
+      return map;
+    } catch { return {}; }
   }
 
   function escapeHtml(str: string): string {
