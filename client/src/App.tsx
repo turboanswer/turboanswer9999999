@@ -84,9 +84,10 @@ function AuthenticatedRouter() {
 
 function UnauthenticatedRouter() {
   const isMobileWeb = useIsMobile();
+  const isRealMobileDevice = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   return (
     <Switch>
-      <Route path="/" component={isNativeMobile ? MobileWelcome : LandingPage} />
+      <Route path="/" component={(isNativeMobile || isRealMobileDevice) ? MobileWelcome : LandingPage} />
       <Route path="/trial-chat" component={TrialChat} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
