@@ -71,50 +71,185 @@ export default function LandingPage() {
         )}
       </nav>
 
-      <section className="relative overflow-hidden" style={{ minHeight: "100vh", background: D ? "linear-gradient(160deg, #050d1f 0%, #0a1a3a 20%, #102a5c 45%, #1a3a6e 60%, #0f2044 80%, #060e20 100%)" : "linear-gradient(160deg, #1e3a8a 0%, #1e40af 20%, #2563eb 45%, #3b82f6 65%, #2563eb 85%, #1e40af 100%)" }}>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.12), transparent 55%)" }} />
-          <div className="absolute top-[60%] left-[20%] w-[400px] h-[400px] rounded-full" style={{ background: "radial-gradient(circle, rgba(99,102,241,0.08), transparent 60%)" }} />
-          <div className="absolute top-[50%] right-[15%] w-[300px] h-[300px] rounded-full" style={{ background: "radial-gradient(circle, rgba(6,182,212,0.06), transparent 60%)" }} />
-        </div>
+      <section className="relative overflow-hidden" style={{ minHeight: "100vh", background: D ? "#05060a" : "#fafbfc" }}>
+        {/* Distinctive grid + emerald glow background — breaks away from generic dark-blue */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: D
+            ? "linear-gradient(rgba(16,185,129,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.04) 1px, transparent 1px)"
+            : "linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)",
+          backgroundSize: "44px 44px",
+          maskImage: "radial-gradient(ellipse 80% 60% at 50% 35%, #000 30%, transparent 80%)",
+          WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 35%, #000 30%, transparent 80%)",
+        }} />
+        <div className="absolute pointer-events-none" style={{
+          top: "10%", left: "50%", transform: "translateX(-50%)",
+          width: 900, height: 600,
+          background: "radial-gradient(ellipse, rgba(16,185,129,0.18), rgba(16,185,129,0.04) 40%, transparent 70%)",
+          filter: "blur(40px)",
+        }} />
+        <div className="absolute pointer-events-none" style={{
+          top: "30%", right: "5%", width: 400, height: 400,
+          background: "radial-gradient(circle, rgba(99,102,241,0.10), transparent 60%)",
+          filter: "blur(30px)",
+        }} />
 
-        <div className="relative z-10 max-w-5xl mx-auto px-5 pt-32 sm:pt-40 pb-28 text-center">
-          <div className="flex justify-center mb-8">
-            <TurboLogo size={80} animated={false} />
-          </div>
+        <style>{`
+          @keyframes shieldPulse { 0%,100% { transform: scale(1); opacity: 0.95; } 50% { transform: scale(1.03); opacity: 1; } }
+          @keyframes verifyPop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+          @keyframes checkDraw { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
+          @keyframes typing { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+          @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+          .ta-verify-badge { animation: verifyPop 0.6s 1.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+          .ta-check-path { stroke-dasharray: 30; stroke-dashoffset: 30; animation: checkDraw 0.5s 1.7s ease-out forwards; }
+          .ta-shield { animation: shieldPulse 4s ease-in-out infinite; }
+          .ta-typing-dot { animation: typing 1.4s ease-in-out infinite; }
+          .ta-shimmer-text { background: linear-gradient(90deg, ${D ? '#fff' : '#0a0a0a'} 30%, #10b981 50%, ${D ? '#fff' : '#0a0a0a'} 70%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 6s linear infinite; }
+        `}</style>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-8 backdrop-blur-sm" style={{ background: "rgba(255,255,255,0.06)", borderColor: "rgba(255,255,255,0.12)" }}>
-            <Sparkles size={14} className="text-blue-300" />
-            <span className="text-sm font-medium text-blue-100">Next-Gen AI Intelligence</span>
-            <Sparkles size={14} className="text-blue-300" />
-          </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-5 pt-28 sm:pt-32 pb-20">
+          <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 items-center">
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[0.95] mb-8 text-white drop-shadow-lg">
-            Your AI That<br />
-            <span style={{ color: D ? "#93c5fd" : "#bfdbfe" }}>Thinks, Creates</span><br />
-            <span style={{ color: D ? "#7dd3fc" : "#a5d8ff" }}>& Analyzes</span>
-          </h1>
+            {/* LEFT — distinctive headline */}
+            <div className="text-left">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border mb-7" style={{
+                background: D ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.06)",
+                borderColor: D ? "rgba(16,185,129,0.25)" : "rgba(16,185,129,0.20)",
+              }}>
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style={{ background: "#10b981" }} />
+                  <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#10b981" }} />
+                </span>
+                <span className="text-xs font-bold tracking-wider uppercase" style={{ color: D ? "#34d399" : "#059669" }}>
+                  Verified by 2nd AI · Live now
+                </span>
+              </div>
 
-          <p className="text-lg sm:text-xl max-w-2xl mx-auto mb-12 leading-relaxed" style={{ color: "rgba(191,219,254,0.65)" }}>
-            Chat naturally. Analyze documents. Generate images. 100+ languages.
-            All in one powerful AI assistant that works on any device.
-          </p>
+              <h1 className={`font-black tracking-tight leading-[0.92] mb-6 ${D ? "text-white" : "text-gray-900"}`}
+                style={{ fontSize: "clamp(2.5rem, 6vw, 5rem)" }}>
+                The AI you<br />
+                can <span className="ta-shimmer-text">actually trust.</span>
+              </h1>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
-            <Link href={ctaHref}>
-              <button className="flex items-center gap-2.5 px-10 py-4 rounded-xl text-base font-bold transition-all shadow-xl bg-white text-blue-900 hover:bg-blue-50 hover:scale-[1.02] active:scale-[0.98]" style={{ boxShadow: "0 8px 32px rgba(255,255,255,0.15)" }}>
-                {ctaLabel} <ArrowRight size={18} />
-              </button>
-            </Link>
-            <button onClick={() => setShowQR(true)} className="flex items-center gap-2.5 px-10 py-4 rounded-xl text-base font-bold border text-white hover:bg-white/10 transition-all active:scale-[0.98]" style={{ borderColor: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)" }}>
-              <QrCode size={18} /> Open on Phone
-            </button>
-          </div>
+              <p className={`text-lg sm:text-xl max-w-xl mb-10 leading-relaxed ${D ? "text-gray-400" : "text-gray-600"}`}>
+                Every answer is fact-checked by a second AI model — automatically. No more hallucinations. Just <strong className={D ? "text-white" : "text-gray-900"}>verified truth</strong>, delivered in seconds.
+              </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-8 text-sm" style={{ color: "rgba(191,219,254,0.5)" }}>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Free forever</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> No credit card</span>
-            <span className="flex items-center gap-2"><Check size={15} className="text-emerald-400" /> Works on all devices</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
+                <Link href={ctaHref}>
+                  <button className="group flex items-center gap-2.5 px-8 py-4 rounded-xl text-base font-bold transition-all text-white hover:scale-[1.02] active:scale-[0.98]" style={{
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    boxShadow: "0 10px 40px rgba(16,185,129,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
+                  }}>
+                    Start free — get verified answers
+                    <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </Link>
+                <button onClick={() => setShowQR(true)} className={`flex items-center gap-2.5 px-6 py-4 rounded-xl text-base font-semibold border transition-all active:scale-[0.98] ${
+                  D ? "text-white border-white/15 hover:bg-white/5" : "text-gray-900 border-gray-200 hover:bg-gray-50"
+                }`}>
+                  <QrCode size={18} /> Open on Phone
+                </button>
+              </div>
+
+              <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 text-sm ${D ? "text-gray-500" : "text-gray-500"}`}>
+                <span className="flex items-center gap-1.5"><Check size={15} className="text-emerald-500" /> Free forever</span>
+                <span className="flex items-center gap-1.5"><Check size={15} className="text-emerald-500" /> No credit card</span>
+                <span className="flex items-center gap-1.5"><Check size={15} className="text-emerald-500" /> 10 AI models</span>
+              </div>
+            </div>
+
+            {/* RIGHT — animated chat showing the verified badge in action */}
+            <div className="relative">
+              <div className="absolute -inset-6 rounded-3xl pointer-events-none" style={{
+                background: "radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%)",
+                filter: "blur(40px)",
+              }} />
+
+              <div className="relative rounded-2xl border overflow-hidden shadow-2xl" style={{
+                background: D ? "rgba(10,12,18,0.85)" : "rgba(255,255,255,0.95)",
+                borderColor: D ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                backdropFilter: "blur(20px)",
+                boxShadow: D ? "0 30px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(16,185,129,0.1)" : "0 30px 80px rgba(0,0,0,0.12)",
+              }}>
+                {/* Window chrome */}
+                <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#ff5f56" }} />
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#ffbd2e" }} />
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#27c93f" }} />
+                  </div>
+                  <div className={`text-xs ml-2 font-mono ${D ? "text-gray-500" : "text-gray-400"}`}>turboanswer.it.com</div>
+                </div>
+
+                <div className="p-5 sm:p-6 space-y-4">
+                  {/* User message */}
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] px-4 py-2.5 rounded-2xl text-sm font-medium" style={{
+                      background: D ? "#1f2937" : "#f3f4f6",
+                      color: D ? "#fff" : "#111827",
+                    }}>
+                      Is the Great Wall of China visible from space?
+                    </div>
+                  </div>
+
+                  {/* AI response */}
+                  <div className="flex items-start gap-2.5">
+                    <div className="ta-shield w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{
+                      background: "linear-gradient(135deg, #10b981, #059669)",
+                      boxShadow: "0 4px 16px rgba(16,185,129,0.4)",
+                    }}>
+                      <Shield size={16} className="text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm leading-relaxed mb-2 ${D ? "text-gray-200" : "text-gray-800"}`}>
+                        <strong>No.</strong> Despite the popular myth, the Great Wall is not visible to the naked eye from low Earth orbit. NASA astronauts have confirmed this — the wall is too narrow (~30 ft wide) at that distance.
+                      </div>
+
+                      {/* The killer feature: verified badge */}
+                      <div className="ta-verify-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold" style={{
+                        background: "rgba(16,185,129,0.12)",
+                        border: "1px solid rgba(16,185,129,0.35)",
+                        color: D ? "#34d399" : "#059669",
+                      }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="currentColor" opacity="0.18" />
+                          <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                          <path className="ta-check-path" d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Verified by Claude Sonnet 4.5
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live typing indicator */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <div className="flex gap-1">
+                      <div className="ta-typing-dot w-1.5 h-1.5 rounded-full" style={{ background: D ? "#6b7280" : "#9ca3af" }} />
+                      <div className="ta-typing-dot w-1.5 h-1.5 rounded-full" style={{ background: D ? "#6b7280" : "#9ca3af", animationDelay: "0.2s" }} />
+                      <div className="ta-typing-dot w-1.5 h-1.5 rounded-full" style={{ background: D ? "#6b7280" : "#9ca3af", animationDelay: "0.4s" }} />
+                    </div>
+                    <span className={`text-xs ${D ? "text-gray-500" : "text-gray-400"}`}>Cross-checking with 2 more models…</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating stat card */}
+              <div className="absolute -bottom-8 -left-4 sm:-left-10 rounded-2xl px-4 py-3 border shadow-xl z-20" style={{
+                background: D ? "rgba(15,17,25,0.95)" : "#fff",
+                borderColor: D ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+                backdropFilter: "blur(20px)",
+              }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}>
+                    <Check size={20} className="text-emerald-500" strokeWidth={3} />
+                  </div>
+                  <div>
+                    <div className={`text-xl font-black ${D ? "text-white" : "text-gray-900"}`}>99.2%</div>
+                    <div className={`text-[10px] uppercase tracking-wider font-bold ${D ? "text-gray-500" : "text-gray-500"}`}>Accuracy verified</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
