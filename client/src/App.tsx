@@ -86,7 +86,7 @@ function UnauthenticatedRouter() {
   const isMobileWeb = useIsMobile();
   return (
     <Switch>
-      <Route path="/" component={isMobileWeb || isNativeMobile ? MobileWelcome : LandingPage} />
+      <Route path="/" component={isNativeMobile ? MobileWelcome : LandingPage} />
       <Route path="/trial-chat" component={TrialChat} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
