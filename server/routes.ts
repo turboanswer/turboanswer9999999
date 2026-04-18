@@ -4102,7 +4102,7 @@ IMPORTANT:
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify({
-              model: 'claude-opus-4-20250514',
+              model: 'claude-sonnet-4-5-20250929',
               max_tokens: maxTokens,
               system: systemPrompt,
               messages: [
@@ -4254,7 +4254,7 @@ ${currentHtml}`;
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
                 body: JSON.stringify({
-                  model: 'claude-opus-4-20250514',
+                  model: 'claude-sonnet-4-5-20250929',
                   max_tokens: 12000,
                   messages: [{ role: 'user', content: improvePrompt }],
                 }),
@@ -4338,20 +4338,43 @@ ${currentHtml}`;
       try {
         const issues = lintHtml(htmlContent);
         if (issues.length > 0) {
-          console.log(`[CodeAI AutoFix] Found ${issues.length} issues, running repair pass:`, issues.slice(0, 3));
-          const fixPrompt = `You are a senior web developer. The following HTML has these issues that MUST be fixed:\n${issues.map(i => `- ${i}`).join('\n')}\n\nReturn ONLY the corrected complete HTML document. No explanation, no markdown fences. Start with <!DOCTYPE html> and end with </html>. Preserve every feature and visual element of the original.\n\nORIGINAL HTML:\n${htmlContent.slice(0, 50000)}`;
-          const fixRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: fixPrompt }] }],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 32768 },
-            }),
-            signal: AbortSignal.timeout(60000),
-          });
-          if (fixRes.ok) {
-            const fixData: any = await fixRes.json();
-            let fixed = fixData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          console.log(`[CodeAI AutoFix] Found ${issues.length} issues, running repair pass with Claude Sonnet 4.5:`, issues.slice(0, 3));
+          const fixPrompt = `You are a senior web developer. The following HTML has these issues that MUST be fixed:\n${issues.map(i => `- ${i}`).join('\n')}\n\nReturn ONLY the corrected complete HTML document. No explanation, no markdown fences. Start with <!DOCTYPE html> and end with </html>. Preserve every feature and visual element of the original.\n\nORIGINAL HTML:\n${htmlContent.slice(0, 80000)}`;
+
+          let fixed = '';
+          if (anthropicKey) {
+            const fixRes = await fetch(`${anthropicBase}/v1/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+              body: JSON.stringify({
+                model: 'claude-sonnet-4-5-20250929',
+                max_tokens: 16000,
+                messages: [{ role: 'user', content: fixPrompt }],
+              }),
+              signal: AbortSignal.timeout(90000),
+            });
+            if (fixRes.ok) {
+              const fixData: any = await fixRes.json();
+              fixed = fixData.content?.[0]?.text || '';
+            }
+          }
+          if (!fixed) {
+            const fixRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: fixPrompt }] }],
+                generationConfig: { temperature: 0.1, maxOutputTokens: 32768 },
+              }),
+              signal: AbortSignal.timeout(60000),
+            });
+            if (fixRes.ok) {
+              const fixData: any = await fixRes.json();
+              fixed = fixData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            }
+          }
+
+          if (fixed) {
             fixed = fixed.replace(/^```(?:html|HTML)?\s*\n?/g, '').replace(/\n?```\s*$/g, '').trim();
             if (fixed.length > 500 && /<!DOCTYPE/i.test(fixed) && /<\/html>/i.test(fixed)) {
               const remaining = lintHtml(fixed);
@@ -4842,7 +4865,7 @@ User: ${message}`;
             const r = await fetch(`${anthropicBase}/v1/messages`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-              body: JSON.stringify({ model: 'claude-opus-4-20250514', max_tokens: 4096, messages: [{ role: 'user', content: chatPrompt }] }),
+              body: JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 4096, messages: [{ role: 'user', content: chatPrompt }] }),
               signal: AbortSignal.timeout(30000),
             });
             if (r.ok) { const d: any = await r.json(); reply = d.content?.[0]?.text || null; }
