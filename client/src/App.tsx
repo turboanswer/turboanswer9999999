@@ -31,7 +31,6 @@ import ImageStudio from "@/pages/image-studio";
 import PhotoEditor from "@/pages/photo-editor";
 import MediaEditor from "@/pages/media-editor";
 import VideoStudio from "@/pages/video-studio";
-import CodeStudio from "@/pages/code-studio";
 import BetaApply from "@/pages/beta-apply";
 import Workgroups from "@/pages/workgroups";
 import CollabRooms from "@/pages/collab-rooms";
@@ -73,7 +72,6 @@ function AuthenticatedRouter() {
       <Route path="/photo-editor" component={PhotoEditor} />
       <Route path="/media-editor" component={MediaEditor} />
       <Route path="/video-studio" component={VideoStudio} />
-      <Route path="/code-studio" component={CodeStudio} />
       <Route path="/workgroups" component={Workgroups} />
       <Route path="/collab" component={CollabRooms} />
 

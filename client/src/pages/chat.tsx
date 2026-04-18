@@ -608,14 +608,6 @@ export default function Chat() {
                   <Film className="h-4 w-4" />
                 </Button>
               </Link>
-              {!isNativeMobile && (
-              <Link href="/code-studio">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full relative ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Code Studio">
-                  <Code2 className="h-4 w-4" />
-                  {!user?.codeStudioAddon && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[#8ab4f8]" />}
-                </Button>
-              </Link>
-              )}
               <Link href="/workgroups">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Workgroups">
                   <Users className="h-4 w-4" />
@@ -754,32 +746,6 @@ export default function Chat() {
         )}
       </header>
 
-      {/* Code Studio Banner */}
-      {showCodeStudioBanner && (
-        <div className={`shrink-0 relative z-30 overflow-hidden border-b ${isDark ? 'border-white/[0.06]' : 'border-blue-100'}`} style={{ background: isDark ? "linear-gradient(90deg, #0a1628 0%, #0a1220 50%, #0a1628 100%)" : "linear-gradient(90deg, #eff6ff 0%, #f0f9ff 50%, #eff6ff 100%)" }}>
-          <div className="relative flex items-center gap-3 px-4 py-2.5">
-            <div className="flex-1 flex items-center gap-2 min-w-0">
-              <span className="text-xs font-bold shrink-0 text-[#8ab4f8]">NEW</span>
-              <span className={`text-xs sm:text-sm font-semibold truncate ${isDark ? 'text-white' : 'text-blue-900'}`}>
-                Code Studio — build full apps from a single prompt
-              </span>
-              <span className={`hidden md:inline text-xs truncate ${isDark ? 'text-gray-400' : 'text-blue-500'}`}>Powered by Claude Opus 4</span>
-            </div>
-            {!isNativeMobile && (
-            <Link href="/code-studio">
-              <button className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all bg-[#4285F4] hover:bg-[#5a9bf4] text-white">
-                Try Code Studio
-              </button>
-            </Link>
-            )}
-            <button onClick={() => { setShowCodeStudioBanner(false); localStorage.setItem('ag_banner_dismissed', '1'); }}
-              className="shrink-0 text-gray-500 hover:text-gray-300 ml-1">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Free tier upgrade banner */}
       {isFreeTier && showUpgradeBanner && (
         <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 px-3 sm:px-5 py-2.5 relative z-30 shrink-0">
@@ -895,12 +861,12 @@ export default function Chat() {
                 @keyframes gemini-gradient { 0% { background-position: 0% center; } 50% { background-position: 200% center; } 100% { background-position: 0% center; } }
               `}</style>
               <div className="relative z-10 w-full">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium leading-[1.15] mb-3" style={{
-                  background: "linear-gradient(135deg, #4285F4 0%, #9B72CB 25%, #D96570 50%, #D96570 75%, #FFC857 100%)",
-                  backgroundSize: "200% auto",
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-[1.15] mb-3 tracking-tight" style={{
+                  background: "linear-gradient(90deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)",
+                  backgroundSize: "100% 100%",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
-                  animation: animationsPref ? "gemini-gradient 8s ease infinite" : "none",
+                  backgroundClip: "text",
                 }}>
                   {greeting}, {displayName}
                 </h1>
@@ -1223,7 +1189,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🤖 10 AI models — GPT-4o, Claude, Mistral & more", "🎬 AI Video Studio (Google Veo 3.1)", "💻 Code Studio — build apps with one prompt", "Everything in Pro + Free included"].map((text, i) => (
+              {["7 days free — cancel anytime", "🤖 10 AI models — GPT-4o, Claude, Mistral & more", "🎬 AI Video Studio (Google Veo 3.1)", "Everything in Pro + Free included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-green-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
