@@ -24,7 +24,6 @@ export default function LandingPage() {
     { icon: <FileText className="h-7 w-7" />, title: "Document Analysis", desc: "Upload any document and get instant summaries, key insights, and detailed answers.", color: "#10b981", badge: "Free" },
     { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Create images from text descriptions using DALL-E 3. Generate art and designs instantly.", color: "#ec4899", badge: "Pro+" },
     { icon: <Camera className="h-7 w-7" />, title: "Camera Vision", desc: "Point your camera at anything and get instant AI analysis. Scan docs, receipts, and images.", color: "#06b6d4", badge: "Free" },
-    { icon: <Swords className="h-7 w-7" />, title: "AI Debate Arena", desc: "Watch AI models debate any topic. Choose sides, moderate, and see who argues best.", color: "#ef4444", badge: "New" },
     { icon: <Users className="h-7 w-7" />, title: "Collab AI Rooms", desc: "Real-time multiplayer AI rooms. Chat with friends and AI together in one space.", color: "#a855f7", badge: "New" },
     { icon: <CheckCircle className="h-7 w-7" />, title: "AI Fact-Check", desc: "Verify any AI response with a second model. Get confidence scores and claim-by-claim analysis.", color: "#14b8a6", badge: "New" },
   ];
@@ -381,13 +380,6 @@ export default function LandingPage() {
                       <div>
                         <span className={`text-sm font-bold ${D ? "text-violet-300" : "text-violet-700"}`}>AI Video Studio</span>
                         <div className={`text-xs mt-0.5 ${D ? "text-violet-400/70" : "text-violet-500"}`}>Generate AI videos with Google Veo</div>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.04)", border: `1px solid ${D ? "rgba(239,68,68,0.15)" : "rgba(239,68,68,0.1)"}` }}>
-                      <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0 mt-0.5"><Swords className="h-3 w-3 text-white" /></div>
-                      <div>
-                        <span className={`text-sm font-bold ${D ? "text-red-300" : "text-red-700"}`}>AI Debate Arena</span>
-                        <div className={`text-xs mt-0.5 ${D ? "text-red-400/70" : "text-red-500"}`}>Watch AI models debate any topic</div>
                       </div>
                     </li>
                     <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(20,184,166,0.08)" : "rgba(20,184,166,0.04)", border: `1px solid ${D ? "rgba(20,184,166,0.15)" : "rgba(20,184,166,0.1)"}` }}>

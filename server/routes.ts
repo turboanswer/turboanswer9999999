@@ -1103,7 +1103,8 @@ function downloadAAB(){
           userId,
           req.body.language || "en",
           req.body.responseStyle || "balanced",
-          req.body.responseTone || "casual"
+          req.body.responseTone || "casual",
+          req.body.deepThink === true
         );
         responseUsedGroundedSearch = typeof aiResult === 'object' && aiResult.usedGroundedSearch;
         aiResponseContent = typeof aiResult === 'object' ? aiResult.text : aiResult;

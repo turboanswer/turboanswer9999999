@@ -26,6 +26,7 @@ export default function Chat() {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showImageGenerator, setShowImageGenerator] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState("gemini-flash");
+  const [deepThink, setDeepThink] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const [showToolbar, setShowToolbar] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -220,6 +221,7 @@ export default function Chat() {
         body: JSON.stringify({
           content, selectedModel: selectedAIModel, language: currentLanguage,
           responseStyle: responseStylePref, responseTone: responseTonePref,
+          deepThink: selectedAIModel === 'claude-research' ? deepThink : false,
         }),
       });
       if (res.status === 429) {
@@ -570,6 +572,22 @@ export default function Chat() {
               </SelectContent>
             </Select>
 
+            {selectedAIModel === 'claude-research' && (
+              <button
+                onClick={() => setDeepThink(v => !v)}
+                title={deepThink ? "Deep Think ON — uses all 10 AI models (slower, deeper)" : "Deep Think OFF — uses Gemini 2.5 Pro (fast)"}
+                className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
+                  deepThink
+                    ? (isDark ? 'bg-purple-600/30 border border-purple-500 text-purple-200' : 'bg-purple-100 border border-purple-400 text-purple-700')
+                    : (isDark ? 'bg-[#1e1f20] border border-[#3c4043] text-[#8e918f] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
+                }`}
+                data-testid="button-deep-think"
+              >
+                <Brain className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Deep Think</span>
+              </button>
+            )}
+
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -601,11 +619,6 @@ export default function Chat() {
               <Link href="/workgroups">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Workgroups">
                   <Users className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/debate">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="AI Debate Arena">
-                  <Swords className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/collab">

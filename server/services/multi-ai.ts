@@ -215,7 +215,8 @@ export async function generateAIResponse(
   userId?: string,
   userLanguage: string = "en",
   responseStyle: string = "balanced",
-  responseTone: string = "casual"
+  responseTone: string = "casual",
+  deepThink: boolean = false
 ): Promise<string | AIResponseResult> {
   try {
     let additionalContext = "";
@@ -296,9 +297,18 @@ export async function generateAIResponse(
     const recentHistory = conversationHistory.slice(-2).map(m => `${m.role}: ${m.content.slice(0, 300)}`).join('\n');
 
     if (selectedModel === 'claude-research' || selectedModel === 'enterprise-research') {
-      console.log(`[AI] ${selectedModel} → 10-Agent Multi-Agent System (OpenRouter)`);
+      const useDeepThink = deepThink || selectedModel === 'enterprise-research';
       const fullQuestion = additionalContext ? `${enhancedMessage}\n\n${additionalContext}` : enhancedMessage;
-      const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
+      if (useDeepThink) {
+        console.log(`[AI] ${selectedModel} → Deep Think ON → 10-Agent Multi-Agent System (OpenRouter)`);
+        const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
+        return { text, usedGroundedSearch };
+      }
+      if (!geminiApiKey) return "API key not configured.";
+      console.log(`[AI] ${selectedModel} → Deep Think OFF → Gemini 2.5 Pro (single-model)`);
+      const systemPrompt = `You are Turbo Answer Research. Give a focused, accurate answer. Be thorough but concise — no filler, no excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+      const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${fullQuestion}` : `${systemPrompt}\n\nUser: ${fullQuestion}`;
+      const text = await callGemini(fullPrompt, 'gemini-2.5-pro', 4000, 0.3, geminiApiKey);
       return { text, usedGroundedSearch };
     } else if (selectedModel === 'gemini-pro') {
       if (!geminiApiKey) return "API key not configured.";
