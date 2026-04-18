@@ -3742,6 +3742,12 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
     // Populate req.user so downstream isAuthenticated handlers work normally
     req.user = { claims: { sub: userId } };
     const u = await storage.getUser(userId).catch(() => null);
+
+    // Owner bypass: full access, no addon needed, no credit checks
+    if (isOwnerAccount(u)) {
+      return next();
+    }
+
     if (!u?.codeStudioAddon) return res.status(403).json({ error: 'Code Studio add-on required', requiresAddon: true });
 
     // Credit reset: resetAt stores the NEXT reset date.
@@ -3889,19 +3895,22 @@ Reply with exactly one word (micro/simple/standard/complex/advanced):` }] }],
 
       const currentUser = await storage.getUser(userId);
       if (!currentUser) return res.status(403).json({ error: 'User not found' });
+      const isOwner = isOwnerAccount(currentUser);
       const availableCents = currentUser.codeStudioCredits ?? 0;
 
-      if (availableCents < agreedCostCents) {
-        return res.status(402).json({
-          error: `Insufficient balance. This build costs $${(agreedCostCents / 100).toFixed(2)} but you only have $${(availableCents / 100).toFixed(2)}. Add budget to continue.`,
-          outOfCredits: true,
-          credits: availableCents,
-          creditsDisplay: `$${(availableCents / 100).toFixed(2)}`,
-          requiredCents: agreedCostCents,
-        });
+      if (!isOwner) {
+        if (availableCents < agreedCostCents) {
+          return res.status(402).json({
+            error: `Insufficient balance. This build costs $${(agreedCostCents / 100).toFixed(2)} but you only have $${(availableCents / 100).toFixed(2)}. Add budget to continue.`,
+            outOfCredits: true,
+            credits: availableCents,
+            creditsDisplay: `$${(availableCents / 100).toFixed(2)}`,
+            requiredCents: agreedCostCents,
+          });
+        }
+        // Deduct full cost upfront (owner is exempt)
+        await storage.updateCodeStudioCredits(userId, availableCents - agreedCostCents);
       }
-      // Deduct full cost upfront
-      await storage.updateCodeStudioCredits(userId, availableCents - agreedCostCents);
 
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
@@ -4376,6 +4385,15 @@ ${currentHtml}`;
     try {
       const user = await storage.getUser(req.user.claims.sub);
       if (!user) return res.status(403).json({ error: 'User not found' });
+      // Owner gets unlimited credits display
+      if (isOwnerAccount(user)) {
+        return res.json({
+          credits: 999999,
+          dollars: '∞',
+          nextReset: null,
+          unlimited: true,
+        });
+      }
       // codeStudioCreditsResetAt IS the next reset date (not last reset)
       const nextReset = user.codeStudioCreditsResetAt ? new Date(user.codeStudioCreditsResetAt) : null;
       const cents = user.codeStudioCredits ?? 0;
