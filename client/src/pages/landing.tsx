@@ -73,34 +73,6 @@ export default function LandingPage() {
 
       <section className="relative overflow-hidden" style={{ minHeight: "100vh", background: D ? "linear-gradient(160deg, #050d1f 0%, #0a1a3a 20%, #102a5c 45%, #1a3a6e 60%, #0f2044 80%, #060e20 100%)" : "linear-gradient(160deg, #1e3a8a 0%, #1e40af 20%, #2563eb 45%, #3b82f6 65%, #2563eb 85%, #1e40af 100%)" }}>
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {(() => {
-            const silColor = D ? "#0a1a3a" : "#1e3a8a";
-            const silhouettes = [
-              { x: 80, y: 220, s: 0.9, r: -3 },
-              { x: 220, y: 260, s: 0.7, r: 2 },
-              { x: 380, y: 200, s: 1.05, r: -1 },
-              { x: 540, y: 270, s: 0.65, r: 4 },
-              { x: 700, y: 230, s: 0.85, r: -2 },
-              { x: 860, y: 250, s: 0.75, r: 3 },
-              { x: 1020, y: 210, s: 0.95, r: -4 },
-              { x: 1180, y: 260, s: 0.7, r: 1 },
-              { x: 1320, y: 240, s: 0.8, r: -2 },
-            ];
-            return (
-              <svg className="absolute bottom-0 left-0 right-0 w-full" viewBox="0 0 1440 500" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: D ? 0.18 : 0.14 }}>
-                {silhouettes.map((p, i) => (
-                  <g key={i} transform={`translate(${p.x}, ${p.y}) scale(${p.s}) rotate(${p.r}, 24, 60)`}>
-                    <circle cx="24" cy="14" r="14" fill={silColor} />
-                    <path d={`M12,30 C12,28 14,26 18,26 L30,26 C34,26 36,28 36,30 L38,56 C38,58 36,60 34,60 L14,60 C12,60 10,58 10,56 Z`} fill={silColor} />
-                    <path d={`M6,34 C4,33 3,35 4,37 L10,52 C11,54 13,53 12,51 Z`} fill={silColor} />
-                    <path d={`M42,34 C44,33 45,35 44,37 L38,52 C37,54 35,53 36,51 Z`} fill={silColor} />
-                    <path d={`M12,60 L10,90 C10,92 12,93 14,93 L18,93 C20,93 21,91 20,89 L18,65`} fill={silColor} />
-                    <path d={`M36,60 L38,90 C38,92 36,93 34,93 L30,93 C28,93 27,91 28,89 L30,65`} fill={silColor} />
-                  </g>
-                ))}
-              </svg>
-            );
-          })()}
           <div className="absolute top-[20%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.12), transparent 55%)" }} />
           <div className="absolute top-[60%] left-[20%] w-[400px] h-[400px] rounded-full" style={{ background: "radial-gradient(circle, rgba(99,102,241,0.08), transparent 60%)" }} />
           <div className="absolute top-[50%] right-[15%] w-[300px] h-[300px] rounded-full" style={{ background: "radial-gradient(circle, rgba(6,182,212,0.06), transparent 60%)" }} />
@@ -117,7 +89,7 @@ export default function LandingPage() {
             <Sparkles size={14} className="text-blue-300" />
           </div>
 
-          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight leading-[0.92] mb-8 text-white drop-shadow-lg">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[0.95] mb-8 text-white drop-shadow-lg">
             Your AI That<br />
             <span style={{ color: D ? "#93c5fd" : "#bfdbfe" }}>Thinks, Creates</span><br />
             <span style={{ color: D ? "#7dd3fc" : "#a5d8ff" }}>& Analyzes</span>
