@@ -263,7 +263,9 @@ export async function runMultiAgentResearch(question: string, languageInstructio
 
   const verifiedAnswer = tryComputeArithmetic(question);
   if (verifiedAnswer) {
-    console.log(`[Multi-Agent] Detected arithmetic — verified result: ${verifiedAnswer.length > 80 ? verifiedAnswer.slice(0, 80) + '…' : verifiedAnswer}`);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`[Multi-Agent] Arithmetic detected — short-circuiting with exact result in ${totalTime}s`);
+    return `**${verifiedAnswer}**\n\n*Computed exactly with arbitrary-precision arithmetic in ${totalTime}s.*`;
   }
 
   const agentPromises = AGENT_PERSPECTIVES.map(p => callAgent(p, question, verifiedAnswer));
