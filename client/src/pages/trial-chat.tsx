@@ -4,6 +4,7 @@ import { Send, ArrowLeft, Sparkles, Crown, X } from "lucide-react";
 import TurboLogo from "@/components/TurboLogo";
 
 const TRIAL_LIMIT = 5;
+const SOFT_PROMPT_AT = 4;
 const STORAGE_KEY = "turbo_trial_count";
 
 function getTrialCount(): number {
@@ -101,12 +102,15 @@ export default function TrialChat() {
           <span className="text-sm font-semibold">TurboAnswer</span>
           <span className="text-xs text-gray-500 ml-2">Trial</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-          style={{ background: remaining > 2 ? "rgba(34,197,94,0.15)" : remaining > 0 ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: remaining > 2 ? "#4ade80" : remaining > 0 ? "#fbbf24" : "#f87171" }}
-        >
-          <Sparkles size={12} />
-          {remaining > 0 ? `${remaining} left` : "Trial ended"}
-        </div>
+        {trialCount >= SOFT_PROMPT_AT && (
+          <button
+            onClick={() => setLocation("/register")}
+            className="px-3 py-1.5 rounded-full text-xs font-medium text-white active:opacity-80"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #2563eb)" }}
+          >
+            Sign up
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -121,7 +125,7 @@ export default function TrialChat() {
               Welcome to TurboAnswer
             </h2>
             <p className="text-gray-400 text-sm mb-6">
-              You have <span className="text-purple-400 font-semibold">{remaining} free questions</span>. Try asking anything!
+              Ask anything. Get a clear answer.
             </p>
             <div className="w-full space-y-2">
               {suggestions.map((s, i) => (

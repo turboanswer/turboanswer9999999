@@ -2693,6 +2693,35 @@ function downloadAAB(){
     }
   });
 
+  app.get('/api/admin/auto-debug', isAdmin, async (req: any, res) => {
+    try {
+      const { getDiagnoses, getAutoDebuggerStats } = await import('./services/auto-debugger.js');
+      res.json({ diagnoses: getDiagnoses(), stats: getAutoDebuggerStats() });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to get auto-debugger data' });
+    }
+  });
+
+  app.post('/api/admin/auto-debug/toggle', isAdmin, async (req: any, res) => {
+    try {
+      const { setAutoDebuggerEnabled, isAutoDebuggerEnabled } = await import('./services/auto-debugger.js');
+      setAutoDebuggerEnabled(req.body?.enabled === true);
+      res.json({ enabled: isAutoDebuggerEnabled() });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to toggle auto-debugger' });
+    }
+  });
+
+  app.delete('/api/admin/auto-debug', isAdmin, async (req: any, res) => {
+    try {
+      const { clearDiagnoses } = await import('./services/auto-debugger.js');
+      const cleared = clearDiagnoses();
+      res.json({ success: true, cleared });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to clear diagnoses' });
+    }
+  });
+
   app.get('/api/admin/stats', isAdmin, async (req: any, res) => {
     try {
       const cached = getCached('admin-stats');

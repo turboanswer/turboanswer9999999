@@ -10,6 +10,7 @@ import { ensureSubscriptionPlans } from "./paypal";
 import { pool } from "./db";
 import { stopProactiveDiagnostics } from "./services/proactive-diagnostics";
 import { trackError } from "./services/error-tracker";
+import { installAutoDebugger } from "./services/auto-debugger";
 import { storage } from "./storage";
 import { applyIntrusionMiddleware, setThreatCallback } from "./services/intrusion-detection";
 
@@ -267,6 +268,8 @@ process.on('unhandledRejection', (reason: any) => {
   console.log('[Server] Registering routes...');
   const server = await registerRoutes(app);
   console.log('[Server] Routes registered.');
+
+  installAutoDebugger();
 
   try { await storage.seedOwnerPromoCode(); } catch (e: any) { /* Neon API may be disabled, ignore seed errors */ }
 

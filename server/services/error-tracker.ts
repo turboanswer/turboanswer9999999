@@ -21,6 +21,13 @@ const MAX_ERRORS = 200;
 
 const errorFingerprints = new Map<string, string>();
 
+type ErrorListener = (err: TrackedError) => void;
+const listeners: ErrorListener[] = [];
+
+export function onErrorTracked(cb: ErrorListener): void {
+  listeners.push(cb);
+}
+
 function fingerprint(type: ErrorType, message: string): string {
   return `${type}::${message.substring(0, 120)}`;
 }
@@ -73,6 +80,10 @@ export function trackError(
   if (errorLog.length > MAX_ERRORS) {
     const removed = errorLog.splice(0, errorLog.length - MAX_ERRORS);
     removed.forEach(e => errorFingerprints.delete(fingerprint(e.type, e.message)));
+  }
+
+  for (const cb of listeners) {
+    try { cb(err); } catch (e) { /* swallow */ }
   }
 
   return err;
