@@ -1,0 +1,48 @@
+Action Required: Your app is not compliant with Google Play Policies (Turboanswer Ai)
+To: turboanswer15@gmail.com
+This email has been sent to the account owner
+Google Play
+Developer update
+Hi Developers at Turboanswer AI corp,
+
+When reviewing your app, Turboanswer Ai (com.turboanswer.app), we found that it doesn’t comply with one or more of our Google Play policies, which has affected your app’s status.
+Publishing Status 	
+Status: Further action required
+
+There are issues with your Data safety declaration that need your attention. If you don't fix the issue(s) by the deadline below, updates to your app will be rejected.
+
+You can learn more about this issue and how to fix it on Play Console.
+Go to Play Console
+	
+Issue found: Invalid account deletion link on your Data safety form
+
+You have declared that your app does allow users to create an account however the deletion link you provided to users is invalid.
+
+    Account Deletion Link in the designated field in the Data safety form is broken.
+
+If you don't fix this by April 27, 2026, your app may face further action.
+
+Issue details
+
+We found an issue in the following area(s):
+
+    Policy Declaration - Data Safety Section: "URL provided https://ai-companion-tiagotschantret.replit.app/data-deletion does not link to a valid page, HTTP server is returning 404: Not Found"
+
+About the User Data - Account Deletion Requirement
+The User Data - Account Deletion Requirement requires that if your app allows users to create an account from within your app, then it must also allow users to request for their account to be deleted.
+Submit an Appeal
+
+If you believe that our decision is incorrect, you can submit an appeal. It may take up to 7 days to receive a response, but it occasionally takes longer.
+
+Submit an appeal
+
+If you’ve fixed this issue, send changes to your app for review on the Publishing overview page in Play Console.
+Learn More
+
+To learn more about the enforcement process, visit the Help Center. For the latest updates on Google Play’s policies, watch Android Developers’ #PolicyBytes. Choose your preferred language by changing the audio track in the settings.
+
+Thanks for your continued support in helping to make Google Play a positive experience for both developers and consumers.
+
+Help us improve the Google Play experience by completing our two question survey.
+The Google Play Team
+[Play academy] 
