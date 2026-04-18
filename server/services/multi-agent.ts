@@ -129,6 +129,12 @@ async function callOpenRouter(model: string, prompt: string, maxTokens: number, 
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
 
+  const { isModelDowned } = await import('./auto-remediation.js');
+  if (isModelDowned('openrouter')) {
+    console.log(`[OpenRouter] Skipped ${model} — provider marked downed by auto-remediation`);
+    return null;
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 45000);
@@ -153,6 +159,8 @@ async function callOpenRouter(model: string, prompt: string, maxTokens: number, 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
       console.log(`[OpenRouter] ${model} HTTP ${response.status}: ${errText.slice(0, 200)}`);
+      const { trackError } = await import('./error-tracker.js');
+      trackError('aiError', `OpenRouter ${model} HTTP ${response.status}: ${errText.slice(0, 200)}`);
       return null;
     }
 
@@ -160,6 +168,8 @@ async function callOpenRouter(model: string, prompt: string, maxTokens: number, 
     return data.choices?.[0]?.message?.content || null;
   } catch (err: any) {
     console.log(`[OpenRouter] ${model} failed: ${err.message}`);
+    const { trackError } = await import('./error-tracker.js');
+    trackError('aiError', `OpenRouter ${model} failed: ${err.message}`);
     return null;
   }
 }
@@ -168,6 +178,12 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
   const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
   const anthropicBase = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
   if (!anthropicKey) return null;
+
+  const { isModelDowned } = await import('./auto-remediation.js');
+  if (isModelDowned('anthropic')) {
+    console.log(`[Claude] Skipped — provider marked downed by auto-remediation`);
+    return null;
+  }
 
   try {
     const controller = new AbortController();
@@ -184,7 +200,13 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      if (response.status === 429 || response.status === 529) {
+        const { trackError } = await import('./error-tracker.js');
+        trackError('aiError', `Anthropic Claude HTTP ${response.status}: rate limit/quota`);
+      }
+      return null;
+    }
     const data: any = await response.json();
     return data.content?.[0]?.text || null;
   } catch {
@@ -195,6 +217,12 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
 async function callGemini(prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
+
+  const { isModelDowned } = await import('./auto-remediation.js');
+  if (isModelDowned('gemini')) {
+    console.log(`[Gemini] Skipped — provider marked downed by auto-remediation`);
+    return null;
+  }
 
   const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
   for (const model of models) {

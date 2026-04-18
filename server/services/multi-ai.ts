@@ -109,6 +109,12 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
   const anthropicBase = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
   if (!anthropicKey) return null;
 
+  const { isModelDowned } = await import('./auto-remediation.js');
+  if (isModelDowned('anthropic')) {
+    console.log(`[Claude] Skipped — provider marked downed by auto-remediation`);
+    return null;
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
@@ -131,6 +137,10 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
 
     if (!response.ok) {
       console.log(`[Claude] HTTP ${response.status}`);
+      if (response.status === 429 || response.status === 529) {
+        const { trackError } = await import('./error-tracker.js');
+        trackError('aiError', `Anthropic Claude HTTP ${response.status}: rate limit/quota`);
+      }
       return null;
     }
 
@@ -377,6 +387,11 @@ async function callGeminiBasic(prompt: string, maxTokens: number, temperature: n
 }
 
 async function callGemini(prompt: string, preferredModel: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
+  const { isModelDowned } = await import('./auto-remediation.js');
+  if (isModelDowned('gemini')) {
+    console.log(`[Gemini] Skipped — provider marked downed by auto-remediation`);
+    return "Please try again in a moment.";
+  }
   const fallbacks = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash'];
   const allModels = preferredModel === 'gemini-3.1-pro-preview'
     ? ['gemini-3.1-pro-preview', ...fallbacks.filter(m => m !== 'gemini-3.1-pro-preview')]
@@ -405,6 +420,8 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
 
         if (response.status === 429) {
           console.log(`[Gemini] ${model} rate limited (attempt ${attempt + 1}), trying next...`);
+          const { trackError } = await import('./error-tracker.js');
+          trackError('aiError', `Gemini ${model} HTTP 429: rate limit/quota`);
           if (attempt === 0) await new Promise(r => setTimeout(r, 200));
           continue;
         }
