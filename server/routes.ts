@@ -2722,6 +2722,29 @@ function downloadAAB(){
     }
   });
 
+  app.get('/api/admin/auto-remediation', isAdmin, async (req: any, res) => {
+    try {
+      const { getRemediationAttempts, getRemediationStats, listPlaybooks } = await import('./services/auto-remediation.js');
+      res.json({
+        attempts: getRemediationAttempts(),
+        stats: getRemediationStats(),
+        playbooks: listPlaybooks(),
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to get remediation data' });
+    }
+  });
+
+  app.post('/api/admin/auto-remediation/toggle', isAdmin, async (req: any, res) => {
+    try {
+      const { setAutoRemediationEnabled, isAutoRemediationEnabled } = await import('./services/auto-remediation.js');
+      setAutoRemediationEnabled(req.body?.enabled === true);
+      res.json({ enabled: isAutoRemediationEnabled() });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to toggle auto-remediation' });
+    }
+  });
+
   app.get('/api/admin/stats', isAdmin, async (req: any, res) => {
     try {
       const cached = getCached('admin-stats');

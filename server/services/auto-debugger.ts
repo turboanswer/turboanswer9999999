@@ -1,4 +1,5 @@
 import { onErrorTracked, type TrackedError } from "./error-tracker";
+import { attemptRemediation, type RemediationAttempt } from "./auto-remediation";
 
 interface AutoDebugDiagnosis {
   errorId: string;
@@ -13,6 +14,7 @@ interface AutoDebugDiagnosis {
   filesToCheck: string[];
   diagnosedAt: string;
   durationMs: number;
+  remediation?: RemediationAttempt | null;
 }
 
 const diagnoses: AutoDebugDiagnosis[] = [];
@@ -139,12 +141,15 @@ async function maybeDiagnose(err: TrackedError) {
 
   inFlight.add(key);
   try {
+    const remediation = await attemptRemediation(err);
     const diag = await runDiagnosis(err);
     if (diag) {
+      diag.remediation = remediation;
       diagnoses.push(diag);
       if (diagnoses.length > MAX_DIAGNOSES) diagnoses.splice(0, diagnoses.length - MAX_DIAGNOSES);
       totalDiagnosed++;
-      console.log(`[AutoDebug] Diagnosed ${err.severity} ${err.type} in ${diag.durationMs}ms — ${diag.rootCause.slice(0, 100)}`);
+      const remTag = remediation ? ` [auto-fix: ${remediation.playbook}=${remediation.status}]` : '';
+      console.log(`[AutoDebug] Diagnosed ${err.severity} ${err.type} in ${diag.durationMs}ms${remTag} — ${diag.rootCause.slice(0, 100)}`);
     }
   } finally {
     inFlight.delete(key);
