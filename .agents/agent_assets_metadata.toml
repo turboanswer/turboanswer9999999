@@ -125,3 +125,9 @@ id = "-cc-QXO6uNXfwGj4AMdIt"
 uri = "file://tshirt/microsoft-azure-developer-tshirt.png"
 type = "image"
 title = "Microsoft Azure Developer T-Shirt Design"
+
+[[outputs]]
+id = "dLG5satug-9_0VkID9jLZ"
+uri = "file://tshirt/azure-developer-tshirt.png"
+type = "image"
+title = "Azure Developer T-Shirt Design (Black Background)"
