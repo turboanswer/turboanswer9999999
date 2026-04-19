@@ -32,7 +32,7 @@ export default function NotFound() {
 
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-medium text-emerald-400">Verified AI · Page status: missing</span>
+            <span className="text-xs font-medium text-emerald-400">Matrix AI · Page status: missing</span>
           </div>
 
           <h1 className="text-7xl sm:text-8xl font-black tracking-tight mb-3 bg-gradient-to-br from-white via-white to-emerald-200 bg-clip-text text-transparent">

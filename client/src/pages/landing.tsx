@@ -139,7 +139,7 @@ export default function LandingPage() {
 
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 border ${D ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
                 <Brain className="h-3.5 w-3.5" />
-                <span className="text-xs font-bold uppercase tracking-wider">New: TurboAnswer Reasoning Engine</span>
+                <span className="text-xs font-bold uppercase tracking-wider">Powered by Matrix AI — our research model</span>
                 <span className="text-xs opacity-80">— routes hard questions through 3 models + live sources + claim-level verification</span>
               </div>
 

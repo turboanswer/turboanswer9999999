@@ -50,7 +50,7 @@ export default function MobileWelcome() {
         >
           <Shield size={12} className="text-emerald-400" />
           <span className="text-[11px] font-bold tracking-wider uppercase text-emerald-400">
-            Verified AI
+            Matrix AI
           </span>
         </div>
 
