@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 interface DocumentUploadProps {
   conversationId?: number;
   onAnalysisComplete?: (analysis: any) => void;
+  initialFile?: File | null;
 }
 
 interface AnalysisOption {
@@ -19,12 +20,20 @@ interface AnalysisOption {
   description: string;
 }
 
-export function DocumentUpload({ conversationId, onAnalysisComplete }: DocumentUploadProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+export function DocumentUpload({ conversationId, onAnalysisComplete, initialFile }: DocumentUploadProps) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(initialFile ?? null);
   const [analysisType, setAnalysisType] = useState("general");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (initialFile) {
+      setSelectedFile(initialFile);
+      setAnalysisResult(null);
+      setUploadProgress(0);
+    }
+  }, [initialFile]);
   const { toast } = useToast();
 
   // Get analysis options

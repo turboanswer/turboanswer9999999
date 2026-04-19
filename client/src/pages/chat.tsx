@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -214,6 +214,54 @@ export default function Chat() {
 
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+  const [droppedDocFile, setDroppedDocFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const isImageFile = (file: File) => file.type.startsWith("image/");
+
+  const routeIncomingFile = (file: File) => {
+    if (isImageFile(file)) {
+      handleImageFile(file);
+    } else {
+      if (file.size > 20 * 1024 * 1024) {
+        toast({ title: "File too large", description: "Please upload a file under 20 MB.", variant: "destructive" });
+        return;
+      }
+      setDroppedDocFile(file);
+      setShowDocumentUpload(true);
+    }
+  };
+
+  const handleChatDragEnter = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    dragCounterRef.current += 1;
+    setIsDragging(true);
+  };
+  const handleChatDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+    }
+  };
+  const handleChatDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer?.types?.includes("Files")) e.preventDefault();
+  };
+  const handleChatDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length === 0) return;
+    routeIncomingFile(files[0]);
+    if (files.length > 1) {
+      toast({ title: "One file at a time", description: "Only the first file was added — please send others separately." });
+    }
+  };
 
   const handleImageFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -591,7 +639,23 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh]" style={{ background: 'var(--chat-outer-bg)' }}>
+    <div
+      className="flex flex-col h-[100dvh] relative"
+      style={{ background: 'var(--chat-outer-bg)' }}
+      onDragEnter={handleChatDragEnter}
+      onDragLeave={handleChatDragLeave}
+      onDragOver={handleChatDragOver}
+      onDrop={handleChatDrop}
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none p-6">
+          <div className={`w-full h-full rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-3 ${isDark ? 'bg-emerald-500/10 border-emerald-400 text-emerald-200' : 'bg-emerald-50 border-emerald-500 text-emerald-700'}`}>
+            <Upload className="h-12 w-12" />
+            <div className="text-lg font-semibold">Drop your file to upload</div>
+            <div className="text-sm opacity-75">Images get analyzed in chat • Documents open in the analysis panel</div>
+          </div>
+        </div>
+      )}
       <header className="px-3 sm:px-5 py-2.5 relative z-40 shrink-0" style={{ background: 'var(--chat-header-bg)' }}>
         <div className="flex items-center justify-between gap-2">
           <Link href="/">
@@ -853,11 +917,11 @@ export default function Chat() {
         <div className={`${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-gray-200'} border-b px-3 sm:px-6 py-3 sm:py-4 relative z-30 shrink-0`}>
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h3 className={`text-base sm:text-lg font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>Document Analysis</h3>
-            <Button onClick={() => setShowDocumentUpload(false)} variant="ghost" size="sm" className={isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}>
+            <Button onClick={() => { setShowDocumentUpload(false); setDroppedDocFile(null); }} variant="ghost" size="sm" className={isDark ? 'text-zinc-400 hover:text-white' : 'text-gray-400 hover:text-gray-900'}>
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <DocumentUpload conversationId={currentConversationId ?? undefined} onAnalysisComplete={handleDocumentAnalysis} />
+          <DocumentUpload conversationId={currentConversationId ?? undefined} onAnalysisComplete={(a) => { setDroppedDocFile(null); handleDocumentAnalysis(a); }} initialFile={droppedDocFile} />
         </div>
       )}
 
@@ -1139,6 +1203,18 @@ export default function Chat() {
             }}
             data-testid="input-image-file"
           />
+          <input
+            ref={docFileInputRef}
+            type="file"
+            accept=".txt,.pdf,.doc,.docx,.xlsx,.pptx,.csv,.json,.md,.html,.xml,.rtf,.png,.jpg,.jpeg,.webp,.gif"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) routeIncomingFile(f);
+              if (docFileInputRef.current) docFileInputRef.current.value = "";
+            }}
+            data-testid="input-doc-file"
+          />
           <div className="flex items-end gap-2 sm:gap-3">
             <div className="flex-1 relative">
               <Textarea
@@ -1148,7 +1224,7 @@ export default function Chat() {
                 onKeyDown={handleKeyDown}
                 onPaste={handlePasteImage}
                 placeholder={attachedImage ? "Ask about this image..." : "Enter a prompt here"}
-                className={`w-full pl-12 pr-14 py-3.5 rounded-3xl text-sm sm:text-base resize-none min-h-[52px] max-h-28 transition-colors ${
+                className={`w-full pl-[5.5rem] pr-14 py-3.5 rounded-3xl text-sm sm:text-base resize-none min-h-[52px] max-h-28 transition-colors ${
                   isDark
                     ? 'bg-[#1e1f20] border-[#3c4043] text-[#e3e3e3] placeholder-[#8e918f] focus:ring-1 focus:ring-[#8ab4f8]/40 focus:border-[#8ab4f8]/50'
                     : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-400'
@@ -1156,9 +1232,21 @@ export default function Chat() {
                 rows={1}
               />
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => docFileInputRef.current?.click()}
                 disabled={sendMessageMutation.isPending}
                 className={`absolute left-2.5 bottom-2.5 h-9 w-9 p-0 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 ${
+                  isDark ? 'hover:bg-white/10 text-zinc-300' : 'hover:bg-gray-200 text-gray-600'
+                }`}
+                title="Upload a file (PDF, DOCX, image, etc.) or drop one onto the chat"
+                data-testid="button-attach-file"
+                type="button"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sendMessageMutation.isPending}
+                className={`absolute left-12 bottom-2.5 h-9 w-9 p-0 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 ${
                   isDark ? 'hover:bg-white/10 text-zinc-300' : 'hover:bg-gray-200 text-gray-600'
                 }`}
                 title="Attach image (or paste with Ctrl+V)"
