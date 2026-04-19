@@ -101,3 +101,15 @@ id = "l4Mn9-ZV-ANUPzFNYBg2u"
 uri = "file://client/public/turbo-logo.png"
 type = "image"
 title = "TurboAnswer Logo"
+
+[[outputs]]
+id = "uibb_6nyv7iZQVmLSMp7u"
+uri = "file://screenshots/turboanswer-landing-1270x760.jpg"
+type = "image"
+title = "TurboAnswer Website Screenshot (1270×760)"
+
+[[outputs]]
+id = "v2lA9x0Kcp91b1VcXxmLY"
+uri = "file://screenshots/turboanswer-logo-1270x760.jpg"
+type = "image"
+title = "TurboAnswer Logo (1270×760)"
