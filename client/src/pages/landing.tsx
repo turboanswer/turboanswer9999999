@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, Code2, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Star, ChevronRight, Microscope, Cpu, Layers, BarChart3, Film, Swords, Users, CheckCircle } from "lucide-react";
+import { SiCloudflare } from "react-icons/si";
 import { Link } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import { useTheme } from "@/hooks/use-theme";
@@ -684,16 +685,36 @@ export default function LandingPage() {
       )}
 
       <footer className="border-t py-8 px-5 relative z-10" style={{ borderColor: D ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)", background: D ? "rgba(0,0,0,0.5)" : "#fafafa" }}>
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <TurboLogo size={24} animated={false} />
-            <span className={`font-semibold ${D ? "text-white" : "text-gray-900"}`}>TurboAnswer</span>
-            <span className={`text-xs ml-2 ${D ? "text-gray-600" : "text-gray-400"}`}>The AI that gets it done</span>
+        <div className="max-w-6xl mx-auto flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <TurboLogo size={24} animated={false} />
+              <span className={`font-semibold ${D ? "text-white" : "text-gray-900"}`}>TurboAnswer</span>
+              <span className={`text-xs ml-2 ${D ? "text-gray-600" : "text-gray-400"}`}>The AI that gets it done</span>
+            </div>
+            <div className={`flex gap-6 text-sm ${D ? "text-gray-500" : "text-gray-400"}`}>
+              <Link href="/privacy-policy" className={D ? "hover:text-gray-300" : "hover:text-gray-600"}>Privacy</Link>
+              <Link href="/support" className={D ? "hover:text-gray-300" : "hover:text-gray-600"}>Support</Link>
+              <Link href="/business" className={D ? "hover:text-gray-300" : "hover:text-gray-600"}>Business</Link>
+            </div>
           </div>
-          <div className={`flex gap-6 text-sm ${D ? "text-gray-500" : "text-gray-400"}`}>
-            <Link href="/privacy-policy" className={D ? "hover:text-gray-300" : "hover:text-gray-600"}>Privacy</Link>
-            <Link href="/support" className={D ? "hover:text-gray-300" : "hover:text-gray-600"}>Support</Link>
-            <Link href="/business" className={D ? "hover:text-gray-300" : "hover:text-gray-600"}>Business</Link>
+          <div className="flex justify-center" data-testid="badge-cloudflare">
+            <a
+              href="https://www.cloudflare.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-full border text-xs font-medium transition-colors ${
+                D
+                  ? "bg-white/[0.03] border-white/10 text-gray-300 hover:bg-white/[0.06]"
+                  : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+              }`}
+              title="This site is protected by Cloudflare's enterprise DDoS, WAF, and bot mitigation."
+            >
+              <SiCloudflare className="text-[#F38020] w-4 h-4" />
+              <Shield className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Protected by Cloudflare</span>
+              <span className={`hidden sm:inline ${D ? "text-gray-500" : "text-gray-400"}`}>· DDoS, WAF & Bot Mitigation Active</span>
+            </a>
           </div>
         </div>
       </footer>
