@@ -253,8 +253,22 @@ export async function generateVisionResponse(
     });
     if (!res.ok) {
       const errText = await res.text().catch(() => "");
-      console.error(`[Vision] OpenAI error ${res.status}: ${errText.slice(0, 300)}`);
-      return "I couldn't read that image just now — there was a hiccup connecting to the vision model. Please try again in a moment.";
+      console.error(`[Vision] OpenAI error ${res.status}: ${errText.slice(0, 500)}`);
+      let parsedMsg = "";
+      try { parsedMsg = JSON.parse(errText)?.error?.message || ""; } catch {}
+
+      if (res.status === 401) return "Image reading is offline — the OpenAI API key is missing or invalid. Please ask the site owner to update it.";
+      if (res.status === 429) {
+        if (/quota|billing|insufficient/i.test(parsedMsg)) {
+          return "Image reading is paused — the OpenAI account is out of credits. Please add billing at platform.openai.com and try again.";
+        }
+        return "Too many image requests right now. Please wait a moment and try again.";
+      }
+      if (res.status === 400 && /image|content|invalid/i.test(parsedMsg)) {
+        return `OpenAI couldn't process that image: ${parsedMsg}. Try a smaller or different image.`;
+      }
+      if (res.status >= 500) return "OpenAI's vision service is having a hiccup right now. Please try again in a moment.";
+      return `Image reading failed (${res.status})${parsedMsg ? `: ${parsedMsg}` : ''}. Please try again.`;
     }
     const data = await res.json();
     const text = data?.choices?.[0]?.message?.content;
