@@ -377,7 +377,10 @@ Output STRICT JSON:
 
   const raw = await callOR(MODEL_VERIFIER, prompt, { maxTokens: 900, temperature: 0, jsonMode: true, timeoutMs: 18000 });
   const parsed = parseJSON<{ verdict?: string; confidence?: number; claims?: ClaimCheck[]; sentences_to_mark?: { sentence_substring?: string; tag?: string }[] }>(raw, {});
-  const verdict = (parsed.verdict === 'verified' || parsed.verdict === 'unverified') ? parsed.verdict : 'unknown';
+  const verdict: 'verified' | 'unverified' | 'unknown' =
+    parsed.verdict === 'verified' ? 'verified'
+    : parsed.verdict === 'unverified' ? 'unverified'
+    : 'unknown';
   const claims = (parsed.claims || []).slice(0, 6);
   const confidence = typeof parsed.confidence === 'number' ? Math.max(0, Math.min(100, Math.round(parsed.confidence))) : (verdict === 'verified' ? 85 : verdict === 'unverified' ? 35 : 60);
 
@@ -392,7 +395,7 @@ Output STRICT JSON:
     }
   }
 
-  return { verdict: verdict as any, claims, markedAnswer, confidence };
+  return { verdict, claims, markedAnswer, confidence };
 }
 
 // ============= FAST PATH =============
@@ -420,13 +423,20 @@ export type RunOptions = {
   onEvent: (e: EngineEvent) => void;
 };
 
-function estimateRunCost(panelSize: number, withDebate: boolean): number {
-  // very rough: each model ~1500 toks @ avg cost
-  const panelCost = MODEL_PANEL.slice(0, panelSize).reduce((a, m) => a + m.costPer1k * 1.5, 0);
-  const synthCost = 0.015 * 1.8;
-  const verifyCost = 0.005 * 0.9;
-  const debateCost = withDebate ? 0.005 * 0.8 : 0;
+function estimateRunCost(panelSize: number, withDebate: boolean, questionTokens: number, subQCount: number, contextTokens: number): number {
+  // Per-model: input (system + question + sub-questions + context) + output
+  const inputKtoks = (questionTokens + subQCount * 30 + contextTokens + 200) / 1000;
+  const outputKtoks = 1.5; // ~1500 tok answer per model
+  const panelCost = MODEL_PANEL.slice(0, panelSize).reduce((a, m) => a + m.costPer1k * (inputKtoks + outputKtoks), 0);
+  const synthInputK = (panelSize * outputKtoks * 1000 + contextTokens + 300) / 1000;
+  const synthCost = 0.015 * (synthInputK + 1.8);
+  const verifyCost = 0.005 * (outputKtoks + contextTokens / 1000 + 0.9);
+  const debateCost = withDebate ? 0.005 * (panelSize * outputKtoks + 0.8) : 0;
   return panelCost + synthCost + verifyCost + debateCost;
+}
+
+function approxTokens(s: string): number {
+  return Math.ceil(s.length / 4);
 }
 
 export async function runReasoning(opts: RunOptions): Promise<{ content: string; verified: 'verified' | 'unverified' | 'unknown'; mode: 'fast' | 'retrieval' | 'deep'; sources: Source[]; claims: ClaimCheck[]; confidence: number }> {
@@ -471,14 +481,6 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
   }
 
   // DEEP PATH
-  // Cost ceiling: drop one model + skip debate if estimated cost would exceed budget
-  let panelModels = MODEL_PANEL;
-  let runDebate = true;
-  if (estimateRunCost(panelModels.length, runDebate) > COST_CEILING_USD) {
-    panelModels = MODEL_PANEL.slice(0, 2);
-    runDebate = false;
-  }
-
   stage('plan', 'Planning sub-questions', 'active');
   stage('retrieve', 'Searching live sources', 'active');
   const [subQs, retrieved] = await Promise.all([
@@ -489,11 +491,25 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
   stage('retrieve', `${retrieved.sources.length} source${retrieved.sources.length === 1 ? '' : 's'}${retrieved.arithmetic ? ' + math verified' : ''}`, 'done');
   if (retrieved.sources.length) onEvent({ type: 'sources', sources: retrieved.sources });
 
-  stage('panel', `Asking ${panelModels.length} expert AI models in parallel`, 'active');
   const ctxParts: string[] = [];
   if (retrieved.arithmetic) ctxParts.push(`Verified arithmetic: ${retrieved.arithmetic}`);
   if (retrieved.sources.length) ctxParts.push('Sources:\n' + retrieved.sources.map((s, i) => `[${i + 1}] ${s.title}${s.publishedAt ? ` (${s.publishedAt})` : ''}: ${s.snippet}`).join('\n'));
   const context = ctxParts.join('\n\n');
+
+  // Cost ceiling: now context-aware. Drop one model + skip debate if over budget.
+  const qTok = approxTokens(question);
+  const ctxTok = approxTokens(context);
+  let panelModels = MODEL_PANEL;
+  let runDebate = true;
+  let estCost = estimateRunCost(panelModels.length, runDebate, qTok, subQs.length, ctxTok);
+  if (estCost > COST_CEILING_USD) {
+    panelModels = MODEL_PANEL.slice(0, 2);
+    runDebate = false;
+    estCost = estimateRunCost(panelModels.length, runDebate, qTok, subQs.length, ctxTok);
+    stage('budget', `Cost ceiling hit ($${estCost.toFixed(2)} est) — dropped 1 model + skipped debate`, 'done');
+  }
+
+  stage('panel', `Asking ${panelModels.length} expert AI models in parallel`, 'active');
   const panel = await panelAnswer(question, subQs, context, panelModels, (m, p) => onEvent({ type: 'panel', model: m, preview: p }));
   if (panel.length === 0) {
     stage('panel', 'All models failed — falling back', 'error');

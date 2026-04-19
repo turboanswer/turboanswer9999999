@@ -26,7 +26,16 @@ export default function Chat() {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showImageGenerator, setShowImageGenerator] = useState(false);
   const [selectedAIModel, setSelectedAIModel] = useState("gemini-flash");
-  const [deepThink, setDeepThink] = useState(false);
+  const [deepThinkByConv, setDeepThinkByConv] = useState<Record<string, boolean>>({});
+  const deepThinkKey = currentConversationId == null ? '__new__' : String(currentConversationId);
+  const deepThink = !!deepThinkByConv[deepThinkKey];
+  const setDeepThink = (v: boolean | ((prev: boolean) => boolean)) => {
+    setDeepThinkByConv(prev => {
+      const cur = !!prev[deepThinkKey];
+      const next = typeof v === 'function' ? (v as (p: boolean) => boolean)(cur) : v;
+      return { ...prev, [deepThinkKey]: next };
+    });
+  };
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const [showToolbar, setShowToolbar] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -446,32 +455,32 @@ export default function Chat() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async ({ content, convId, imageDataUrl }: { content: string; convId: number; imageDataUrl?: string | null }) => {
-      // Image messages still use the legacy non-streaming endpoint (vision pipeline)
-      if (imageDataUrl) {
-        const res = await fetch(`/api/conversations/${convId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            content, selectedModel: selectedAIModel, language: currentLanguage,
-            responseStyle: responseStylePref, responseTone: responseTonePref,
-            deepThink: selectedAIModel === 'claude-research' ? deepThink : false,
-            imageDataUrl: imageDataUrl || undefined,
-          }),
-        });
-        if (res.status === 429) {
-          let data: any = {};
-          try { data = await res.json(); } catch {}
-          if (data.code === "DAILY_LIMIT_REACHED" || (data.message && data.message.includes("daily limit"))) {
-            throw { isDailyLimit: true, message: data.message };
-          }
-        }
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to send message");
-        return data;
+      // Use TurboAnswer Reasoning Engine (streaming) only when Deep Think is ON and no image.
+      // Otherwise preserve the legacy single-model pipeline + selectedModel behavior.
+      if (!imageDataUrl && deepThink) {
+        return await runStreamingMessage(content, convId);
       }
-      // Text messages use the streaming reasoning engine
-      return await runStreamingMessage(content, convId);
+      const res = await fetch(`/api/conversations/${convId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content, selectedModel: selectedAIModel, language: currentLanguage,
+          responseStyle: responseStylePref, responseTone: responseTonePref,
+          deepThink: selectedAIModel === 'claude-research' ? deepThink : false,
+          imageDataUrl: imageDataUrl || undefined,
+        }),
+      });
+      if (res.status === 429) {
+        let data: any = {};
+        try { data = await res.json(); } catch {}
+        if (data.code === "DAILY_LIMIT_REACHED" || (data.message && data.message.includes("daily limit"))) {
+          throw { isDailyLimit: true, message: data.message };
+        }
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send message");
+      return data;
     },
     onSuccess: (data: any, { convId }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
