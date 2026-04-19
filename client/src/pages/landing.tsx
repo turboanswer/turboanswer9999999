@@ -133,9 +133,15 @@ export default function LandingPage() {
                 can <span className="ta-shimmer-text">actually trust.</span>
               </h1>
 
-              <p className={`text-lg sm:text-xl max-w-xl mb-10 leading-relaxed ${D ? "text-gray-400" : "text-gray-600"}`}>
+              <p className={`text-lg sm:text-xl max-w-xl mb-6 leading-relaxed ${D ? "text-gray-400" : "text-gray-600"}`}>
                 Every answer is fact-checked by a second AI model — automatically. No more hallucinations. Just <strong className={D ? "text-white" : "text-gray-900"}>verified truth</strong>, delivered in seconds.
               </p>
+
+              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 border ${D ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
+                <Brain className="h-3.5 w-3.5" />
+                <span className="text-xs font-bold uppercase tracking-wider">New: TurboAnswer Reasoning Engine</span>
+                <span className="text-xs opacity-80">— routes hard questions through 3 models + live sources + claim-level verification</span>
+              </div>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
                 <Link href={ctaHref}>

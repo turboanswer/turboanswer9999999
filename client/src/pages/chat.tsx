@@ -59,6 +59,13 @@ export default function Chat() {
   const [factChecks, setFactChecks] = useState<Record<number, any>>({});
   const [factCheckLoading, setFactCheckLoading] = useState<Record<number, boolean>>({});
   const [showFactCheck, setShowFactCheck] = useState<number | null>(null);
+  // TurboAnswer Reasoning Engine streaming state
+  type ReasoningStage = { id: string; label: string; status: 'pending' | 'active' | 'done' | 'skipped' | 'error'; detail?: string };
+  const [reasoningStages, setReasoningStages] = useState<ReasoningStage[]>([]);
+  const [reasoningSources, setReasoningSources] = useState<{ title: string; url: string; snippet: string }[]>([]);
+  const [reasoningPanel, setReasoningPanel] = useState<{ model: string; preview: string }[]>([]);
+  const [reasoningMode, setReasoningMode] = useState<'fast' | 'deep' | null>(null);
+  const [quotaWarning, setQuotaWarning] = useState<{ used: number; limit: number; tier: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timedPromoShown = useRef(false);
@@ -332,36 +339,141 @@ export default function Chat() {
     }
   };
 
+  const resetReasoningState = () => {
+    setReasoningStages([]);
+    setReasoningSources([]);
+    setReasoningPanel([]);
+    setReasoningMode(null);
+    setQuotaWarning(null);
+  };
+
+  const runStreamingMessage = async (content: string, convId: number): Promise<any> => {
+    resetReasoningState();
+    const res = await fetch(`/api/conversations/${convId}/messages/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        content,
+        deepThink,
+        language: currentLanguage,
+        responseStyle: responseStylePref,
+        responseTone: responseTonePref,
+      }),
+    });
+    if (res.status === 429) {
+      let d: any = {};
+      try { d = await res.json(); } catch {}
+      throw { isDailyLimit: true, message: d.message };
+    }
+    if (!res.ok || !res.body) {
+      let msg = "Failed to send message";
+      try { msg = (await res.json()).message || msg; } catch {}
+      throw new Error(msg);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let saved: any = null;
+    let streamErr: string | null = null;
+
+    const upsertStage = (stage: ReasoningStage) => {
+      setReasoningStages(prev => {
+        const idx = prev.findIndex(s => s.id === stage.id);
+        if (idx === -1) return [...prev, stage];
+        const next = [...prev];
+        next[idx] = stage;
+        return next;
+      });
+    };
+
+    const handleEvent = (eventName: string, data: any) => {
+      switch (eventName) {
+        case 'stage':
+          if (data?.stage) upsertStage(data.stage);
+          break;
+        case 'sources':
+          if (Array.isArray(data?.sources)) setReasoningSources(data.sources);
+          break;
+        case 'panel':
+          if (data?.model) setReasoningPanel(prev => [...prev, { model: data.model, preview: data.preview || '' }]);
+          break;
+        case 'quota':
+          if (data?.fellBackToFast) setQuotaWarning({ used: data.used, limit: data.limit, tier: data.tier });
+          break;
+        case 'done':
+          setReasoningMode(data?.mode || null);
+          break;
+        case 'saved':
+          saved = data;
+          break;
+        case 'error':
+          streamErr = data?.message || 'Reasoning failed';
+          break;
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let blockEnd: number;
+      while ((blockEnd = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, blockEnd);
+        buffer = buffer.slice(blockEnd + 2);
+        const lines = block.split("\n");
+        let evtName = "message";
+        let dataStr = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) evtName = line.slice(7).trim();
+          else if (line.startsWith("data: ")) dataStr += line.slice(6);
+        }
+        if (!dataStr) continue;
+        try {
+          handleEvent(evtName, JSON.parse(dataStr));
+        } catch {}
+      }
+    }
+
+    if (streamErr && !saved) throw new Error(streamErr);
+    return saved;
+  };
+
   const sendMessageMutation = useMutation({
     mutationFn: async ({ content, convId, imageDataUrl }: { content: string; convId: number; imageDataUrl?: string | null }) => {
-      const res = await fetch(`/api/conversations/${convId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          content, selectedModel: selectedAIModel, language: currentLanguage,
-          responseStyle: responseStylePref, responseTone: responseTonePref,
-          deepThink: selectedAIModel === 'claude-research' ? deepThink : false,
-          imageDataUrl: imageDataUrl || undefined,
-        }),
-      });
-      if (res.status === 429) {
-        let data: any = {};
-        try { data = await res.json(); } catch {}
-        if (data.code === "DAILY_LIMIT_REACHED" || (data.message && data.message.includes("daily limit"))) {
-          throw { isDailyLimit: true, message: data.message };
+      // Image messages still use the legacy non-streaming endpoint (vision pipeline)
+      if (imageDataUrl) {
+        const res = await fetch(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            content, selectedModel: selectedAIModel, language: currentLanguage,
+            responseStyle: responseStylePref, responseTone: responseTonePref,
+            deepThink: selectedAIModel === 'claude-research' ? deepThink : false,
+            imageDataUrl: imageDataUrl || undefined,
+          }),
+        });
+        if (res.status === 429) {
+          let data: any = {};
+          try { data = await res.json(); } catch {}
+          if (data.code === "DAILY_LIMIT_REACHED" || (data.message && data.message.includes("daily limit"))) {
+            throw { isDailyLimit: true, message: data.message };
+          }
         }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to send message");
+        return data;
       }
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to send message");
-      }
-      return data;
+      // Text messages use the streaming reasoning engine
+      return await runStreamingMessage(content, convId);
     },
     onSuccess: (data: any, { convId }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
       setMessageContent("");
       setIsTyping(false);
+      resetReasoningState();
       if (data?.aiMessage?.id && data?.verified) {
         setVerifiedMessages(prev => ({ ...prev, [data.aiMessage.id]: data.verified as "verified" | "unverified" | "unknown" }));
       }
@@ -369,8 +481,13 @@ export default function Chat() {
         setMessageCountSinceLastPromo(prev => prev + 1);
       }
     },
-    onError: (error: any) => {
+    onError: (error: any, vars) => {
       setIsTyping(false);
+      resetReasoningState();
+      // Always refetch messages so any persisted user message stays visible even when reasoning fails
+      if (vars?.convId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/conversations", vars.convId, "messages"] });
+      }
       if (error?.isDailyLimit) {
         setShowDailyLimitModal(true);
         return;
@@ -713,21 +830,19 @@ export default function Chat() {
               </SelectContent>
             </Select>
 
-            {selectedAIModel === 'claude-research' && (
-              <button
-                onClick={() => setDeepThink(v => !v)}
-                title={deepThink ? "Deep Think ON — uses all 10 AI models (slower, deeper)" : "Deep Think OFF — uses Gemini 2.5 Pro (fast)"}
-                className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
-                  deepThink
-                    ? (isDark ? 'bg-purple-600/30 border border-purple-500 text-purple-200' : 'bg-purple-100 border border-purple-400 text-purple-700')
-                    : (isDark ? 'bg-[#1e1f20] border border-[#3c4043] text-[#8e918f] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
-                }`}
-                data-testid="button-deep-think"
-              >
-                <Brain className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Deep Think</span>
-              </button>
-            )}
+            <button
+              onClick={() => setDeepThink(v => !v)}
+              title={deepThink ? "Deep Think ON — forces multi-model reasoning + verification" : "Deep Think OFF — engine auto-decides fast vs deep"}
+              className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
+                deepThink
+                  ? (isDark ? 'bg-emerald-600/30 border border-emerald-500 text-emerald-200' : 'bg-emerald-100 border border-emerald-400 text-emerald-700')
+                  : (isDark ? 'bg-[#1e1f20] border border-[#3c4043] text-[#8e918f] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
+              }`}
+              data-testid="button-deep-think"
+            >
+              <Brain className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Deep Think</span>
+            </button>
 
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -1165,8 +1280,75 @@ export default function Chat() {
             </div>
           ))}
 
-          {/* Typing indicator */}
-          {isTyping && (
+          {/* Typing indicator + live reasoning panel */}
+          {isTyping && reasoningStages.length > 0 && (
+            <div className="flex items-start gap-2 sm:gap-3 mb-4 sm:mb-5" data-testid="reasoning-panel">
+              <div className="relative flex-shrink-0">
+                <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
+              </div>
+              <div className={`flex-1 max-w-2xl rounded-2xl rounded-bl-md p-4 ${isDark ? 'bg-zinc-900/80 border border-emerald-700/30' : 'bg-white border border-emerald-200 shadow-sm'}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Brain className={`h-4 w-4 ${reasoningMode === 'deep' ? 'text-emerald-500 animate-pulse' : 'text-blue-500'}`} />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                    {reasoningMode === 'deep' ? 'Deep Reasoning' : reasoningMode === 'fast' ? 'Fast Mode' : 'Thinking…'}
+                  </span>
+                  {quotaWarning && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40">
+                      Deep Think quota reached ({quotaWarning.used}/{quotaWarning.limit}) — using fast mode
+                    </span>
+                  )}
+                </div>
+                <ol className="space-y-1.5">
+                  {reasoningStages.map((s) => (
+                    <li key={s.id} className="flex items-start gap-2 text-xs sm:text-sm">
+                      <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+                        s.status === 'done' ? 'bg-emerald-500 text-white' :
+                        s.status === 'active' ? 'bg-blue-500 text-white animate-pulse' :
+                        s.status === 'error' ? 'bg-red-500 text-white' :
+                        isDark ? 'bg-zinc-700 text-zinc-400' : 'bg-gray-200 text-gray-500'
+                      }`}>
+                        {s.status === 'done' ? '✓' : s.status === 'error' ? '!' : '·'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>{s.label}</div>
+                        {s.detail && (
+                          <div className={`text-[11px] truncate ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>{s.detail}</div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                {reasoningPanel.length > 0 && (
+                  <div className={`mt-3 pt-3 border-t ${isDark ? 'border-zinc-700/50' : 'border-gray-200'}`}>
+                    <div className={`text-[10px] uppercase tracking-wider font-bold mb-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>Models that responded</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {reasoningPanel.map((p, i) => (
+                        <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full ${isDark ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                          {p.model}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {reasoningSources.length > 0 && (
+                  <div className={`mt-3 pt-3 border-t ${isDark ? 'border-zinc-700/50' : 'border-gray-200'}`}>
+                    <div className={`text-[10px] uppercase tracking-wider font-bold mb-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>Live sources</div>
+                    <ul className="space-y-1">
+                      {reasoningSources.slice(0, 3).map((s, i) => (
+                        <li key={i} className="text-[11px] truncate">
+                          <a href={s.url} target="_blank" rel="noopener noreferrer" className={`${isDark ? 'text-emerald-400 hover:underline' : 'text-emerald-700 hover:underline'}`}>
+                            {s.title}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {isTyping && reasoningStages.length === 0 && (
             <div className="flex items-end gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="relative flex-shrink-0">
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />

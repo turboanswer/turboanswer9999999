@@ -1149,6 +1149,187 @@ function downloadAAB(){
     }
   });
 
+  // ============= TurboAnswer Reasoning Engine — SSE streaming endpoint =============
+  app.post("/api/conversations/:id/messages/stream", isAuthenticated, async (req: any, res) => {
+    const conversationId = parseInt(req.params.id);
+    const { content, deepThink: manualDeepThink, language, responseStyle, responseTone } = req.body || {};
+    const userId = req.user?.claims?.sub;
+
+    if (!content || typeof content !== 'string') {
+      return res.status(400).json({ message: "Message content is required" });
+    }
+
+    try {
+      const user = userId ? await storage.getUser(userId) : null;
+      if (user?.isSuspended) return res.status(403).json({ message: "Your account is temporarily suspended. Please contact support for assistance." });
+      if (user?.isBanned) {
+        if (user.banExpiresAt && new Date(user.banExpiresAt) <= new Date()) {
+          await storage.unbanUser(userId);
+        } else {
+          return res.status(403).json({ message: "Your account has been banned. Please contact support." });
+        }
+      }
+
+      const isOwner = isOwnerAccount(user);
+      const tier = (user?.subscriptionTier || 'free') as string;
+      const effectiveTier = isOwner ? 'owner' : tier;
+
+      // Free-tier daily question limit (same as legacy endpoint)
+      if (tier === 'free' && !isOwner) {
+        const now = new Date();
+        const resetAt = user?.dailyQuestionsResetAt ? new Date(user.dailyQuestionsResetAt) : null;
+        let used = user?.dailyQuestionsUsed || 0;
+        if (!resetAt || now >= resetAt) used = 0;
+        if (used >= FREE_DAILY_LIMIT) {
+          return res.status(429).json({
+            message: "You've reached your daily limit of 25 free questions. Upgrade to Pro for unlimited questions!",
+            code: "DAILY_LIMIT_REACHED",
+            used, limit: FREE_DAILY_LIMIT,
+          });
+        }
+        const userTz = user?.timezone || 'UTC';
+        let nextMidnight: Date;
+        try {
+          const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
+          nextMidnight = new Date(nowInTz);
+          nextMidnight.setHours(24, 0, 0, 0);
+          const offset = nextMidnight.getTime() - nowInTz.getTime();
+          nextMidnight = new Date(now.getTime() + offset);
+        } catch {
+          nextMidnight = new Date(now);
+          nextMidnight.setUTCHours(24, 0, 0, 0);
+        }
+        const { db } = await import('./db');
+        const { users } = await import('@shared/schema');
+        const { eq } = await import('drizzle-orm');
+        await db.update(users)
+          .set({ dailyQuestionsUsed: used + 1, dailyQuestionsResetAt: (!resetAt || now >= resetAt) ? nextMidnight : resetAt })
+          .where(eq(users.id, userId));
+      }
+
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) return res.status(404).json({ message: "Conversation not found" });
+      if (conversation.userId !== userId && !user?.canViewAllChats) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Content moderation (skip for admins/employees)
+      const isMod = user?.isEmployee || user?.email === 'support@turboanswer.it.com';
+      if (!isMod) {
+        const modResult = moderateContent(content);
+        if (modResult.isFlagged) {
+          return res.status(403).json({ message: "Your message contains content that violates our guidelines.", flagged: true, type: modResult.type });
+        }
+      }
+
+      // Persist user message
+      const userMessage = await storage.createMessage({ conversationId, content, role: "user" });
+
+      // Deep-think quota check
+      const tre = await import('./services/reasoning-engine');
+      const today = tre.todayUTC();
+      const deepUsed = userId ? await (await import('./storage')).getDeepThinkUsage(userId, today) : 0;
+      const deepLimit = tre.DEEP_QUOTA[effectiveTier] ?? tre.DEEP_QUOTA.free;
+      let allowDeep = true;
+      let quotaFellBack = false;
+      if (deepLimit !== -1 && deepUsed >= deepLimit) {
+        allowDeep = false;
+        if (manualDeepThink) quotaFellBack = true;
+      }
+
+      // SSE response
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders?.();
+
+      const send = (event: string, data: any) => {
+        try {
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        } catch {}
+      };
+
+      send('user', { id: userMessage.id, content, role: 'user' });
+
+      if (quotaFellBack) {
+        send('quota', { tier: effectiveTier, used: deepUsed, limit: deepLimit, fellBackToFast: true });
+      } else if (!allowDeep) {
+        // Auto-route attempt would exceed quota: notify and force fast
+        send('quota', { tier: effectiveTier, used: deepUsed, limit: deepLimit, fellBackToFast: false, autoCapped: true });
+      }
+
+      const systemPrompt = responseStyle || responseTone
+        ? `Respond in a ${responseTone || 'casual'} tone with a ${responseStyle || 'balanced'} level of detail.${language && language !== 'en' ? ` Reply in ${language}.` : ''}`
+        : undefined;
+
+      try {
+        const result = await tre.runReasoning({
+          question: content,
+          hasImage: false,
+          manualDeepThink: !!manualDeepThink && allowDeep,
+          forceFastMode: !allowDeep,
+          systemPrompt,
+          onEvent: (e) => send(e.type, e),
+        });
+
+        // Persist AI message
+        const aiMessage = await storage.createMessage({ conversationId, content: result.content, role: "assistant" });
+
+        // Track deep usage
+        if (result.mode === 'deep' && userId) {
+          await (await import('./storage')).incrementDeepThinkUsage(userId, today).catch(() => {});
+        }
+
+        // Update conversation title if first message
+        try {
+          const allMsgs = await storage.getMessagesByConversation(conversationId);
+          if (allMsgs.length <= 2) {
+            const title = content.slice(0, 60).trim() + (content.length > 60 ? '...' : '');
+            await storage.updateConversation(conversationId, { title });
+          }
+        } catch {}
+
+        send('saved', {
+          userMessage,
+          aiMessage,
+          verified: result.verified,
+          mode: result.mode,
+          sources: result.sources,
+          claims: result.claims,
+        });
+      } catch (err: any) {
+        console.error('[TRE] Stream error:', err);
+        send('error', { message: err?.message || 'Reasoning engine failed' });
+      }
+
+      res.write('event: end\ndata: {}\n\n');
+      res.end();
+    } catch (err: any) {
+      console.error('[TRE] Endpoint error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ message: err?.message || 'Internal error' });
+      } else {
+        try { res.end(); } catch {}
+      }
+    }
+  });
+
+  // Deep-think quota status
+  app.get("/api/deep-think/usage", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = await storage.getUser(userId);
+      const tier = isOwnerAccount(user) ? 'owner' : (user?.subscriptionTier || 'free');
+      const tre = await import('./services/reasoning-engine');
+      const used = await (await import('./storage')).getDeepThinkUsage(userId, tre.todayUTC());
+      const limit = tre.DEEP_QUOTA[tier] ?? tre.DEEP_QUOTA.free;
+      res.json({ used, limit, tier, remaining: limit === -1 ? -1 : Math.max(0, limit - used) });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message });
+    }
+  });
+
   const VALID_COUPONS: Record<string, { discountedPrice: string; label: string; allowedEmail: string }> = {
     'TURBOTEST99': { discountedPrice: '$0.99', label: 'Enterprise discounted to $0.99/mo', allowedEmail: 'support@turboanswer.it.com' },
   };

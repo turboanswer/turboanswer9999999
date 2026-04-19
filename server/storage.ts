@@ -1,6 +1,26 @@
-import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode } from "@shared/schema";
+import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, deepThinkUsage, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
+
+export async function getDeepThinkUsage(userId: string, date: string): Promise<number> {
+  const [row] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${deepThinkUsage.count}), 0)::int` })
+    .from(deepThinkUsage)
+    .where(and(eq(deepThinkUsage.userId, userId), eq(deepThinkUsage.date, date)));
+  return Number(row?.total || 0);
+}
+
+export async function incrementDeepThinkUsage(userId: string, date: string): Promise<number> {
+  const [row] = await db
+    .insert(deepThinkUsage)
+    .values({ userId, date, count: 1 })
+    .onConflictDoUpdate({
+      target: [deepThinkUsage.userId, deepThinkUsage.date],
+      set: { count: sql`${deepThinkUsage.count} + 1` },
+    })
+    .returning();
+  return row.count;
+}
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
