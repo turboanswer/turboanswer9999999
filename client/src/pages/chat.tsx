@@ -212,8 +212,45 @@ export default function Chat() {
     onError: () => toast({ title: "Error", description: "Failed to create conversation", variant: "destructive" }),
   });
 
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageFile = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Not an image", description: "Please attach a JPG, PNG, GIF, or WebP file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Please attach an image under 4 MB.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") setAttachedImage(result);
+    };
+    reader.onerror = () => toast({ title: "Couldn't read image", description: "Try a different file.", variant: "destructive" });
+    reader.readAsDataURL(file);
+  };
+
+  const handlePasteImage = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          handleImageFile(file);
+          return;
+        }
+      }
+    }
+  };
+
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ content, convId }: { content: string; convId: number }) => {
+    mutationFn: async ({ content, convId, imageDataUrl }: { content: string; convId: number; imageDataUrl?: string | null }) => {
       const res = await fetch(`/api/conversations/${convId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -222,6 +259,7 @@ export default function Chat() {
           content, selectedModel: selectedAIModel, language: currentLanguage,
           responseStyle: responseStylePref, responseTone: responseTonePref,
           deepThink: selectedAIModel === 'claude-research' ? deepThink : false,
+          imageDataUrl: imageDataUrl || undefined,
         }),
       });
       if (res.status === 429) {
@@ -339,11 +377,13 @@ export default function Chat() {
   };
 
   const handleSendMessage = async () => {
-    if (!messageContent.trim() || sendMessageMutation.isPending) return;
+    if ((!messageContent.trim() && !attachedImage) || sendMessageMutation.isPending) return;
     const convId = await getOrCreateConversationId();
     if (!convId) return;
     setIsTyping(true);
-    sendMessageMutation.mutate({ content: messageContent.trim(), convId });
+    const imgToSend = attachedImage;
+    setAttachedImage(null);
+    sendMessageMutation.mutate({ content: messageContent.trim() || (imgToSend ? "What's in this image?" : ""), convId, imageDataUrl: imgToSend });
   };
 
   const handleDocumentAnalysis = async (analysis: any) => {
@@ -441,11 +481,13 @@ export default function Chat() {
   };
 
   const handleSendWithPromo = async () => {
-    if (!messageContent.trim() || sendMessageMutation.isPending) return;
+    if ((!messageContent.trim() && !attachedImage) || sendMessageMutation.isPending) return;
     const convId = await getOrCreateConversationId();
     if (!convId) return;
     setIsTyping(true);
-    sendMessageMutation.mutate({ content: messageContent.trim(), convId });
+    const imgToSend = attachedImage;
+    setAttachedImage(null);
+    sendMessageMutation.mutate({ content: messageContent.trim() || (imgToSend ? "What's in this image?" : ""), convId, imageDataUrl: imgToSend });
   };
 
   const getQuestionForResponse = (messageIndex: number): string => {
@@ -1066,6 +1108,37 @@ export default function Chat() {
 
       <div className="p-3 sm:p-4 shrink-0" style={{ background: 'var(--chat-outer-bg)' }}>
         <div className="max-w-3xl mx-auto">
+          {attachedImage && (
+            <div className="mb-2 flex items-start gap-2">
+              <div className={`relative inline-flex items-center gap-2 p-1.5 rounded-xl border ${isDark ? 'bg-[#1e1f20] border-[#3c4043]' : 'bg-white border-gray-200'}`}>
+                <img src={attachedImage} alt="Attached" className="w-14 h-14 rounded-lg object-cover" />
+                <div className={`text-xs pr-2 ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>
+                  <div className="font-medium">Image attached</div>
+                  <div className={isDark ? 'text-zinc-500' : 'text-gray-500'}>The AI will read this with your message</div>
+                </div>
+                <button
+                  onClick={() => setAttachedImage(null)}
+                  className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+                  aria-label="Remove image"
+                  data-testid="button-remove-image"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImageFile(f);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+            data-testid="input-image-file"
+          />
           <div className="flex items-end gap-2 sm:gap-3">
             <div className="flex-1 relative">
               <Textarea
@@ -1073,17 +1146,30 @@ export default function Chat() {
                 value={messageContent}
                 onChange={(e) => setMessageContent(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Enter a prompt here"
-                className={`w-full px-5 py-3.5 pr-14 rounded-3xl text-sm sm:text-base resize-none min-h-[52px] max-h-28 transition-colors ${
+                onPaste={handlePasteImage}
+                placeholder={attachedImage ? "Ask about this image..." : "Enter a prompt here"}
+                className={`w-full pl-12 pr-14 py-3.5 rounded-3xl text-sm sm:text-base resize-none min-h-[52px] max-h-28 transition-colors ${
                   isDark
                     ? 'bg-[#1e1f20] border-[#3c4043] text-[#e3e3e3] placeholder-[#8e918f] focus:ring-1 focus:ring-[#8ab4f8]/40 focus:border-[#8ab4f8]/50'
                     : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-400'
                 }`}
                 rows={1}
               />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={sendMessageMutation.isPending}
+                className={`absolute left-2.5 bottom-2.5 h-9 w-9 p-0 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 ${
+                  isDark ? 'hover:bg-white/10 text-zinc-300' : 'hover:bg-gray-200 text-gray-600'
+                }`}
+                title="Attach image (or paste with Ctrl+V)"
+                data-testid="button-attach-image"
+                type="button"
+              >
+                <ImageIcon className="h-5 w-5" />
+              </button>
               <Button
                 onClick={handleSendWithPromo}
-                disabled={!messageContent.trim() || sendMessageMutation.isPending}
+                disabled={(!messageContent.trim() && !attachedImage) || sendMessageMutation.isPending}
                 className={`absolute right-2.5 bottom-2.5 h-9 w-9 p-0 rounded-full disabled:opacity-30 transition-colors ${
                   isDark
                     ? 'bg-[#8ab4f8] text-[#131314] hover:bg-[#aecbfa]'

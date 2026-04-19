@@ -217,6 +217,55 @@ export function lastResponseUsedGroundedSearch(): boolean {
   return _lastResponseUsedGroundedSearch;
 }
 
+export async function generateVisionResponse(
+  userMessage: string,
+  imageDataUrl: string,
+  conversationHistory: Array<{role: string, content: string}> = []
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return "Sorry, image understanding isn't configured right now. Please try again later or send your question without the image.";
+  if (!imageDataUrl?.startsWith("data:image/")) return "That doesn't look like a valid image. Please try a JPG, PNG, GIF, or WebP file.";
+
+  const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant who can see and understand images. Look carefully at the image the user shared, then answer their question helpfully and naturally. Be conversational, kind, and clear. If the user didn't ask a specific question, describe what you see and ask how you can help with it.`;
+
+  const recentHistory = conversationHistory.slice(-6).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        max_tokens: 1500,
+        temperature: 0.6,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...recentHistory,
+          {
+            role: "user",
+            content: [
+              { type: "text", text: userMessage || "What do you see in this image? Please describe it and let me know how I can help." },
+              { type: "image_url", image_url: { url: imageDataUrl, detail: "high" } },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error(`[Vision] OpenAI error ${res.status}: ${errText.slice(0, 300)}`);
+      return "I couldn't read that image just now — there was a hiccup connecting to the vision model. Please try again in a moment.";
+    }
+    const data = await res.json();
+    const text = data?.choices?.[0]?.message?.content;
+    if (!text) return "I looked at your image but didn't get a clear response. Could you try rephrasing your question?";
+    return text;
+  } catch (err: any) {
+    console.error(`[Vision] Failed:`, err?.message || err);
+    return "Something went wrong while reading your image. Please try again.";
+  }
+}
+
 export async function generateAIResponse(
   userMessage: string,
   conversationHistory: Array<{role: string, content: string}> = [],
@@ -316,13 +365,13 @@ export async function generateAIResponse(
       }
       if (!geminiApiKey) return "API key not configured.";
       console.log(`[AI] ${selectedModel} → Deep Think OFF → Gemini 2.5 Pro (single-model)`);
-      const systemPrompt = `You are Turbo Answer Research. Give a focused, accurate answer. Be thorough but concise — no filler, no excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+      const systemPrompt = `You are Turbo Answer Research — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend who genuinely enjoys helping. When someone greets you or makes small talk, respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Give thorough, accurate answers without filler or excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
       const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${fullQuestion}` : `${systemPrompt}\n\nUser: ${fullQuestion}`;
       const text = await callGemini(fullPrompt, 'gemini-2.5-pro', 4000, 0.3, geminiApiKey);
       return { text, usedGroundedSearch };
     } else if (selectedModel === 'gemini-pro') {
       if (!geminiApiKey) return "API key not configured.";
-      const systemPrompt = `You are Turbo Answer. Answer questions directly and helpfully. Never discuss your own state, feelings, or system load. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
+      const systemPrompt = `You are Turbo Answer — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.${behaviorInstruction ? ' ' + behaviorInstruction : ''}${languageInstruction ? ' ' + languageInstruction : ''}${additionalContext}`;
       const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
       console.log(`[AI] Pro → Gemini Flash Lite`);
       const text = await callGemini(fullPrompt, 'gemini-2.0-flash-lite', 4000, 0.3, geminiApiKey);
@@ -330,7 +379,7 @@ export async function generateAIResponse(
     } else {
       if (!geminiApiKey) return "API key not configured.";
       const freeSearchContext = additionalContext || "";
-      const systemPrompt = `You are a basic AI assistant. Give very short answers only. Maximum 1-2 sentences. Do not give detailed explanations, lists, or step-by-step instructions. If the user asks for something complex, give a brief summary and suggest they upgrade to Pro for a detailed answer. Never discuss your own state or feelings.${languageInstruction ? ' ' + languageInstruction : ''}${freeSearchContext}`;
+      const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.${languageInstruction ? ' ' + languageInstruction : ''}${freeSearchContext}`;
       const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}`;
       console.log(`[AI] Free → Gemini 2.0 Flash Lite (basic, no history)`);
       return await callGeminiBasic(fullPrompt, 400, 0.7, geminiApiKey);

@@ -1091,23 +1091,32 @@ function downloadAAB(){
           content: msg.content
         }));
 
-        const { generateAIResponse } = await import('./services/multi-ai.js');
-        const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
-        const sender = await storage.getUser(sendingUserId);
-        const userTier = sender?.subscriptionTier || 'free';
-        const aiResult = await generateAIResponse(
-          content,
-          conversationHistory,
-          userTier,
-          req.body.selectedModel || "auto-select",
-          userId,
-          req.body.language || "en",
-          req.body.responseStyle || "balanced",
-          req.body.responseTone || "casual",
-          req.body.deepThink === true
-        );
-        responseUsedGroundedSearch = typeof aiResult === 'object' && aiResult.usedGroundedSearch;
-        aiResponseContent = typeof aiResult === 'object' ? aiResult.text : aiResult;
+        const incomingImage = typeof req.body.imageDataUrl === 'string' && req.body.imageDataUrl.startsWith('data:image/')
+          ? req.body.imageDataUrl
+          : null;
+
+        if (incomingImage) {
+          const { generateVisionResponse } = await import('./services/multi-ai.js');
+          aiResponseContent = await generateVisionResponse(content, incomingImage, conversationHistory);
+        } else {
+          const { generateAIResponse } = await import('./services/multi-ai.js');
+          const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
+          const sender = await storage.getUser(sendingUserId);
+          const userTier = sender?.subscriptionTier || 'free';
+          const aiResult = await generateAIResponse(
+            content,
+            conversationHistory,
+            userTier,
+            req.body.selectedModel || "auto-select",
+            userId,
+            req.body.language || "en",
+            req.body.responseStyle || "balanced",
+            req.body.responseTone || "casual",
+            req.body.deepThink === true
+          );
+          responseUsedGroundedSearch = typeof aiResult === 'object' && aiResult.usedGroundedSearch;
+          aiResponseContent = typeof aiResult === 'object' ? aiResult.text : aiResult;
+        }
       }
 
       const senderForVerify = sendingUserId ? await storage.getUser(sendingUserId) : null;
