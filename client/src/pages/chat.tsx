@@ -264,21 +264,56 @@ export default function Chat() {
   };
 
   const handleImageFile = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Not an image", description: "Please attach a JPG, PNG, GIF, or WebP file.", variant: "destructive" });
+    const isImg = file.type.startsWith("image/") || /\.(heic|heif|jpe?g|png|gif|webp|bmp)$/i.test(file.name);
+    if (!isImg) {
+      toast({ title: "Not an image", description: "Please attach a JPG, PNG, GIF, WebP, or HEIC file.", variant: "destructive" });
       return;
     }
-    if (file.size > 4 * 1024 * 1024) {
-      toast({ title: "Image too large", description: "Please attach an image under 4 MB.", variant: "destructive" });
+    if (file.size > 25 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Please attach an image under 25 MB.", variant: "destructive" });
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === "string") setAttachedImage(result);
-    };
-    reader.onerror = () => toast({ title: "Couldn't read image", description: "Try a different file.", variant: "destructive" });
-    reader.readAsDataURL(file);
+
+    try {
+      const dataUrl = await compressImageToDataUrl(file, 1568, 0.85);
+      setAttachedImage(dataUrl);
+    } catch (err: any) {
+      console.error("Image processing failed:", err);
+      toast({
+        title: "Couldn't read image",
+        description: file.type === "image/heic" || /\.heic$/i.test(file.name)
+          ? "iPhone HEIC photos: please change Camera → Formats to 'Most Compatible' or convert to JPG."
+          : "Try a different file.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const compressImageToDataUrl = (file: File, maxDim: number, quality: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const ratio = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * ratio);
+        const h = Math.round(img.height * ratio);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas unavailable"));
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        if (!dataUrl || dataUrl === "data:,") return reject(new Error("Encode failed"));
+        resolve(dataUrl);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Image decode failed (possibly HEIC/unsupported format)"));
+      };
+      img.src = url;
+    });
   };
 
   const handlePasteImage = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1173,20 +1208,20 @@ export default function Chat() {
       <div className="p-3 sm:p-4 shrink-0" style={{ background: 'var(--chat-outer-bg)' }}>
         <div className="max-w-3xl mx-auto">
           {attachedImage && (
-            <div className="mb-2 flex items-start gap-2">
-              <div className={`relative inline-flex items-center gap-2 p-1.5 rounded-xl border ${isDark ? 'bg-[#1e1f20] border-[#3c4043]' : 'bg-white border-gray-200'}`}>
-                <img src={attachedImage} alt="Attached" className="w-14 h-14 rounded-lg object-cover" />
-                <div className={`text-xs pr-2 ${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>
-                  <div className="font-medium">Image attached</div>
-                  <div className={isDark ? 'text-zinc-500' : 'text-gray-500'}>The AI will read this with your message</div>
-                </div>
+            <div className="mb-2">
+              <div className="relative inline-block">
+                <img
+                  src={attachedImage}
+                  alt="Attached"
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 ${isDark ? 'border-[#3c4043]' : 'border-gray-200'}`}
+                />
                 <button
                   onClick={() => setAttachedImage(null)}
-                  className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-zinc-900/90 hover:bg-zinc-900 text-white flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-[#1e1f20]"
                   aria-label="Remove image"
                   data-testid="button-remove-image"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
