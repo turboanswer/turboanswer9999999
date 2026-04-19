@@ -1,5 +1,34 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "0PL886v20tQb1pQwBvjpB"
+uri = "file://attached_assets/generated_images/turboanswer_thumbnail.png"
+type = "image"
+title = "turboanswer thumbnail icon"
+
+[[generated]]
+id = "rC7wrRflMjZ3twt11LGRc"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_phone.png"
+type = "image"
+title = "phone showing chat"
+
+[[generated]]
+id = "2ea2zH8VbRZExw2VNTrGz"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_verify.png"
+type = "image"
+title = "ai verification concept"
+
+[[generated]]
+id = "32F-fS6BGg-EQiQSxcys6"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_team.png"
+type = "image"
+title = "team collaborating ai"
+
+[[generated]]
+id = "oDjmdiZdxhiLzEGyb2Xul"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_shield.png"
+type = "image"
+title = "shield in hand trust"
 
 [[outputs]]
 id = "xQO9WI8CP45Xz4LOhZIMh"
@@ -12,3 +41,33 @@ id = "qNo4y_q2Tqv1DT_b-qeEy"
 uri = "file://turboanswer-project.tar.gz"
 type = "unspecified"
 title = "TurboAnswer Project (no node_modules) — 3.3MB"
+
+[[outputs]]
+id = "v5ypULUHF6HetjJvsQajl"
+uri = "file://attached_assets/generated_images/turboanswer_thumbnail.png"
+type = "image"
+title = "Thumbnail / App Icon (1:1)"
+
+[[outputs]]
+id = "mFDIM5TrwaeVm5jKyw03L"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_phone.png"
+type = "image"
+title = "Gallery 1 — Phone with Verified Chat (9:16)"
+
+[[outputs]]
+id = "QbhgicGhc9ZGXQZk0gYuF"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_verify.png"
+type = "image"
+title = "Gallery 2 — AI Verification Concept (16:9)"
+
+[[outputs]]
+id = "1CpFndwvob3KCP17hwDYF"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_team.png"
+type = "image"
+title = "Gallery 3 — Team Collaboration (16:9)"
+
+[[outputs]]
+id = "5L4AmffvtnoDafKMZUM0F"
+uri = "file://attached_assets/generated_images/turboanswer_gallery_shield.png"
+type = "image"
+title = "Gallery 4 — Trust Shield (4:3)"
