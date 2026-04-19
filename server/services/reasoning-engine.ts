@@ -243,35 +243,10 @@ function evalArithmetic(q: string): string | null {
 }
 
 // ============= RETRIEVAL =============
-const retrievalCache = new Map<string, { sources: Source[]; ts: number }>();
-const CACHE_TTL = 30 * 60 * 1000;
-
-async function searchWikipedia(q: string): Promise<Source[]> {
-  try {
-    const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srsearch=${encodeURIComponent(q)}&srlimit=3&srprop=snippet|timestamp&origin=*`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return [];
-    const data: any = await res.json();
-    const hits = data?.query?.search || [];
-    return hits.slice(0, 3).map((h: any) => ({
-      title: h.title,
-      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(h.title.replace(/ /g, '_'))}`,
-      snippet: (h.snippet || '').replace(/<[^>]+>/g, '').slice(0, 280),
-      publishedAt: h.timestamp || null,
-    }));
-  } catch { return []; }
-}
+import { retrieveSources as retrieveSourcesMulti } from './retrievers';
 
 export async function retrieve(question: string, isMath: boolean): Promise<{ sources: Source[]; arithmetic: string | null }> {
-  const key = question.toLowerCase().trim().slice(0, 200);
-  const cached = retrievalCache.get(key);
-  let sources: Source[] = [];
-  if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    sources = cached.sources;
-  } else {
-    sources = await searchWikipedia(question);
-    if (sources.length) retrievalCache.set(key, { sources, ts: Date.now() });
-  }
+  const sources = await retrieveSourcesMulti(question, { limit: 6, perProviderLimit: 3 });
   const arithmetic = isMath ? evalArithmetic(question) : null;
   return { sources, arithmetic };
 }
