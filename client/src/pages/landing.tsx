@@ -272,7 +272,7 @@ export default function LandingPage() {
 
       <section id="features" className={`py-24 sm:py-32 px-5 relative z-10 ${D ? "" : "bg-gray-50/50"}`}>
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col lg:flex-row items-start justify-between gap-4 mb-16">
+          <div className="flex flex-col lg:flex-row items-start justify-between gap-4 mb-10">
             <h2 className={`text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.05] tracking-tight ${D ? "text-white" : "text-gray-900"}`}>
               Take total<br />control
             </h2>
@@ -280,6 +280,41 @@ export default function LandingPage() {
               Just some of the advanced features you can deploy with TurboAnswer.
             </p>
           </div>
+
+          <a
+            href="https://www.cloudflare.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="card-cloudflare-protection"
+            className={`block mb-10 rounded-2xl border p-5 sm:p-6 transition-all hover:scale-[1.005] ${
+              D
+                ? "bg-gradient-to-r from-[#F38020]/10 via-emerald-500/5 to-transparent border-[#F38020]/30 hover:border-[#F38020]/50"
+                : "bg-gradient-to-r from-orange-50 via-emerald-50 to-white border-orange-200 hover:border-orange-300"
+            }`}
+          >
+            <div className="flex items-start sm:items-center gap-4 flex-col sm:flex-row">
+              <div className={`shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center ${D ? "bg-[#F38020]/15" : "bg-orange-100"}`}>
+                <SiCloudflare className="text-[#F38020] w-8 h-8" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <h3 className={`text-lg sm:text-xl font-bold ${D ? "text-white" : "text-gray-900"}`}>
+                    Protected by Cloudflare
+                  </h3>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wide border ${D ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
+                    ACTIVE
+                  </span>
+                </div>
+                <p className={`text-sm leading-relaxed ${D ? "text-gray-400" : "text-gray-600"}`}>
+                  Enterprise-grade <span className={D ? "text-white font-semibold" : "text-gray-900 font-semibold"}>DDoS mitigation</span>, <span className={D ? "text-white font-semibold" : "text-gray-900 font-semibold"}>Web Application Firewall</span>, and <span className={D ? "text-white font-semibold" : "text-gray-900 font-semibold"}>bot detection</span> guard every request. Malicious traffic is blocked at the edge — before it ever reaches our servers.
+                </p>
+              </div>
+              <div className="hidden sm:flex flex-col items-center gap-1 shrink-0 px-3">
+                <Shield className={`w-7 h-7 ${D ? "text-emerald-400" : "text-emerald-500"}`} />
+                <span className={`text-[10px] font-bold tracking-wider ${D ? "text-emerald-400" : "text-emerald-600"}`}>SECURE</span>
+              </div>
+            </div>
+          </a>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map(({ icon, title, desc, color, badge }) => (
