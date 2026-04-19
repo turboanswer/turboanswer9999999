@@ -1297,6 +1297,7 @@ function downloadAAB(){
           mode: result.mode,
           sources: result.sources,
           claims: result.claims,
+          confidence: result.confidence,
         });
       } catch (err: any) {
         console.error('[TRE] Stream error:', err);

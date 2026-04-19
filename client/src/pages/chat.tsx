@@ -64,8 +64,12 @@ export default function Chat() {
   const [reasoningStages, setReasoningStages] = useState<ReasoningStage[]>([]);
   const [reasoningSources, setReasoningSources] = useState<{ title: string; url: string; snippet: string }[]>([]);
   const [reasoningPanel, setReasoningPanel] = useState<{ model: string; preview: string }[]>([]);
-  const [reasoningMode, setReasoningMode] = useState<'fast' | 'deep' | null>(null);
+  const [reasoningMode, setReasoningMode] = useState<'fast' | 'retrieval' | 'deep' | null>(null);
   const [quotaWarning, setQuotaWarning] = useState<{ used: number; limit: number; tier: string } | null>(null);
+  const [confidenceMessages, setConfidenceMessages] = useState<Record<number, number>>({});
+  const [reasoningTraces, setReasoningTraces] = useState<Record<number, { stages: ReasoningStage[]; sources: { title: string; url: string }[]; panel: { model: string }[]; mode: string; confidence: number }>>({});
+  const [expandedReasoning, setExpandedReasoning] = useState<Record<number, boolean>>({});
+  const deepThinkUsageQuery = useQuery<{ used: number; limit: number; tier: string }>({ queryKey: ['/api/deep-think/usage'], staleTime: 30000 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timedPromoShown = useRef(false);
@@ -471,8 +475,26 @@ export default function Chat() {
     },
     onSuccess: (data: any, { convId }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/deep-think/usage"] });
       setMessageContent("");
       setIsTyping(false);
+      // Capture trace BEFORE resetting so we can show it persistently below the answer
+      const aid = data?.aiMessage?.id;
+      if (aid) {
+        setReasoningTraces(prev => ({
+          ...prev,
+          [aid]: {
+            stages: reasoningStages,
+            sources: reasoningSources.map(s => ({ title: s.title, url: s.url })),
+            panel: reasoningPanel.map(p => ({ model: p.model })),
+            mode: data?.mode || 'fast',
+            confidence: typeof data?.confidence === 'number' ? data.confidence : 0,
+          },
+        }));
+        if (typeof data?.confidence === 'number') {
+          setConfidenceMessages(prev => ({ ...prev, [aid]: data.confidence }));
+        }
+      }
       resetReasoningState();
       if (data?.aiMessage?.id && data?.verified) {
         setVerifiedMessages(prev => ({ ...prev, [data.aiMessage.id]: data.verified as "verified" | "unverified" | "unknown" }));
@@ -618,8 +640,32 @@ export default function Chat() {
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < content.length) parts.push({ type: 'text', value: content.slice(lastIndex) });
+    const renderTextWithTags = (text: string) => {
+      // Highlight [unverified]…[/unverified] / [contested]…[/contested] / [unverified] sentence / [contested] sentence
+      const tagRegex = /\[(unverified|contested)\](?:\s*([\s\S]*?)(?:\s*\[\/(?:unverified|contested)\])|([^[\n.!?]*[.!?]?))/g;
+      const out: any[] = [];
+      let last = 0;
+      let m: RegExpExecArray | null;
+      let i = 0;
+      while ((m = tagRegex.exec(text)) !== null) {
+        if (m.index > last) out.push(<span key={`t${i++}`}>{text.slice(last, m.index)}</span>);
+        const tag = m[1];
+        const inner = (m[2] || m[3] || '').trim();
+        const cls = tag === 'contested'
+          ? (isDark ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40' : 'bg-amber-50 text-amber-800 border border-amber-300')
+          : (isDark ? 'bg-red-500/15 text-red-300 border border-red-500/40' : 'bg-red-50 text-red-800 border border-red-300');
+        out.push(
+          <span key={`u${i++}`} className={`inline px-1 py-0.5 rounded ${cls}`} title={tag === 'contested' ? 'Models disagreed on this claim' : 'This claim could not be verified'}>
+            <span className="text-[9px] font-bold uppercase mr-1 opacity-70">{tag}</span>{inner}
+          </span>
+        );
+        last = m.index + m[0].length;
+      }
+      if (last < text.length) out.push(<span key={`t${i++}`}>{text.slice(last)}</span>);
+      return out.length ? out : text;
+    };
     if (parts.length === 0 || (parts.length === 1 && parts[0].type === 'text')) {
-      return <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>;
+      return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(content)}</span>;
     }
     return (
       <div className="space-y-3">
@@ -842,6 +888,15 @@ export default function Chat() {
             >
               <Brain className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Deep Think</span>
+              {deepThinkUsageQuery.data && deepThinkUsageQuery.data.limit !== -1 && (
+                <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                  deepThinkUsageQuery.data.used >= deepThinkUsageQuery.data.limit
+                    ? 'bg-red-500/20 text-red-500'
+                    : (isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-200 text-emerald-800')
+                }`} data-testid="deep-think-quota">
+                  {Math.max(0, deepThinkUsageQuery.data.limit - deepThinkUsageQuery.data.used)}/{deepThinkUsageQuery.data.limit}
+                </span>
+              )}
             </button>
 
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
@@ -1168,6 +1223,7 @@ export default function Chat() {
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[message.id] === "verified" ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}
                       title={verifiedMessages[message.id] === "verified" ? "This response was fact-checked and verified by a second AI model" : "This response could not be fully verified — treat with caution"}
+                      data-testid={`badge-verified-${message.id}`}
                     >
                       {verifiedMessages[message.id] === "verified" ? (
                         <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="currentColor" opacity="0.15"/><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Verified</>
@@ -1175,6 +1231,29 @@ export default function Chat() {
                         <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" opacity="0.6"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg> Unverified</>
                       )}
                     </span>
+                  )}
+                  {message.role === 'assistant' && typeof confidenceMessages[message.id] === 'number' && (
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                        confidenceMessages[message.id] >= 80 ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30'
+                        : confidenceMessages[message.id] >= 50 ? 'text-amber-500 bg-amber-500/10 border-amber-500/30'
+                        : 'text-red-500 bg-red-500/10 border-red-500/30'
+                      }`}
+                      title="Confidence score from the verification pass"
+                      data-testid={`confidence-${message.id}`}
+                    >
+                      {confidenceMessages[message.id]}% confidence
+                    </span>
+                  )}
+                  {message.role === 'assistant' && reasoningTraces[message.id] && (
+                    <button
+                      onClick={() => setExpandedReasoning(prev => ({ ...prev, [message.id]: !prev[message.id] }))}
+                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${isDark ? 'text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20' : 'text-emerald-700 hover:bg-emerald-50 border border-emerald-200'}`}
+                      data-testid={`toggle-reasoning-${message.id}`}
+                    >
+                      <Brain className="h-3 w-3" />
+                      {expandedReasoning[message.id] ? 'Hide reasoning' : 'See reasoning'}
+                    </button>
                   )}
                   {showTimestampsPref && (
                     <span className={`text-[10px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>
@@ -1218,6 +1297,52 @@ export default function Chat() {
                     </button>
                   )}
                 </div>
+                {message.role === 'assistant' && expandedReasoning[message.id] && reasoningTraces[message.id] && (
+                  <div className={`mt-2 rounded-xl p-3 text-xs ${isDark ? 'bg-zinc-900/60 border border-emerald-700/30' : 'bg-emerald-50/50 border border-emerald-200'}`} data-testid={`reasoning-trace-${message.id}`}>
+                    <div className={`flex items-center gap-2 mb-2 font-bold uppercase tracking-wider text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                      <Brain className="h-3 w-3" /> Reasoning trace
+                      <span className={`ml-auto text-[10px] font-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                        Mode: {reasoningTraces[message.id].mode} • {reasoningTraces[message.id].confidence}% confidence
+                      </span>
+                    </div>
+                    <ol className="space-y-1 mb-2">
+                      {reasoningTraces[message.id].stages.map((s, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className={`mt-0.5 w-3 h-3 rounded-full flex items-center justify-center text-[8px] flex-shrink-0 ${
+                            s.status === 'done' ? 'bg-emerald-500 text-white'
+                            : s.status === 'error' ? 'bg-red-500 text-white'
+                            : s.status === 'skipped' ? 'bg-gray-400 text-white'
+                            : 'bg-gray-300 text-gray-600'
+                          }`}>{s.status === 'done' ? '✓' : s.status === 'error' ? '!' : '·'}</span>
+                          <span className={`${isDark ? 'text-zinc-300' : 'text-gray-700'}`}>
+                            <span className="font-medium">{s.label}</span>
+                            {s.detail && <span className={`ml-1 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>— {s.detail}</span>}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                    {reasoningTraces[message.id].panel.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {reasoningTraces[message.id].panel.map((p, i) => (
+                          <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded-full ${isDark ? 'bg-blue-500/15 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>{p.model}</span>
+                        ))}
+                      </div>
+                    )}
+                    {reasoningTraces[message.id].sources.length > 0 && (
+                      <div>
+                        <div className={`text-[9px] uppercase font-bold mb-1 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>Sources</div>
+                        <ul className="space-y-0.5">
+                          {reasoningTraces[message.id].sources.slice(0, 5).map((s, i) => (
+                            <li key={i} className="text-[11px] truncate">
+                              <span className="opacity-50 mr-1">[{i + 1}]</span>
+                              <a href={s.url} target="_blank" rel="noopener noreferrer" className={`${isDark ? 'text-emerald-400 hover:underline' : 'text-emerald-700 hover:underline'}`}>{s.title}</a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {showFactCheck === message.id && factChecks[message.id] && (
                   <div className={`mt-2 rounded-xl p-4 text-xs ${isDark ? 'bg-[#0a0f1a] border border-[#1a2a3a]' : 'bg-blue-50 border border-blue-200'}`}>
                     <div className="flex items-center justify-between mb-3">
