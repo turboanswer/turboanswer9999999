@@ -239,7 +239,61 @@ export async function generateVisionResponse(
     ? `${systemPrompt}\n\nRecent conversation:\n${recentHistory}\n\nUser's new question about the attached image: ${userText}`
     : `${systemPrompt}\n\nUser: ${userText}`;
 
-  // Try Gemini first (covers Free, Pro, Research tiers — what the app actually pays for)
+  // Try OpenRouter first — single key, 15+ vision models, automatic provider routing
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  if (openrouterKey) {
+    const openrouterVisionModels = [
+      'google/gemini-2.0-flash-001',
+      'google/gemini-2.5-flash',
+      'openai/gpt-4o-mini',
+      'qwen/qwen-2-vl-72b-instruct',
+    ];
+    for (const model of openrouterVisionModels) {
+      try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openrouterKey}`,
+            "HTTP-Referer": "https://turboanswer.it.com",
+            "X-Title": "TurboAnswer",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1500,
+            temperature: 0.6,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: [
+                { type: "text", text: userText },
+                { type: "image_url", image_url: { url: imageDataUrl } },
+              ]},
+            ],
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          console.error(`[Vision] OpenRouter ${model} error ${res.status}: ${errText.slice(0, 300)}`);
+          if (res.status === 401 || res.status === 403) break; // auth issue, no point retrying
+          continue; // try next model
+        }
+        const data = await res.json();
+        const text = data?.choices?.[0]?.message?.content;
+        if (text && (typeof text === 'string' ? text.trim() : true)) {
+          const finalText = typeof text === 'string' ? text : (Array.isArray(text) ? text.map((c: any) => c.text || '').join('') : String(text));
+          if (finalText.trim()) {
+            console.log(`[Vision] ✓ OpenRouter ${model} succeeded`);
+            return finalText;
+          }
+        }
+        console.log(`[Vision] OpenRouter ${model} returned empty — trying next`);
+      } catch (err: any) {
+        console.error(`[Vision] OpenRouter ${model} threw:`, err?.message || err);
+      }
+    }
+  }
+
+  // Fallback: Gemini direct API
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (geminiKey) {
     const geminiModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-lite'];
