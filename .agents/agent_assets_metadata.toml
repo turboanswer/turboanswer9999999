@@ -95,3 +95,9 @@ id = "0axRD9tPvoI5yxOrHNDBT"
 uri = "file://attached_assets/turboanswer_screenshots/04_login.jpg"
 type = "image"
 title = "4. Sign In Screen"
+
+[[outputs]]
+id = "l4Mn9-ZV-ANUPzFNYBg2u"
+uri = "file://client/public/turbo-logo.png"
+type = "image"
+title = "TurboAnswer Logo"
