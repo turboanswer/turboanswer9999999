@@ -222,62 +222,145 @@ export async function generateVisionResponse(
   imageDataUrl: string,
   conversationHistory: Array<{role: string, content: string}> = []
 ): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return "Sorry, image understanding isn't configured right now. Please try again later or send your question without the image.";
-  if (!imageDataUrl?.startsWith("data:image/")) return "That doesn't look like a valid image. Please try a JPG, PNG, GIF, or WebP file.";
+  if (!imageDataUrl?.startsWith("data:image/")) {
+    return "That doesn't look like a valid image. Please try a JPG, PNG, GIF, or WebP file.";
+  }
+
+  const match = imageDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) return "I couldn't parse that image. Please try a JPG, PNG, GIF, or WebP file.";
+  const mimeType = match[1];
+  const base64Data = match[2];
 
   const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant who can see and understand images. Look carefully at the image the user shared, then answer their question helpfully and naturally. Be conversational, kind, and clear. If the user didn't ask a specific question, describe what you see and ask how you can help with it.`;
 
-  const recentHistory = conversationHistory.slice(-6).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
+  const recentHistory = conversationHistory.slice(-6).map(m => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${m.content}`).join('\n');
+  const userText = userMessage?.trim() || "What do you see in this image? Please describe it and let me know how I can help.";
+  const fullPrompt = recentHistory
+    ? `${systemPrompt}\n\nRecent conversation:\n${recentHistory}\n\nUser's new question about the attached image: ${userText}`
+    : `${systemPrompt}\n\nUser: ${userText}`;
 
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        max_tokens: 1500,
-        temperature: 0.6,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...recentHistory,
+  // Try Gemini first (covers Free, Pro, Research tiers — what the app actually pays for)
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (geminiKey) {
+    const geminiModels = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-lite'];
+    for (const model of geminiModels) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
           {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: fullPrompt },
+                  { inline_data: { mime_type: mimeType, data: base64Data } },
+                ],
+              }],
+              generationConfig: { temperature: 0.6, maxOutputTokens: 1500 },
+            }),
+          }
+        );
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          console.error(`[Vision] Gemini ${model} error ${res.status}: ${errText.slice(0, 300)}`);
+          if (res.status === 429 || res.status >= 500) continue; // try next model
+          if (res.status === 400) continue; // model may not support image — try next
+          break; // 401/403 = auth issue, no point retrying same key
+        }
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('\n').trim();
+        if (text) {
+          console.log(`[Vision] ✓ Gemini ${model} succeeded`);
+          return text;
+        }
+        console.log(`[Vision] Gemini ${model} returned empty — trying next`);
+      } catch (err: any) {
+        console.error(`[Vision] Gemini ${model} threw:`, err?.message || err);
+      }
+    }
+  }
+
+  // Fallback to OpenAI GPT-4o vision (if key + credits available)
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey) {
+    try {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          max_tokens: 1500,
+          temperature: 0.6,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: [
+              { type: "text", text: userText },
+              { type: "image_url", image_url: { url: imageDataUrl, detail: "high" } },
+            ]},
+          ],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data?.choices?.[0]?.message?.content;
+        if (text) {
+          console.log(`[Vision] ✓ OpenAI GPT-4o fallback succeeded`);
+          return text;
+        }
+      } else {
+        const errText = await res.text().catch(() => "");
+        console.error(`[Vision] OpenAI fallback error ${res.status}: ${errText.slice(0, 300)}`);
+      }
+    } catch (err: any) {
+      console.error(`[Vision] OpenAI fallback threw:`, err?.message || err);
+    }
+  }
+
+  // Fallback to Anthropic Claude 3.5 Sonnet vision
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (anthropicKey) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 1500,
+          system: systemPrompt,
+          messages: [{
             role: "user",
             content: [
-              { type: "text", text: userMessage || "What do you see in this image? Please describe it and let me know how I can help." },
-              { type: "image_url", image_url: { url: imageDataUrl, detail: "high" } },
+              { type: "image", source: { type: "base64", media_type: mimeType, data: base64Data } },
+              { type: "text", text: userText },
             ],
-          },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.error(`[Vision] OpenAI error ${res.status}: ${errText.slice(0, 500)}`);
-      let parsedMsg = "";
-      try { parsedMsg = JSON.parse(errText)?.error?.message || ""; } catch {}
-
-      if (res.status === 401) return "Image reading is offline — the OpenAI API key is missing or invalid. Please ask the site owner to update it.";
-      if (res.status === 429) {
-        if (/quota|billing|insufficient/i.test(parsedMsg)) {
-          return "Image reading is paused — the OpenAI account is out of credits. Please add billing at platform.openai.com and try again.";
+          }],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data?.content?.[0]?.text;
+        if (text) {
+          console.log(`[Vision] ✓ Anthropic Claude fallback succeeded`);
+          return text;
         }
-        return "Too many image requests right now. Please wait a moment and try again.";
+      } else {
+        const errText = await res.text().catch(() => "");
+        console.error(`[Vision] Anthropic fallback error ${res.status}: ${errText.slice(0, 300)}`);
       }
-      if (res.status === 400 && /image|content|invalid/i.test(parsedMsg)) {
-        return `OpenAI couldn't process that image: ${parsedMsg}. Try a smaller or different image.`;
-      }
-      if (res.status >= 500) return "OpenAI's vision service is having a hiccup right now. Please try again in a moment.";
-      return `Image reading failed (${res.status})${parsedMsg ? `: ${parsedMsg}` : ''}. Please try again.`;
+    } catch (err: any) {
+      console.error(`[Vision] Anthropic fallback threw:`, err?.message || err);
     }
-    const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content;
-    if (!text) return "I looked at your image but didn't get a clear response. Could you try rephrasing your question?";
-    return text;
-  } catch (err: any) {
-    console.error(`[Vision] Failed:`, err?.message || err);
-    return "Something went wrong while reading your image. Please try again.";
   }
+
+  if (!geminiKey && !openaiKey && !anthropicKey) {
+    return "Image reading isn't configured — no AI vision API keys are set up. Please ask the site owner to add a Gemini, OpenAI, or Anthropic API key.";
+  }
+  return "I tried reading your image with several AI models but all of them are unavailable right now. Please try again in a moment, or send your question without the image.";
 }
 
 export async function generateAIResponse(
