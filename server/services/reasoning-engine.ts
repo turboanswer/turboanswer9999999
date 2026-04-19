@@ -3,6 +3,7 @@
  * Auto-routes between fast / retrieval-only / deep multi-model reasoning.
  * Streams progress via onEvent callback. Billing through OpenRouter.
  */
+import { retrieveSources as retrieveSourcesMulti } from './retrievers';
 
 const OR_KEY = () => process.env.OPENROUTER_API_KEY || '';
 const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -243,8 +244,6 @@ function evalArithmetic(q: string): string | null {
 }
 
 // ============= RETRIEVAL =============
-import { retrieveSources as retrieveSourcesMulti } from './retrievers';
-
 export async function retrieve(question: string, isMath: boolean): Promise<{ sources: Source[]; arithmetic: string | null }> {
   const sources = await retrieveSourcesMulti(question, { limit: 6, perProviderLimit: 3 });
   const arithmetic = isMath ? evalArithmetic(question) : null;

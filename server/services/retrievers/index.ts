@@ -14,10 +14,22 @@ const ALL_RETRIEVERS: Retriever[] = [
 ];
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
+const CACHE_MAX = 500;
 const cache = new Map<string, { sources: Source[]; ts: number }>();
+
+function cacheSet(key: string, value: { sources: Source[]; ts: number }) {
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
 
 // Per-provider rate limiting: drop calls when over limit in window
 const RATE_WINDOW_MS = 60_000;
+const RATE_BUCKET_MAX = 200;
 const RATE_LIMITS: Record<string, number> = {
   brave: 50,
   tavily: 50,
@@ -29,7 +41,8 @@ const rateBuckets = new Map<string, number[]>();
 function allowCall(name: string): boolean {
   const now = Date.now();
   const limit = RATE_LIMITS[name] ?? 60;
-  const arr = (rateBuckets.get(name) || []).filter(t => now - t < RATE_WINDOW_MS);
+  let arr = (rateBuckets.get(name) || []).filter(t => now - t < RATE_WINDOW_MS);
+  if (arr.length > RATE_BUCKET_MAX) arr = arr.slice(-RATE_BUCKET_MAX);
   if (arr.length >= limit) { rateBuckets.set(name, arr); return false; }
   arr.push(now);
   rateBuckets.set(name, arr);
@@ -87,6 +100,6 @@ export async function retrieveSources(query: string, opts?: { limit?: number; pe
   for (const s of settled) if (s.status === 'fulfilled') all.push(...s.value);
 
   const ranked = dedupAndRank(all).slice(0, limit);
-  if (ranked.length) cache.set(key, { sources: ranked, ts: Date.now() });
+  if (ranked.length) cacheSet(key, { sources: ranked, ts: Date.now() });
   return ranked;
 }
