@@ -33,7 +33,7 @@ interface ChatMsg {
 const BUILD_PHASES = [
   "Searching the web for similar apps...",
   "Analyzing features from real apps...",
-  "Architecting with multi-model AI...",
+  "Architecting with Matrix AI...",
   "Writing HTML structure...",
   "Crafting CSS & animations...",
   "Building JavaScript logic...",
@@ -890,7 +890,7 @@ export default function CodeStudio() {
           <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>AI-powered IDE — describe your app, get production-quality code in seconds</p>
           <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, marginBottom: 20, textAlign: "left" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>What you get</div>
-            {["Web-researched features from real apps — built in automatically", "10 AI models build professional apps together", "Monaco editor (VS Code engine) with multi-file support", "Live preview + auto-deploy to a public URL", "Run Python, JS, TypeScript, Java, Go, Rust & more"].map(f => (
+            {["Web-researched features from real apps — built in automatically", "Matrix AI builds professional apps end-to-end", "Monaco editor (VS Code engine) with multi-file support", "Live preview + auto-deploy to a public URL", "Run Python, JS, TypeScript, Java, Go, Rust & more"].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
                 <Check style={{ width: 15, height: 15, color: "#10b981", marginTop: 1, flexShrink: 0 }} />
                 <span style={{ color: C.text, fontSize: 13 }}>{f}</span>
@@ -1079,7 +1079,7 @@ export default function CodeStudio() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>AI Agent</div>
-              <div style={{ fontSize: 10, color: C.muted }}>Claude Opus 4 + Gemini</div>
+              <div style={{ fontSize: 10, color: C.muted }}>Powered by Matrix AI</div>
             </div>
             <div style={{ fontSize: 10, color: C.accent, background: C.accentLight, border: `1px solid rgba(47,129,247,0.2)`, padding: "2px 7px", borderRadius: 4, fontWeight: 600 }}>AI</div>
             {user?.codeStudioAddon && (
@@ -1108,7 +1108,7 @@ export default function CodeStudio() {
                     <div>
                       <div style={{ fontWeight: 700, color: C.text, fontSize: 12 }}>Long Build Mode</div>
                       <div style={{ fontSize: 9, color: C.muted }}>
-                        {longBuildHours === 1 ? "1 build pass" : longBuildHours === 3 ? "2 refinement passes" : longBuildHours === 6 ? "3 refinement passes" : "4 refinement passes"} with 10 AI agents
+                        {longBuildHours === 1 ? "1 build pass" : longBuildHours === 3 ? "2 refinement passes" : longBuildHours === 6 ? "3 refinement passes" : "4 refinement passes"} with Matrix AI
                       </div>
                     </div>
                   </div>
@@ -1152,7 +1152,7 @@ export default function CodeStudio() {
                     </div>
 
                     <div style={{ background: "rgba(47,129,247,0.04)", borderRadius: 8, padding: "7px 10px", border: `1px solid rgba(47,129,247,0.12)` }}>
-                      <div style={{ fontSize: 9, color: C.muted, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>10 AI Agents</div>
+                      <div style={{ fontSize: 9, color: C.muted, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>Matrix AI Pipeline</div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 3 }}>
                         {AI_AGENTS.map((agent, i) => (
                           <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "4px 2px", borderRadius: 6, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
@@ -1279,7 +1279,7 @@ export default function CodeStudio() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: done ? C.green : C.cyan, marginBottom: 2 }}>
-                          {done ? "All 10 Agents Complete!" : "10 AI Agents Building..."}
+                          {done ? "Matrix AI Build Complete!" : "Matrix AI Building..."}
                         </div>
                         <div style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{msg.buildPrompt}</div>
                       </div>

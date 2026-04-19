@@ -881,14 +881,14 @@ export default function Chat() {
               <SelectContent>
                 <SelectItem value="gemini-flash">Free (Basic AI)</SelectItem>
                 <SelectItem value="gemini-pro">Pro $6.99 (Advanced)</SelectItem>
-                <SelectItem value="claude-research">Research $30 (10 Models)</SelectItem>
+                <SelectItem value="claude-research">Research $30 (Matrix AI)</SelectItem>
                 <SelectItem value="enterprise-research">Enterprise $100</SelectItem>
               </SelectContent>
             </Select>
 
             <button
               onClick={() => setDeepThink(v => !v)}
-              title={deepThink ? "Deep Think ON — forces multi-model reasoning + verification" : "Deep Think OFF — engine auto-decides fast vs deep"}
+              title={deepThink ? "Deep Think ON — forces full Matrix AI reasoning + verification" : "Deep Think OFF — Matrix AI auto-decides fast vs deep"}
               className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
                 deepThink
                   ? (isDark ? 'bg-emerald-600/30 border border-emerald-500 text-emerald-200' : 'bg-emerald-100 border border-emerald-400 text-emerald-700')
@@ -1232,7 +1232,7 @@ export default function Chat() {
                   {message.role === 'assistant' && verifiedMessages[message.id] && verifiedMessages[message.id] !== "unknown" && (
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[message.id] === "verified" ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}
-                      title={verifiedMessages[message.id] === "verified" ? "This response was fact-checked and verified by a second AI model" : "This response could not be fully verified — treat with caution"}
+                      title={verifiedMessages[message.id] === "verified" ? "Verified by Matrix AI" : "Matrix AI could not fully verify this answer — treat with caution"}
                       data-testid={`badge-verified-${message.id}`}
                     >
                       {verifiedMessages[message.id] === "verified" ? (
@@ -1281,7 +1281,7 @@ export default function Chat() {
                             : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
                           : isDark ? 'text-zinc-500 hover:text-cyan-400 hover:bg-white/5' : 'text-gray-400 hover:text-cyan-600 hover:bg-gray-100'
                       }`}
-                      title="Fact-check this response with a second AI"
+                      title="Verify this response with Matrix AI"
                     >
                       {factCheckLoading[message.id] ? (
                         <><Loader2 className="h-3 w-3 animate-spin" /><span>Checking...</span></>
@@ -1456,7 +1456,7 @@ export default function Chat() {
                 </ol>
                 {reasoningPanel.length > 0 && (
                   <div className={`mt-3 pt-3 border-t ${isDark ? 'border-zinc-700/50' : 'border-gray-200'}`}>
-                    <div className={`text-[10px] uppercase tracking-wider font-bold mb-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>Models that responded</div>
+                    <div className={`text-[10px] uppercase tracking-wider font-bold mb-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>Matrix AI cores engaged</div>
                     <div className="flex flex-wrap gap-1.5">
                       {reasoningPanel.map((p, i) => (
                         <span key={i} className={`text-[11px] px-2 py-0.5 rounded-full ${isDark ? 'bg-blue-500/15 text-blue-300 border border-blue-500/30' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
@@ -1698,7 +1698,7 @@ export default function Chat() {
                 <Brain className="text-white h-7 w-7" />
               </div>
               <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade to Research</h2>
-              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>10 AI Models · Maximum Intelligence · AI Video Studio</p>
+              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI Research · Maximum Intelligence · Video Studio</p>
             </div>
             {/* Google color bar */}
             <div className="flex h-1 rounded-full overflow-hidden mb-4">
@@ -1715,7 +1715,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🤖 10 AI models — GPT-4o, Claude, Mistral & more", "🎬 AI Video Studio (Google Veo 3.1)", "Everything in Pro + Free included"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "Everything in Pro + Free included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-green-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -1760,7 +1760,7 @@ export default function Chat() {
                 <Crown className="text-white h-7 w-7" />
               </div>
               <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade to Enterprise</h2>
-              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>10 AI Models · Research for up to 5 team members</p>
+              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI Research · For up to 5 team members</p>
             </div>
             <div className="text-center mb-1">
               <div className="inline-flex items-center gap-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
@@ -1817,7 +1817,7 @@ export default function Chat() {
               </div>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🤖 10 AI models — GPT-4o, Claude, Mistral & more", "🎬 AI Video Studio (Google Veo 3.1)", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-green-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -1919,7 +1919,7 @@ export default function Chat() {
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><Brain className="w-4 h-4 text-blue-400" /></div>
                       <div>
-                        <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>10-Agent Multi-Model Research</p>
+                        <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Matrix AI Research</p>
                         <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Research $30" to unlock maximum depth on every response</p>
                       </div>
                     </div>
@@ -1990,7 +1990,7 @@ export default function Chat() {
               </div>
               {[
                 { icon: <Sparkles className="w-4 h-4 text-yellow-400" />, title: "Unlimited Questions", desc: "No daily caps — ask as much as you want" },
-                { icon: <Brain className="w-4 h-4 text-purple-400" />, title: "Advanced AI Models", desc: "10 AI models working together" },
+                { icon: <Brain className="w-4 h-4 text-purple-400" />, title: "Matrix AI", desc: "A new era of intelligence" },
                 { icon: <Zap className="w-4 h-4 text-cyan-400" />, title: "Priority Speed", desc: "Faster responses, always" },
               ].map((item, i) => (
                 <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'}`}>

@@ -46,7 +46,7 @@ export default function MobileWelcome() {
         <div
           style={fade(80)}
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-6"
-          aria-label="Verified by second AI"
+          aria-label="Powered by Matrix AI"
         >
           <Shield size={12} className="text-emerald-400" />
           <span className="text-[11px] font-bold tracking-wider uppercase text-emerald-400">
@@ -75,7 +75,7 @@ export default function MobileWelcome() {
           style={fade(240)}
           className="text-[15px] leading-relaxed text-zinc-400 max-w-[300px]"
         >
-          Every answer is fact-checked by a second AI model. No hallucinations. Just verified truth.
+          Meet Matrix AI — a new kind of intelligence. Cited, verified, delivered in seconds.
         </p>
       </div>
 

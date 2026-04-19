@@ -145,7 +145,7 @@ export default function Home() {
             {
               icon: <MessageSquare className="w-8 h-8" />,
               title: "AI Chat",
-              desc: "Multi-model conversations with GPT-4o, Claude, Gemini, and 7+ more AI models.",
+              desc: "Conversations powered by Matrix AI — cited, verified, and graded by confidence in real time.",
               href: "/chat",
               gradient: "linear-gradient(135deg, #1a1a2e, #16213e)",
               iconBg: "rgba(59,130,246,0.12)",
@@ -154,7 +154,7 @@ export default function Home() {
             {
               icon: <Code2 className="w-8 h-8" />,
               title: "Code Studio",
-              desc: "Build full web apps from one sentence. 10 AI agents collaborate on your project.",
+              desc: "Build full web apps from one sentence. Matrix AI handles architecture, code, and review end-to-end.",
               href: "/code-studio",
               gradient: "linear-gradient(135deg, #1a1a2e, #1e1a3e)",
               iconBg: "rgba(139,92,246,0.12)",
@@ -227,27 +227,20 @@ export default function Home() {
           <div className="p-8 md:p-12">
             <div className="flex items-center gap-2 mb-6">
               <Sparkles size={16} className="text-blue-400" />
-              <span className="text-sm font-semibold text-blue-400 tracking-wide uppercase">Powered by the best</span>
+              <span className="text-sm font-semibold text-blue-400 tracking-wide uppercase">A new era of intelligence</span>
             </div>
-            <h2 className="text-3xl md:text-4xl font-black text-white mb-4 tracking-tight">10 AI Models Working Together</h2>
-            <p className="text-gray-400 mb-8 max-w-xl">TurboAnswer routes your questions to the right model automatically — the fastest, smartest answer every time.</p>
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4 tracking-tight">Meet Matrix AI</h2>
+            <p className="text-gray-400 mb-8 max-w-xl">One intelligence built for the questions that matter — cited, verified, and graded by confidence in real time.</p>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
-                { name: "GPT-4o", co: "OpenAI", color: "#10b981" },
-                { name: "Claude", co: "Anthropic", color: "#ef4444" },
-                { name: "Gemini", co: "Google", color: "#3b82f6" },
-                { name: "Mistral", co: "Mistral AI", color: "#f97316" },
-                { name: "Llama", co: "Meta", color: "#8b5cf6" },
-                { name: "DeepSeek", co: "DeepSeek", color: "#06b6d4" },
-                { name: "Qwen", co: "Alibaba", color: "#22c55e" },
-                { name: "Command", co: "Cohere", color: "#eab308" },
-                { name: "Grok", co: "xAI", color: "#ec4899" },
-                { name: "Gemma", co: "Google", color: "#6366f1" },
-              ].map(({ name, co, color }) => (
-                <div key={name} className="rounded-xl p-3 border border-white/[0.04] text-center" style={{ background: `${color}06` }}>
-                  <div className="text-sm font-bold text-white">{name}</div>
-                  <div className="text-[10px] text-gray-500">{co}</div>
+                { title: "Cited", desc: "Every claim points to a live source you can open.", color: "#3b82f6" },
+                { title: "Verified", desc: "Self-checks every answer and flags anything it can't fully back up.", color: "#10b981" },
+                { title: "Confident", desc: "A real confidence score — not blind certainty.", color: "#a855f7" },
+              ].map(({ title, desc, color }) => (
+                <div key={title} className="rounded-xl p-5 border border-white/[0.06]" style={{ background: `${color}08` }}>
+                  <div className="text-base font-bold text-white mb-1">{title}</div>
+                  <div className="text-xs text-gray-400 leading-relaxed">{desc}</div>
                 </div>
               ))}
             </div>
@@ -267,7 +260,7 @@ export default function Home() {
                 </div>
                 <h2 className="text-3xl md:text-4xl font-black text-white mb-3 tracking-tight">The Ultimate AI Team Stack</h2>
                 <p className="text-gray-400 mb-6 max-w-lg">
-                  5 team members. 10 AI models. Code Studio FREE. Video Studio. Everything you need — one subscription.
+                  5 team members. Matrix AI Research. Code Studio FREE. Video Studio. Everything you need — one subscription.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link href="/pricing">

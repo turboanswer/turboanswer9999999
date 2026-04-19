@@ -107,10 +107,10 @@ export default function WidgetDemo() {
 
           <Card className="bg-gray-900/50 border-gray-700">
             <CardHeader>
-              <CardTitle className="text-lg">🧠 Mega Fusion AI</CardTitle>
+              <CardTitle className="text-lg">🧠 Matrix AI</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-400">Powered by 10 AI models including GPT-4o, Claude, Mistral, Llama, and DeepSeek for maximum intelligence.</p>
+              <p className="text-gray-400">Powered by Matrix AI — a new era of intelligence, cited and verified in real time.</p>
             </CardContent>
           </Card>
 

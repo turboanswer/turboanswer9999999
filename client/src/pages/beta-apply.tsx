@@ -43,7 +43,7 @@ const QUESTIONS = [
     id: "q6",
     label: "What features are you most excited to test?",
     type: "textarea",
-    placeholder: "e.g., multi-model AI, voice commands, document analysis…",
+    placeholder: "e.g., Matrix AI, voice commands, document analysis…",
   },
   {
     id: "q7",

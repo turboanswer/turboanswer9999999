@@ -59,7 +59,7 @@ const PLANS = [
     border: 'border-indigo-400/50',
     icon: <Sparkles className="h-5 w-5 text-indigo-300" />,
     features: [
-      '10 AI models (GPT-4o, Claude, Mistral & more)',
+      'Matrix AI Research engine',
       'AI Video Studio — powered by Google Veo',
       'Deep expert-level responses',
       'Image Studio (Google AI)',

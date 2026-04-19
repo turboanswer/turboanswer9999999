@@ -76,18 +76,18 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   },
   research: {
     "claude-research": {
-      name: "10-Agent Multi-Model Research",
+      name: "Matrix AI Research",
       provider: "multi-agent",
-      description: "10 different AI models (GPT-4o, Claude, Mistral, Llama, DeepSeek & more) analyze your question from 10 expert perspectives, then synthesize into one comprehensive answer",
+      description: "Matrix AI Research engine — searches live sources, weighs evidence, and grades its own confidence on every claim",
       maxTokens: 16000,
       temperature: 0.1,
     },
   },
   enterprise: {
     "enterprise-research": {
-      name: "10-Agent Multi-Model Research",
+      name: "Matrix AI Research (Enterprise)",
       provider: "multi-agent",
-      description: "10 different AI models analyze your question from every angle — enterprise-grade multi-perspective intelligence for teams",
+      description: "Matrix AI Research for entire teams — enterprise-grade reasoning with cited, verified answers",
       maxTokens: 16000,
       temperature: 0.1,
     },

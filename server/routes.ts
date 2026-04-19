@@ -91,7 +91,7 @@ const TIER_LABELS: Record<string, string> = { free: 'Free', pro: 'Pro', research
 const TIER_PRICES: Record<string, string> = { pro: '$6.99/mo', research: '$30.00/mo', enterprise: '$100.00/mo' };
 const TIER_PERKS: Record<string, string[]> = {
   pro:        ['Unlimited daily questions', 'Advanced Pro AI model', 'Priority response speed', 'Full Code Studio access'],
-  research:   ['Everything in Pro', '10-Agent Multi-Perspective Research', 'AI Video Generation', 'Deep analysis from 10 expert AI agents'],
+  research:   ['Everything in Pro', 'Matrix AI Research engine', 'AI Video Generation', 'Cited & verified answers with confidence scores'],
   enterprise: ['Everything in Research', 'Team access with shared enterprise code', 'Dedicated support', 'Highest priority processing'],
 };
 

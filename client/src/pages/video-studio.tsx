@@ -243,7 +243,7 @@ export default function VideoStudio() {
                 "Landscape (16:9) & portrait (9:16) aspect ratios",
                 "Style presets: cinematic, nature, sci-fi, fantasy & more",
                 "Download generated videos as MP4",
-                "Plus all Research plan features — 10 AI models on every message",
+                "Plus all Research plan features — Matrix AI on every message",
               ].map((f, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${isDark ? 'bg-indigo-500/25' : 'bg-indigo-100'}`}>

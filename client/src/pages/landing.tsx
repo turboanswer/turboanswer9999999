@@ -19,14 +19,14 @@ export default function LandingPage() {
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   const features = [
-    { icon: <Brain className="h-7 w-7" />, title: "Multi-Model AI Chat", desc: "Powered by 10 different AI models working together — GPT-4o, Claude, Mistral, Llama, DeepSeek, and more.", color: "#3b82f6", badge: "Research+" },
-    { icon: <Code2 className="h-7 w-7" />, title: "Code Studio", desc: "Build full web apps from one sentence. 10 AI agents collaborate with Claude Opus 4.", color: "#8b5cf6", badge: "Research+" },
-    { icon: <Film className="h-7 w-7" />, title: "AI Video Studio", desc: "Create stunning videos from text descriptions using Google Veo 3.1.", color: "#a855f7", badge: "Research+" },
+    { icon: <Brain className="h-7 w-7" />, title: "Matrix AI Chat", desc: "A new era of intelligence — answers cited, verified, and graded by confidence in real time.", color: "#3b82f6", badge: "Research+" },
+    { icon: <Code2 className="h-7 w-7" />, title: "Code Studio", desc: "Build full web apps from one sentence. Matrix AI handles architecture, code, and review end-to-end.", color: "#8b5cf6", badge: "Research+" },
+    { icon: <Film className="h-7 w-7" />, title: "AI Video Studio", desc: "Cinematic videos generated from a single line of text.", color: "#a855f7", badge: "Research+" },
     { icon: <FileText className="h-7 w-7" />, title: "Document Analysis", desc: "Upload any document and get instant summaries, key insights, and detailed answers.", color: "#10b981", badge: "Free" },
-    { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Create images from text descriptions using DALL-E 3. Generate art and designs instantly.", color: "#ec4899", badge: "Pro+" },
-    { icon: <Camera className="h-7 w-7" />, title: "Camera Vision", desc: "Point your camera at anything and get instant AI analysis. Scan docs, receipts, and images.", color: "#06b6d4", badge: "Free" },
-    { icon: <Users className="h-7 w-7" />, title: "Collab AI Rooms", desc: "Real-time multiplayer AI rooms. Chat with friends and AI together in one space.", color: "#a855f7", badge: "New" },
-    { icon: <CheckCircle className="h-7 w-7" />, title: "AI Fact-Check", desc: "Verify any AI response with a second model. Get confidence scores and claim-by-claim analysis.", color: "#14b8a6", badge: "New" },
+    { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Generate art and designs from a single prompt.", color: "#ec4899", badge: "Pro+" },
+    { icon: <Camera className="h-7 w-7" />, title: "Camera Vision", desc: "Point your camera at anything and get instant Matrix AI analysis.", color: "#06b6d4", badge: "Free" },
+    { icon: <Users className="h-7 w-7" />, title: "Collab AI Rooms", desc: "Real-time multiplayer rooms. Chat with friends and Matrix AI together in one space.", color: "#a855f7", badge: "New" },
+    { icon: <CheckCircle className="h-7 w-7" />, title: "Self-Verification", desc: "Every Matrix AI answer rates its own confidence and flags anything it can't fully back up.", color: "#14b8a6", badge: "New" },
   ];
 
   const D = isDark;
@@ -134,13 +134,13 @@ export default function LandingPage() {
               </h1>
 
               <p className={`text-lg sm:text-xl max-w-xl mb-6 leading-relaxed ${D ? "text-gray-400" : "text-gray-600"}`}>
-                Every answer is fact-checked by a second AI model — automatically. No more hallucinations. Just <strong className={D ? "text-white" : "text-gray-900"}>verified truth</strong>, delivered in seconds.
+                Meet <strong className={D ? "text-white" : "text-gray-900"}>Matrix AI</strong> — a new kind of intelligence built for the questions that matter. Cited. Verified. Yours in seconds.
               </p>
 
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 border ${D ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
                 <Brain className="h-3.5 w-3.5" />
-                <span className="text-xs font-bold uppercase tracking-wider">Powered by Matrix AI — our research model</span>
-                <span className="text-xs opacity-80">— routes hard questions through 3 models + live sources + claim-level verification</span>
+                <span className="text-xs font-bold uppercase tracking-wider">Matrix AI · A new era of intelligence</span>
+                <span className="text-xs opacity-80">— self-verifying, source-cited, confidence-rated</span>
               </div>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
@@ -163,7 +163,7 @@ export default function LandingPage() {
               <div className={`flex flex-wrap items-center gap-x-6 gap-y-2 text-sm ${D ? "text-gray-500" : "text-gray-500"}`}>
                 <span className="flex items-center gap-1.5"><Check size={15} className="text-emerald-500" /> Free forever</span>
                 <span className="flex items-center gap-1.5"><Check size={15} className="text-emerald-500" /> No credit card</span>
-                <span className="flex items-center gap-1.5"><Check size={15} className="text-emerald-500" /> 10 AI models</span>
+                <span className="flex items-center gap-1.5"><Check size={15} className="text-emerald-500" /> Matrix AI</span>
               </div>
             </div>
 
@@ -225,7 +225,7 @@ export default function LandingPage() {
                           <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
                           <path className="ta-check-path" d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
-                        Verified by Claude Sonnet 4.5
+                        Verified by Matrix AI
                       </div>
                     </div>
                   </div>
@@ -237,7 +237,7 @@ export default function LandingPage() {
                       <div className="ta-typing-dot w-1.5 h-1.5 rounded-full" style={{ background: D ? "#6b7280" : "#9ca3af", animationDelay: "0.2s" }} />
                       <div className="ta-typing-dot w-1.5 h-1.5 rounded-full" style={{ background: D ? "#6b7280" : "#9ca3af", animationDelay: "0.4s" }} />
                     </div>
-                    <span className={`text-xs ${D ? "text-gray-500" : "text-gray-400"}`}>Cross-checking with 2 more models…</span>
+                    <span className={`text-xs ${D ? "text-gray-500" : "text-gray-400"}`}>Matrix AI verifying…</span>
                   </div>
                 </div>
               </div>
@@ -367,21 +367,21 @@ export default function LandingPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-6" style={{ background: D ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.1)", border: `1px solid ${D ? "rgba(99,102,241,0.25)" : "rgba(99,102,241,0.2)"}`, color: D ? "#818cf8" : "#4f46e5" }}>
-                    <Cpu className="h-3.5 w-3.5" /> 10 AI Models · 10 Expert Perspectives
+                    <Cpu className="h-3.5 w-3.5" /> Matrix AI · Research Tier
                   </div>
                   <h2 className="text-3xl sm:text-5xl font-black mb-5 leading-tight">
-                    <span className={D ? "text-blue-400" : "text-blue-600"}>10 AI Brains.</span><br />
-                    <span className={D ? "text-white" : "text-gray-900"}>One answer.</span>
+                    <span className={D ? "text-blue-400" : "text-blue-600"}>A new era</span><br />
+                    <span className={D ? "text-white" : "text-gray-900"}>of intelligence.</span>
                   </h2>
                   <p className={`text-lg mb-8 leading-relaxed ${D ? "text-gray-300" : "text-gray-600"}`}>
-                    The Research plan uses ten AI models simultaneously. GPT-4o, Claude, Mistral, Llama, DeepSeek, Qwen, and more. Each analyzes from a different expert angle, then synthesizes into one comprehensive answer.
+                    Matrix AI Research is built for the questions other assistants get wrong. It searches live sources, weighs the evidence, and tells you exactly how confident it is — claim by claim.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
                     {[
-                      { icon: <Microscope className="h-4 w-4 text-indigo-400" />, label: "10 Expert Agents", desc: "Technical, business, security, UX & more" },
-                      { icon: <Brain className="h-4 w-4 text-violet-400" />, label: "10 Different Models", desc: "GPT-4o, Claude, Mistral, Llama..." },
-                      { icon: <Layers className="h-4 w-4 text-cyan-400" />, label: "Parallel Analysis", desc: "All 10 run simultaneously" },
-                      { icon: <BarChart3 className="h-4 w-4 text-indigo-400" />, label: "Unified Synthesis", desc: "One answer, every perspective" },
+                      { icon: <Microscope className="h-4 w-4 text-indigo-400" />, label: "Live Citations", desc: "Every fact tied to a source you can open" },
+                      { icon: <Brain className="h-4 w-4 text-violet-400" />, label: "Self-Verification", desc: "Confidence score on every answer" },
+                      { icon: <Layers className="h-4 w-4 text-cyan-400" />, label: "Real-Time Reasoning", desc: "Watch Matrix AI think, step by step" },
+                      { icon: <BarChart3 className="h-4 w-4 text-indigo-400" />, label: "Honest Disagreements", desc: "Contested claims flagged, never hidden" },
                     ].map((f, i) => (
                       <div key={i} className="flex items-start gap-3 rounded-xl p-3.5 border" style={{ background: D ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.7)", borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(99,102,241,0.1)" }}>
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: D ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.08)" }}>{f.icon}</div>
@@ -403,10 +403,10 @@ export default function LandingPage() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { title: "10 Models, 10 Perspectives", body: "Every complex question is analyzed by GPT-4o, Claude, Mistral, Llama, DeepSeek, Qwen, and more — all working in parallel.", badge: "Unique", bColor: "#6366f1" },
-                    { title: "Expert Depth on Every Response", body: "Technical architect, business strategist, security analyst, UX researcher — each powered by a different AI brain.", badge: "Always On", bColor: "#8b5cf6" },
-                    { title: "Superior Coding & Math", body: "Tackles complex algorithms, debugging, architecture design, and advanced mathematics with near-human accuracy.", badge: "Pro-Level", bColor: "#06b6d4" },
-                    { title: "Creative & Strategic Thinking", body: "From business strategy to creative writing, 10 different AI perspectives produce nuanced, comprehensive work.", badge: "All Domains", bColor: "#3b82f6" },
+                    { title: "Cited, Not Guessed", body: "Every claim points to a source you can open. No more wondering where an answer came from.", badge: "Unique", bColor: "#6366f1" },
+                    { title: "Self-Aware Confidence", body: "Matrix AI tells you how sure it is — and quietly flags anything it can't fully back up.", badge: "Always On", bColor: "#8b5cf6" },
+                    { title: "Built for Hard Problems", body: "Tackles complex algorithms, debugging, architecture, and advanced mathematics with near-human accuracy.", badge: "Pro-Level", bColor: "#06b6d4" },
+                    { title: "Creative & Strategic", body: "From business strategy to creative writing, Matrix AI produces nuanced, comprehensive work across every domain.", badge: "All Domains", bColor: "#3b82f6" },
                   ].map((c, i) => (
                     <div key={i} className={`rounded-2xl p-5 border transition-all ${D ? "hover:border-indigo-500/30" : "hover:border-indigo-300 hover:shadow-md"}`} style={{ background: D ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.8)", borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
                       <div className="flex items-start justify-between gap-3 mb-1.5">
@@ -430,7 +430,7 @@ export default function LandingPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "AI Model", free: "Basic Lite", paid: "Advanced Flash / 10 Models", icon: <Brain className="h-5 w-5" /> },
+              { label: "AI Model", free: "Matrix AI Lite", paid: "Matrix AI · Pro / Research", icon: <Brain className="h-5 w-5" /> },
               { label: "Answer Length", free: "Short (2-4 sentences)", paid: "Detailed (full explanations)", icon: <FileText className="h-5 w-5" /> },
               { label: "Live Web Search", free: "Not included", paid: "Real-time current events", icon: <Search className="h-5 w-5" /> },
               { label: "Verified Answers", free: "Not included", paid: "Green verified badge", icon: <Check className="h-5 w-5" /> },
@@ -516,14 +516,14 @@ export default function LandingPage() {
                   </div>
                   <div className="mt-4 mb-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: D ? "rgba(99,102,241,0.12)" : "rgba(99,102,241,0.08)", border: `1px solid ${D ? "rgba(99,102,241,0.25)" : "rgba(99,102,241,0.2)"}` }}>
                     <Cpu className="h-3.5 w-3.5 text-indigo-500" />
-                    <span className="text-xs font-bold text-indigo-500 tracking-wide">10 AI MODELS — MULTI-AGENT RESEARCH</span>
+                    <span className="text-xs font-bold text-indigo-500 tracking-wide">MATRIX AI · RESEARCH ENGINE</span>
                   </div>
                   <ul className="space-y-3 mb-7">
                     <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(59,130,246,0.08)" : "rgba(59,130,246,0.04)", border: `1px solid ${D ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.1)"}` }}>
                       <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5"><Code2 className="h-3 w-3 text-white" /></div>
                       <div>
                         <span className={`text-sm font-bold ${D ? "text-blue-300" : "text-blue-700"}`}>Code Studio</span>
-                        <div className={`text-xs mt-0.5 ${D ? "text-blue-400/70" : "text-blue-500"}`}>Build full apps with one prompt · Claude Opus 4</div>
+                        <div className={`text-xs mt-0.5 ${D ? "text-blue-400/70" : "text-blue-500"}`}>Build full apps with one prompt · Powered by Matrix AI</div>
                       </div>
                     </li>
                     <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.04)", border: `1px solid ${D ? "rgba(139,92,246,0.15)" : "rgba(139,92,246,0.1)"}` }}>
@@ -537,10 +537,10 @@ export default function LandingPage() {
                       <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0 mt-0.5"><CheckCircle className="h-3 w-3 text-white" /></div>
                       <div>
                         <span className={`text-sm font-bold ${D ? "text-teal-300" : "text-teal-700"}`}>AI Fact-Check Chain</span>
-                        <div className={`text-xs mt-0.5 ${D ? "text-teal-400/70" : "text-teal-500"}`}>Verify AI claims with a second model</div>
+                        <div className={`text-xs mt-0.5 ${D ? "text-teal-400/70" : "text-teal-500"}`}>Confidence scores on every claim</div>
                       </div>
                     </li>
-                    {["Everything in Pro", "10 AI models analyze in parallel", "GPT-4o + Claude + Mistral + more", "Collab AI Rooms", "Advanced reasoning & math", "Workgroups & team collaboration", "Priority queue access"].map((item, i) => (
+                    {["Everything in Pro", "Matrix AI Research engine", "Live citations & confidence scores", "Collab AI Rooms", "Advanced reasoning & math", "Workgroups & team collaboration", "Priority queue access"].map((item, i) => (
                       <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                         <Check size={14} className="text-indigo-500 flex-shrink-0" /> {item}
                       </li>
@@ -696,7 +696,7 @@ export default function LandingPage() {
               <p>When we first launched TurboAnswer, the response wasn't applause — it was ridicule. People laughed at the idea. They said we were wasting our time.</p>
               <p><strong className={D ? "text-white" : "text-gray-900"}>"It'll never work."</strong> <strong className={D ? "text-white" : "text-gray-900"}>"Who's going to use this?"</strong> <strong className={D ? "text-white" : "text-gray-900"}>"Just give up."</strong> We heard it all. Every single day.</p>
               <p>But we didn't quit. We took every piece of criticism, every hateful comment — and we turned it into fuel. Late nights turned into breakthroughs. Setbacks turned into comebacks.</p>
-              <p>We built multi-model AI intelligence. We added voice commands, document analysis, image generation, crisis support, enterprise-grade security, and a system fast enough to feel like a real conversation.</p>
+              <p>We built Matrix AI — a new kind of intelligence. We added voice commands, document analysis, image generation, crisis support, enterprise-grade security, and a system fast enough to feel like a real conversation.</p>
               <p className={`font-bold text-xl ${D ? "text-white" : "text-gray-900"}`}>The same people who doubted us? Some of them are our users now.</p>
               <p>TurboAnswer exists because we refused to let the noise stop us. And we're just getting started.</p>
             </div>

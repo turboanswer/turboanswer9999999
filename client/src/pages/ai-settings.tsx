@@ -54,8 +54,8 @@ const AI_MODELS = {
     badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   },
   "claude-research": {
-    name: "10-Agent Multi-Model Research",
-    description: "10 AI models analyze every question from different expert perspectives, then synthesize into one comprehensive answer.",
+    name: "Matrix AI Research",
+    description: "Our flagship reasoning engine — searches live sources, weighs evidence, and grades its own confidence on every claim.",
     tier: "Research · $30/mo", icon: FlaskConical,
     color: "from-blue-500 to-cyan-600", borderColor: "border-blue-500",
     badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
