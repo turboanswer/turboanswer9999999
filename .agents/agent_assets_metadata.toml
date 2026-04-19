@@ -71,3 +71,27 @@ id = "5L4AmffvtnoDafKMZUM0F"
 uri = "file://attached_assets/generated_images/turboanswer_gallery_shield.png"
 type = "image"
 title = "Gallery 4 — Trust Shield (4:3)"
+
+[[outputs]]
+id = "MNPh-9sR63NgSRv4EN82a"
+uri = "file://attached_assets/turboanswer_screenshots/01_landing_hero.jpg"
+type = "image"
+title = "1. Landing Page — The AI you can actually trust"
+
+[[outputs]]
+id = "CoNdr4cA5h34zwVXbXNVY"
+uri = "file://attached_assets/turboanswer_screenshots/02_pricing.jpg"
+type = "image"
+title = "2. Pricing — Free, Pro $6.99, Research $30"
+
+[[outputs]]
+id = "_y-Hq9f72RrZBxuDLQPbr"
+uri = "file://attached_assets/turboanswer_screenshots/03_trial_chat.jpg"
+type = "image"
+title = "3. Trial Chat — Welcome to TurboAnswer"
+
+[[outputs]]
+id = "0axRD9tPvoI5yxOrHNDBT"
+uri = "file://attached_assets/turboanswer_screenshots/04_login.jpg"
+type = "image"
+title = "4. Sign In Screen"
