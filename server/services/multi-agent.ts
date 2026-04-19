@@ -364,7 +364,5 @@ Write the synthesized response now:`;
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`[Multi-Agent] Synthesis complete in ${totalTime}s (${agentResponses.length} agents, ${modelsUsed.length} models)`);
 
-  const modelList = agentResponses.map(a => `${a.name}: ${a.model}`).join(' · ');
-
-  return `${synthesis}\n\n---\n*Powered by TurboAnswer Multi-Agent Research — ${agentResponses.length} expert perspectives from ${modelsUsed.length} AI models analyzed in ${totalTime}s*\n*Models: ${modelList}*`;
+  return synthesis;
 }
