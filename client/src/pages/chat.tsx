@@ -455,9 +455,10 @@ export default function Chat() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async ({ content, convId, imageDataUrl }: { content: string; convId: number; imageDataUrl?: string | null }) => {
-      // Use TurboAnswer Reasoning Engine (streaming) only when Deep Think is ON and no image.
-      // Otherwise preserve the legacy single-model pipeline + selectedModel behavior.
-      if (!imageDataUrl && deepThink) {
+      // Default text path: route through TurboAnswer Reasoning Engine (auto-routes
+      // fast/retrieval/deep). Deep Think toggle becomes a force-deep override.
+      // Image messages still use the legacy vision pipeline.
+      if (!imageDataUrl) {
         return await runStreamingMessage(content, convId);
       }
       const res = await fetch(`/api/conversations/${convId}/messages`, {
