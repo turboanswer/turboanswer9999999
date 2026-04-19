@@ -113,3 +113,15 @@ id = "v2lA9x0Kcp91b1VcXxmLY"
 uri = "file://screenshots/turboanswer-logo-1270x760.jpg"
 type = "image"
 title = "TurboAnswer Logo (1270×760)"
+
+[[outputs]]
+id = "_4jHJRAbO9E2Kw-VKuMtJ"
+uri = "file://tshirt/turboanswer-tshirt.png"
+type = "image"
+title = "TurboAnswer T-Shirt Design (with Visit URL)"
+
+[[outputs]]
+id = "-cc-QXO6uNXfwGj4AMdIt"
+uri = "file://tshirt/microsoft-azure-developer-tshirt.png"
+type = "image"
+title = "Microsoft Azure Developer T-Shirt Design"
