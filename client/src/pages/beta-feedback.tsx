@@ -95,11 +95,10 @@ export default function BetaFeedback() {
         <Card className="bg-gradient-to-br from-emerald-950/40 to-zinc-950 border-emerald-900/40 mb-6">
           <CardContent className="p-4">
             <p className="text-xs uppercase tracking-wide text-emerald-400 font-semibold mb-2">Your Beta Perks</p>
-            <div className="grid sm:grid-cols-2 gap-3 text-sm">
+            <div className="grid sm:grid-cols-3 gap-3 text-sm">
               <div className="flex items-start gap-2"><Crown className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Free Pro features</b> — your account is upgraded for the duration of beta.</span></div>
               <div className="flex items-start gap-2"><Sparkles className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Early access</b> to new tools before public launch.</span></div>
               <div className="flex items-start gap-2"><Zap className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Direct line</b> — your feedback goes straight to the team.</span></div>
-              <div className="flex items-start gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>50% lifetime discount</b> on Pro after beta ends.</span></div>
             </div>
           </CardContent>
         </Card>

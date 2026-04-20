@@ -3758,7 +3758,6 @@ YOUR BETA-TESTER PERKS
 • Free Pro-tier access — your account runs on Pro-grade models for the duration of the beta, no charge.
 • Early access to new tools before they hit the public release.
 • A direct line to the product team via the feedback page.
-• 50% lifetime discount on Pro after the beta ends, as our thank-you.
 
 ────────────────────────────────────────
 
