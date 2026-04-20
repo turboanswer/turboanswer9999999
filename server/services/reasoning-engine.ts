@@ -388,17 +388,21 @@ Output STRICT JSON:
 }
 
 // ============= DIRECT GEMINI (Google AI Studio) =============
-// Used for the FREE tier so we don't pay OpenRouter fees on free traffic.
-// Pro tier still goes through OpenRouter until a Pro-grade key is provided.
-const GEMINI_KEY = () => process.env.GEMINI_API_KEY || '';
+// Free tier uses GEMINI_API_KEY (gemini-3.1-flash chain).
+// Pro tier uses GEMINI_PRO_API_KEY (gemini-3.1-pro chain).
+// Keys are kept separate so quota and billing can be tracked independently.
+const GEMINI_FREE_KEY = () => process.env.GEMINI_API_KEY || '';
+const GEMINI_PRO_KEY = () => process.env.GEMINI_PRO_API_KEY || '';
 const GEMINI_FREE_MODELS = ['gemini-3.1-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+const GEMINI_PRO_MODELS = ['gemini-3.1-pro', 'gemini-2.5-pro', 'gemini-2.5-flash'];
 
 async function callGeminiDirect(
   model: string,
   prompt: string,
+  apiKey: string,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
-  const key = GEMINI_KEY();
+  const key = apiKey;
   if (!key) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 25000);
@@ -442,10 +446,13 @@ async function callGeminiDirect(
 
 async function callGeminiWithFallback(
   prompt: string,
+  models: string[],
+  apiKey: string,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
-  for (const model of GEMINI_FREE_MODELS) {
-    const out = await callGeminiDirect(model, prompt, opts);
+  if (!apiKey) return null;
+  for (const model of models) {
+    const out = await callGeminiDirect(model, prompt, apiKey, opts);
     if (out) return out;
   }
   return null;
@@ -475,17 +482,21 @@ async function callORWithFallback(
   return null;
 }
 
-// Free tier → direct Gemini API. Everything else → OpenRouter chain.
+// Free + Pro → direct Gemini API (separate keys). Research/Enterprise → OpenRouter (panel).
 async function answerForTier(
   prompt: string,
   tier: string | undefined,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
   const t = (tier || 'free').toLowerCase();
-  if (t === 'free' && GEMINI_KEY()) {
-    const out = await callGeminiWithFallback(prompt, opts);
+  if (t === 'free' && GEMINI_FREE_KEY()) {
+    const out = await callGeminiWithFallback(prompt, GEMINI_FREE_MODELS, GEMINI_FREE_KEY(), opts);
     if (out) return out;
-    // If direct Gemini fails (e.g. quota), fall through to OpenRouter Flash so we never go silent.
+    // Fall through to OpenRouter so we never go silent if quota hits.
+  }
+  if (t === 'pro' && GEMINI_PRO_KEY()) {
+    const out = await callGeminiWithFallback(prompt, GEMINI_PRO_MODELS, GEMINI_PRO_KEY(), opts);
+    if (out) return out;
   }
   return callORWithFallback(modelsForTier(t), prompt, opts);
 }
