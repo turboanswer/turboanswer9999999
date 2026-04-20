@@ -189,6 +189,10 @@ export const betaFeedback = pgTable("beta_feedback", {
   userEmail: text("user_email"),
   message: text("message").notNull(),
   category: text("category").default("general"),
+  worksWell: text("works_well"),
+  frustrating: text("frustrating"),
+  wishedFeature: text("wished_feature"),
+  rating: integer("rating"),
   submittedAt: timestamp("submitted_at").defaultNow(),
 });
 

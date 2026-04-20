@@ -1203,7 +1203,10 @@ function downloadAAB(){
       }
 
       const isOwner = isOwnerAccount(user);
-      const tier = (user?.subscriptionTier || 'free') as string;
+      const rawTier = (user?.subscriptionTier || 'free') as string;
+      // Beta perk: approved beta testers on the free tier get Pro-grade access
+      // (better model + no daily question cap) for the duration of the program.
+      const tier = (rawTier === 'free' && user?.isBetaTester) ? 'pro' : rawTier;
       const effectiveTier = isOwner ? 'owner' : tier;
 
       // Free-tier daily question limit (same as legacy endpoint)
@@ -3726,8 +3729,43 @@ ${template.bodyText.split('\n').map(line => {
       // Send approval email
       await sendBrevoEmail(
         app.email, app.name,
-        'Congratulations! You\'ve been approved for TurboAnswer Beta Testing',
-        `Hi ${app.name},\n\nCongratulations! We're thrilled to let you know that your application to join the TurboAnswer Beta Testing Program has been approved.\n\nTo get started, please create your TurboAnswer account using this exact email address: ${app.email}\n\nVisit https://turbo-answer.replit.app/register and sign up with the email above. Your account will automatically have beta tester access as soon as you register — no extra steps needed.\n\nOnce you're logged in, look for the green flask icon in the chat header to submit your feedback directly to our team.\n\nAs a beta tester, your feedback is invaluable. Don't hesitate to share detailed notes, bug reports, or feature suggestions — we read every one.\n\nThank you for your enthusiasm. We're excited to have you on board!\n\nBest regards,\nThe TurboAnswer Team`
+        'Welcome to the Matrix AI Beta — your access is live',
+        `Hi ${app.name},
+
+Great news — you're in. Your application to the Matrix AI Beta Program has been approved.
+
+────────────────────────────────────────
+GETTING STARTED
+────────────────────────────────────────
+1. Sign up at https://turbo-answer.replit.app/register using THIS exact email: ${app.email}
+2. Once you log in, your account will automatically be flagged as a beta tester — nothing extra to do.
+3. Look for the green checklist icon in the chat header. That's your dedicated feedback page.
+
+────────────────────────────────────────
+HOW TO GIVE FEEDBACK (3 questions, ~2 minutes)
+────────────────────────────────────────
+Click the green checklist icon any time you finish a session and answer:
+  1. What's working great?
+  2. What's frustrating or broken?
+  3. What's one feature you wish Matrix AI had?
+Plus a quick 1–5 star rating.
+
+You can submit as many times as you want. Every response goes straight to the team — we read all of them.
+
+────────────────────────────────────────
+YOUR BETA-TESTER PERKS
+────────────────────────────────────────
+• Free Pro-tier access — your account runs on Pro-grade models for the duration of the beta, no charge.
+• Early access to new tools before they hit the public release.
+• A direct line to the product team via the feedback page.
+• 50% lifetime discount on Pro after the beta ends, as our thank-you.
+
+────────────────────────────────────────
+
+Thank you for helping shape Matrix AI. We're genuinely excited to have you on board.
+
+Best,
+The Matrix AI Team`
       );
 
       res.json({ success: true });

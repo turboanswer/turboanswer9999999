@@ -32,6 +32,7 @@ import PhotoEditor from "@/pages/photo-editor";
 import MediaEditor from "@/pages/media-editor";
 import VideoStudio from "@/pages/video-studio";
 import BetaApply from "@/pages/beta-apply";
+import BetaFeedback from "@/pages/beta-feedback";
 import Workgroups from "@/pages/workgroups";
 import CollabRooms from "@/pages/collab-rooms";
 
@@ -76,6 +77,7 @@ function AuthenticatedRouter() {
       <Route path="/collab" component={CollabRooms} />
 
       <Route path="/beta" component={BetaApply} />
+      <Route path="/beta-feedback" component={BetaFeedback} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route component={NotFound} />
     </Switch>

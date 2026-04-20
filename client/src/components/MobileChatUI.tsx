@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, ArrowUp, Film, Phone, Mail, Clock, ImagePlus, Loader2, Plus, Pencil, Trash2, Check } from "lucide-react";
+import { X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, ClipboardCheck, ArrowUp, Film, Phone, Mail, Clock, ImagePlus, Loader2, Plus, Pencil, Trash2, Check } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -473,9 +473,11 @@ export default function MobileChatUI({
             </Link>
           )}
           {user?.isBetaTester && (
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }}>
-              <FlaskConical className="h-4 w-4 text-green-400" /> Beta Feedback
-            </button>
+            <Link href="/beta-feedback">
+              <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)} data-testid="link-beta-feedback-mobile">
+                <ClipboardCheck className="h-4 w-4 text-emerald-400" /> Beta Feedback
+              </button>
+            </Link>
           )}
           <Link href="/ai-settings">
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)}>
