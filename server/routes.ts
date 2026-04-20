@@ -1222,6 +1222,15 @@ function downloadAAB(){
         }
       }
 
+      // Pull prior conversation turns BEFORE persisting the new user message,
+      // so the AI has full memory of what was previously said/pasted.
+      // Cap at the last ~20 turns to keep token usage reasonable.
+      const priorMessages = await storage.getMessagesByConversation(conversationId).catch(() => [] as any[]);
+      const history = priorMessages
+        .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+        .slice(-20)
+        .map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content as string }));
+
       // Persist user message
       const userMessage = await storage.createMessage({ conversationId, content, role: "user" });
 
@@ -1274,6 +1283,7 @@ function downloadAAB(){
           forceFastMode: !allowDeep,
           systemPrompt,
           tier: effectiveTier,
+          history,
           onEvent: (e) => send(e.type, e),
         });
 
