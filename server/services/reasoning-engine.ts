@@ -387,15 +387,79 @@ Output STRICT JSON:
   return { verdict, claims, markedAnswer, confidence };
 }
 
-// ============= TIER-AWARE MODEL SELECTION =============
-// Free → Gemini Flash, Pro → Gemini Pro. Research/Enterprise → Matrix AI panel.
-// Each tier returns a fallback chain so newer model IDs (3.1) are tried first
-// and if OpenRouter doesn't have them yet we fall back to the latest stable.
+// ============= DIRECT GEMINI (Google AI Studio) =============
+// Used for the FREE tier so we don't pay OpenRouter fees on free traffic.
+// Pro tier still goes through OpenRouter until a Pro-grade key is provided.
+const GEMINI_KEY = () => process.env.GEMINI_API_KEY || '';
+const GEMINI_FREE_MODELS = ['gemini-3.1-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+
+async function callGeminiDirect(
+  model: string,
+  prompt: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
+): Promise<string | null> {
+  const key = GEMINI_KEY();
+  if (!key) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 25000);
+  try {
+    const contents: any[] = [];
+    if (opts.history && opts.history.length) {
+      for (const h of opts.history) {
+        if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
+          contents.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] });
+        }
+      }
+    }
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
+    const body: any = {
+      contents,
+      generationConfig: {
+        temperature: opts.temperature ?? 0.4,
+        maxOutputTokens: opts.maxTokens ?? 1500,
+      },
+    };
+    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal }
+    );
+    clearTimeout(t);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn(`[Gemini] ${model} HTTP ${res.status}: ${txt.slice(0, 200)}`);
+      return null;
+    }
+    const data: any = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') || null;
+    return text || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[Gemini] ${model} failed: ${err.message}`);
+    return null;
+  }
+}
+
+async function callGeminiWithFallback(
+  prompt: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
+): Promise<string | null> {
+  for (const model of GEMINI_FREE_MODELS) {
+    const out = await callGeminiDirect(model, prompt, opts);
+    if (out) return out;
+  }
+  return null;
+}
+
+// ============= TIER-AWARE MODEL SELECTION (OpenRouter fallback chain) =============
+// Pro → Gemini Pro. Research/Enterprise → Matrix AI panel (handled elsewhere).
+// Free is handled directly via callGeminiWithFallback above (no OpenRouter cost).
 function modelsForTier(tier?: string): string[] {
   const t = (tier || 'free').toLowerCase();
   if (t === 'pro') {
     return ['google/gemini-3.1-pro', 'google/gemini-2.5-pro', 'google/gemini-2.0-flash-001'];
   }
+  // Fallback for any unexpected tier — should rarely be hit since free uses Gemini direct.
   return ['google/gemini-3.1-flash', 'google/gemini-2.5-flash', 'google/gemini-2.0-flash-001'];
 }
 
@@ -411,9 +475,24 @@ async function callORWithFallback(
   return null;
 }
 
+// Free tier → direct Gemini API. Everything else → OpenRouter chain.
+async function answerForTier(
+  prompt: string,
+  tier: string | undefined,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
+): Promise<string | null> {
+  const t = (tier || 'free').toLowerCase();
+  if (t === 'free' && GEMINI_KEY()) {
+    const out = await callGeminiWithFallback(prompt, opts);
+    if (out) return out;
+    // If direct Gemini fails (e.g. quota), fall through to OpenRouter Flash so we never go silent.
+  }
+  return callORWithFallback(modelsForTier(t), prompt, opts);
+}
+
 // ============= FAST PATH =============
 export async function fastAnswer(question: string, system?: string, tier?: string, history?: ChatTurn[]): Promise<string> {
-  const out = await callORWithFallback(modelsForTier(tier), question, { maxTokens: 1500, temperature: 0.4, system, timeoutMs: 25000, history });
+  const out = await answerForTier(question, tier, { maxTokens: 1500, temperature: 0.4, system, timeoutMs: 25000, history });
   return out || 'I could not generate an answer right now. Please try again.';
 }
 
@@ -422,7 +501,7 @@ export async function retrievalAnswer(question: string, sources: Source[], syste
   const ctx = sources.length
     ? `Use these sources (cite as [1], [2], ...):\n${sources.map((s, i) => `[${i + 1}] ${s.title}${s.publishedAt ? ` (${s.publishedAt})` : ''}: ${s.snippet}`).join('\n')}\n\n`
     : '';
-  const out = await callORWithFallback(modelsForTier(tier), `${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, { maxTokens: 1200, temperature: 0.2, system, timeoutMs: 25000, history });
+  const out = await answerForTier(`${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, tier, { maxTokens: 1200, temperature: 0.2, system, timeoutMs: 25000, history });
   return out || 'I could not retrieve enough information to answer reliably.';
 }
 
