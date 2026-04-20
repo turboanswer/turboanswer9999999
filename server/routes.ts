@@ -247,7 +247,21 @@ let lockdownActive = false;
 let lockdownActivatedBy = '';
 let lockdownActivatedAt: Date | null = null;
 let lockdownScenario = 'system_failure';
+let lockdownReason = '';
 let lockdownRestoredAt: Date | null = null;
+
+// ── Intrusion detection (per-IP sliding window) ────────────────────────────
+// We auto-trigger a `security_breach` lockdown when a single IP shows attack
+// signatures: a flood of failed-auth (401) responses or sustained rate-limit
+// hits (429). This is the real "we got hacked" detector.
+type IpSignal = { unauthHits: number[]; rateLimitHits: number[]; notified?: boolean };
+const ipSignals = new Map<string, IpSignal>();
+const INTRUSION_WINDOW_MS = 60_000;          // 60-second sliding window
+const INTRUSION_UNAUTH_THRESHOLD = 50;       // >50 401s from one IP in 60s = brute-force
+const INTRUSION_RATELIMIT_THRESHOLD = 100;   // >100 429s from one IP in 60s = sustained abuse
+function pruneOldSignals(arr: number[], cutoff: number) {
+  while (arr.length > 0 && arr[0] < cutoff) arr.shift();
+}
 
 const SCENARIO_EMAIL_TEMPLATES: Record<string, { subject: string; body: (name: string) => string }> = {
   system_failure: {
@@ -274,6 +288,7 @@ function autoActivateLockdown(scenario: string, reason: string) {
   lockdownActivatedBy = 'AutoSystem';
   lockdownActivatedAt = new Date();
   lockdownScenario = scenario;
+  lockdownReason = reason;
   lockdownRestoredAt = null;
   console.log(`[LOCKDOWN] AUTO-ACTIVATED — scenario: ${scenario}, reason: ${reason}`);
 }
@@ -299,12 +314,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       activityLog.push(entry);
       if (activityLog.length > MAX_ACTIVITY_LOG) activityLog.shift();
+
+      // ── Intrusion detection ────────────────────────────────────────────
+      // Don't track lockdown-status polling itself, and skip once already locked.
+      if (lockdownActive) return;
+      if (req.path === '/api/system/lockdown-status') return;
+      if (res.statusCode !== 401 && res.statusCode !== 429) return;
+
+      const ip = (req.headers['x-forwarded-for']?.toString().split(',')[0].trim())
+        || req.ip || req.socket?.remoteAddress || 'unknown';
+      const now = Date.now();
+      const cutoff = now - INTRUSION_WINDOW_MS;
+      let sig = ipSignals.get(ip);
+      if (!sig) { sig = { unauthHits: [], rateLimitHits: [] }; ipSignals.set(ip, sig); }
+
+      if (res.statusCode === 401) sig.unauthHits.push(now);
+      if (res.statusCode === 429) sig.rateLimitHits.push(now);
+      pruneOldSignals(sig.unauthHits, cutoff);
+      pruneOldSignals(sig.rateLimitHits, cutoff);
+
+      if (sig.unauthHits.length > INTRUSION_UNAUTH_THRESHOLD) {
+        autoActivateLockdown(
+          'security_breach',
+          `Brute-force pattern: ${sig.unauthHits.length} failed-auth attempts from ${ip} in 60s (most recent: ${req.method} ${req.path})`
+        );
+      } else if (sig.rateLimitHits.length > INTRUSION_RATELIMIT_THRESHOLD) {
+        autoActivateLockdown(
+          'security_breach',
+          `Sustained abuse: ${sig.rateLimitHits.length} rate-limit hits from ${ip} in 60s (most recent: ${req.method} ${req.path})`
+        );
+      }
+
+      // Light-touch GC — clear out IPs with no signals in the last window.
+      if (ipSignals.size > 5000) {
+        for (const [k, v] of ipSignals) {
+          if (v.unauthHits.length === 0 && v.rateLimitHits.length === 0) ipSignals.delete(k);
+        }
+      }
     });
     next();
   });
 
   app.get('/api/system/lockdown-status', (req, res) => {
-    res.json({ active: lockdownActive });
+    // Public endpoint — returns minimum needed for the lockdown screen.
+    // We expose `scenario` so the screen shows the right message, but NOT the
+    // activator/reason (those would leak admin emails or attacker details).
+    res.json({ active: lockdownActive, scenario: lockdownActive ? lockdownScenario : undefined });
+  });
+
+  // Admin/owner-only — full lockdown details (who, why, when).
+  app.get('/api/admin/lockdown/details', isAdmin, (_req, res) => {
+    res.json({
+      active: lockdownActive,
+      scenario: lockdownActive ? lockdownScenario : null,
+      activatedBy: lockdownActive ? lockdownActivatedBy : null,
+      activatedAt: lockdownActive ? lockdownActivatedAt : null,
+      reason: lockdownActive ? lockdownReason : null,
+      restoredAt: lockdownRestoredAt,
+    });
   });
 
   app.post('/api/admin/lockdown/activate', isAdmin, async (req: any, res) => {
@@ -317,6 +384,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     lockdownActivatedBy = dbUser.email;
     lockdownActivatedAt = new Date();
     lockdownScenario = req.body?.scenario || 'system_failure';
+    lockdownReason = req.body?.reason || `Manually activated by ${dbUser.email}`;
     console.log(`[LOCKDOWN] ACTIVATED by ${dbUser.email} — scenario: ${lockdownScenario}`);
     res.json({ success: true, active: true, activatedAt: lockdownActivatedAt, scenario: lockdownScenario });
   });
@@ -331,7 +399,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     lockdownActive = false;
     lockdownActivatedBy = '';
     lockdownActivatedAt = null;
+    lockdownReason = '';
     lockdownRestoredAt = new Date();
+    // Reset intrusion counters so we don't immediately re-lock after restore.
+    ipSignals.clear();
     // Auto-clear restoredAt after 60s so banner doesn't persist forever
     setTimeout(() => { lockdownRestoredAt = null; }, 60000);
     console.log(`[LOCKDOWN] DEACTIVATED by ${dbUser.email} — scenario was: ${prevScenario}`);

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/use-auth';
 
 // ── Scenario definitions ────────────────────────────────────────────────────
 export type LockdownScenario = 'system_failure' | 'security_breach' | 'public_safety' | 'malfunction';
@@ -166,6 +168,21 @@ interface Props { scenario?: string; }
 
 export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
   const sc = (SCENARIOS[scenario as LockdownScenario] ?? SCENARIOS.system_failure);
+  const { user } = useAuth();
+  const isAdmin = !!(user as any)?.isEmployee;
+
+  // Admin-only: fetch full lockdown details (who/why/when)
+  const { data: details } = useQuery<{
+    active: boolean;
+    scenario: string | null;
+    activatedBy: string | null;
+    activatedAt: string | null;
+    reason: string | null;
+  }>({
+    queryKey: ['/api/admin/lockdown/details'],
+    enabled: isAdmin,
+    refetchInterval: 15000,
+  });
 
   const playingRef   = useRef(false);
   const stopRef      = useRef<(() => void) | null>(null);
@@ -359,6 +376,41 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
         </div>
         <span style={{ fontFamily:'monospace', fontSize:'0.6rem', color:'rgba(180,0,0,0.5)', letterSpacing:'0.15em' }}>INCIDENT ACTIVE</span>
       </div>
+
+      {/* Admin-only diagnostics overlay (visible only to support@turboanswer.it.com / employees) */}
+      {isAdmin && details?.active && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed', top: 44, left: 12, zIndex: 11,
+            maxWidth: 'min(420px, 90vw)',
+            background: 'rgba(20, 0, 0, 0.85)',
+            border: '1px solid rgba(255,80,80,0.4)',
+            borderRadius: 6,
+            padding: '10px 14px',
+            fontFamily: 'monospace',
+            fontSize: '0.7rem',
+            color: '#ffb0b0',
+            lineHeight: 1.5,
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div style={{ color: '#ff6060', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 6 }}>
+            ▲ ADMIN DIAGNOSTICS
+          </div>
+          <div><span style={{ opacity: 0.6 }}>Scenario:</span> {details.scenario}</div>
+          <div><span style={{ opacity: 0.6 }}>Activated by:</span> {details.activatedBy || 'unknown'}</div>
+          <div>
+            <span style={{ opacity: 0.6 }}>When:</span>{' '}
+            {details.activatedAt ? new Date(details.activatedAt).toLocaleString() : '—'}
+          </div>
+          {details.reason && (
+            <div style={{ marginTop: 4, paddingTop: 4, borderTop: '1px dashed rgba(255,80,80,0.25)' }}>
+              <span style={{ opacity: 0.6 }}>Reason:</span> {details.reason}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Robot SVG */}
       <svg
