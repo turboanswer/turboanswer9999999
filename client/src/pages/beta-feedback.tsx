@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ClipboardCheck, Star, ArrowLeft, Sparkles, Crown, Zap, Loader2, CheckCircle2 } from "lucide-react";
+import { ClipboardCheck, Star, ArrowLeft, Sparkles, Crown, Zap, Loader2, CheckCircle2, Copy, Gift, Upload, Headphones, Check } from "lucide-react";
+
+type ReferralCode = { id: number; code: string; usedByEmail: string | null; usedAt: string | null };
 
 export default function BetaFeedback() {
   const { user } = useAuth();
@@ -91,17 +93,22 @@ export default function BetaFeedback() {
           </div>
         </div>
 
-        {/* Beta perks card */}
+        {/* Founding Tester perks card */}
         <Card className="bg-gradient-to-br from-emerald-950/40 to-zinc-950 border-emerald-900/40 mb-6">
           <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-emerald-400 font-semibold mb-2">Your Beta Perks</p>
-            <div className="grid sm:grid-cols-3 gap-3 text-sm">
-              <div className="flex items-start gap-2"><Crown className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Free Pro features</b> — your account is upgraded for the duration of beta.</span></div>
-              <div className="flex items-start gap-2"><Sparkles className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Early access</b> to new tools before public launch.</span></div>
-              <div className="flex items-start gap-2"><Zap className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Direct line</b> — your feedback goes straight to the team.</span></div>
+            <p className="text-xs uppercase tracking-wide text-emerald-400 font-semibold mb-2 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Your Founding Tester Perks</p>
+            <div className="grid sm:grid-cols-2 gap-3 text-sm">
+              <div className="flex items-start gap-2"><Crown className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Pro features unlocked</b> — better intelligence, no daily cap.</span></div>
+              <div className="flex items-start gap-2"><Sparkles className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Founding Tester badge</b> on your profile — recognition that lasts.</span></div>
+              <div className="flex items-start gap-2"><Upload className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>50MB uploads</b> — 2.5× the standard file size limit.</span></div>
+              <div className="flex items-start gap-2"><Headphones className="h-4 w-4 text-cyan-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Priority support</b> — your tickets jump the queue automatically.</span></div>
+              <div className="flex items-start gap-2 sm:col-span-2"><Gift className="h-4 w-4 text-pink-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>3 referral codes</b> — give friends 1 month of Pro on you (see below).</span></div>
             </div>
           </CardContent>
         </Card>
+
+        <ReferralCodesCard />
+
 
         {submitted ? (
           <Card className="bg-[#111] border-emerald-900/50">
@@ -160,5 +167,63 @@ export default function BetaFeedback() {
         )}
       </div>
     </div>
+  );
+}
+
+function ReferralCodesCard() {
+  const { toast } = useToast();
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const { data: codes, isLoading } = useQuery<ReferralCode[]>({
+    queryKey: ["/api/beta/referral-codes"],
+  });
+
+  const copy = (code: string) => {
+    const link = `${window.location.origin}/register?ref=${code}`;
+    navigator.clipboard.writeText(link);
+    setCopiedCode(code);
+    toast({ title: "Invite link copied", description: "Share it — your friend gets 1 month of Pro free." });
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  return (
+    <Card className="bg-gradient-to-br from-pink-950/30 to-zinc-950 border-pink-900/40 mb-6">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-2 mb-3">
+          <Gift className="h-4 w-4 text-pink-400 mt-1 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold">Your referral codes</p>
+            <p className="text-xs text-zinc-400">Each code gives a friend <b>1 month of Pro</b> when they sign up. Three codes total.</p>
+          </div>
+        </div>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-zinc-500 text-sm py-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading codes…</div>
+        ) : (
+          <div className="space-y-2">
+            {(codes || []).map((c) => {
+              const isUsed = !!c.usedByUserId || !!c.usedAt;
+              return (
+                <div key={c.id} className={`flex items-center justify-between gap-2 rounded-md border px-3 py-2 ${isUsed ? "border-zinc-800 bg-zinc-900/40 opacity-60" : "border-pink-900/40 bg-zinc-950"}`}>
+                  <div className="flex flex-col min-w-0">
+                    <code className="text-sm font-mono text-pink-300 truncate">{c.code}</code>
+                    {isUsed && <span className="text-xs text-zinc-500">Redeemed{c.usedByEmail ? ` by ${c.usedByEmail}` : ""}</span>}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isUsed}
+                    onClick={() => copy(c.code)}
+                    className="flex-shrink-0 border-pink-900/40 hover:bg-pink-950/40"
+                    data-testid={`button-copy-${c.code}`}
+                  >
+                    {copiedCode === c.code ? <><Check className="h-3.5 w-3.5 mr-1" />Copied</> : <><Copy className="h-3.5 w-3.5 mr-1" />Copy invite link</>}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

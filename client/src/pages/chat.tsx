@@ -249,8 +249,16 @@ export default function Chat() {
     if (isImageFile(file)) {
       handleImageFile(file);
     } else {
-      if (file.size > 20 * 1024 * 1024) {
-        toast({ title: "File too large", description: "Please upload a file under 20 MB.", variant: "destructive" });
+      // Premium users (Pro+, beta testers, referral-Pro) get 50MB; free users get 20MB.
+      const hasReferralPro = !!(user?.referralProUntil && new Date(user.referralProUntil) > new Date());
+      const isPremium = !!user && (
+        user.isBetaTester ||
+        hasReferralPro ||
+        ['pro', 'research', 'enterprise', 'owner'].includes((user.subscriptionTier || 'free').toLowerCase())
+      );
+      const limitMb = isPremium ? 50 : 20;
+      if (file.size > limitMb * 1024 * 1024) {
+        toast({ title: "File too large", description: `Please upload a file under ${limitMb} MB.`, variant: "destructive" });
         return;
       }
       setDroppedDocFile(file);
@@ -2204,8 +2212,8 @@ export default function Chat() {
           <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${isDark ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <FlaskConical className="w-5 h-5 text-green-400" />
-                <h3 className="font-bold text-lg">Beta Tester Feedback</h3>
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-lg">Founding Tester Feedback</h3>
               </div>
               <button onClick={() => setShowBetaFeedback(false)} className={`p-1 rounded-md ${isDark ? 'text-gray-500 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>
                 <X className="w-4 h-4" />

@@ -280,7 +280,7 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, password, firstName, lastName, inviteToken, timezone } = req.body;
+      const { email, password, firstName, lastName, inviteToken, timezone, referralCode } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });
@@ -348,6 +348,32 @@ export async function setupAuth(app: Express) {
         console.error('Beta tester check error:', e);
       }
 
+      // Validate referral code (if provided) — beta-tester invites grant 1 month of Pro.
+      // We only PREVIEW validity here; redemption is done atomically AFTER the user record exists
+      // (guarded by `WHERE used_by_user_id IS NULL`) to prevent two concurrent registrations
+      // from both consuming the same code.
+      let referralProUntil: Date | null = null;
+      let validatedReferralCode: string | null = null;
+      const candidateReferralCode = (typeof referralCode === 'string' && referralCode.trim())
+        ? referralCode.trim().toUpperCase() : null;
+      if (candidateReferralCode) {
+        try {
+          const { db } = await import('../../db');
+          const { referralCodes } = await import('@shared/schema');
+          const { eq, and, isNull } = await import('drizzle-orm');
+          const [codeRow] = await db.select().from(referralCodes)
+            .where(and(eq(referralCodes.code, candidateReferralCode), isNull(referralCodes.usedByUserId)))
+            .limit(1);
+          if (codeRow) {
+            // Tentative — we'll confirm after upsertUser via an atomic conditional UPDATE.
+            referralProUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            validatedReferralCode = codeRow.code;
+          }
+        } catch (e) {
+          console.error('Referral code validation error:', e);
+        }
+      }
+
       const user = await authStorage.upsertUser({
         email: email.toLowerCase(),
         password: hashedPassword,
@@ -359,7 +385,29 @@ export async function setupAuth(app: Express) {
         canViewAllChats: grantAdmin,
         canBanUsers: grantAdmin,
         isBetaTester,
+        // referralProUntil is set ONLY after we successfully claim the code below.
       });
+
+      // Atomically claim the referral code. The UPDATE … WHERE used_by_user_id IS NULL
+      // guarantees only one concurrent registration succeeds. Then grant Pro on the user.
+      if (validatedReferralCode && user) {
+        try {
+          const { db } = await import('../../db');
+          const { referralCodes, users } = await import('@shared/schema');
+          const { eq, and, isNull } = await import('drizzle-orm');
+          const claimed = await db.update(referralCodes)
+            .set({ usedByUserId: user.id, usedByEmail: user.email, usedAt: new Date() })
+            .where(and(eq(referralCodes.code, validatedReferralCode), isNull(referralCodes.usedByUserId)))
+            .returning();
+          if (claimed.length > 0) {
+            await db.update(users)
+              .set({ referralProUntil, referralCodeUsed: validatedReferralCode })
+              .where(eq(users.id, user.id));
+          }
+        } catch (e) {
+          console.error('Referral code redemption error:', e);
+        }
+      }
 
       if (validatedInviteId) {
         try {

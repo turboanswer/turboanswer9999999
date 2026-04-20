@@ -9,7 +9,7 @@ import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, and, desc, or, inArray, gt, lt, sql } from "drizzle-orm";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks } from "@shared/schema";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, referralCodes, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -202,7 +202,9 @@ ${bodyHtml}
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 20 * 1024 * 1024,
+    // Hard cap at 50MB. Per-user enforcement happens in validateFile (beta testers
+    // and Pro+ tiers get the full 50MB; free non-beta users are capped at 20MB).
+    fileSize: 50 * 1024 * 1024,
     files: 1
   }
 });
@@ -783,7 +785,10 @@ function downloadAAB(){
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
-      const tier = user.subscriptionTier || 'free';
+      // Beta perks lift free → pro: beta testers and active referral-Pro grant holders bypass the daily cap.
+      const rawTierUsage = user.subscriptionTier || 'free';
+      const usageHasReferralPro = !!(user.referralProUntil && new Date(user.referralProUntil) > new Date());
+      const tier = (rawTierUsage === 'free' && (user.isBetaTester || usageHasReferralPro)) ? 'pro' : rawTierUsage;
       if (tier !== 'free' || isOwnerAccount(user)) {
         return res.json({ used: 0, limit: -1, remaining: -1, tier: isOwnerAccount(user) ? 'owner' : tier });
       }
@@ -826,7 +831,11 @@ function downloadAAB(){
           }
         }
 
-        if ((sender?.subscriptionTier || 'free') === 'free' && !isOwnerAccount(sender)) {
+        // Beta perks lift free → pro: beta testers and active referral-Pro holders bypass the daily cap.
+        const senderRawTier = sender?.subscriptionTier || 'free';
+        const senderHasReferralPro = !!(sender?.referralProUntil && new Date(sender.referralProUntil) > new Date());
+        const senderEffectiveTier = (senderRawTier === 'free' && (sender?.isBetaTester || senderHasReferralPro)) ? 'pro' : senderRawTier;
+        if (senderEffectiveTier === 'free' && !isOwnerAccount(sender)) {
           const now = new Date();
           const resetAt = sender?.dailyQuestionsResetAt ? new Date(sender.dailyQuestionsResetAt) : null;
           let used = sender?.dailyQuestionsUsed || 0;
@@ -1022,6 +1031,9 @@ function downloadAAB(){
           const admins = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, targetWgId), or(eq(workgroupMembers.role, 'owner'), eq(workgroupMembers.role, 'admin'))));
           const assignedAdmin = admins[0] || null;
 
+          // Beta perk: tester tickets are auto-bumped to high priority for the support queue.
+          const chatTicketPriority = user?.isBetaTester ? 'high' : classification.priority;
+
           const [ticket] = await db.insert(supportTickets).values({
             workgroupId: targetWgId,
             requesterId: sendingUserId,
@@ -1030,7 +1042,7 @@ function downloadAAB(){
             assignedName: assignedAdmin?.userName || null,
             subject: subjectText.slice(0, 200),
             context: content,
-            priority: classification.priority,
+            priority: chatTicketPriority,
             category: classification.category,
             department: classification.department,
           }).returning();
@@ -1204,9 +1216,11 @@ function downloadAAB(){
 
       const isOwner = isOwnerAccount(user);
       const rawTier = (user?.subscriptionTier || 'free') as string;
-      // Beta perk: approved beta testers on the free tier get Pro-grade access
-      // (better model + no daily question cap) for the duration of the program.
-      const tier = (rawTier === 'free' && user?.isBetaTester) ? 'pro' : rawTier;
+      // Perks that bump a free user up to Pro:
+      //   - Approved beta testers (for the duration of the program)
+      //   - Active referral-code grant (1 month Pro from a beta-tester invite)
+      const hasReferralPro = !!(user?.referralProUntil && new Date(user.referralProUntil) > new Date());
+      const tier = (rawTier === 'free' && (user?.isBetaTester || hasReferralPro)) ? 'pro' : rawTier;
       const effectiveTier = isOwner ? 'owner' : tier;
 
       // Free-tier daily question limit (same as legacy endpoint)
@@ -3021,7 +3035,15 @@ function downloadAAB(){
       const { originalname, mimetype, size, buffer } = req.file;
       const { analysisType = 'general', conversationId } = req.body;
 
-      const validation = validateFile(size, mimetype);
+      // Premium tier perk: beta testers, referral-Pro grant holders, and paid tiers get a 50MB cap.
+      const docUser = await getFullUser(req);
+      const docHasReferralPro = !!(docUser?.referralProUntil && new Date(docUser.referralProUntil) > new Date());
+      const isPremium = !!docUser && (
+        docUser.isBetaTester ||
+        docHasReferralPro ||
+        ['pro', 'research', 'enterprise', 'owner'].includes((docUser.subscriptionTier || 'free').toLowerCase())
+      );
+      const validation = validateFile(size, mimetype, isPremium);
       if (!validation.valid) {
         return res.status(400).json({ message: validation.error });
       }
@@ -3078,10 +3100,20 @@ function downloadAAB(){
   // Get supported file types
   app.get("/api/supported-file-types", async (req, res) => {
     try {
+      // Tier-aware max file size — premium users (paid tiers, beta testers, referral-Pro) get 50MB.
+      const u = await getFullUser(req).catch(() => null);
+      const refPro = !!(u?.referralProUntil && new Date(u.referralProUntil) > new Date());
+      const isPremium = !!u && (
+        u.isBetaTester ||
+        refPro ||
+        ['pro', 'research', 'enterprise', 'owner'].includes((u.subscriptionTier || 'free').toLowerCase())
+      );
       res.json({
         mimeTypes: Object.keys(SUPPORTED_FILE_TYPES),
         extensions: Object.values(SUPPORTED_FILE_TYPES),
-        maxSize: "10MB"
+        maxSize: isPremium ? "50MB" : "20MB",
+        maxSizeBytes: (isPremium ? 50 : 20) * 1024 * 1024,
+        isPremium,
       });
     } catch (error: any) {
       res.status(500).json({ message: "Something went wrong. Please try again." });
@@ -3716,14 +3748,30 @@ ${template.bodyText.split('\n').map(line => {
 
       // Grant beta tester status if user has account
       let updatedUser = false;
+      let betaUserId: string | null = null;
       if (app.userId) {
         const user = await authStorage.getUser(app.userId);
-        if (user) { await authStorage.upsertUser({ ...user, isBetaTester: true }); updatedUser = true; }
+        if (user) { await authStorage.upsertUser({ ...user, isBetaTester: true }); updatedUser = true; betaUserId = user.id; }
       }
       if (!updatedUser) {
         // Find user by email (try exact, then lowercase)
         const user = await authStorage.getUserByEmail(app.email) || await authStorage.getUserByEmail(app.email.toLowerCase());
-        if (user) await authStorage.upsertUser({ ...user, isBetaTester: true });
+        if (user) { await authStorage.upsertUser({ ...user, isBetaTester: true }); betaUserId = user.id; }
+      }
+
+      // Generate 3 referral codes for this beta tester (only if a user record exists).
+      // Codes are persisted regardless of whether the user has signed up yet — we use the
+      // betaApplications.id as a placeholder ownerId when no user account exists yet, then
+      // link them on first login. Simpler: only generate after user record exists.
+      let generatedCodes: string[] = [];
+      if (betaUserId) {
+        const existing = await db.select().from(referralCodes).where(eq(referralCodes.ownerId, betaUserId)).limit(1);
+        if (existing.length === 0) {
+          const crypto = await import('crypto');
+          const codes = Array.from({ length: 3 }, () => `MTRX-${crypto.randomBytes(4).toString('hex').toUpperCase()}`);
+          await db.insert(referralCodes).values(codes.map(code => ({ code, ownerId: betaUserId! })));
+          generatedCodes = codes;
+        }
       }
 
       // Send approval email
@@ -3753,9 +3801,13 @@ Plus a quick 1–5 star rating.
 You can submit as many times as you want. Every response goes straight to the team — we read all of them.
 
 ────────────────────────────────────────
-YOUR BETA-TESTER PERKS
+YOUR FOUNDING TESTER PERKS
 ────────────────────────────────────────
-• Free Pro-tier access — your account runs on Pro-grade models for the duration of the beta, no charge.
+• Free Pro-tier access — better intelligence and no daily question cap, for the duration of the beta.
+• ✨ Founding Tester badge on your profile — public recognition that you were here first.
+• 50 MB file uploads — 2.5× the standard limit on documents, images, and audio.
+• Priority support — any ticket you open is automatically bumped to high priority.
+• 3 referral codes — give friends 1 month of Pro free. Find them on your feedback page after you log in.
 • Early access to new tools before they hit the public release.
 • A direct line to the product team via the feedback page.
 
@@ -3810,6 +3862,44 @@ The Matrix AI Team`
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to send email' });
+    }
+  });
+
+  // List the current user's referral codes (beta testers only)
+  app.get('/api/beta/referral-codes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { authStorage } = await import('./replit_integrations/auth/storage');
+      const user = await authStorage.getUser(userId);
+      if (!user?.isBetaTester) return res.status(403).json({ error: 'Beta tester access required' });
+
+      // Backfill: if a beta tester has no codes yet (e.g. approved before this feature shipped), generate them.
+      let codes = await db.select().from(referralCodes).where(eq(referralCodes.ownerId, userId)).orderBy(referralCodes.createdAt);
+      if (codes.length === 0) {
+        const crypto = await import('crypto');
+        const newCodes = Array.from({ length: 3 }, () => `MTRX-${crypto.randomBytes(4).toString('hex').toUpperCase()}`);
+        await db.insert(referralCodes).values(newCodes.map(code => ({ code, ownerId: userId })));
+        codes = await db.select().from(referralCodes).where(eq(referralCodes.ownerId, userId)).orderBy(referralCodes.createdAt);
+      }
+      res.json(codes);
+    } catch (err: any) {
+      console.error('Referral codes fetch error:', err);
+      res.status(500).json({ error: 'Failed to fetch referral codes' });
+    }
+  });
+
+  // Validate a referral code (public — used on the register page to preview the perk)
+  app.get('/api/referral-codes/validate/:code', async (req, res) => {
+    try {
+      const code = (req.params.code || '').trim().toUpperCase();
+      if (!code) return res.json({ valid: false });
+      const { isNull } = await import('drizzle-orm');
+      const [row] = await db.select().from(referralCodes)
+        .where(and(eq(referralCodes.code, code), isNull(referralCodes.usedByUserId)))
+        .limit(1);
+      res.json({ valid: !!row });
+    } catch {
+      res.json({ valid: false });
     }
   });
 
@@ -6108,6 +6198,9 @@ Rules:
       const admins = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, targetWgId), or(eq(workgroupMembers.role, 'owner'), eq(workgroupMembers.role, 'admin'))));
       const assignedAdmin = admins[0] || null;
 
+      // Beta perk: tester tickets are auto-bumped to high priority for the support queue.
+      const effectivePriority = user.isBetaTester ? 'high' : (priority || classification.priority);
+
       const [ticket] = await db.insert(supportTickets).values({
         workgroupId: targetWgId,
         requesterId: user.id,
@@ -6116,7 +6209,7 @@ Rules:
         assignedName: assignedAdmin?.userName || null,
         subject: subject.trim(),
         context: context?.trim() || null,
-        priority: priority || classification.priority,
+        priority: effectivePriority,
         category: classification.category,
         department: classification.department,
       }).returning();

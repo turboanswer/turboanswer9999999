@@ -333,7 +333,7 @@ export default function AISettings() {
                     <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{displayEmail}</div>
                     <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                       <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, background: `${accentColor}18`, border: `1px solid ${accentColor}40`, color: accentColor, fontWeight: 600 }}>{tierLabel}</span>
-                      {user?.isBetaTester && <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)", color: "#34d399", fontWeight: 600 }}>Beta Tester</span>}
+                      {user?.isBetaTester && <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, background: "linear-gradient(135deg, rgba(245,158,11,0.18), rgba(236,72,153,0.18))", border: "1px solid rgba(245,158,11,0.4)", color: "#fbbf24", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>✨ Founding Tester</span>}
                       {user?.isAdmin && <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 10, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "#fbbf24", fontWeight: 600 }}>Admin</span>}
                     </div>
                   </div>

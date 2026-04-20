@@ -55,6 +55,8 @@ export const users = pgTable("users", {
   passwordResetVerified: boolean("password_reset_verified").default(false),
   passwordResetVerifiedExpires: timestamp("password_reset_verified_expires"),
   isBetaTester: boolean("is_beta_tester").default(false),
+  referralProUntil: timestamp("referral_pro_until"),
+  referralCodeUsed: text("referral_code_used"),
   codeStudioAddon: boolean("code_studio_addon").default(false),
   codeStudioAddonSubId: text("code_studio_addon_sub_id"),
   codeStudioCredits: integer("code_studio_credits").default(0),

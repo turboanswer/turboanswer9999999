@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { Loader2, Shield, AlertCircle, ArrowRight } from "lucide-react";
+import { Loader2, Shield, AlertCircle, ArrowRight, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,8 @@ export default function Register() {
   const [inviteValid, setInviteValid] = useState<boolean | null>(null);
   const [inviteLabel, setInviteLabel] = useState<string>("");
   const [inviteError, setInviteError] = useState<string>("");
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralValid, setReferralValid] = useState<boolean | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     firstName: "",
@@ -39,6 +41,15 @@ export default function Register() {
           else setInviteError(data.reason || "Invalid invite link");
         })
         .catch(() => { setInviteValid(false); setInviteError("Could not validate invite link"); });
+    }
+    const ref = params.get("ref");
+    if (ref) {
+      const cleaned = ref.trim().toUpperCase();
+      setReferralCode(cleaned);
+      fetch(`/api/referral-codes/validate/${encodeURIComponent(cleaned)}`)
+        .then(r => r.json())
+        .then(data => setReferralValid(!!data.valid))
+        .catch(() => setReferralValid(false));
     }
   }, [search]);
 
@@ -69,6 +80,7 @@ export default function Register() {
           lastName: formData.lastName || undefined,
           timezone: formData.timezone,
           ...(inviteToken && inviteValid ? { inviteToken } : {}),
+          ...(referralCode && referralValid ? { referralCode } : {}),
         }),
       });
 
@@ -115,6 +127,18 @@ export default function Register() {
             <div className="mb-5 flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-3 py-2.5 text-sm text-yellow-300">
               <AlertCircle size={16} className="flex-shrink-0" />
               <span>{inviteError}</span>
+            </div>
+          )}
+          {referralCode && referralValid === true && (
+            <div className="mb-5 flex items-start gap-2 bg-pink-500/10 border border-pink-500/30 rounded-xl px-3 py-2.5 text-sm text-pink-200">
+              <Gift size={16} className="flex-shrink-0 text-pink-400 mt-0.5" />
+              <span><strong>Referral applied:</strong> you'll get <strong>1 month of Pro free</strong> when your account is created.</span>
+            </div>
+          )}
+          {referralCode && referralValid === false && (
+            <div className="mb-5 flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-3 py-2.5 text-sm text-yellow-300">
+              <AlertCircle size={16} className="flex-shrink-0" />
+              <span>That referral code isn't valid or has already been used.</span>
             </div>
           )}
 

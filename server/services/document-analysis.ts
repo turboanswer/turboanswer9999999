@@ -208,10 +208,13 @@ async function callGeminiForDoc(prompt: string, apiKey: string): Promise<string>
   throw new Error('Document analysis temporarily unavailable. Please try again.');
 }
 
-export function validateFile(fileSize: number, mimeType: string): { valid: boolean; error?: string } {
-  const maxSize = 20 * 1024 * 1024;
+export function validateFile(fileSize: number, mimeType: string, isPremiumUser: boolean = false): { valid: boolean; error?: string } {
+  // Premium users (Pro, Research, Enterprise, beta testers, referral-Pro grant) get 50MB.
+  // Free users are capped at 20MB.
+  const maxSize = (isPremiumUser ? 50 : 20) * 1024 * 1024;
   if (fileSize > maxSize) {
-    return { valid: false, error: 'File size must be less than 20MB' };
+    const limitLabel = isPremiumUser ? '50MB' : '20MB';
+    return { valid: false, error: `File size must be less than ${limitLabel}` };
   }
 
   if (!SUPPORTED_FILE_TYPES[mimeType]) {

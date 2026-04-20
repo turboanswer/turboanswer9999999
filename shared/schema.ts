@@ -196,6 +196,19 @@ export const betaFeedback = pgTable("beta_feedback", {
   submittedAt: timestamp("submitted_at").defaultNow(),
 });
 
+// Referral codes — beta testers get 3 codes that grant a friend 1 month of Pro
+export const referralCodes = pgTable("referral_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  ownerId: text("owner_id").notNull(),
+  usedByUserId: text("used_by_user_id"),
+  usedByEmail: text("used_by_email"),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ReferralCode = typeof referralCodes.$inferSelect;
+
 export const insertBetaApplicationSchema = createInsertSchema(betaApplications).omit({ id: true, appliedAt: true, reviewedAt: true });
 export const insertBetaFeedbackSchema = createInsertSchema(betaFeedback).omit({ id: true, submittedAt: true });
 

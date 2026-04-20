@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Upload, FileText, X, CheckCircle, AlertCircle, FileIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 interface DocumentUploadProps {
   conversationId?: number;
@@ -21,6 +22,14 @@ interface AnalysisOption {
 }
 
 export function DocumentUpload({ conversationId, onAnalysisComplete, initialFile }: DocumentUploadProps) {
+  const { user } = useAuth();
+  const hasReferralPro = !!(user?.referralProUntil && new Date(user.referralProUntil) > new Date());
+  const isPremium = !!user && (
+    user.isBetaTester ||
+    hasReferralPro ||
+    ['pro', 'research', 'enterprise', 'owner'].includes((user.subscriptionTier || 'free').toLowerCase())
+  );
+  const uploadLimitMb = isPremium ? 50 : 20;
   const [selectedFile, setSelectedFile] = useState<File | null>(initialFile ?? null);
   const [analysisType, setAnalysisType] = useState("general");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -84,10 +93,10 @@ export function DocumentUpload({ conversationId, onAnalysisComplete, initialFile
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 20 * 1024 * 1024) {
+      if (file.size > uploadLimitMb * 1024 * 1024) {
         toast({
           title: "File Too Large",
-          description: "Please select a file smaller than 20MB",
+          description: `Please select a file smaller than ${uploadLimitMb}MB`,
           variant: "destructive",
         });
         return;
@@ -167,7 +176,7 @@ export function DocumentUpload({ conversationId, onAnalysisComplete, initialFile
               Upload a document to analyze
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Supported: PDF, DOCX, XLSX, PPTX, TXT, CSV, JSON, MD, HTML, XML, RTF, Images (Max 20MB)
+              Supported: PDF, DOCX, XLSX, PPTX, TXT, CSV, JSON, MD, HTML, XML, RTF, Images (Max {uploadLimitMb}MB{isPremium ? " — premium tier" : ""})
             </p>
             <Button variant="outline">
               Choose File
