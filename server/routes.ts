@@ -517,19 +517,11 @@ function downloadAAB(){
         return res.status(400).json({ message: "Question is required" });
       }
 
-      const { generateAIResponse } = await import('./services/multi-ai.js');
-      const trialUserId = `trial_${req.ip || 'anon'}`;
-      const rawAnswer = await generateAIResponse(
-        question.trim(),
-        [],
-        "free",
-        "gemini-flash",
-        trialUserId,
-        "en",
-        "balanced",
-        "casual"
-      );
-      const answer = typeof rawAnswer === 'object' ? rawAnswer.text : rawAnswer;
+      // Use the same OpenRouter-backed engine as logged-in free users
+      // so trial doesn't depend on a separate GEMINI_API_KEY being set.
+      const { fastAnswer } = await import('./services/reasoning-engine.js');
+      const systemPrompt = `You are Matrix AI — a warm, friendly assistant. Keep answers brief (1-3 sentences) for the free trial. For complex questions, give a short helpful summary and gently suggest signing up for deeper answers.`;
+      const answer = await fastAnswer(question.trim(), systemPrompt, 'free');
 
       res.json({ answer });
     } catch (error: any) {
