@@ -11,9 +11,11 @@ const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL_ROUTER = 'google/gemini-2.5-flash';
 const MODEL_PLANNER = 'google/gemini-2.5-flash';
 const MODEL_PANEL = [
-  { id: 'google/gemini-2.5-pro', name: 'Matrix Core α', costPer1k: 0.005 },
-  { id: 'anthropic/claude-sonnet-4.5', name: 'Matrix Core β', costPer1k: 0.015 },
-  { id: 'openai/gpt-4o', name: 'Matrix Core γ', costPer1k: 0.015 },
+  { id: 'anthropic/claude-sonnet-4.5', name: 'Matrix Core α', costPer1k: 0.015 },
+  { id: 'openai/gpt-4o', name: 'Matrix Core β', costPer1k: 0.015 },
+  { id: 'google/gemini-2.5-pro', name: 'Matrix Core γ', costPer1k: 0.005 },
+  { id: 'x-ai/grok-4', name: 'Matrix Core δ', costPer1k: 0.015 },
+  { id: 'deepseek/deepseek-r1', name: 'Matrix Core ε', costPer1k: 0.008 },
 ];
 const MODEL_JUDGE = 'anthropic/claude-sonnet-4.5';
 const MODEL_VERIFIER = 'google/gemini-2.5-flash';

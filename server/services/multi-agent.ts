@@ -1,72 +1,37 @@
 const AGENT_PERSPECTIVES = [
   {
-    id: 'technical',
+    id: 'architect',
     name: 'Technical Architect',
     prompt: 'You are a senior technical architect. Analyze this from a technical implementation perspective — focus on architecture, systems design, performance, scalability, and technical trade-offs. Be specific and practical.',
-    model: 'openai/gpt-4o',
+    model: 'anthropic/claude-sonnet-4.5',
     modelLabel: 'Matrix Architect',
   },
   {
-    id: 'business',
+    id: 'strategist',
     name: 'Business Strategist',
     prompt: 'You are a business strategist. Analyze this from a business perspective — focus on ROI, market positioning, competitive advantage, cost-benefit analysis, and business impact. Think like a CEO.',
-    model: 'anthropic/claude-sonnet-4-20250514',
+    model: 'openai/gpt-4o',
     modelLabel: 'Matrix Strategist',
   },
   {
-    id: 'security',
-    name: 'Security Analyst',
-    prompt: 'You are a cybersecurity expert. Analyze this from a security perspective — focus on vulnerabilities, threat models, data protection, compliance requirements, and security best practices.',
-    model: 'mistralai/mistral-large-latest',
-    modelLabel: 'Matrix Sentinel',
-  },
-  {
-    id: 'ux',
-    name: 'UX Researcher',
-    prompt: 'You are a UX researcher and designer. Analyze this from a user experience perspective — focus on usability, accessibility, user psychology, pain points, and design patterns that work.',
-    model: 'google/gemini-2.5-flash-preview',
-    modelLabel: 'Matrix Empath',
-  },
-  {
-    id: 'data',
-    name: 'Data Scientist',
+    id: 'analyst',
+    name: 'Data Analyst',
     prompt: 'You are a data scientist. Analyze this from a data perspective — focus on metrics, measurement, analytics, data-driven insights, statistical thinking, and evidence-based conclusions.',
-    model: 'cohere/command-r-plus',
+    model: 'google/gemini-2.5-pro',
     modelLabel: 'Matrix Analyst',
   },
   {
-    id: 'innovation',
+    id: 'visionary',
     name: 'Innovation Lead',
     prompt: 'You are an innovation strategist. Analyze this from a future-thinking perspective — focus on emerging trends, disruptive potential, creative solutions, and what most people overlook.',
-    model: 'meta-llama/llama-3.1-70b-instruct',
+    model: 'x-ai/grok-4',
     modelLabel: 'Matrix Visionary',
   },
   {
-    id: 'risk',
-    name: 'Risk Assessor',
-    prompt: 'You are a risk management expert. Analyze this from a risk perspective — focus on what could go wrong, mitigation strategies, worst-case scenarios, dependencies, and contingency planning.',
-    model: 'qwen/qwen-2.5-72b-instruct',
-    modelLabel: 'Matrix Guardian',
-  },
-  {
-    id: 'practical',
-    name: 'Implementation Lead',
-    prompt: 'You are a pragmatic implementation lead. Analyze this from an execution perspective — focus on actionable steps, timelines, resource requirements, quick wins, and realistic roadmaps.',
-    model: 'deepseek/deepseek-chat-v3-0324',
-    modelLabel: 'Matrix Builder',
-  },
-  {
-    id: 'academic',
-    name: 'Domain Expert',
-    prompt: 'You are an academic domain expert. Analyze this with deep subject-matter expertise — cite relevant research, established frameworks, proven methodologies, and foundational principles.',
-    model: 'perplexity/sonar-pro',
-    modelLabel: 'Matrix Scholar',
-  },
-  {
-    id: 'contrarian',
+    id: 'skeptic',
     name: 'Devil\'s Advocate',
     prompt: 'You are a critical thinker and devil\'s advocate. Challenge the obvious answer. Find flaws in popular assumptions, present alternative viewpoints, and highlight what others might miss or get wrong.',
-    model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+    model: 'deepseek/deepseek-r1',
     modelLabel: 'Matrix Skeptic',
   },
 ];
@@ -286,7 +251,7 @@ async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: st
 }
 
 export async function runMultiAgentResearch(question: string, languageInstruction: string = '', behaviorInstruction: string = ''): Promise<string> {
-  console.log(`[Multi-Agent] Starting 10-agent analysis with 10 different AI models...`);
+  console.log(`[Matrix AI] Starting ${AGENT_PERSPECTIVES.length}-perspective analysis...`);
   const startTime = Date.now();
 
   const verifiedAnswer = tryComputeArithmetic(question);
