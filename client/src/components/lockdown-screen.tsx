@@ -51,7 +51,9 @@ export const SCENARIOS: Record<LockdownScenario, { label: string; heading: strin
   },
 };
 
-// ── Audio reverb helper ────────────────────────────────────────────────────
+// ── Audio reverb helper (kept for legacy export compatibility) ─────────────
+// NOTE: The horror alarm has been removed in favor of a calm, voice-only
+// announcement. These helpers are kept only so older imports don't break.
 function makeReverb(ctx: AudioContext, duration = 4, decay = 2.5): ConvolverNode {
   const rate = ctx.sampleRate;
   const length = rate * duration;
@@ -144,23 +146,17 @@ function buildHorrorAlarm(ctx: AudioContext): () => void {
   };
 }
 
-// ── Pick the deepest male voice available ──────────────────────────────────
-const FEMALE_NAMES = /female|samantha|victoria|karen|moira|tessa|fiona|veena|susan|allison|ava|evelyn|sara|siri|zira|cortana|hazel|kate|serena|amelie|anna|laura|alice|nora|sarah|joana|helena|sandy|ellen/i;
-const MALE_PRIORITY = /google uk english male|google us english|microsoft david|microsoft mark|microsoft james|microsoft richard|daniel|fred|thomas|alex|oliver|bruce|albert|ralph|aaron|arthur|lee|rishi|luca|reed/i;
+// ── Pick a calm, pleasant voice ────────────────────────────────────────────
+// Prefer high-quality natural voices; fall back to any English voice.
+const CALM_PRIORITY = /samantha|google uk english female|google us english|microsoft aria|microsoft jenny|microsoft zira|serena|allison|ava|karen|moira|tessa|fiona|kate|joanna|emma|amelie/i;
 
-function pickMaleVoice(): SpeechSynthesisVoice | null {
+function pickCalmVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
-  // Priority 1: explicitly named male voices
-  const priority = voices.find(v => MALE_PRIORITY.test(v.name) && !FEMALE_NAMES.test(v.name));
+  const priority = voices.find(v => CALM_PRIORITY.test(v.name));
   if (priority) return priority;
-  // Priority 2: any voice with "male" in name
-  const namedMale = voices.find(v => /\bmale\b/i.test(v.name));
-  if (namedMale) return namedMale;
-  // Priority 3: any English voice that isn't on the female list
-  const english = voices.find(v => /^en[-_]/i.test(v.lang) && !FEMALE_NAMES.test(v.name));
+  const english = voices.find(v => /^en[-_]/i.test(v.lang));
   if (english) return english;
-  // Fallback: any voice that isn't on the female list
-  return voices.find(v => !FEMALE_NAMES.test(v.name)) || voices[0] || null;
+  return voices[0] || null;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -184,14 +180,12 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
     refetchInterval: 15000,
   });
 
-  const playingRef   = useRef(false);
-  const stopRef      = useRef<(() => void) | null>(null);
   const ttsActive    = useRef(false);   // true while any chunk is speaking
   const ttsEnabled   = useRef(false);   // true once user gesture has unlocked TTS
   const chunkIdxRef  = useRef(0);
   const chunksRef    = useRef<string[]>([]);
   const loopTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [soundActive, setSoundActive] = useState(false);
+  const [voiceReady, setVoiceReady] = useState(false);
 
   // ── Split voice text into short sentences (each << Chrome's 15s limit) ──
   function getChunks(): string[] {
@@ -215,13 +209,13 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
     }
 
     const utt = new SpeechSynthesisUtterance(chunks[idx]);
-    utt.rate   = 0.72;   // slightly faster = less likely to hit 15s cutoff
-    utt.pitch  = 0.0;
+    utt.rate   = 0.95;   // natural conversational pace
+    utt.pitch  = 1.0;    // normal pitch — no sinister low growl
     utt.volume = 1.0;
-    const voice = pickMaleVoice();
+    const voice = pickCalmVoice();
     if (voice) utt.voice = voice;
 
-    utt.onstart = () => { ttsActive.current = true; };
+    utt.onstart = () => { ttsActive.current = true; setVoiceReady(true); };
     utt.onend   = () => { speakChunk(idx + 1); };
     utt.onerror = (e: any) => {
       // "interrupted" means we cancelled it ourselves — don't retry
@@ -260,42 +254,13 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
     try { window.speechSynthesis?.cancel(); } catch {}
   }
 
-  // ── Audio ──────────────────────────────────────────────────────────────
-  async function attemptPlay() {
-    if (playingRef.current) return;
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
-      if (ctx.state === 'running') {
-        playingRef.current = true;
-        stopRef.current = buildHorrorAlarm(ctx);
-        setSoundActive(true);
-      } else {
-        try { ctx.close(); } catch {}
-      }
-    } catch {}
-  }
-
-  // handleUserGesture: must stay synchronous inside the gesture event so
-  // Chrome recognises speak() as gesture-triggered
+  // ── Voice gesture handler (no siren — voice only) ──────────────────────
+  // Must stay synchronous inside the gesture event so Chrome recognises
+  // speak() as gesture-triggered.
   function handleUserGesture() {
-    // ── Voice ──────────────────────────────────────────────────────────────
     if (!ttsEnabled.current) {
       ttsEnabled.current = true;
       speakAll(true);   // fromGesture=true — no cancel, direct speak
-    }
-    // ── Audio ──────────────────────────────────────────────────────────────
-    if (!playingRef.current) {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        ctx.resume().then(() => {
-          if (!playingRef.current && ctx.state === 'running') {
-            playingRef.current = true;
-            stopRef.current = buildHorrorAlarm(ctx);
-            setSoundActive(true);
-          }
-        }).catch(() => {});
-      } catch {}
     }
   }
 
@@ -312,25 +277,15 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
     };
     tryVoiceImmediate();
 
-    // Try audio immediately — silently fails on Chrome until user clicks
-    attemptPlay();
-    const t1 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 500);
-    const t2 = setTimeout(() => { if (!playingRef.current) attemptPlay(); }, 1500);
-
     const onInteract = () => handleUserGesture();
     document.addEventListener('click',     onInteract);
     document.addEventListener('mousedown', onInteract);
     document.addEventListener('touchend',  onInteract);
     document.addEventListener('keydown',   onInteract);
 
-    // Tab return — no gesture available, use forceRestart path
+    // Tab return — restart voice announcement
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Restart audio
-        try { stopRef.current?.(); } catch {}
-        stopRef.current = null; playingRef.current = false; setSoundActive(false);
-        attemptPlay();
-        // Restart TTS (non-gesture path is fine here)
         ttsActive.current = false;
         ttsEnabled.current = false;   // reset so next gesture triggers again
         if (loopTimer.current) clearTimeout(loopTimer.current);
@@ -340,13 +295,11 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
-      clearTimeout(t1); clearTimeout(t2);
       document.removeEventListener('click',     onInteract);
       document.removeEventListener('mousedown', onInteract);
       document.removeEventListener('touchend',  onInteract);
       document.removeEventListener('keydown',   onInteract);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      try { stopRef.current?.(); } catch {}
       stopTTS();
     };
   }, [scenario]);
@@ -513,11 +466,11 @@ export default function LockdownScreen({ scenario = 'system_failure' }: Props) {
         </g>
       </svg>
 
-      {/* Tap to unmute prompt — shown until audio starts */}
-      {!soundActive && (
-        <div style={{ position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'999px', padding:'8px 20px', display:'flex', alignItems:'center', gap:'8px', backdropFilter:'blur(8px)', animation:'redPulse 2s ease-in-out infinite' }}>
-          <span style={{ fontSize:'1rem' }}>🔇</span>
-          <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'0.78rem', letterSpacing:'0.08em' }}>Tap anywhere to activate sound</span>
+      {/* Tap to enable voice prompt — shown until announcement begins */}
+      {!voiceReady && (
+        <div style={{ position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)', zIndex:2, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'999px', padding:'8px 20px', display:'flex', alignItems:'center', gap:'8px', backdropFilter:'blur(8px)' }}>
+          <span style={{ fontSize:'1rem' }}>🔊</span>
+          <span style={{ color:'rgba(255,255,255,0.7)', fontSize:'0.78rem', letterSpacing:'0.08em' }}>Tap anywhere to hear the announcement</span>
         </div>
       )}
 

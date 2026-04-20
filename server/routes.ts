@@ -5715,16 +5715,33 @@ Return ONLY valid JSON (no markdown):
 
   startProactiveDiagnostics();
 
-  // Auto-lockdown on critical AI failure only (not database — Neon endpoints can sleep/disable)
+  // Auto-lockdown on sustained AI failure (>5 minutes of confirmed downtime).
+  // Requires TWO consecutive failed checks 5 minutes apart so transient blips
+  // (cold starts, brief 503s, network hiccups) don't trip the platform.
+  let consecutiveAiFailures = 0;
   setInterval(async () => {
     const report = getLatestReport();
-    if (report && !lockdownActive) {
-      const aiFailures = report.results.filter(r =>
-        r.status === 'fail' && r.check === 'AI Engine (Gemini)'
-      );
-      if (aiFailures.length > 0) {
-        autoActivateLockdown('system_failure', `Critical infrastructure failure: AI Engine (Gemini)`);
+    if (!report || lockdownActive) return;
+
+    const aiFailing = report.results.some(r =>
+      r.status === 'fail' && r.check === 'AI Engine (Gemini)'
+    );
+
+    if (aiFailing) {
+      consecutiveAiFailures++;
+      console.log(`[LOCKDOWN] AI engine failing — strike ${consecutiveAiFailures}/2`);
+      if (consecutiveAiFailures >= 2) {
+        autoActivateLockdown(
+          'system_failure',
+          `AI Engine (Gemini) has been down for >5 minutes (${consecutiveAiFailures} consecutive failed health checks)`
+        );
+        consecutiveAiFailures = 0;
       }
+    } else {
+      if (consecutiveAiFailures > 0) {
+        console.log(`[LOCKDOWN] AI engine recovered — resetting failure counter`);
+      }
+      consecutiveAiFailures = 0;
     }
   }, 5 * 60 * 1000); // check every 5 minutes
 
