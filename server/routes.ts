@@ -5718,32 +5718,38 @@ Return ONLY valid JSON (no markdown):
   // Auto-lockdown on sustained AI failure (>5 minutes of confirmed downtime).
   // Requires TWO consecutive failed checks 5 minutes apart so transient blips
   // (cold starts, brief 503s, network hiccups) don't trip the platform.
-  let consecutiveAiFailures = 0;
-  setInterval(async () => {
-    const report = getLatestReport();
-    if (!report || lockdownActive) return;
+  // Disabled outside production to prevent dev-env quota/region issues from
+  // tripping the platform during development.
+  if (process.env.NODE_ENV === 'production') {
+    let consecutiveAiFailures = 0;
+    setInterval(async () => {
+      const report = getLatestReport();
+      if (!report || lockdownActive) return;
 
-    const aiFailing = report.results.some(r =>
-      r.status === 'fail' && r.check === 'AI Engine (Gemini)'
-    );
+      const aiFailing = report.results.some(r =>
+        r.status === 'fail' && r.check === 'AI Engine (Gemini)'
+      );
 
-    if (aiFailing) {
-      consecutiveAiFailures++;
-      console.log(`[LOCKDOWN] AI engine failing — strike ${consecutiveAiFailures}/2`);
-      if (consecutiveAiFailures >= 2) {
-        autoActivateLockdown(
-          'system_failure',
-          `AI Engine (Gemini) has been down for >5 minutes (${consecutiveAiFailures} consecutive failed health checks)`
-        );
+      if (aiFailing) {
+        consecutiveAiFailures++;
+        console.log(`[LOCKDOWN] AI engine failing — strike ${consecutiveAiFailures}/2`);
+        if (consecutiveAiFailures >= 2) {
+          autoActivateLockdown(
+            'system_failure',
+            `AI Engine (Gemini) has been down for >5 minutes (${consecutiveAiFailures} consecutive failed health checks)`
+          );
+          consecutiveAiFailures = 0;
+        }
+      } else {
+        if (consecutiveAiFailures > 0) {
+          console.log(`[LOCKDOWN] AI engine recovered — resetting failure counter`);
+        }
         consecutiveAiFailures = 0;
       }
-    } else {
-      if (consecutiveAiFailures > 0) {
-        console.log(`[LOCKDOWN] AI engine recovered — resetting failure counter`);
-      }
-      consecutiveAiFailures = 0;
-    }
-  }, 5 * 60 * 1000); // check every 5 minutes
+    }, 5 * 60 * 1000); // check every 5 minutes
+  } else {
+    console.log('[LOCKDOWN] Auto-trigger disabled in non-production environment');
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // ══ WORKGROUP SYSTEM (Enterprise/Research) ══════════════════════════════

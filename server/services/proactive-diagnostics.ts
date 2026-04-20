@@ -75,8 +75,12 @@ async function checkAIService(): Promise<DiagnosticResult> {
     if (response.status === 429) {
       return { check: 'AI Engine (Gemini)', status: 'warn', details: 'Rate limited — auto-recovery in progress', timestamp: ts };
     }
-    trackError('aiError', `Gemini API status ${response.status}`);
-    return { check: 'AI Engine (Gemini)', status: 'fail', details: `API returned HTTP ${response.status}`, timestamp: ts };
+    // Don't escalate to `fail` for transient meta-endpoint issues — the
+    // /v1beta/models endpoint can return 4xx while actual chat completions
+    // still work, and we have alternate providers (OpenAI / OpenRouter) for
+    // failover. A real outage will show up in user-facing error tracking.
+    trackError('aiError', `Gemini meta endpoint status ${response.status}`);
+    return { check: 'AI Engine (Gemini)', status: 'warn', details: `Meta endpoint returned HTTP ${response.status} — may still be operational`, timestamp: ts };
   } catch (e: any) {
     return { check: 'AI Engine (Gemini)', status: 'warn', details: `Connectivity check failed: ${e.message}`, timestamp: ts };
   }
