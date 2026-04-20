@@ -504,26 +504,66 @@ function downloadAAB(){
     res.send(html);
   });
 
-  const trialLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000,
-    max: 10,
-    message: { error: 'Trial rate limit reached. Please create an account to continue.' },
+  // Trial = full Matrix AI Research-grade experience, capped at 5 questions per IP.
+  // After the cap they must sign up / upgrade.
+  const TRIAL_LIMIT = 5;
+  const TRIAL_WINDOW_MS = 24 * 60 * 60 * 1000; // resets every 24h
+  const trialUsage = new Map<string, { count: number; resetAt: number }>();
+
+  app.get("/api/trial/status", (req: any, res) => {
+    const ip = req.ip || 'anon';
+    const now = Date.now();
+    const rec = trialUsage.get(ip);
+    const used = !rec || rec.resetAt < now ? 0 : rec.count;
+    res.json({ used, limit: TRIAL_LIMIT, remaining: Math.max(0, TRIAL_LIMIT - used) });
   });
 
-  app.post("/api/trial/ask", trialLimiter, async (req: any, res) => {
+  app.post("/api/trial/ask", async (req: any, res) => {
     try {
       const { question } = req.body;
       if (!question || typeof question !== "string" || !question.trim()) {
         return res.status(400).json({ message: "Question is required" });
       }
 
-      // Use the same OpenRouter-backed engine as logged-in free users
-      // so trial doesn't depend on a separate GEMINI_API_KEY being set.
-      const { fastAnswer } = await import('./services/reasoning-engine.js');
-      const systemPrompt = `You are Matrix AI — a warm, friendly assistant. Keep answers brief (1-3 sentences) for the free trial. For complex questions, give a short helpful summary and gently suggest signing up for deeper answers.`;
-      const answer = await fastAnswer(question.trim(), systemPrompt, 'free');
+      // Per-IP 5-question quota
+      const ip = req.ip || 'anon';
+      const now = Date.now();
+      const rec = trialUsage.get(ip);
+      const current = !rec || rec.resetAt < now ? { count: 0, resetAt: now + TRIAL_WINDOW_MS } : rec;
+      if (current.count >= TRIAL_LIMIT) {
+        return res.status(402).json({
+          message: "You've used your 5 free trial questions. Sign up or upgrade to keep going with Matrix AI.",
+          limitReached: true,
+          used: current.count,
+          limit: TRIAL_LIMIT,
+        });
+      }
 
-      res.json({ answer });
+      // Give trial users the full Research-grade experience (multi-model panel + verification).
+      const { runReasoning } = await import('./services/reasoning-engine.js');
+      const systemPrompt = `You are Matrix AI — a warm, premium intelligence. Give a thorough, well-reasoned answer.`;
+
+      const result = await runReasoning({
+        question: question.trim(),
+        hasImage: false,
+        manualDeepThink: true,   // force full panel + verification
+        forceFastMode: false,
+        systemPrompt,
+        tier: 'research',        // unlock the Research-tier engine for the trial
+        history: [],
+        onEvent: () => {},        // trial endpoint is non-streaming; ignore stage events
+      });
+
+      // Increment quota only on success
+      current.count += 1;
+      trialUsage.set(ip, current);
+
+      res.json({
+        answer: result.content,
+        used: current.count,
+        limit: TRIAL_LIMIT,
+        remaining: TRIAL_LIMIT - current.count,
+      });
     } catch (error: any) {
       console.error("[Trial] Error:", error.message);
       res.status(500).json({ message: "Something went wrong. Please try again." });
