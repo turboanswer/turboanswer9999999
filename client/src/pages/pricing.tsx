@@ -39,7 +39,7 @@ const plans: PricingPlan[] = [
     description: 'Advanced AI with deeper reasoning power',
     features: [
       'Advanced Pro AI model',
-      'Advanced AI reasoning',
+      'Faster, longer answers',
       'Superior code analysis',
       'Enhanced problem solving',
       'Priority support',

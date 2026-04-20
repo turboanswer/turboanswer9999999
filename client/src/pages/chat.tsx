@@ -120,6 +120,10 @@ export default function Chat() {
   };
 
   const { user, logout } = useAuth();
+  // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
+  // Free and Pro tiers do not see these controls or badges.
+  const userTier = ((user as any)?.subscriptionTier || 'free') as string;
+  const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const { theme, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -886,28 +890,30 @@ export default function Chat() {
               </SelectContent>
             </Select>
 
-            <button
-              onClick={() => setDeepThink(v => !v)}
-              title={deepThink ? "Deep Think ON — forces full Matrix AI reasoning + verification" : "Deep Think OFF — Matrix AI auto-decides fast vs deep"}
-              className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
-                deepThink
-                  ? (isDark ? 'bg-emerald-600/30 border border-emerald-500 text-emerald-200' : 'bg-emerald-100 border border-emerald-400 text-emerald-700')
-                  : (isDark ? 'bg-[#1e1f20] border border-[#3c4043] text-[#8e918f] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
-              }`}
-              data-testid="button-deep-think"
-            >
-              <Brain className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Deep Think</span>
-              {deepThinkUsageQuery.data && deepThinkUsageQuery.data.limit !== -1 && (
-                <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                  deepThinkUsageQuery.data.used >= deepThinkUsageQuery.data.limit
-                    ? 'bg-red-500/20 text-red-500'
-                    : (isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-200 text-emerald-800')
-                }`} data-testid="deep-think-quota">
-                  {Math.max(0, deepThinkUsageQuery.data.limit - deepThinkUsageQuery.data.used)}/{deepThinkUsageQuery.data.limit}
-                </span>
-              )}
-            </button>
+            {isResearchOrAbove && (
+              <button
+                onClick={() => setDeepThink(v => !v)}
+                title={deepThink ? "Deep Think ON — forces full Matrix AI reasoning + verification" : "Deep Think OFF — Matrix AI auto-decides fast vs deep"}
+                className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
+                  deepThink
+                    ? (isDark ? 'bg-emerald-600/30 border border-emerald-500 text-emerald-200' : 'bg-emerald-100 border border-emerald-400 text-emerald-700')
+                    : (isDark ? 'bg-[#1e1f20] border border-[#3c4043] text-[#8e918f] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
+                }`}
+                data-testid="button-deep-think"
+              >
+                <Brain className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Deep Think</span>
+                {deepThinkUsageQuery.data && deepThinkUsageQuery.data.limit !== -1 && (
+                  <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                    deepThinkUsageQuery.data.used >= deepThinkUsageQuery.data.limit
+                      ? 'bg-red-500/20 text-red-500'
+                      : (isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-200 text-emerald-800')
+                  }`} data-testid="deep-think-quota">
+                    {Math.max(0, deepThinkUsageQuery.data.limit - deepThinkUsageQuery.data.used)}/{deepThinkUsageQuery.data.limit}
+                  </span>
+                )}
+              </button>
+            )}
 
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -1229,7 +1235,7 @@ export default function Chat() {
                   {renderMessageContent(message.content, message.role)}
                 </div>
                 <div className={`flex items-center gap-2 mt-1 ${message.role === 'user' ? 'justify-end mr-1' : 'ml-1'}`}>
-                  {message.role === 'assistant' && verifiedMessages[message.id] && verifiedMessages[message.id] !== "unknown" && (
+                  {isResearchOrAbove && message.role === 'assistant' && verifiedMessages[message.id] && verifiedMessages[message.id] !== "unknown" && (
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[message.id] === "verified" ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}
                       title={verifiedMessages[message.id] === "verified" ? "Verified by Matrix AI" : "Matrix AI could not fully verify this answer — treat with caution"}
@@ -1242,7 +1248,7 @@ export default function Chat() {
                       )}
                     </span>
                   )}
-                  {message.role === 'assistant' && typeof confidenceMessages[message.id] === 'number' && (
+                  {isResearchOrAbove && message.role === 'assistant' && typeof confidenceMessages[message.id] === 'number' && (
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold border ${
                         confidenceMessages[message.id] >= 80 ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30'
@@ -1307,7 +1313,7 @@ export default function Chat() {
                     </button>
                   )}
                 </div>
-                {message.role === 'assistant' && expandedReasoning[message.id] && reasoningTraces[message.id] && (
+                {isResearchOrAbove && message.role === 'assistant' && expandedReasoning[message.id] && reasoningTraces[message.id] && (
                   <div className={`mt-2 rounded-xl p-3 text-xs ${isDark ? 'bg-zinc-900/60 border border-emerald-700/30' : 'bg-emerald-50/50 border border-emerald-200'}`} data-testid={`reasoning-trace-${message.id}`}>
                     <div className={`flex items-center gap-2 mb-2 font-bold uppercase tracking-wider text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
                       <Brain className="h-3 w-3" /> Reasoning trace
@@ -1424,11 +1430,13 @@ export default function Chat() {
               </div>
               <div className={`flex-1 max-w-2xl rounded-2xl rounded-bl-md p-4 ${isDark ? 'bg-zinc-900/80 border border-emerald-700/30' : 'bg-white border border-emerald-200 shadow-sm'}`}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Brain className={`h-4 w-4 ${reasoningMode === 'deep' ? 'text-emerald-500 animate-pulse' : 'text-blue-500'}`} />
+                  <Brain className={`h-4 w-4 ${isResearchOrAbove && reasoningMode === 'deep' ? 'text-emerald-500 animate-pulse' : 'text-blue-500'}`} />
                   <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                    {reasoningMode === 'deep' ? 'Deep Reasoning' : reasoningMode === 'fast' ? 'Fast Mode' : 'Thinking…'}
+                    {isResearchOrAbove
+                      ? (reasoningMode === 'deep' ? 'Deep Reasoning' : reasoningMode === 'fast' ? 'Fast Mode' : 'Thinking…')
+                      : 'Thinking…'}
                   </span>
-                  {quotaWarning && (
+                  {isResearchOrAbove && quotaWarning && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40">
                       Deep Think quota reached ({quotaWarning.used}/{quotaWarning.limit}) — using fast mode
                     </span>

@@ -374,18 +374,26 @@ Output STRICT JSON:
   return { verdict, claims, markedAnswer, confidence };
 }
 
+// ============= TIER-AWARE MODEL SELECTION =============
+// Free → Gemini 3.1 Flash. Pro → Gemini 3.1 Pro. Research/Enterprise → Matrix AI panel.
+function modelForTier(tier?: string): string {
+  const t = (tier || 'free').toLowerCase();
+  if (t === 'pro') return 'google/gemini-3.1-pro';
+  return 'google/gemini-3.1-flash';
+}
+
 // ============= FAST PATH =============
-export async function fastAnswer(question: string, system?: string): Promise<string> {
-  const out = await callOR('google/gemini-2.5-flash', question, { maxTokens: 1500, temperature: 0.4, system, timeoutMs: 25000 });
+export async function fastAnswer(question: string, system?: string, tier?: string): Promise<string> {
+  const out = await callOR(modelForTier(tier), question, { maxTokens: 1500, temperature: 0.4, system, timeoutMs: 25000 });
   return out || 'I could not generate an answer right now. Please try again.';
 }
 
 // ============= RETRIEVAL-ONLY PATH =============
-export async function retrievalAnswer(question: string, sources: Source[], system?: string): Promise<string> {
+export async function retrievalAnswer(question: string, sources: Source[], system?: string, tier?: string): Promise<string> {
   const ctx = sources.length
     ? `Use these sources (cite as [1], [2], ...):\n${sources.map((s, i) => `[${i + 1}] ${s.title}${s.publishedAt ? ` (${s.publishedAt})` : ''}: ${s.snippet}`).join('\n')}\n\n`
     : '';
-  const out = await callOR('google/gemini-2.5-flash', `${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, { maxTokens: 1200, temperature: 0.2, system, timeoutMs: 25000 });
+  const out = await callOR(modelForTier(tier), `${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, { maxTokens: 1200, temperature: 0.2, system, timeoutMs: 25000 });
   return out || 'I could not retrieve enough information to answer reliably.';
 }
 
@@ -396,6 +404,7 @@ export type RunOptions = {
   manualDeepThink?: boolean;
   forceFastMode?: boolean;
   systemPrompt?: string;
+  tier?: string;
   onEvent: (e: EngineEvent) => void;
 };
 
@@ -416,7 +425,7 @@ function approxTokens(s: string): number {
 }
 
 export async function runReasoning(opts: RunOptions): Promise<{ content: string; verified: 'verified' | 'unverified' | 'unknown'; mode: 'fast' | 'retrieval' | 'deep'; sources: Source[]; claims: ClaimCheck[]; confidence: number }> {
-  const { question, hasImage = false, manualDeepThink = false, forceFastMode = false, systemPrompt, onEvent } = opts;
+  const { question, hasImage = false, manualDeepThink = false, forceFastMode = false, systemPrompt, tier, onEvent } = opts;
   const stage = (id: string, label: string, status: Stage['status'], detail?: string) =>
     onEvent({ type: 'stage', stage: { id, label, status, detail } });
 
@@ -434,7 +443,7 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
   // FAST PATH
   if (decision.mode === 'fast') {
     stage('answer', 'Generating answer', 'active');
-    const content = await fastAnswer(question, systemPrompt);
+    const content = await fastAnswer(question, systemPrompt, tier);
     stage('answer', 'Answer ready', 'done');
     onEvent({ type: 'done', content, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 });
     return { content, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 };
@@ -447,7 +456,7 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
     stage('retrieve', `${retrieved.sources.length} source${retrieved.sources.length === 1 ? '' : 's'}${retrieved.arithmetic ? ' + math verified' : ''}`, 'done');
     if (retrieved.sources.length) onEvent({ type: 'sources', sources: retrieved.sources });
     stage('answer', 'Answering with citations', 'active');
-    const content = await retrievalAnswer(question, retrieved.sources, systemPrompt);
+    const content = await retrievalAnswer(question, retrieved.sources, systemPrompt, tier);
     stage('answer', 'Answer ready', 'done');
     stage('verify', 'Fact-checking claims', 'active');
     const ver = await verifyAndMark(content, retrieved.sources).catch(() => ({ verdict: 'unknown' as const, claims: [], markedAnswer: content, confidence: 60 }));
@@ -489,7 +498,7 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
   const panel = await panelAnswer(question, subQs, context, panelModels, (m, p) => onEvent({ type: 'panel', model: m, preview: p }));
   if (panel.length === 0) {
     stage('panel', 'All models failed — falling back', 'error');
-    const content = await fastAnswer(question, systemPrompt);
+    const content = await fastAnswer(question, systemPrompt, tier);
     onEvent({ type: 'done', content, verified: 'unknown', mode: 'fast', sources: retrieved.sources, claims: [], confidence: 50 });
     return { content, verified: 'unknown', mode: 'fast', sources: retrieved.sources, claims: [], confidence: 50 };
   }
@@ -522,9 +531,11 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
 }
 
 // ============= QUOTAS =============
+// Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
+// Free and Pro users do not have access (quota = 0).
 export const DEEP_QUOTA: Record<string, number> = {
-  free: 3,
-  pro: 25,
+  free: 0,
+  pro: 0,
   research: 200,
   enterprise: -1,
   owner: -1,

@@ -1225,14 +1225,17 @@ function downloadAAB(){
       // Persist user message
       const userMessage = await storage.createMessage({ conversationId, content, role: "user" });
 
-      // Deep-think quota check
+      // Deep-think quota check.
+      // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE.
+      // Free and Pro tiers always run fast mode regardless of the manualDeepThink flag.
       const tre = await import('./services/reasoning-engine');
       const today = tre.todayUTC();
       const deepUsed = userId ? await (await import('./storage')).getDeepThinkUsage(userId, today) : 0;
       const deepLimit = tre.DEEP_QUOTA[effectiveTier] ?? tre.DEEP_QUOTA.free;
-      let allowDeep = true;
+      const tierBlocksDeep = effectiveTier === 'free' || effectiveTier === 'pro';
+      let allowDeep = !tierBlocksDeep;
       let quotaFellBack = false;
-      if (deepLimit !== -1 && deepUsed >= deepLimit) {
+      if (allowDeep && deepLimit !== -1 && deepUsed >= deepLimit) {
         allowDeep = false;
         if (manualDeepThink) quotaFellBack = true;
       }
@@ -1270,6 +1273,7 @@ function downloadAAB(){
           manualDeepThink: !!manualDeepThink && allowDeep,
           forceFastMode: !allowDeep,
           systemPrompt,
+          tier: effectiveTier,
           onEvent: (e) => send(e.type, e),
         });
 
