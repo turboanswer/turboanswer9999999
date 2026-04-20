@@ -156,6 +156,9 @@ export default function MobileChatUI({
 
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
   const tierLabel = selectedAIModel === "gemini-flash" ? "Free" : selectedAIModel === "gemini-pro" ? "Pro" : selectedAIModel === "enterprise-research" ? "Enterprise" : "Research";
+  // Deep Think + confidence/verified badges are RESEARCH-EXCLUSIVE.
+  const userTier = ((user as any)?.subscriptionTier || 'free') as string;
+  const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
 
   const newChatMutation = useMutation({
     mutationFn: async () => {
@@ -588,7 +591,7 @@ export default function MobileChatUI({
                     </div>
                   )}
                   <div className="flex items-center gap-2 mt-1 px-1">
-                    {msg.role === 'assistant' && verifiedMessages[msg.id] && verifiedMessages[msg.id] !== "unknown" && (
+                    {isResearchOrAbove && msg.role === 'assistant' && verifiedMessages[msg.id] && verifiedMessages[msg.id] !== "unknown" && (
                       <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[msg.id] === "verified" ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
                         {verifiedMessages[msg.id] === "verified" ? (
                           <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="currentColor" opacity="0.15"/><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Verified</>
