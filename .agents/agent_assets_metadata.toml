@@ -149,3 +149,9 @@ id = "wo9B40Ssso2xKDef-5hzr"
 uri = "file://attached_assets/generated_videos/turboanswer_trailer.mp4"
 type = "video"
 title = "TurboAnswer 8s Trailer"
+
+[[outputs]]
+id = "Zmuycg6ycsmkFPxFqAqcB"
+uri = "file://attached_assets/generated_videos/turboanswer_demo.mp4"
+type = "video"
+title = "TurboAnswer Product Demo (8s)"
