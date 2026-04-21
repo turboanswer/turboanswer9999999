@@ -280,7 +280,15 @@ export async function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res) => {
     try {
-      const { email, password, firstName, lastName, inviteToken, timezone, referralCode } = req.body;
+      const { email, password, firstName, lastName, inviteToken, timezone, referralCode, ageConfirmed, termsAgreed } = req.body;
+
+      if (ageConfirmed !== true) {
+        return res.status(400).json({ message: "You must confirm you are at least 13 years old. TurboAnswer is not available to children under 13 (COPPA)." });
+      }
+
+      if (termsAgreed !== true) {
+        return res.status(400).json({ message: "You must agree to the Terms and Privacy Policy to create an account." });
+      }
 
       if (!email || !password) {
         return res.status(400).json({ message: "Email and password are required" });

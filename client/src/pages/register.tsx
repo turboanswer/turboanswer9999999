@@ -91,6 +91,8 @@ export default function Register() {
           firstName: formData.firstName || undefined,
           lastName: formData.lastName || undefined,
           timezone: formData.timezone,
+          ageConfirmed: true,
+          termsAgreed: true,
           ...(inviteToken && inviteValid ? { inviteToken } : {}),
           ...(referralCode && referralValid ? { referralCode } : {}),
         }),
