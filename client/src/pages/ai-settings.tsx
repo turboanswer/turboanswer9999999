@@ -8,7 +8,7 @@ import {
   Shield, Bell, CreditCard, Sun, Moon, SlidersHorizontal, Globe,
   Download, Eye, EyeOff, ChevronRight, Lock, Volume2, VolumeX, Type,
   Smartphone, Info, RefreshCw, LogOut, Save, Check, X, Settings, Sparkles,
-  HelpCircle, Mail, Clock, BarChart3, Languages, Wand2, FileText, Bot
+  HelpCircle, Mail, Clock, BarChart3, Languages, Wand2, FileText, Bot, Film
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
