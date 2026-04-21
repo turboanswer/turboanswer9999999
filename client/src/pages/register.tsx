@@ -27,6 +27,8 @@ export default function Register() {
     confirmPassword: "",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(search);
@@ -63,6 +65,16 @@ export default function Register() {
 
     if (formData.password.length < 6) {
       toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+
+    if (!ageConfirmed) {
+      toast({ title: "Age confirmation required", description: "TurboAnswer is not available to users under 13. Please confirm you are at least 13 years old.", variant: "destructive" });
+      return;
+    }
+
+    if (!termsAgreed) {
+      toast({ title: "Please accept the Terms", description: "You must agree to the Terms & Privacy Policy to create an account.", variant: "destructive" });
       return;
     }
 
@@ -196,13 +208,38 @@ export default function Register() {
               className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
             />
 
+            <div className="pt-2 space-y-2.5">
+              <label className="flex items-start gap-2.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={ageConfirmed}
+                  onChange={(e) => setAgeConfirmed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#3c4043] bg-transparent accent-[#8ab4f8] cursor-pointer flex-shrink-0"
+                />
+                <span className="text-xs text-[#c4c7c5] leading-relaxed group-hover:text-white transition-colors">
+                  I confirm I am <strong>at least 13 years old</strong>. TurboAnswer is not intended for children under 13 (COPPA).
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={termsAgreed}
+                  onChange={(e) => setTermsAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#3c4043] bg-transparent accent-[#8ab4f8] cursor-pointer flex-shrink-0"
+                />
+                <span className="text-xs text-[#c4c7c5] leading-relaxed group-hover:text-white transition-colors">
+                  I agree to the <Link href="/terms-conditions" className="text-[#8ab4f8] hover:text-[#aecbfa] underline">Terms</Link> and <Link href="/privacy-policy" className="text-[#8ab4f8] hover:text-[#aecbfa] underline">Privacy Policy</Link>.
+                </span>
+              </label>
+            </div>
+
             <div className="flex items-center justify-between pt-3">
               <Link href="/login" className="text-sm text-[#8ab4f8] hover:text-[#aecbfa] font-medium transition-colors">
                 Sign in instead
               </Link>
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !ageConfirmed || !termsAgreed}
                 className="h-10 px-6 rounded-full bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#131314] font-medium text-sm disabled:opacity-50 transition-colors"
               >
                 {isLoading ? (

@@ -38,6 +38,16 @@ export default function TermsConditions() {
             <p>By accessing or using TurboAnswer's website, mobile application, or any related services (collectively, the "Service"), you agree to be bound by these Terms. If you do not agree to all of these Terms, you may not access or use the Service. By creating an account, you represent that you are at least 13 years of age, or the age of majority in your jurisdiction, whichever is greater.</p>
           </section>
 
+          <section className="bg-blue-950 border border-blue-700 p-5 rounded-lg">
+            <h2 className="text-2xl font-semibold text-blue-200 mb-3">1a. Age Requirement & Children's Privacy (COPPA)</h2>
+            <p className="text-blue-100 mb-2">
+              TurboAnswer is <strong>not intended for, directed to, or usable by children under the age of 13</strong>. By creating an account, you affirm under penalty of Terms violation that you are at least 13 years old. If you are between 13 and 18, you must have the permission of a parent or legal guardian to use the Service, and your parent or guardian is legally responsible for your account.
+            </p>
+            <p className="text-blue-100">
+              We do not knowingly collect personal information from children under 13. Any account we discover to belong to a user under 13 will be <strong>terminated immediately and all associated data deleted</strong>. Parents may request account deletion at any time by emailing <a href="mailto:support@turboanswer.it.com" className="text-blue-300 underline">support@turboanswer.it.com</a> or calling <a href="tel:+18665677269" className="text-blue-300 underline">(866) 567-7269</a>.
+            </p>
+          </section>
+
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">2. Description of Service</h2>
             <p>TurboAnswer is an AI-powered assistant platform that provides intelligent responses across a wide range of topics including science, technology, law, finance, and general knowledge. The Service includes:</p>

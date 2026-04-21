@@ -115,6 +115,27 @@ export default function PrivacyPolicy() {
             <p className="mt-2">You can set your browser not to accept cookies, and the above website tells you how to remove cookies from your browser. However, in a few cases, some of our website features may not function as a result.</p>
           </section>
 
+          <section className="bg-blue-950 border border-blue-700 p-6 rounded-lg">
+            <h2 className="text-2xl font-semibold text-blue-200 mb-4">Children's Privacy (COPPA)</h2>
+            <div className="space-y-3 text-blue-100">
+              <p>
+                TurboAnswer is <strong>not directed to, designed for, or intended for use by children under the age of 13</strong>. In compliance with the Children's Online Privacy Protection Act ("COPPA"), 15 U.S.C. §§ 6501–6506, and its implementing regulations at 16 C.F.R. Part 312, we do not knowingly collect, use, or disclose personal information from any child under 13 years of age.
+              </p>
+              <p>
+                All users must confirm they are at least 13 years old before creating an account. Account creation is prohibited for anyone under 13.
+              </p>
+              <p>
+                If we learn, or are notified, that we have inadvertently collected personal information from a child under 13 without verified parental consent, we will <strong>promptly delete that information from our systems</strong>.
+              </p>
+              <p>
+                <strong>Parents or legal guardians:</strong> if you believe your child under 13 has provided personal information to TurboAnswer, please contact us immediately at <a href="mailto:support@turboanswer.it.com" className="text-blue-300 hover:text-blue-200 underline">support@turboanswer.it.com</a> or call <a href="tel:+18665677269" className="text-blue-300 hover:text-blue-200 underline">(866) 567-7269</a>. We will verify the request and delete the account and all associated data within 10 business days.
+              </p>
+              <p>
+                Users between 13 and 18 should use TurboAnswer only with the involvement and consent of a parent or legal guardian, and the account holder (or their parent/guardian) is responsible for all activity on the account.
+              </p>
+            </div>
+          </section>
+
           <section>
             <h2 className="text-2xl font-semibold text-white mb-4">Advertisements</h2>
             <p>Our website and mobile app does not show advertisements to users. This includes affiliate ads or any products and services offered by 3rd parties.</p>
