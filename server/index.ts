@@ -13,6 +13,7 @@ import { trackError } from "./services/error-tracker";
 import { installAutoDebugger } from "./services/auto-debugger";
 import { storage } from "./storage";
 import { applyIntrusionMiddleware, setThreatCallback } from "./services/intrusion-detection";
+import { ensureDatabaseSchema } from "./db-migrations";
 
 const app = express();
 
@@ -264,6 +265,13 @@ process.on('unhandledRejection', (reason: any) => {
 
 (async () => {
   console.log('[Server] Starting up...');
+
+  try {
+    console.log('[Server] Ensuring database schema...');
+    await ensureDatabaseSchema();
+  } catch (e: any) {
+    console.error('[Server] ensureDatabaseSchema failed (continuing anyway):', e?.message || e);
+  }
 
   console.log('[Server] Registering routes...');
   const server = await registerRoutes(app);
