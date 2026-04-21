@@ -131,3 +131,9 @@ id = "dLG5satug-9_0VkID9jLZ"
 uri = "file://tshirt/azure-developer-tshirt.png"
 type = "image"
 title = "Azure Developer T-Shirt (Official Logo)"
+
+[[outputs]]
+id = "PSdQHLcFdbgK-d0kusnnd"
+uri = "file://screenshots/turboanswer-homepage.jpg"
+type = "image"
+title = "TurboAnswer Homepage Screenshot"
