@@ -553,7 +553,7 @@ export default function LandingPage() {
                       "Export answers to PDF, Word & Markdown",
                       "Priority queue · fastest response times",
                       "Early access to new Matrix AI features",
-                      "Priority email support",
+                      "Priority phone support — call (866) 567-7269",
                     ].map((item, i) => (
                       <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                         <Check size={14} className="text-indigo-500 flex-shrink-0" /> {item}
