@@ -129,18 +129,18 @@ export default function LandingPage() {
             <div className="text-left">
               <h1 className={`font-black tracking-tight leading-[0.92] mb-6 ${D ? "text-white" : "text-gray-900"}`}
                 style={{ fontSize: "clamp(2.5rem, 6vw, 5rem)" }}>
-                The AI you<br />
+                AI your business<br />
                 can <span className="ta-shimmer-text">actually trust.</span>
               </h1>
 
               <p className={`text-lg sm:text-xl max-w-xl mb-6 leading-relaxed ${D ? "text-gray-400" : "text-gray-600"}`}>
-                Meet <strong className={D ? "text-white" : "text-gray-900"}>Matrix AI</strong> — a new kind of intelligence built for the questions that matter. Cited. Verified. Yours in seconds.
+                Give your team instant, verified answers — not confident guesses. <strong className={D ? "text-white" : "text-gray-900"}>Matrix AI</strong> cites every source, grades its own confidence, and deploys across your whole company in under 10 minutes.
               </p>
 
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 border ${D ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
                 <Brain className="h-3.5 w-3.5" />
-                <span className="text-xs font-bold uppercase tracking-wider">Matrix AI · A new era of intelligence</span>
-                <span className="text-xs opacity-80">— self-verifying, source-cited, confidence-rated</span>
+                <span className="text-xs font-bold uppercase tracking-wider">Built for Business · Powered by Matrix AI</span>
+                <span className="text-xs opacity-80">— cited, verified, confidence-rated</span>
               </div>
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
