@@ -137,3 +137,9 @@ id = "PSdQHLcFdbgK-d0kusnnd"
 uri = "file://screenshots/turboanswer-homepage.jpg"
 type = "image"
 title = "TurboAnswer Homepage Screenshot"
+
+[[outputs]]
+id = "gC0yvrQ0uYUnFXqeQq9Wv"
+uri = "file://screenshots/turboanswer-homepage.png"
+type = "image"
+title = "TurboAnswer Homepage (PNG)"
