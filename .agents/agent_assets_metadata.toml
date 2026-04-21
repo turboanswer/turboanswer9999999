@@ -143,3 +143,9 @@ id = "gC0yvrQ0uYUnFXqeQq9Wv"
 uri = "file://screenshots/turboanswer-homepage.png"
 type = "image"
 title = "TurboAnswer Homepage (PNG)"
+
+[[outputs]]
+id = "wo9B40Ssso2xKDef-5hzr"
+uri = "file://attached_assets/generated_videos/turboanswer_trailer.mp4"
+type = "video"
+title = "TurboAnswer 8s Trailer"
