@@ -16,6 +16,7 @@ import Support from "@/pages/support";
 import EmployeeDashboard from "@/pages/employee-dashboard";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Business from "@/pages/business";
+import Enterprise from "@/pages/enterprise";
 import Integration from "@/pages/integration";
 import Simple from "@/pages/simple";
 import WhereToAdd from "@/pages/where-to-add";
@@ -61,6 +62,7 @@ function AuthenticatedRouter() {
       <Route path="/terms-conditions" component={TermsConditions} />
       <Route path="/data-deletion" component={DataDeletion} />
       <Route path="/business" component={Business} />
+      <Route path="/enterprise" component={Enterprise} />
       <Route path="/integration" component={Integration} />
       <Route path="/simple" component={Simple} />
       <Route path="/where-to-add" component={WhereToAdd} />
@@ -98,6 +100,7 @@ function UnauthenticatedRouter() {
       <Route path="/terms-conditions" component={TermsConditions} />
       <Route path="/data-deletion" component={DataDeletion} />
       <Route path="/business" component={Business} />
+      <Route path="/enterprise" component={Enterprise} />
       <Route path="/widget-demo" component={WidgetDemo} />
       <Route path="/crisis-info" component={CrisisInfo} />
       <Route path="/forgot-password" component={ForgotPassword} />
