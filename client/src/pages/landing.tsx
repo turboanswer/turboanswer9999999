@@ -16,7 +16,18 @@ export default function LandingPage() {
   const { isAuthenticated, user } = useAuth();
   const ctaHref = isAuthenticated ? "/chat" : "/login";
   const ctaLabel = isAuthenticated ? "Go to Chat" : "Login / Sign Up";
-  const appUrl = typeof window !== "undefined" ? window.location.origin : "";
+  // Always point the QR at the public production domain — the workspace/dev URL,
+  // Capacitor's capacitor://localhost, and any preview URL can't be opened from a phone camera.
+  const PRODUCTION_URL = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined) || "https://turboanswer.it.com";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const isDevOrigin =
+    !origin ||
+    /\.replit\.dev(:\d+)?$/i.test(origin) ||
+    /\.riker\.replit\.dev(:\d+)?$/i.test(origin) ||
+    /^capacitor:\/\//i.test(origin) ||
+    /^https?:\/\/localhost(:\d+)?$/i.test(origin) ||
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/i.test(origin);
+  const appUrl = isDevOrigin ? PRODUCTION_URL : origin;
 
   const features = [
     { icon: <Brain className="h-7 w-7" />, title: "Matrix AI Chat", desc: "A new era of intelligence — answers cited, verified, and graded by confidence in real time.", color: "#3b82f6", badge: "Research+" },
