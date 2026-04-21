@@ -501,9 +501,31 @@ async function answerForTier(
   return callORWithFallback(modelsForTier(t), prompt, opts);
 }
 
+// ============= TIER-BASED RESPONSE SHAPING =============
+// Free tier gets intentionally brief answers so Pro / Research feel meaningfully more capable.
+// Pro and above get the full-length, richly detailed treatment.
+const FREE_TIER_BREVITY_PREFIX =
+  "You are TurboAnswer on the free Lite plan. Keep answers SHORT and PLAIN: " +
+  "3–5 sentences max for normal questions, or a brief 3–5 bullet list if a list truly fits. " +
+  "No long introductions, no multi-section breakdowns, no tables, no code unless explicitly asked. " +
+  "Skip headings and avoid filler like 'Great question!'. Give the single most useful answer and stop. " +
+  "If the user asks for depth, analysis, a full explanation, or research, tell them this requires Pro or Research and keep the free reply short.";
+
+function shapeForTier(tier: string | undefined, system?: string): { system?: string; maxTokens: number } {
+  const t = (tier || 'free').toLowerCase();
+  if (t === 'free') {
+    const combined = system ? `${FREE_TIER_BREVITY_PREFIX}\n\n${system}` : FREE_TIER_BREVITY_PREFIX;
+    return { system: combined, maxTokens: 450 };
+  }
+  if (t === 'pro') return { system, maxTokens: 1800 };
+  // research / enterprise / owner → full length
+  return { system, maxTokens: 3000 };
+}
+
 // ============= FAST PATH =============
 export async function fastAnswer(question: string, system?: string, tier?: string, history?: ChatTurn[]): Promise<string> {
-  const out = await answerForTier(question, tier, { maxTokens: 1500, temperature: 0.4, system, timeoutMs: 25000, history });
+  const shaped = shapeForTier(tier, system);
+  const out = await answerForTier(question, tier, { maxTokens: shaped.maxTokens, temperature: 0.4, system: shaped.system, timeoutMs: 25000, history });
   return out || 'I could not generate an answer right now. Please try again.';
 }
 
@@ -512,7 +534,9 @@ export async function retrievalAnswer(question: string, sources: Source[], syste
   const ctx = sources.length
     ? `Use these sources (cite as [1], [2], ...):\n${sources.map((s, i) => `[${i + 1}] ${s.title}${s.publishedAt ? ` (${s.publishedAt})` : ''}: ${s.snippet}`).join('\n')}\n\n`
     : '';
-  const out = await answerForTier(`${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, tier, { maxTokens: 1200, temperature: 0.2, system, timeoutMs: 25000, history });
+  const shaped = shapeForTier(tier, system);
+  const retrievalMax = Math.min(shaped.maxTokens, (tier || 'free').toLowerCase() === 'free' ? 400 : 1400);
+  const out = await answerForTier(`${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, tier, { maxTokens: retrievalMax, temperature: 0.2, system: shaped.system, timeoutMs: 25000, history });
   return out || 'I could not retrieve enough information to answer reliably.';
 }
 
