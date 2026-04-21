@@ -120,10 +120,6 @@ export default function Chat() {
   };
 
   const { user, logout } = useAuth();
-  // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
-  // Free and Pro tiers do not see these controls or badges.
-  const userTier = ((user as any)?.subscriptionTier || 'free') as string;
-  const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const { theme, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -720,6 +716,12 @@ export default function Chat() {
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
   const { data: userWorkgroups = [] } = useQuery<any[]>({ queryKey: ['/api/workgroups'] });
+  // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
+  // Gate all paid UI off the live subscription data (not the stale user object).
+  const userTier = (subscriptionData?.tier || (user as any)?.tier || 'free') as string;
+  const isPaidPro = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
+  const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
+  const isEnterpriseTier = userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const isFreeTier = !subscriptionData?.tier || subscriptionData?.tier === 'free';
   const isAnyPopupOpen = showProPopup || showResearchPopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;
   const promoCooldownActive = lastPromoDismissedAt > 0 && (Date.now() - lastPromoDismissedAt) < 600000;
@@ -892,9 +894,12 @@ export default function Chat() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="gemini-flash">Free (Basic AI)</SelectItem>
-                <SelectItem value="gemini-pro">Pro $6.99 (Advanced)</SelectItem>
-                <SelectItem value="claude-research">Research $30 (Matrix AI)</SelectItem>
-                <SelectItem value="enterprise-research">Enterprise $100</SelectItem>
+                {isPaidPro && <SelectItem value="gemini-pro">Pro (Advanced)</SelectItem>}
+                {isResearchOrAbove && <SelectItem value="claude-research">Research (Matrix AI)</SelectItem>}
+                {isEnterpriseTier && <SelectItem value="enterprise-research">Enterprise</SelectItem>}
+                {!isPaidPro && <SelectItem value="gemini-pro">Pro $6.99 — Upgrade</SelectItem>}
+                {!isResearchOrAbove && <SelectItem value="claude-research">Research $30 — Upgrade</SelectItem>}
+                {!isEnterpriseTier && <SelectItem value="enterprise-research">Enterprise $100 — Upgrade</SelectItem>}
               </SelectContent>
             </Select>
 
