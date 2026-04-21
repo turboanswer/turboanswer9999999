@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { primeAudioContext } from '@/lib/audio-manager';
-import { SCENARIOS, type LockdownScenario } from '@/components/lockdown-screen';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/use-auth';
@@ -249,8 +247,6 @@ export default function EmployeeDashboard() {
   const [banDuration, setBanDuration] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<TabType>('commandcenter');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [lockdownConfirm, setLockdownConfirm] = useState(false);
-  const [lockdownScenario, setLockdownScenario] = useState<LockdownScenario>('system_failure');
   const [selectedNotification, setSelectedNotification] = useState<AdminNotification | null>(null);
   const [subModalUser, setSubModalUser] = useState<UserData | null>(null);
   const [subModalTier, setSubModalTier] = useState('');
@@ -288,29 +284,6 @@ export default function EmployeeDashboard() {
     refetchInterval: 30000,
   });
 
-  const { data: lockdownStatus, refetch: refetchLockdown } = useQuery<{ active: boolean; activatedAt: string | null }>({
-    queryKey: ['/api/system/lockdown-status'],
-    refetchInterval: 10000,
-  });
-
-  const activateLockdownMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/lockdown/activate', { scenario: lockdownScenario }),
-    onSuccess: () => { refetchLockdown(); setLockdownConfirm(false); toast({ title: 'Lockdown activated', description: 'All users now see the critical malfunction screen.', variant: 'destructive' }); },
-    onError: () => toast({ title: 'Failed to activate lockdown', variant: 'destructive' }),
-  });
-
-  const [showEmailPreview, setShowEmailPreview] = useState(false);
-  const emailAllMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/lockdown/email-all', { scenario: lockdownScenario }),
-    onSuccess: (data: any) => { toast({ title: `Emails sent`, description: `${data.sent} of ${data.total} users notified.` }); setShowEmailPreview(false); },
-    onError: () => toast({ title: 'Email blast failed', variant: 'destructive' }),
-  });
-
-  const deactivateLockdownMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/admin/lockdown/deactivate'),
-    onSuccess: () => { refetchLockdown(); toast({ title: 'Lockdown lifted', description: 'Service restored to all users.' }); },
-    onError: () => toast({ title: 'Failed to lift lockdown', variant: 'destructive' }),
-  });
 
   const unreadCount = unreadData?.count || 0;
 
@@ -693,7 +666,6 @@ export default function EmployeeDashboard() {
   const svcStatus = systemHealth?.services;
 
   const isOwner = (currentUser as any)?.email === 'support@turboanswer.it.com';
-  const isLocked = lockdownStatus?.active ?? false;
 
   return (
     <div className="admin-panel h-screen flex flex-col overflow-hidden" style={{ background: '#000000', color: '#e2e8f0' }}>
@@ -741,62 +713,6 @@ export default function EmployeeDashboard() {
             </div>
           )}
 
-          {/* LOCKDOWN BUTTON — owner only */}
-          {isOwner && (
-            isLocked ? (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => deactivateLockdownMutation.mutate()}
-                  disabled={deactivateLockdownMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-[10px] font-bold tracking-widest uppercase transition-all animate-pulse"
-                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.5)', color: '#ef4444' }}>
-                  <Shield className="w-3 h-3" />
-                  {deactivateLockdownMutation.isPending ? 'LIFTING...' : '⚠ LIFT'}
-                </button>
-                <button
-                  onClick={() => setShowEmailPreview(v => !v)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
-                  style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', color: '#60a5fa' }}>
-                  <Mail className="w-3 h-3" /> EMAIL ALL
-                </button>
-              </div>
-            ) : (
-              lockdownConfirm ? (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <select
-                    value={lockdownScenario}
-                    onChange={e => setLockdownScenario(e.target.value as LockdownScenario)}
-                    className="px-2 py-1.5 rounded font-mono text-[10px] outline-none"
-                    style={{ background: '#1a1a1a', border: '1px solid #333', color: '#ccc', maxWidth: '160px' }}>
-                    {(Object.entries(SCENARIOS) as [LockdownScenario, typeof SCENARIOS[LockdownScenario]][]).map(([key, s]) => (
-                      <option key={key} value={key}>{s.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={() => { primeAudioContext(); activateLockdownMutation.mutate(); }}
-                    disabled={activateLockdownMutation.isPending}
-                    className="px-2.5 py-1.5 rounded font-mono text-[10px] font-black uppercase tracking-widest transition-all"
-                    style={{ background: '#dc2626', color: '#fff', border: '1px solid #ef4444' }}>
-                    {activateLockdownMutation.isPending ? '...' : 'CONFIRM LOCK'}
-                  </button>
-                  <button
-                    onClick={() => setLockdownConfirm(false)}
-                    className="px-2 py-1.5 rounded font-mono text-[10px] text-zinc-500 hover:text-white transition-colors"
-                    style={{ border: '1px solid #222' }}>
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setLockdownConfirm(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-[10px] font-bold tracking-widest uppercase transition-all hover:scale-105"
-                  style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)', color: '#dc2626' }}>
-                  <Shield className="w-3 h-3" /> LOCKDOWN
-                </button>
-              )
-            )
-          )}
-
           <Link href="/">
             <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded font-mono text-[10px] text-zinc-600 hover:text-zinc-300 transition-colors"
               style={{ border: '1px solid #1a1a1a' }}>
@@ -805,38 +721,6 @@ export default function EmployeeDashboard() {
           </Link>
         </div>
       </header>
-
-      {/* ── EMAIL ALL PREVIEW PANEL ── */}
-      {showEmailPreview && isOwner && isLocked && (
-        <div className="flex-shrink-0 px-4 py-3 border-b flex items-start gap-4"
-          style={{ background: 'rgba(30,58,138,0.15)', borderColor: 'rgba(59,130,246,0.2)' }}>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Mail className="w-3.5 h-3.5 text-blue-400" />
-              <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-blue-400">Incident Email Blast</span>
-              <span className="font-mono text-[9px] text-zinc-500">— will notify all non-banned users about this {lockdownScenario.replace('_', ' ')} event</span>
-            </div>
-            <p className="text-[11px] text-zinc-400">
-              This will send a transactional email to every active account notifying them of the current lockdown event. Emails are rate-limited per-user and delivered via Brevo.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => emailAllMutation.mutate()}
-              disabled={emailAllMutation.isPending}
-              className="px-3 py-1.5 rounded font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
-              style={{ background: '#1d4ed8', color: '#fff', border: '1px solid #3b82f6' }}>
-              {emailAllMutation.isPending ? 'SENDING...' : 'SEND EMAILS'}
-            </button>
-            <button
-              onClick={() => setShowEmailPreview(false)}
-              className="p-1.5 rounded text-zinc-500 hover:text-zinc-300 transition-colors"
-              style={{ border: '1px solid #1a1a1a' }}>
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── BODY: SIDEBAR + MAIN ── */}
       <div className="flex flex-1 overflow-hidden">

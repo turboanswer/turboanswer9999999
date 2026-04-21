@@ -243,56 +243,6 @@ interface ActivityEntry {
 const activityLog: ActivityEntry[] = [];
 const MAX_ACTIVITY_LOG = 300;
 
-let lockdownActive = false;
-let lockdownActivatedBy = '';
-let lockdownActivatedAt: Date | null = null;
-let lockdownScenario = 'system_failure';
-let lockdownReason = '';
-let lockdownRestoredAt: Date | null = null;
-
-// ── Intrusion detection (per-IP sliding window) ────────────────────────────
-// We auto-trigger a `security_breach` lockdown when a single IP shows attack
-// signatures: a flood of failed-auth (401) responses or sustained rate-limit
-// hits (429). This is the real "we got hacked" detector.
-type IpSignal = { unauthHits: number[]; rateLimitHits: number[]; notified?: boolean };
-const ipSignals = new Map<string, IpSignal>();
-const INTRUSION_WINDOW_MS = 60_000;          // 60-second sliding window
-const INTRUSION_UNAUTH_THRESHOLD = 50;       // >50 401s from one IP in 60s = brute-force
-const INTRUSION_RATELIMIT_THRESHOLD = 100;   // >100 429s from one IP in 60s = sustained abuse
-function pruneOldSignals(arr: number[], cutoff: number) {
-  while (arr.length > 0 && arr[0] < cutoff) arr.shift();
-}
-
-const SCENARIO_EMAIL_TEMPLATES: Record<string, { subject: string; body: (name: string) => string }> = {
-  system_failure: {
-    subject: 'We Sincerely Apologize for Today\'s System Incident',
-    body: (name) => `Dear ${name},\n\nWe sincerely apologize for today's incident regarding a critical system failure affecting TurboAnswer.\n\nOur engineering team has resolved the issue and all services are now fully operational. We apologize for any inconvenience this may have caused and you may now resume normal usage of TurboAnswer.\n\nThank you for your patience and continued support. If you have any questions, please contact us at support@turboanswer.it.com.`,
-  },
-  security_breach: {
-    subject: 'Important Notice Regarding Today\'s Security Incident',
-    body: (name) => `Dear ${name},\n\nWe sincerely apologize for today's incident regarding a security breach affecting TurboAnswer.\n\nThe issue has been fully resolved and all security measures have been restored. We apologize for any inconvenience and you may now resume normal usage of TurboAnswer.\n\nThank you for your understanding. Please contact us at support@turboanswer.it.com if you have any concerns.`,
-  },
-  public_safety: {
-    subject: 'Notice Regarding Today\'s Service Suspension',
-    body: (name) => `Dear ${name},\n\nWe sincerely apologize for today's temporary service suspension regarding a public safety concern.\n\nThe matter has been resolved and TurboAnswer is now fully operational. We apologize for any inconvenience and you may now resume normal usage of TurboAnswer.\n\nThank you for your patience and understanding.`,
-  },
-  malfunction: {
-    subject: 'We Sincerely Apologize for Today\'s Outage',
-    body: (name) => `Dear ${name},\n\nWe sincerely apologize for today's incident regarding a system malfunction affecting TurboAnswer services.\n\nAll services have been restored and are fully operational. We apologize for any inconvenience and you may now resume normal usage of TurboAnswer.\n\nThank you for your patience.`,
-  },
-};
-
-function autoActivateLockdown(scenario: string, reason: string) {
-  if (lockdownActive) return; // already locked — don't override
-  lockdownActive = true;
-  lockdownActivatedBy = 'AutoSystem';
-  lockdownActivatedAt = new Date();
-  lockdownScenario = scenario;
-  lockdownReason = reason;
-  lockdownRestoredAt = null;
-  console.log(`[LOCKDOWN] AUTO-ACTIVATED — scenario: ${scenario}, reason: ${reason}`);
-}
-
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
@@ -314,131 +264,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       activityLog.push(entry);
       if (activityLog.length > MAX_ACTIVITY_LOG) activityLog.shift();
-
-      // ── Intrusion detection ────────────────────────────────────────────
-      // Don't track lockdown-status polling itself, and skip once already locked.
-      if (lockdownActive) return;
-      if (req.path === '/api/system/lockdown-status') return;
-      if (res.statusCode !== 401 && res.statusCode !== 429) return;
-
-      const ip = (req.headers['x-forwarded-for']?.toString().split(',')[0].trim())
-        || req.ip || req.socket?.remoteAddress || 'unknown';
-      const now = Date.now();
-      const cutoff = now - INTRUSION_WINDOW_MS;
-      let sig = ipSignals.get(ip);
-      if (!sig) { sig = { unauthHits: [], rateLimitHits: [] }; ipSignals.set(ip, sig); }
-
-      if (res.statusCode === 401) sig.unauthHits.push(now);
-      if (res.statusCode === 429) sig.rateLimitHits.push(now);
-      pruneOldSignals(sig.unauthHits, cutoff);
-      pruneOldSignals(sig.rateLimitHits, cutoff);
-
-      if (sig.unauthHits.length > INTRUSION_UNAUTH_THRESHOLD) {
-        autoActivateLockdown(
-          'security_breach',
-          `Brute-force pattern: ${sig.unauthHits.length} failed-auth attempts from ${ip} in 60s (most recent: ${req.method} ${req.path})`
-        );
-      } else if (sig.rateLimitHits.length > INTRUSION_RATELIMIT_THRESHOLD) {
-        autoActivateLockdown(
-          'security_breach',
-          `Sustained abuse: ${sig.rateLimitHits.length} rate-limit hits from ${ip} in 60s (most recent: ${req.method} ${req.path})`
-        );
-      }
-
-      // Light-touch GC — clear out IPs with no signals in the last window.
-      if (ipSignals.size > 5000) {
-        for (const [k, v] of ipSignals) {
-          if (v.unauthHits.length === 0 && v.rateLimitHits.length === 0) ipSignals.delete(k);
-        }
-      }
     });
     next();
   });
-
-  app.get('/api/system/lockdown-status', (req, res) => {
-    // Public endpoint — returns minimum needed for the lockdown screen.
-    // We expose `scenario` so the screen shows the right message, but NOT the
-    // activator/reason (those would leak admin emails or attacker details).
-    res.json({ active: lockdownActive, scenario: lockdownActive ? lockdownScenario : undefined });
-  });
-
-  // Admin/owner-only — full lockdown details (who, why, when).
-  app.get('/api/admin/lockdown/details', isAdmin, (_req, res) => {
-    res.json({
-      active: lockdownActive,
-      scenario: lockdownActive ? lockdownScenario : null,
-      activatedBy: lockdownActive ? lockdownActivatedBy : null,
-      activatedAt: lockdownActive ? lockdownActivatedAt : null,
-      reason: lockdownActive ? lockdownReason : null,
-      restoredAt: lockdownRestoredAt,
-    });
-  });
-
-  app.post('/api/admin/lockdown/activate', isAdmin, async (req: any, res) => {
-    const userId = req.user?.claims?.sub;
-    const dbUser = userId ? await storage.getUser(userId) : null;
-    if (!dbUser || dbUser.email?.toLowerCase() !== 'support@turboanswer.it.com') {
-      return res.status(403).json({ error: 'Forbidden — owner account required' });
-    }
-    lockdownActive = true;
-    lockdownActivatedBy = dbUser.email;
-    lockdownActivatedAt = new Date();
-    lockdownScenario = req.body?.scenario || 'system_failure';
-    lockdownReason = req.body?.reason || `Manually activated by ${dbUser.email}`;
-    console.log(`[LOCKDOWN] ACTIVATED by ${dbUser.email} — scenario: ${lockdownScenario}`);
-    res.json({ success: true, active: true, activatedAt: lockdownActivatedAt, scenario: lockdownScenario });
-  });
-
-  app.post('/api/admin/lockdown/deactivate', isAdmin, async (req: any, res) => {
-    const userId = req.user?.claims?.sub;
-    const dbUser = userId ? await storage.getUser(userId) : null;
-    if (!dbUser || dbUser.email?.toLowerCase() !== 'support@turboanswer.it.com') {
-      return res.status(403).json({ error: 'Forbidden — owner account required' });
-    }
-    const prevScenario = lockdownScenario;
-    lockdownActive = false;
-    lockdownActivatedBy = '';
-    lockdownActivatedAt = null;
-    lockdownReason = '';
-    lockdownRestoredAt = new Date();
-    // Reset intrusion counters so we don't immediately re-lock after restore.
-    ipSignals.clear();
-    // Auto-clear restoredAt after 60s so banner doesn't persist forever
-    setTimeout(() => { lockdownRestoredAt = null; }, 60000);
-    console.log(`[LOCKDOWN] DEACTIVATED by ${dbUser.email} — scenario was: ${prevScenario}`);
-    res.json({ success: true, active: false, restoredAt: lockdownRestoredAt, scenario: prevScenario });
-  });
-
-  // Email all users about a lockdown incident
-  app.post('/api/admin/lockdown/email-all', isAdmin, async (req: any, res) => {
-    const userId = req.user?.claims?.sub;
-    const dbUser = userId ? await storage.getUser(userId) : null;
-    if (!dbUser || dbUser.email?.toLowerCase() !== 'support@turboanswer.it.com') {
-      return res.status(403).json({ error: 'Forbidden — owner account required' });
-    }
-    const scenario = req.body?.scenario || lockdownScenario || 'system_failure';
-    const template = SCENARIO_EMAIL_TEMPLATES[scenario] || SCENARIO_EMAIL_TEMPLATES.system_failure;
-    const allUsers = await storage.getAllUsers();
-    const targets = allUsers.filter(u => u.email && !u.isBanned);
-    let sent = 0, failed = 0;
-    for (const user of targets) {
-      const name = user.firstName || user.email?.split('@')[0] || 'Valued User';
-      try {
-        await sendBrevoEmail(user.email!, name, template.subject, template.body(name));
-        sent++;
-      } catch { failed++; }
-    }
-    console.log(`[Lockdown Email] Sent ${sent}/${targets.length} incident emails for scenario: ${scenario}`);
-    res.json({ sent, failed, total: targets.length });
-  });
-
-  // Return email template preview for a scenario
-  app.get('/api/admin/lockdown/email-template', isAdmin, (req, res) => {
-    const scenario = (req.query.scenario as string) || lockdownScenario || 'system_failure';
-    const template = SCENARIO_EMAIL_TEMPLATES[scenario] || SCENARIO_EMAIL_TEMPLATES.system_failure;
-    res.json({ subject: template.subject, body: template.body('Valued User') });
-  });
-
 
   app.get("/download/turbo-answer.aab", async (req, res) => {
     const fs = await import("fs");
@@ -969,13 +797,6 @@ function downloadAAB(){
 
           let wasBanned = false;
           let wasSuspended = false;
-
-          // Auto-lockdown platform for any threat or terrorism content
-          if (modResult.type === "terrorism") {
-            autoActivateLockdown('public_safety', `Terrorism content detected from user ${userId}: "${modResult.matchedWords.join(', ')}"`);
-          } else if (modResult.type === "threat") {
-            autoActivateLockdown('public_safety', `Threat content detected from user ${userId}: "${modResult.matchedWords.join(', ')}"`);
-          }
 
           if (modResult.autoBan && (modResult.type === "sexual" || modResult.type === "terrorism" || modResult.type === "threat")) {
             const banMonths = modResult.type === "terrorism" ? undefined : 1;
@@ -5714,42 +5535,6 @@ Return ONLY valid JSON (no markdown):
   });
 
   startProactiveDiagnostics();
-
-  // Auto-lockdown on sustained AI failure (>5 minutes of confirmed downtime).
-  // Requires TWO consecutive failed checks 5 minutes apart so transient blips
-  // (cold starts, brief 503s, network hiccups) don't trip the platform.
-  // Disabled outside production to prevent dev-env quota/region issues from
-  // tripping the platform during development.
-  if (process.env.NODE_ENV === 'production') {
-    let consecutiveAiFailures = 0;
-    setInterval(async () => {
-      const report = getLatestReport();
-      if (!report || lockdownActive) return;
-
-      const aiFailing = report.results.some(r =>
-        r.status === 'fail' && r.check === 'AI Engine (Gemini)'
-      );
-
-      if (aiFailing) {
-        consecutiveAiFailures++;
-        console.log(`[LOCKDOWN] AI engine failing — strike ${consecutiveAiFailures}/2`);
-        if (consecutiveAiFailures >= 2) {
-          autoActivateLockdown(
-            'system_failure',
-            `AI Engine (Gemini) has been down for >5 minutes (${consecutiveAiFailures} consecutive failed health checks)`
-          );
-          consecutiveAiFailures = 0;
-        }
-      } else {
-        if (consecutiveAiFailures > 0) {
-          console.log(`[LOCKDOWN] AI engine recovered — resetting failure counter`);
-        }
-        consecutiveAiFailures = 0;
-      }
-    }, 5 * 60 * 1000); // check every 5 minutes
-  } else {
-    console.log('[LOCKDOWN] Auto-trigger disabled in non-production environment');
-  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // ══ WORKGROUP SYSTEM (Enterprise/Research) ══════════════════════════════

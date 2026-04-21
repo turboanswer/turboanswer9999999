@@ -1,7 +1,7 @@
 import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
@@ -41,7 +41,6 @@ import DataDeletion from "@/pages/data-deletion";
 import TermsConditions from "@/pages/terms-conditions";
 import MobileWelcome from "@/pages/mobile-welcome";
 import TrialChat from "@/pages/trial-chat";
-import LockdownScreen from "@/components/lockdown-screen";
 import { primeAudioContext } from "@/lib/audio-manager";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -133,26 +132,6 @@ function AppContent() {
     };
   }, []);
 
-  const { data: lockdownStatus } = useQuery<{ active: boolean; scenario?: string; restoredAt?: string }>({
-    queryKey: ['/api/system/lockdown-status'],
-    refetchInterval: 15000,
-    staleTime: 0,
-  });
-
-  const [showRestored, setShowRestored] = useState(false);
-  const prevLockdownRef = useRef<boolean | null>(null);
-
-  useEffect(() => {
-    if (prevLockdownRef.current === true && lockdownStatus?.active === false) {
-      setShowRestored(true);
-      const t = setTimeout(() => setShowRestored(false), 20000);
-      return () => clearTimeout(t);
-    }
-    if (lockdownStatus !== undefined) {
-      prevLockdownRef.current = lockdownStatus.active;
-    }
-  }, [lockdownStatus?.active]);
-
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#0a0a0a] relative overflow-hidden">
@@ -186,26 +165,8 @@ function AppContent() {
     );
   }
 
-  const isAdminPanel = location.startsWith('/employee');
-  const showLockdown = lockdownStatus?.active && !isAdminPanel;
-
   return (
     <>
-      {showLockdown && <LockdownScreen scenario={lockdownStatus?.scenario || 'system_failure'} />}
-      {showRestored && !isAdminPanel && (
-        <div
-          className="fixed top-0 left-0 right-0 z-[9998] flex items-center justify-center px-4 py-3"
-          style={{ background: 'linear-gradient(135deg, #052e16, #14532d)', borderBottom: '1px solid #166534' }}
-        >
-          <div className="flex items-center gap-3 text-center">
-            <span style={{ color: '#4ade80', fontSize: '1.1rem' }}>✓</span>
-            <p style={{ color: '#bbf7d0', fontSize: '0.9rem', margin: 0 }}>
-              We apologize for any inconvenience. TurboAnswer is back online — you may now continue as usual. Thank you and have a good one!
-            </p>
-            <button onClick={() => setShowRestored(false)} style={{ color: '#4ade80', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', marginLeft: '0.5rem' }}>✕</button>
-          </div>
-        </div>
-      )}
       {isAuthenticated && <NotificationPopup />}
       {isAuthenticated ? <AuthenticatedRouter /> : <UnauthenticatedRouter />}
     </>
