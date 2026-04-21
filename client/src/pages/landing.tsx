@@ -18,7 +18,7 @@ export default function LandingPage() {
   const ctaLabel = isAuthenticated ? "Go to Chat" : "Login / Sign Up";
   // Always point the QR at the public production domain — the workspace/dev URL,
   // Capacitor's capacitor://localhost, and any preview URL can't be opened from a phone camera.
-  const PRODUCTION_URL = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined) || "https://turboanswer.it.com";
+  const PRODUCTION_URL = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined) || "https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net";
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const isDevOrigin =
     !origin ||
