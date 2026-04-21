@@ -44,7 +44,6 @@ export default function TermsConditions() {
             <ul className="list-disc list-inside space-y-2 ml-4 mt-3">
               <li>AI-powered chat and question answering</li>
               <li>Image scanning and analysis (AI Scanner)</li>
-              <li>Code Studio for in-browser coding</li>
               <li>Media editing tools (Photo Editor, Video Studio)</li>
               <li>Voice command functionality</li>
               <li>Crisis support resources</li>

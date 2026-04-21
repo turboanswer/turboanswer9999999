@@ -358,7 +358,7 @@ export default function AISettings() {
                   {[
                     { href: "/pricing", icon: CreditCard, label: "Upgrade Plan", color: "#4285F4" },
                     { href: "/support", icon: HelpCircle, label: "Get Support", color: "#34A853" },
-                    { href: "/code-studio", icon: Code2, label: "Code Studio", color: "#8b5cf6" },
+                    { href: "/video-studio", icon: Film, label: "Video Studio", color: "#8b5cf6" },
                     { href: "/beta", icon: FlaskConical, label: "Beta Program", color: "#EA4335" },
                   ].map(({ href, icon: Icon, label, color }) => (
                     <Link key={href} href={href}>
@@ -602,32 +602,6 @@ export default function AISettings() {
                     </button>
                   </Link>
                 </div>
-              </div>
-
-              {/* Code Studio add-on */}
-              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Code Studio Add-on</div>
-                {user?.codeStudioAddon ? (
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", marginBottom: 12 }}>
-                      <Code2 size={18} style={{ color: "#34d399" }} />
-                      <span style={{ fontSize: 14, color: "#34d399", fontWeight: 600 }}>Active · $15/month</span>
-                    </div>
-                    <p style={{ fontSize: 13, color: C.muted, marginBottom: 12 }}>Cancel to stop future billing. Access remains until the billing period ends.</p>
-                    <button onClick={() => cancelAddonMutation.mutate()} disabled={cancelAddonMutation.isPending} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: 10, color: "#fb923c", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                      <XCircle size={15} /> {cancelAddonMutation.isPending ? "Cancelling…" : "Cancel Code Studio"}
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <p style={{ fontSize: 13, color: C.muted, marginBottom: 12 }}>Add the full AI-powered IDE to any plan. 7-day free trial, then $15/month.</p>
-                    <Link href="/code-studio">
-                      <button style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: "rgba(52,168,83,0.1)", border: "1px solid rgba(52,168,83,0.3)", borderRadius: 10, color: "#34A853", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-                        <Code2 size={15} /> Try Code Studio Free →
-                      </button>
-                    </Link>
-                  </div>
-                )}
               </div>
 
               {/* Enterprise code */}

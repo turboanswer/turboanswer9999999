@@ -785,7 +785,7 @@ export default function MobileChatUI({
               <p className="text-xs mt-1 text-zinc-500">after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "💻 Code Studio — build apps with one prompt", "Everything in Pro + Free included"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI Deep Research — 20+ sources per question", "🎬 AI Video Studio (Google Veo 3.1)", "🖼️ Unlimited AI image generation", "📄 Unlimited document & PDF analysis", "⚡ Always-on maximum reasoning depth", "🔗 Live citations & confidence scores", "💾 Export answers to PDF / Word / Markdown", "Everything in Pro + Free included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? "font-semibold text-green-400" : "text-zinc-200"}`}>{text}</span>

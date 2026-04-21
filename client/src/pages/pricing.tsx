@@ -55,11 +55,21 @@ const plans: PricingPlan[] = [
     period: 'per month',
     description: 'Matrix AI Research · Cited & verified · Video Studio',
     features: [
-      '💻 Code Studio — AI builds full apps from a prompt',
+      '🧠 Matrix AI Deep Research — 20+ sources cross-checked per question',
       '🎬 AI Video Studio (Google Veo 3.1)',
-      'Always-on maximum depth on every question',
+      '🖼️ Unlimited AI image generation',
+      'Always-on maximum reasoning depth',
+      'Unlimited questions · no daily cap',
+      'Live citations & confidence scores on every answer',
+      'Unlimited document & PDF analysis',
+      '1M-token long-context memory',
+      'Advanced math, science & legal reasoning',
+      'Collab AI Rooms — real-time multiplayer',
+      'Export answers to PDF, Word & Markdown',
+      'Priority queue · fastest response times',
+      'Early access to new Matrix AI features',
       'All Pro features included',
-      'Priority support'
+      'Priority email support'
     ],
     apiPlan: 'research'
   },
@@ -70,11 +80,11 @@ const plans: PricingPlan[] = [
     period: 'per month',
     description: 'Matrix AI Research for up to 5 team members — save 44%',
     features: [
-      '💻 Code Studio — AI builds full apps from a prompt',
+      '👥 Up to 5 team members on one plan',
       '🎬 AI Video Studio (Google Veo 3.1)',
+      '🔐 Shareable 6-digit team code',
       'All Research features included',
-      'Shareable 6-digit team code',
-      'Up to 5 team members',
+      'Priority onboarding & support',
       'Save 44% vs 5 individual Research plans'
     ],
     apiPlan: 'enterprise'
@@ -450,51 +460,6 @@ export default function Pricing() {
             )}
           </div>
         ))}
-      </div>
-
-      <div style={{ maxWidth: '700px', margin: '50px auto 0', padding: '0 20px' }}>
-        <div style={{
-          background: 'linear-gradient(135deg, #0d1b0d, #0a1520)',
-          borderRadius: '20px',
-          padding: '36px 40px',
-          border: '1px solid rgba(52, 168, 83, 0.25)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '200px', background: '#34A853', borderRadius: '50%', opacity: 0.05, transform: 'translate(50%, -50%)' }} />
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '24px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '220px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <span style={{ fontSize: '28px' }}>💻</span>
-                <span style={{ background: 'rgba(52,168,83,0.15)', color: '#34A853', border: '1px solid rgba(52,168,83,0.3)', padding: '2px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>Add-on</span>
-              </div>
-              <h3 style={{ color: '#f8fafc', fontSize: '22px', fontWeight: '800', marginBottom: '6px' }}>Code Studio</h3>
-              <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', marginBottom: '16px' }}>
-                A full AI-powered IDE you can add to any plan. Build complete apps with one prompt, run code in 10+ languages, get a live preview, and deploy to a public URL.
-              </p>
-              {['AI generates full apps from a single prompt', 'Monaco editor — VS Code engine', 'Live preview for HTML/CSS/JS', 'Run Python, JS, Java, Go, Rust & more', 'Deploy projects to a public URL', 'Matrix AI code assistance'].map(f => (
-                <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ color: '#34A853', fontSize: '14px' }}>✓</span>
-                  <span style={{ color: '#cbd5e1', fontSize: '14px' }}>{f}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ textAlign: 'center', minWidth: '160px' }}>
-              <div style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '4px' }}>Available for any plan</div>
-              <div style={{ color: '#f8fafc', fontSize: '36px', fontWeight: '900', lineHeight: 1 }}>$10</div>
-              <div style={{ color: '#64748b', fontSize: '14px', marginBottom: '16px' }}>/month</div>
-              <a href="/code-studio" style={{
-                display: 'block', padding: '12px 24px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white', borderRadius: '10px', fontSize: '15px',
-                fontWeight: '700', textDecoration: 'none', marginBottom: '8px',
-              }}>
-                Add Code Studio →
-              </a>
-              <div style={{ color: '#64748b', fontSize: '12px' }}>Cancel anytime</div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div style={{

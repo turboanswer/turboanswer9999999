@@ -31,7 +31,6 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-6">
             <Link href="/pricing"><span className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer">Pricing</span></Link>
             <Link href="/chat"><span className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer">Features</span></Link>
-            <Link href="/code-studio"><span className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer">Code Studio</span></Link>
             <Link href="/support"><span className="text-sm text-gray-400 hover:text-white transition-colors cursor-pointer">Support</span></Link>
           </div>
         </div>
@@ -104,9 +103,9 @@ export default function Home() {
                 Go to Chat <ArrowRight size={18} />
               </button>
             </Link>
-            <Link href="/code-studio">
+            <Link href="/video-studio">
               <button className="flex items-center gap-2 px-8 py-4 rounded-xl text-base font-bold border border-white/15 text-white hover:bg-white/5 transition-all">
-                <Code2 size={18} /> Open Code Studio
+                <Film size={18} /> Open Video Studio
               </button>
             </Link>
           </div>
@@ -150,15 +149,6 @@ export default function Home() {
               gradient: "linear-gradient(135deg, #1a1a2e, #16213e)",
               iconBg: "rgba(59,130,246,0.12)",
               iconColor: "#60a5fa",
-            },
-            {
-              icon: <Code2 className="w-8 h-8" />,
-              title: "Code Studio",
-              desc: "Build full web apps from one sentence. Matrix AI handles architecture, code, and review end-to-end.",
-              href: "/code-studio",
-              gradient: "linear-gradient(135deg, #1a1a2e, #1e1a3e)",
-              iconBg: "rgba(139,92,246,0.12)",
-              iconColor: "#a78bfa",
             },
             {
               icon: <Film className="w-8 h-8" />,
@@ -260,7 +250,7 @@ export default function Home() {
                 </div>
                 <h2 className="text-3xl md:text-4xl font-black text-white mb-3 tracking-tight">The Ultimate AI Team Stack</h2>
                 <p className="text-gray-400 mb-6 max-w-lg">
-                  5 team members. Matrix AI Research. Code Studio FREE. Video Studio. Everything you need — one subscription.
+                  5 team members. Matrix AI Research. Video Studio. Deep research reports. Everything your team needs — one subscription.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link href="/pricing">
@@ -280,7 +270,7 @@ export default function Home() {
                 <div className="text-sm text-gray-500 mb-3">/month</div>
                 <div className="text-xs text-gray-400 space-y-1">
                   <div style={{ color: "#6ee7b7" }}>5 team members</div>
-                  <div style={{ color: "#FBBC05" }}>Code Studio FREE</div>
+                  <div style={{ color: "#FBBC05" }}>Deep Research</div>
                   <div style={{ color: "#FBBC05" }}>Save 44%</div>
                 </div>
               </div>

@@ -20,7 +20,6 @@ export default function LandingPage() {
 
   const features = [
     { icon: <Brain className="h-7 w-7" />, title: "Matrix AI Chat", desc: "A new era of intelligence — answers cited, verified, and graded by confidence in real time.", color: "#3b82f6", badge: "Research+" },
-    { icon: <Code2 className="h-7 w-7" />, title: "Code Studio", desc: "Build full web apps from one sentence. Matrix AI handles architecture, code, and review end-to-end.", color: "#8b5cf6", badge: "Research+" },
     { icon: <Film className="h-7 w-7" />, title: "AI Video Studio", desc: "Cinematic videos generated from a single line of text.", color: "#a855f7", badge: "Research+" },
     { icon: <FileText className="h-7 w-7" />, title: "Document Analysis", desc: "Upload any document and get instant summaries, key insights, and detailed answers.", color: "#10b981", badge: "Free" },
     { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Generate art and designs from a single prompt.", color: "#ec4899", badge: "Pro+" },
@@ -484,7 +483,7 @@ export default function LandingPage() {
                 ))}
               </ul>
               <div className="space-y-2 mb-7">
-                {["Live web search", "Verified answers", "AI image generation", "Code Studio", "AI Video Studio"].map((item, i) => (
+                {["Live web search", "Verified answers", "AI image generation", "AI Video Studio"].map((item, i) => (
                   <div key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-600" : "text-gray-400"}`}>
                     <X size={14} className="flex-shrink-0 opacity-50" /> {item}
                   </div>
@@ -520,17 +519,17 @@ export default function LandingPage() {
                   </div>
                   <ul className="space-y-3 mb-7">
                     <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(59,130,246,0.08)" : "rgba(59,130,246,0.04)", border: `1px solid ${D ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.1)"}` }}>
-                      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5"><Code2 className="h-3 w-3 text-white" /></div>
+                      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5"><Microscope className="h-3 w-3 text-white" /></div>
                       <div>
-                        <span className={`text-sm font-bold ${D ? "text-blue-300" : "text-blue-700"}`}>Code Studio</span>
-                        <div className={`text-xs mt-0.5 ${D ? "text-blue-400/70" : "text-blue-500"}`}>Build full apps with one prompt · Powered by Matrix AI</div>
+                        <span className={`text-sm font-bold ${D ? "text-blue-300" : "text-blue-700"}`}>Matrix AI Deep Research</span>
+                        <div className={`text-xs mt-0.5 ${D ? "text-blue-400/70" : "text-blue-500"}`}>20+ sources cross-checked per question · Full research reports in seconds</div>
                       </div>
                     </li>
                     <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.04)", border: `1px solid ${D ? "rgba(139,92,246,0.15)" : "rgba(139,92,246,0.1)"}` }}>
                       <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: "linear-gradient(135deg, #8b5cf6, #6366f1)" }}><Film className="h-3 w-3 text-white" /></div>
                       <div>
                         <span className={`text-sm font-bold ${D ? "text-violet-300" : "text-violet-700"}`}>AI Video Studio</span>
-                        <div className={`text-xs mt-0.5 ${D ? "text-violet-400/70" : "text-violet-500"}`}>Generate AI videos with Google Veo</div>
+                        <div className={`text-xs mt-0.5 ${D ? "text-violet-400/70" : "text-violet-500"}`}>Cinematic AI videos with Google Veo 3.1</div>
                       </div>
                     </li>
                     <li className="flex items-start gap-2.5 rounded-xl p-2.5 -mx-1" style={{ background: D ? "rgba(20,184,166,0.08)" : "rgba(20,184,166,0.04)", border: `1px solid ${D ? "rgba(20,184,166,0.15)" : "rgba(20,184,166,0.1)"}` }}>
@@ -540,7 +539,22 @@ export default function LandingPage() {
                         <div className={`text-xs mt-0.5 ${D ? "text-teal-400/70" : "text-teal-500"}`}>Confidence scores on every claim</div>
                       </div>
                     </li>
-                    {["Everything in Pro", "Matrix AI Research engine", "Live citations & confidence scores", "Collab AI Rooms", "Advanced reasoning & math", "Workgroups & team collaboration", "Priority queue access"].map((item, i) => (
+                    {[
+                      "Everything in Pro included",
+                      "Unlimited questions · no daily cap",
+                      "Always-on maximum reasoning depth",
+                      "Live citations & source links on every answer",
+                      "Unlimited document & PDF analysis",
+                      "1M-token long-context memory",
+                      "Advanced math, science & legal reasoning",
+                      "AI image generation (unlimited)",
+                      "Collab AI Rooms · real-time multiplayer",
+                      "Workgroups & team collaboration",
+                      "Export answers to PDF, Word & Markdown",
+                      "Priority queue · fastest response times",
+                      "Early access to new Matrix AI features",
+                      "Priority email support",
+                    ].map((item, i) => (
                       <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                         <Check size={14} className="text-indigo-500 flex-shrink-0" /> {item}
                       </li>
