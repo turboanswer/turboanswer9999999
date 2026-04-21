@@ -79,14 +79,14 @@ export default function Enterprise() {
         <div className="max-w-5xl mx-auto relative">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-6" style={{ background: accentGlow, color: accent, border: `1px solid ${accent}40` }}>
             <Building2 className="w-3.5 h-3.5" />
-            TurboAnswer Enterprise
+            For Business — TurboAnswer Enterprise
           </div>
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.05]">
-            Your team shouldn't<br />
-            <span style={{ background: `linear-gradient(135deg, ${accent}, #34d399)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>wait for answers.</span>
+            AI built for<br />
+            <span style={{ background: `linear-gradient(135deg, ${accent}, #34d399)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>busy businesses.</span>
           </h1>
           <p className="text-xl md:text-2xl mb-10 max-w-3xl leading-relaxed" style={{ color: muted }}>
-            TurboAnswer Enterprise gives your entire company instant, verified AI — deployed in under 10 minutes, no IT project required. One flat price. Unlimited seats. Zero setup headaches.
+            Give your whole company instant, verified AI answers — without the 6-month rollout, the $60-per-seat pricing, or the IT project. Whether you're a 5-person team or a 5,000-person company, TurboAnswer Enterprise deploys in under 10 minutes and just works.
           </p>
           <div className="flex flex-wrap gap-4 items-center">
             <Link href={ctaHref}>
