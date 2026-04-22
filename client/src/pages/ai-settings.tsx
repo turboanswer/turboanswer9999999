@@ -689,9 +689,6 @@ export default function AISettings() {
                 <SettingRow label="Weekly digest" desc="Get a weekly summary of your AI usage">
                   <Toggle value={weeklyDigest} onChange={v => { setWeeklyDigest(v); weeklyDigestMutation.mutate(v); }} color={accentColor} />
                 </SettingRow>
-                <SettingRow label="Product updates" desc="Learn about new features and improvements">
-                  <Toggle value={updateNotifs} onChange={setUpdateNotifs} color={accentColor} />
-                </SettingRow>
               </div>
 
               <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
