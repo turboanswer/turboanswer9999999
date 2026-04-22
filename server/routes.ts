@@ -3047,7 +3047,7 @@ function downloadAAB(){
   });
 
 
-  // ── Veo Video Generation ─────────────────────────────────────────────────
+  // ── Luma Dream Machine Video Generation ──────────────────────────────────
   app.post('/api/video/generate', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
@@ -3062,8 +3062,8 @@ function downloadAAB(){
         return res.status(400).json({ error: 'A descriptive prompt is required.' });
       }
 
-      const { startVeoGeneration } = await import('./services/veo-video-generation');
-      const result = await startVeoGeneration({
+      const { startLumaGeneration } = await import('./services/luma-video-generation');
+      const result = await startLumaGeneration({
         prompt: prompt.trim(),
         aspectRatio: ['16:9', '9:16'].includes(aspectRatio) ? aspectRatio : '16:9',
         durationSeconds: [5, 8].includes(durationSeconds) ? durationSeconds : 5,
@@ -3079,8 +3079,8 @@ function downloadAAB(){
 
   app.get('/api/video/status/:jobId', isAuthenticated, async (req: any, res) => {
     try {
-      const { pollVeoStatus } = await import('./services/veo-video-generation');
-      const result = await pollVeoStatus(req.params.jobId);
+      const { pollLumaStatus } = await import('./services/luma-video-generation');
+      const result = await pollLumaStatus(req.params.jobId);
       res.json(result);
     } catch (e: any) {
       res.status(500).json({ status: 'failed', error: e.message });
@@ -3090,7 +3090,7 @@ function downloadAAB(){
   // Stream a completed video file by its file ID
   app.get('/api/video/file/:fileId', isAuthenticated, async (req: any, res) => {
     try {
-      const { videoFiles } = await import('./services/veo-video-generation');
+      const { videoFiles } = await import('./services/luma-video-generation');
       const file = videoFiles.get(req.params.fileId);
       if (!file) return res.status(404).json({ error: 'Video not found or expired' });
       res.setHeader('Content-Type', 'video/mp4');

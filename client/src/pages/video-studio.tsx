@@ -123,7 +123,7 @@ export default function VideoStudio() {
         };
         setCurrentVideo(item);
         setHistory(prev => [item, ...prev.slice(0, 9)]);
-        toast({ title: "Video ready!", description: `Generated with ${data.model || 'Veo'}` });
+        toast({ title: "Video ready!", description: `Generated with ${data.model || 'Luma'}` });
       } else if (data.status === 'failed') {
         stopTimer();
         setIsGenerating(false);
@@ -249,7 +249,7 @@ export default function VideoStudio() {
             </div>
             <span className="font-bold text-sm">Video Studio</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${isDark ? 'bg-violet-500/20 text-violet-400' : 'bg-violet-100 text-violet-700'}`}>
-              Veo 3.1 + Audio
+              Luma Dream Machine
             </span>
           </div>
         </div>
@@ -274,12 +274,12 @@ export default function VideoStudio() {
               <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Research Plan</span> Feature
             </h2>
             <p className={`text-sm mb-8 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              AI video generation with Google Veo is exclusive to Research and Enterprise subscribers. Upgrade to unlock the Video Studio and generate stunning AI videos from text prompts.
+              AI video generation with Luma Dream Machine is exclusive to Research and Enterprise subscribers. Upgrade to unlock the Video Studio and generate stunning AI videos from text prompts.
             </p>
 
             <div className="space-y-3 mb-8 text-left">
               {[
-                "Generate videos up to 8 seconds with Google Veo",
+                "Generate videos up to 9 seconds with Luma Dream Machine",
                 "Landscape (16:9) & portrait (9:16) aspect ratios",
                 "Style presets: cinematic, nature, sci-fi, fantasy & more",
                 "Download generated videos as MP4",
@@ -408,13 +408,13 @@ export default function VideoStudio() {
             </div>
           </div>
 
-          {/* Audio info banner */}
-          <div className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${isDark ? 'bg-green-500/10 border-green-500/30' : 'bg-green-50 border-green-300'}`}>
-            <Volume2 className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
+          {/* Info banner */}
+          <div className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${isDark ? 'bg-violet-500/10 border-violet-500/30' : 'bg-violet-50 border-violet-300'}`}>
+            <Sparkles className="h-4 w-4 text-violet-400 mt-0.5 shrink-0" />
             <div>
-              <div className={`text-xs font-semibold ${isDark ? 'text-green-300' : 'text-green-700'}`}>Audio always included with Veo 3.1</div>
+              <div className={`text-xs font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>Powered by Luma Dream Machine</div>
               <div className={`text-[10px] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                Describe sounds in your prompt — e.g. "with upbeat music", "waves crashing", "city ambience"
+                Cinematic AI video. Be vivid in your prompt — describe motion, lighting, mood, and camera angle.
               </div>
             </div>
           </div>
@@ -443,7 +443,7 @@ export default function VideoStudio() {
             <div className={`rounded-xl p-3 border text-xs ${isDark ? 'bg-violet-500/10 border-violet-500/20 text-violet-300' : 'bg-violet-50 border-violet-200 text-violet-700'}`}>
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
-                <span className="font-semibold">{pollModel || 'Veo'} is generating your video…</span>
+                <span className="font-semibold">{pollModel || 'Luma'} is generating your video…</span>
               </div>
               <p className="opacity-70">Video generation takes 30–120 seconds. You can wait here or come back.</p>
             </div>
