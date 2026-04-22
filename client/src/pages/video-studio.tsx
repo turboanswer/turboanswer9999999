@@ -97,7 +97,15 @@ export default function VideoStudio() {
   const pollStatus = async (id: string) => {
     try {
       const resp = await fetch(`/api/video/status/${id}`, { credentials: 'include' });
-      const data = await resp.json();
+      const text = await resp.text();
+      let data: any = {};
+      if (text) {
+        try { data = JSON.parse(text); } catch {
+          // Server returned non-JSON (likely transient gateway error) — retry shortly
+          pollTimerRef.current = setTimeout(() => pollStatus(id), 6000);
+          return;
+        }
+      }
 
       if (data.status === 'completed' && data.videoFileId) {
         stopTimer();
@@ -144,12 +152,44 @@ export default function VideoStudio() {
         credentials: 'include',
         body: JSON.stringify({ prompt: prompt.trim(), aspectRatio, durationSeconds: duration }),
       });
-      const data = await resp.json();
+
+      const text = await resp.text();
+      let data: any = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          stopTimer();
+          setIsGenerating(false);
+          const snippet = text.slice(0, 140).replace(/<[^>]+>/g, '').trim();
+          toast({
+            title: `Server error (${resp.status})`,
+            description: snippet || `The server returned an unexpected response. Please try again in a moment.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
 
       if (!resp.ok) {
         stopTimer();
         setIsGenerating(false);
-        toast({ title: "Error", description: data.error || "Failed to start generation", variant: "destructive" });
+        toast({
+          title: "Error",
+          description: data.error || data.message || `Request failed (${resp.status}). Please try again.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!data.jobId) {
+        stopTimer();
+        setIsGenerating(false);
+        toast({
+          title: "Error",
+          description: "Server did not return a job ID. Please try again.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -159,7 +199,7 @@ export default function VideoStudio() {
     } catch (e: any) {
       stopTimer();
       setIsGenerating(false);
-      toast({ title: "Error", description: e.message || "Network error", variant: "destructive" });
+      toast({ title: "Error", description: e.message || "Network error — please check your connection and try again.", variant: "destructive" });
     }
   };
 
