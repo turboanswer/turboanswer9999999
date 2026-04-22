@@ -1,8 +1,11 @@
-// Luma Dream Machine video generation
-// Docs: https://docs.lumalabs.ai/docs/api
+// Video generation via Replicate (using Luma Ray-2 model)
+// Docs: https://replicate.com/luma/ray
+// Replicate gives us one API key for many video models — currently using Luma Ray-2.
 
-const LUMA_BASE = 'https://api.lumalabs.ai/dream-machine/v1';
-const LUMA_MODEL = 'ray-2';
+const REPLICATE_BASE = 'https://api.replicate.com/v1';
+const MODEL_OWNER = 'luma';
+const MODEL_NAME = 'ray';
+const MODEL_LABEL = 'Luma Ray-2';
 
 export interface LumaJobResult {
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -13,7 +16,7 @@ export interface LumaJobResult {
   error?: string;
 }
 
-const jobs = new Map<string, { generationId: string; createdAt: number }>();
+const jobs = new Map<string, { predictionId: string; createdAt: number }>();
 export const videoFiles = new Map<string, { buffer: Buffer; model: string; createdAt: number }>();
 
 function cleanOldVideoFiles() {
@@ -39,114 +42,113 @@ export async function startLumaGeneration(params: {
   aspectRatio: '16:9' | '9:16';
   durationSeconds: 5 | 8;
 }): Promise<{ jobId: string; model: string }> {
-  const apiKey = process.env.LUMA_API_KEY;
-  if (!apiKey) throw new Error('LUMA_API_KEY not configured');
+  const apiKey = process.env.REPLICATE_API_TOKEN;
+  if (!apiKey) throw new Error('REPLICATE_API_TOKEN not configured');
 
-  // Luma supports "5s" and "9s" durations
-  const duration = params.durationSeconds <= 5 ? '5s' : '9s';
-
-  const body = {
+  // Replicate's Luma Ray model accepts these inputs
+  const input = {
     prompt: params.prompt,
     aspect_ratio: params.aspectRatio,
-    model: LUMA_MODEL,
-    resolution: '720p',
-    duration,
+    duration: params.durationSeconds <= 5 ? 5 : 9,
     loop: false,
   };
 
-  const resp = await fetch(`${LUMA_BASE}/generations`, {
+  const resp = await fetch(`${REPLICATE_BASE}/models/${MODEL_OWNER}/${MODEL_NAME}/predictions`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      Accept: 'application/json',
+      Prefer: 'respond-async',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ input }),
     signal: AbortSignal.timeout(30000),
   });
 
   if (!resp.ok) {
     const text = await resp.text();
-    console.warn(`[Luma] start failed (${resp.status}):`, text.slice(0, 300));
-    throw new Error(`Luma API error (${resp.status}): ${text.slice(0, 200)}`);
+    console.warn(`[Replicate] start failed (${resp.status}):`, text.slice(0, 300));
+    throw new Error(`Replicate API error (${resp.status}): ${text.slice(0, 200)}`);
   }
 
   const data: any = await resp.json();
-  const generationId: string | undefined = data.id;
-  if (!generationId) throw new Error('Luma: no generation id in response');
+  const predictionId: string | undefined = data.id;
+  if (!predictionId) throw new Error('Replicate: no prediction id in response');
 
   const jobId = makeJobId();
-  jobs.set(jobId, { generationId, createdAt: Date.now() });
+  jobs.set(jobId, { predictionId, createdAt: Date.now() });
   cleanOldJobs();
-  console.log(`[Luma] Started job ${jobId} (generation ${generationId})`);
-  return { jobId, model: `Luma ${LUMA_MODEL}` };
+  console.log(`[Replicate] Started job ${jobId} (prediction ${predictionId})`);
+  return { jobId, model: MODEL_LABEL };
 }
 
 export async function pollLumaStatus(jobId: string): Promise<LumaJobResult> {
-  const apiKey = process.env.LUMA_API_KEY;
-  if (!apiKey) return { status: 'failed', error: 'LUMA_API_KEY not configured' };
+  const apiKey = process.env.REPLICATE_API_TOKEN;
+  if (!apiKey) return { status: 'failed', error: 'REPLICATE_API_TOKEN not configured' };
 
   const job = jobs.get(jobId);
   if (!job) return { status: 'failed', error: 'Job not found or expired' };
 
   try {
-    const resp = await fetch(`${LUMA_BASE}/generations/${job.generationId}`, {
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+    const resp = await fetch(`${REPLICATE_BASE}/predictions/${job.predictionId}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(15000),
     });
 
     if (!resp.ok) {
       const text = await resp.text();
-      return { status: 'failed', error: `Poll error: ${text.slice(0, 200)}`, model: `Luma ${LUMA_MODEL}` };
+      return { status: 'failed', error: `Poll error: ${text.slice(0, 200)}`, model: MODEL_LABEL };
     }
 
     const data: any = await resp.json();
-    const state: string = data.state;
+    const state: string = data.status; // starting | processing | succeeded | failed | canceled
 
-    if (state === 'failed') {
+    if (state === 'failed' || state === 'canceled') {
       jobs.delete(jobId);
       return {
         status: 'failed',
-        error: data.failure_reason || 'Generation failed',
-        model: `Luma ${LUMA_MODEL}`,
+        error: data.error || 'Generation failed',
+        model: MODEL_LABEL,
       };
     }
 
-    if (state !== 'completed') {
-      // queued | dreaming | processing
-      return { status: 'processing', model: `Luma ${LUMA_MODEL}` };
+    if (state !== 'succeeded') {
+      return { status: 'processing', model: MODEL_LABEL };
     }
 
-    const videoUrl: string | undefined = data.assets?.video;
+    // output is either a URL string or an array of URLs
+    let videoUrl: string | undefined;
+    if (typeof data.output === 'string') videoUrl = data.output;
+    else if (Array.isArray(data.output) && data.output.length > 0) videoUrl = data.output[0];
+
     if (!videoUrl) {
       jobs.delete(jobId);
-      return { status: 'failed', error: 'No video URL in response', model: `Luma ${LUMA_MODEL}` };
+      return { status: 'failed', error: 'No video URL in response', model: MODEL_LABEL };
     }
 
-    console.log('[Luma] Fetching video bytes from CDN...');
+    console.log('[Replicate] Fetching video bytes from CDN...');
     const videoResp = await fetch(videoUrl, { signal: AbortSignal.timeout(60000) });
     if (!videoResp.ok) {
       jobs.delete(jobId);
       return {
         status: 'failed',
         error: `Failed to fetch video bytes: ${videoResp.status}`,
-        model: `Luma ${LUMA_MODEL}`,
+        model: MODEL_LABEL,
       };
     }
     const buffer = Buffer.from(await videoResp.arrayBuffer());
 
     const videoFileId = makeJobId();
-    videoFiles.set(videoFileId, { buffer, model: `Luma ${LUMA_MODEL}`, createdAt: Date.now() });
+    videoFiles.set(videoFileId, { buffer, model: MODEL_LABEL, createdAt: Date.now() });
     cleanOldVideoFiles();
 
     jobs.delete(jobId);
     return {
       status: 'completed',
       videoFileId,
-      model: `Luma ${LUMA_MODEL}`,
+      model: MODEL_LABEL,
       hasAudio: false,
     };
   } catch (e: any) {
-    return { status: 'failed', error: e.message, model: `Luma ${LUMA_MODEL}` };
+    return { status: 'failed', error: e.message, model: MODEL_LABEL };
   }
 }
