@@ -262,58 +262,33 @@ export default function VideoStudio() {
         </div>
       )}
 
-      {/* Upgrade gate — shown for non-Research/Enterprise users */}
-      {!subLoading && !isResearch && (
+      {/* Coming Soon — full studio is built but disabled while we finalize billing setup */}
+      {!subLoading && (
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-          <div className={`rounded-3xl border-2 p-10 ${isDark ? 'border-indigo-500/30 bg-gradient-to-b from-indigo-950/40 to-slate-950/60' : 'border-indigo-300 bg-gradient-to-b from-indigo-50 to-white shadow-2xl shadow-indigo-100'}`}>
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/30">
-              <Lock className="h-8 w-8 text-white" />
+          <div className={`rounded-3xl border-2 p-10 ${isDark ? 'border-violet-500/30 bg-gradient-to-b from-violet-950/40 to-slate-950/60' : 'border-violet-300 bg-gradient-to-b from-violet-50 to-white shadow-2xl shadow-violet-100'}`}>
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-pink-600 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-violet-500/30">
+              <Film className="h-8 w-8 text-white" />
             </div>
             <h2 className={`text-2xl font-black mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Video Studio is a<br />
-              <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">Research Plan</span> Feature
+              Video Generation<br />
+              <span className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">Coming Soon</span>
             </h2>
             <p className={`text-sm mb-8 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              AI video generation with Luma Dream Machine is exclusive to Research and Enterprise subscribers. Upgrade to unlock the Video Studio and generate stunning AI videos from text prompts.
+              AI video generation is launching soon as part of the Research plan. We're putting the finishing touches on it — check back shortly!
             </p>
 
-            <div className="space-y-3 mb-8 text-left">
-              {[
-                "Generate videos up to 9 seconds with Luma Dream Machine",
-                "Landscape (16:9) & portrait (9:16) aspect ratios",
-                "Style presets: cinematic, nature, sci-fi, fantasy & more",
-                "Download generated videos as MP4",
-                "Plus all Research plan features — Matrix AI on every message",
-              ].map((f, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${isDark ? 'bg-indigo-500/25' : 'bg-indigo-100'}`}>
-                    <Check className="h-3 w-3 text-indigo-400" />
-                  </div>
-                  <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{f}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              <Link href="/subscribe">
-                <Button className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 hover:from-indigo-500 hover:via-violet-500 hover:to-cyan-500 shadow-xl shadow-indigo-500/30">
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Upgrade to Research — $30/mo
-                </Button>
-              </Link>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>7-day free trial · Cancel anytime · No charge during trial</p>
-              <Link href="/chat">
-                <Button variant="ghost" size="sm" className={`w-full h-9 rounded-xl text-xs ${isDark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}>
-                  Back to Chat
-                </Button>
-              </Link>
-            </div>
+            <Link href="/chat">
+              <Button variant="outline" size="sm" className={`h-10 rounded-xl ${isDark ? 'border-white/10 text-gray-300 hover:bg-white/[0.05]' : ''}`}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Chat
+              </Button>
+            </Link>
           </div>
         </div>
       )}
 
-      {/* Main studio — only shown for Research/Enterprise users */}
-      {!subLoading && isResearch && <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6">
+      {/* Main studio — kept in code but disabled until video generation is enabled */}
+      {false && !subLoading && isResearch && <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6">
 
         {/* Left: controls */}
         <div className="space-y-4">
