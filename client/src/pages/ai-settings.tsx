@@ -677,14 +677,14 @@ export default function AISettings() {
               {sectionTitle("Notifications", "Control what TurboAnswer communicates to you")}
               <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Email Notifications</div>
-                <SettingRow label="Account emails" desc="Critical emails: welcome, password reset, account changes">
-                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: `${accentColor}18`, border: `1px solid ${accentColor}40`, color: accentColor, fontWeight: 600 }}>Always On</span>
+                <SettingRow label="Account emails" desc="Welcome, password reset, account changes (security-related)">
+                  <Toggle value={emailNotifs} onChange={setEmailNotifs} color={accentColor} />
                 </SettingRow>
-                <SettingRow label="Billing alerts" desc="Invoices, payment confirmations and billing reminders">
-                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: `${accentColor}18`, border: `1px solid ${accentColor}40`, color: accentColor, fontWeight: 600 }}>Always On</span>
+                <SettingRow label="Billing alerts" desc="Invoices, payment confirmations and billing reminders (recommended)">
+                  <Toggle value={billingNotifs} onChange={setBillingNotifs} color={accentColor} />
                 </SettingRow>
                 <SettingRow label="Subscription emails" desc="Plan activations, upgrades, cancellations">
-                  <span style={{ fontSize: 11, padding: "3px 10px", borderRadius: 10, background: `${accentColor}18`, border: `1px solid ${accentColor}40`, color: accentColor, fontWeight: 600 }}>Always On</span>
+                  <Toggle value={updateNotifs} onChange={setUpdateNotifs} color={accentColor} />
                 </SettingRow>
                 <SettingRow label="Weekly digest" desc="Get a weekly summary of your AI usage">
                   <Toggle value={weeklyDigest} onChange={v => { setWeeklyDigest(v); weeklyDigestMutation.mutate(v); }} color={accentColor} />
@@ -710,7 +710,7 @@ export default function AISettings() {
               <div style={{ background: "rgba(66,133,244,0.04)", border: "1px solid rgba(66,133,244,0.12)", borderRadius: 14, padding: 16 }}>
                 <div style={{ display: "flex", gap: 10 }}>
                   <Info size={16} style={{ color: "#4285F4", flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 13, color: C.muted }}>Account emails, billing alerts, and subscription notifications are mandatory and cannot be disabled — they are essential for account security and service delivery. Support: <span style={{ color: "#4285F4" }}>support@turboanswer.it.com</span></p>
+                  <p style={{ fontSize: 13, color: C.muted }}>You can turn any notification on or off. Some emails (like password resets and payment receipts) are recommended to keep on for security and billing. Support: <span style={{ color: "#4285F4" }}>support@turboanswer.it.com</span></p>
                 </div>
               </div>
             </div>
