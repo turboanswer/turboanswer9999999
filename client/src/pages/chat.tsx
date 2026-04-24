@@ -904,7 +904,7 @@ export default function Chat() {
               </SelectContent>
             </Select>
 
-            {isResearchOrAbove && selectedAIModel !== 'gemini-flash' && (
+            {isResearchOrAbove && selectedAIModel !== 'gemini-flash' && selectedAIModel !== 'gemini-pro' && (
               <button
                 onClick={() => setDeepThink(v => !v)}
                 title={deepThink ? "Deep Think ON — forces full Matrix AI reasoning + verification" : "Deep Think OFF — Matrix AI auto-decides fast vs deep"}
