@@ -161,3 +161,9 @@ id = "jY44PrSQzZWbI85EtHtPb"
 uri = "file://client/src/assets/turboanswer-logo.png"
 type = "image"
 title = "TurboAnswer Logo (main)"
+
+[[outputs]]
+id = "0d0MD73OBKVRU5SdykX60"
+uri = "file://exports/turboanswer-logos.pdf"
+type = "pdf"
+title = "TurboAnswer Logos (PDF)"
