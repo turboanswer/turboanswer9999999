@@ -46,7 +46,7 @@ title = "TurboAnswer Project (no node_modules) — 3.3MB"
 id = "v5ypULUHF6HetjJvsQajl"
 uri = "file://attached_assets/generated_images/turboanswer_thumbnail.png"
 type = "image"
-title = "Thumbnail / App Icon (1:1)"
+title = "TurboAnswer Thumbnail"
 
 [[outputs]]
 id = "mFDIM5TrwaeVm5jKyw03L"
@@ -100,7 +100,7 @@ title = "4. Sign In Screen"
 id = "l4Mn9-ZV-ANUPzFNYBg2u"
 uri = "file://client/public/turbo-logo.png"
 type = "image"
-title = "TurboAnswer Logo"
+title = "Turbo Logo (alt)"
 
 [[outputs]]
 id = "uibb_6nyv7iZQVmLSMp7u"
@@ -155,3 +155,9 @@ id = "Zmuycg6ycsmkFPxFqAqcB"
 uri = "file://attached_assets/generated_videos/turboanswer_demo.mp4"
 type = "video"
 title = "TurboAnswer Product Demo (8s)"
+
+[[outputs]]
+id = "jY44PrSQzZWbI85EtHtPb"
+uri = "file://client/src/assets/turboanswer-logo.png"
+type = "image"
+title = "TurboAnswer Logo (main)"
