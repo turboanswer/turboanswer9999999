@@ -311,6 +311,25 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "Please enter a valid email address" });
       }
 
+      const BLOCKED_EMAIL_DOMAINS = new Set([
+        "example.com", "example.org", "example.net",
+        "test.com", "test.org", "test.net",
+        "fake.com", "dummy.com", "invalid.com",
+        "mailinator.com", "guerrillamail.com", "guerrillamail.net",
+        "10minutemail.com", "10minutemail.net", "tempmail.com",
+        "tempmail.net", "temp-mail.org", "throwawaymail.com",
+        "yopmail.com", "trashmail.com", "trashmail.net",
+        "sharklasers.com", "getnada.com", "getairmail.com",
+        "maildrop.cc", "mintemail.com", "mohmal.com",
+        "moakt.com", "tempr.email", "dispostable.com",
+        "fakeinbox.com", "spam4.me", "byom.de",
+        "discard.email", "emailondeck.com", "emaildrop.io",
+      ]);
+      const emailDomain = email.toLowerCase().split("@")[1] || "";
+      if (BLOCKED_EMAIL_DOMAINS.has(emailDomain)) {
+        return res.status(400).json({ message: "Please use a real email address. Disposable and test email addresses are not allowed." });
+      }
+
       const existing = await authStorage.getUserByEmail(email.toLowerCase());
       if (existing) {
         return res.status(400).json({ message: "An account with this email already exists" });
