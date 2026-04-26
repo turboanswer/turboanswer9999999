@@ -806,33 +806,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-20 sm:py-28 px-5 relative z-10">
-        <div className="max-w-4xl mx-auto">
-          <div className="rounded-3xl p-8 sm:p-12 border" style={{ background: D ? "rgba(255,255,255,0.02)" : "#fff", borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
-            <div className="text-center mb-8">
-              <span className="inline-block text-xs font-black tracking-[0.2em] uppercase mb-3 text-purple-500">Our Story</span>
-              <h2 className={`text-3xl sm:text-4xl font-black mb-2 ${D ? "text-white" : "text-gray-900"}`}>Built Through the Hate</h2>
-              <div className="w-16 h-1 mx-auto mt-4 rounded-full" style={{ background: "linear-gradient(90deg, #6366f1, #ec4899)" }} />
-            </div>
-            <div className={`space-y-6 text-lg leading-relaxed ${D ? "text-gray-300" : "text-gray-600"}`}>
-              <p>When we first launched TurboAnswer, the response wasn't applause — it was ridicule. People laughed at the idea. They said we were wasting our time.</p>
-              <p><strong className={D ? "text-white" : "text-gray-900"}>"It'll never work."</strong> <strong className={D ? "text-white" : "text-gray-900"}>"Who's going to use this?"</strong> <strong className={D ? "text-white" : "text-gray-900"}>"Just give up."</strong> We heard it all. Every single day.</p>
-              <p>And it wasn't just the noise online. At home, things weren't always easy — our parents fought a lot during the months we were building this. There were nights loud enough that we couldn't think straight, weeks where closing the laptop felt easier than shipping one more feature. Debugging code while your house is in chaos is a kind of focus we never knew we had. But we kept showing up — for each other, and for this app.</p>
-              <p>But we didn't quit. We took every piece of criticism, every hateful comment, every hard night at home — and we turned it into fuel. Late nights turned into breakthroughs. Setbacks turned into comebacks.</p>
-              <p>We built Matrix AI — a new kind of intelligence. We added voice commands, document analysis, image generation, crisis support, enterprise-grade security, and a system fast enough to feel like a real conversation.</p>
-              <p className={`font-bold text-xl ${D ? "text-white" : "text-gray-900"}`}>The same people who doubted us? Some of them are our users now.</p>
-              <p>TurboAnswer exists because we refused to let the noise stop us. And we're just getting started.</p>
-            </div>
-            <div className="mt-10 pt-8 border-t flex items-center justify-center gap-3" style={{ borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
-              <TurboLogo size={32} animated={false} />
-              <span className={`font-bold text-lg ${D ? "text-white" : "text-gray-900"}`}>TurboAnswer</span>
-              <span className={`mx-2 ${D ? "text-gray-700" : "text-gray-300"}`}>|</span>
-              <span className="italic text-purple-500">Built through adversity. Powered by innovation.</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section className="py-16 px-5 relative z-10">
         <div className="max-w-4xl mx-auto">
           <div className="rounded-2xl border-2 p-8 md:p-12 text-center relative overflow-hidden" style={{ borderColor: D ? "rgba(124,58,237,0.3)" : "rgba(124,58,237,0.2)", background: D ? "rgba(124,58,237,0.04)" : "rgba(245,240,255,0.5)" }}>
