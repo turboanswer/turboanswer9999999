@@ -167,3 +167,9 @@ id = "0d0MD73OBKVRU5SdykX60"
 uri = "file://exports/turboanswer-logos.pdf"
 type = "pdf"
 title = "TurboAnswer Logos (PDF)"
+
+[[outputs]]
+id = "Bjs0WEj__T0_Yl9aj9ZhE"
+uri = "file://exports/health-check-demo.png"
+type = "image"
+title = "TurboAnswer Health Check — Discord Demo Image"
