@@ -529,6 +529,219 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
   return out || 'I could not generate an answer right now. Please try again.';
 }
 
+// ============= STREAMING (token-by-token) FAST PATH =============
+// Used by the SSE endpoint so the user sees the first words within ~1s instead
+// of waiting for the entire answer to be generated server-side.
+
+async function callORStream(
+  model: string,
+  prompt: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
+  onChunk: (text: string) => void,
+): Promise<string | null> {
+  const key = OR_KEY();
+  if (!key) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
+  try {
+    const messages: any[] = [];
+    if (opts.system) messages.push({ role: 'system', content: opts.system });
+    if (opts.history?.length) {
+      for (const h of opts.history) {
+        if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
+          messages.push({ role: h.role, content: h.content });
+        }
+      }
+    }
+    messages.push({ role: 'user', content: prompt });
+    const body: any = {
+      model,
+      messages,
+      max_tokens: opts.maxTokens ?? 1500,
+      temperature: opts.temperature ?? 0.3,
+      stream: true,
+    };
+    const res = await fetch(OR_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+        'HTTP-Referer': 'https://turbo-answer.replit.app',
+        'X-Title': 'TurboAnswer Reasoning Engine',
+      },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    if (!res.ok || !res.body) {
+      clearTimeout(t);
+      const txt = res.body ? '' : await res.text().catch(() => '');
+      console.warn(`[TRE-stream] ${model} HTTP ${res.status}${txt ? `: ${txt.slice(0, 200)}` : ''}`);
+      return null;
+    }
+    const reader = (res.body as any).getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let acc = '';
+    let doneFlag = false;
+    const handleLine = (raw: string) => {
+      const line = raw.trim();
+      if (!line.startsWith('data:')) return;
+      const data = line.slice(5).trim();
+      if (!data) return;
+      if (data === '[DONE]') { doneFlag = true; return; }
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed?.choices?.[0]?.delta?.content;
+        if (typeof delta === 'string' && delta.length) {
+          acc += delta;
+          onChunk(delta);
+        }
+      } catch {}
+    };
+    while (!doneFlag) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        handleLine(line);
+        if (doneFlag) break;
+      }
+    }
+    // Flush trailing buffer (last event may not end with \n)
+    if (buffer.length) handleLine(buffer);
+    clearTimeout(t);
+    return acc || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[TRE-stream] ${model} failed: ${err.message}`);
+    return null;
+  }
+}
+
+async function callGeminiStream(
+  model: string,
+  prompt: string,
+  apiKey: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
+  onChunk: (text: string) => void,
+): Promise<string | null> {
+  if (!apiKey) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
+  try {
+    const contents: any[] = [];
+    if (opts.history?.length) {
+      for (const h of opts.history) {
+        if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
+          contents.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] });
+        }
+      }
+    }
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
+    const body: any = {
+      contents,
+      generationConfig: {
+        temperature: opts.temperature ?? 0.4,
+        maxOutputTokens: opts.maxTokens ?? 1500,
+      },
+    };
+    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal }
+    );
+    if (!res.ok || !res.body) {
+      clearTimeout(t);
+      const txt = res.body ? '' : await res.text().catch(() => '');
+      console.warn(`[Gemini-stream] ${model} HTTP ${res.status}${txt ? `: ${txt.slice(0, 200)}` : ''}`);
+      return null;
+    }
+    const reader = (res.body as any).getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let acc = '';
+    const handleLine = (raw: string) => {
+      const line = raw.trim();
+      if (!line.startsWith('data:')) return;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(data);
+        const parts = parsed?.candidates?.[0]?.content?.parts;
+        const delta = Array.isArray(parts) ? parts.map((p: any) => p?.text || '').join('') : '';
+        if (delta.length) {
+          acc += delta;
+          onChunk(delta);
+        }
+      } catch {}
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        handleLine(line);
+      }
+    }
+    if (buffer.length) handleLine(buffer);
+    clearTimeout(t);
+    return acc || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[Gemini-stream] ${model} failed: ${err.message}`);
+    return null;
+  }
+}
+
+async function answerForTierStream(
+  prompt: string,
+  tier: string | undefined,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
+  onChunk: (text: string) => void,
+): Promise<string | null> {
+  const t = (tier || 'free').toLowerCase();
+  if (t === 'free' && GEMINI_FREE_KEY()) {
+    for (const m of GEMINI_FREE_MODELS) {
+      const out = await callGeminiStream(m, prompt, GEMINI_FREE_KEY(), opts, onChunk);
+      if (out) return out;
+    }
+  }
+  if (t === 'pro' && GEMINI_PRO_KEY()) {
+    for (const m of GEMINI_PRO_MODELS) {
+      const out = await callGeminiStream(m, prompt, GEMINI_PRO_KEY(), opts, onChunk);
+      if (out) return out;
+    }
+  }
+  for (const m of modelsForTier(t)) {
+    const out = await callORStream(m, prompt, opts, onChunk);
+    if (out) return out;
+  }
+  return null;
+}
+
+export async function fastAnswerStream(
+  question: string,
+  system: string | undefined,
+  tier: string | undefined,
+  history: ChatTurn[] | undefined,
+  onChunk: (text: string) => void,
+): Promise<string> {
+  const shaped = shapeForTier(tier, system);
+  const out = await answerForTierStream(
+    question,
+    tier,
+    { maxTokens: shaped.maxTokens, temperature: 0.4, system: shaped.system, timeoutMs: 45000, history },
+    onChunk,
+  );
+  return out || 'I could not generate an answer right now. Please try again.';
+}
+
 // ============= RETRIEVAL-ONLY PATH =============
 export async function retrievalAnswer(question: string, sources: Source[], system?: string, tier?: string, history?: ChatTurn[]): Promise<string> {
   const ctx = sources.length
@@ -582,15 +795,36 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
     try { decision = await routeQuestion(question, hasImage, manualDeepThink); }
     catch { decision = { mode: 'fast', needsRetrieval: false, isMath: false, reason: 'router_error' }; }
   }
+
+  // Research / Enterprise / Owner: never auto-route to the slow 5-stage deep
+  // pipeline. Reserve deep for explicit Deep Think toggle so perceived latency
+  // stays low. Auto-deep questions get downgraded to retrieval (still cited,
+  // still fast) unless the user clicked Deep Think.
+  const tLower = (tier || 'free').toLowerCase();
+  if ((tLower === 'research' || tLower === 'enterprise' || tLower === 'owner') && !manualDeepThink && decision.mode === 'deep') {
+    decision = { ...decision, mode: 'retrieval', reason: `${decision.reason}_auto_downgraded` };
+  }
+
   stage('route', `Mode: ${decision.mode === 'deep' ? 'Deep Think' : decision.mode === 'retrieval' ? 'Retrieval' : 'Fast'}`, 'done', decision.reason);
 
-  // FAST PATH
+  // FAST PATH (streamed token-by-token so first words appear in <1s)
   if (decision.mode === 'fast') {
     stage('answer', 'Generating answer', 'active');
-    const content = await fastAnswer(question, systemPrompt, tier, history);
+    let acc = '';
+    const out = await fastAnswerStream(question, systemPrompt, tier, history, (chunk) => {
+      acc += chunk;
+      onEvent({ type: 'chunk', text: chunk });
+    });
+    // Fallback: if the streaming path returned a full string but onChunk never
+    // fired (e.g. provider didn't honour stream:true), use the returned text.
+    if (!acc && out) {
+      acc = out;
+      onEvent({ type: 'chunk', text: out });
+    }
+    if (!acc) acc = 'I could not generate an answer right now. Please try again.';
     stage('answer', 'Answer ready', 'done');
-    onEvent({ type: 'done', content, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 });
-    return { content, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 };
+    onEvent({ type: 'done', content: acc, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 });
+    return { content: acc, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 };
   }
 
   // RETRIEVAL-ONLY PATH

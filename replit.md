@@ -79,3 +79,7 @@ Subscription preference: Lifetime free premium access through promo code system 
 - **Brevo**: Transactional email delivery
 - **Twilio**: SMS verification for registration
 - **Gemini Grounded Search**: Real-time web search for current events queries
+## Recent Changes (April 2026)
+- **Token streaming for fast path**: Added `fastAnswerStream` + `callORStream` + `callGeminiStream` in `server/services/reasoning-engine.ts`. The SSE endpoint now emits `chunk` events so the frontend renders the assistant's reply word-by-word (first words appear in <1s instead of waiting for the full answer).
+- **Auto-deep downgrade for Research/Enterprise**: `runReasoning` no longer auto-routes Research/Enterprise users to the slow 5-stage Deep Think pipeline. Auto-routed `deep` decisions are downgraded to `retrieval` (still cited, much faster). The full Deep Think panel only runs when the user explicitly toggles the Deep Think button.
+- **Streaming bubble UI**: `client/src/pages/chat.tsx` handles the new `chunk` SSE event, accumulates text into `streamingText`, renders a live assistant bubble with a blinking caret, and uses a `streamSessionRef` to drop stale chunks from previous streams.

@@ -361,16 +361,23 @@ export default function Chat() {
     }
   };
 
+  const [streamingText, setStreamingText] = useState("");
+  const streamSessionRef = useRef(0);
+
   const resetReasoningState = () => {
     setReasoningStages([]);
     setReasoningSources([]);
     setReasoningPanel([]);
     setReasoningMode(null);
+    setStreamingText("");
     setQuotaWarning(null);
   };
 
   const runStreamingMessage = async (content: string, convId: number): Promise<any> => {
     resetReasoningState();
+    // Bump session counter so any stale chunk events from a previous, still-
+    // unfinished stream are dropped instead of bleeding into this run.
+    const sessionId = ++streamSessionRef.current;
     const res = await fetch(`/api/conversations/${convId}/messages/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -411,6 +418,8 @@ export default function Chat() {
     };
 
     const handleEvent = (eventName: string, data: any) => {
+      // Drop events that arrived after the user kicked off a new stream.
+      if (sessionId !== streamSessionRef.current) return;
       switch (eventName) {
         case 'stage':
           if (data?.stage) upsertStage(data.stage);
@@ -420,6 +429,11 @@ export default function Chat() {
           break;
         case 'panel':
           if (data?.model) setReasoningPanel(prev => [...prev, { model: data.model, preview: data.preview || '' }]);
+          break;
+        case 'chunk':
+          if (typeof data?.text === 'string' && data.text.length) {
+            setStreamingText(prev => prev + data.text);
+          }
           break;
         case 'quota':
           if (data?.fellBackToFast) setQuotaWarning({ used: data.used, limit: data.limit, tier: data.tier });
@@ -436,6 +450,23 @@ export default function Chat() {
       }
     };
 
+    const processBlock = (block: string) => {
+      // SSE event block: one or more "event:" / "data:" lines. Multiple data:
+      // lines are joined with newline per SSE spec.
+      const lines = block.split("\n");
+      let evtName = "message";
+      const dataParts: string[] = [];
+      for (const line of lines) {
+        if (line.startsWith("event:")) evtName = line.slice(6).trim();
+        else if (line.startsWith("data:")) dataParts.push(line.slice(5).replace(/^ /, ''));
+      }
+      if (!dataParts.length) return;
+      const dataStr = dataParts.join("\n");
+      try {
+        handleEvent(evtName, JSON.parse(dataStr));
+      } catch {}
+    };
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -444,19 +475,11 @@ export default function Chat() {
       while ((blockEnd = buffer.indexOf("\n\n")) !== -1) {
         const block = buffer.slice(0, blockEnd);
         buffer = buffer.slice(blockEnd + 2);
-        const lines = block.split("\n");
-        let evtName = "message";
-        let dataStr = "";
-        for (const line of lines) {
-          if (line.startsWith("event: ")) evtName = line.slice(7).trim();
-          else if (line.startsWith("data: ")) dataStr += line.slice(6);
-        }
-        if (!dataStr) continue;
-        try {
-          handleEvent(evtName, JSON.parse(dataStr));
-        } catch {}
+        processBlock(block);
       }
     }
+    // Flush any trailing event that wasn't terminated by a blank line.
+    if (buffer.trim().length) processBlock(buffer);
 
     if (streamErr && !saved) throw new Error(streamErr);
     return saved;
@@ -1436,6 +1459,22 @@ export default function Chat() {
               )}
             </div>
           ))}
+
+          {/* Live streaming assistant bubble (token-by-token) */}
+          {isTyping && streamingText && (
+            <div className="flex items-start gap-2 sm:gap-3 mb-4 sm:mb-5" data-testid="streaming-bubble">
+              <div className="relative flex-shrink-0">
+                <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
+              </div>
+              <div className={`flex-1 max-w-2xl rounded-2xl rounded-bl-md px-4 py-3 ${isDark ? 'bg-zinc-900/80 border border-zinc-800 text-zinc-100' : 'bg-white border border-gray-200 shadow-sm text-gray-900'}`}>
+                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words leading-relaxed">
+                  {streamingText}
+                  <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Typing indicator + live reasoning panel */}
           {isTyping && reasoningStages.length > 0 && (
