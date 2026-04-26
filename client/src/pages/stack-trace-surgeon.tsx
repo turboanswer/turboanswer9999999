@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy, Lock, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 
 type Diagnosis = {
   rootCause: string;
@@ -25,6 +27,14 @@ export default function StackTraceSurgeon() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
+  const userTier = (subscriptionData?.tier || (user as any)?.tier || 'free') as string;
+  const isResearchOrAbove =
+    userTier === 'research' ||
+    userTier === 'enterprise' ||
+    (user as any)?.isEmployee === true ||
+    (user as any)?.isOwner === true;
 
   const [stackTrace, setStackTrace] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -151,12 +161,40 @@ export default function StackTraceSurgeon() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)' }}>
             <Stethoscope className="h-7 w-7 text-white" />
           </div>
+          <div className="inline-flex items-center gap-1.5 mb-2 text-[11px] px-2.5 py-1 rounded-full font-semibold border" style={{ color: '#a855f7', background: 'rgba(168,85,247,0.08)', borderColor: 'rgba(168,85,247,0.3)' }}>
+            <FlaskConical className="h-3 w-3" /> Research Tier Exclusive
+          </div>
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">Stack Trace Surgeon</h1>
           <p className="text-sm sm:text-base max-w-2xl mx-auto" style={{ color: subtext }}>
             Paste a runtime error and your GitHub repo. We pull only the files mentioned in the trace, hand them to TurboAnswer, and return the root cause + the exact fix — usually in under 10 seconds.
           </p>
         </div>
 
+        {!isResearchOrAbove ? (
+          <Card className="p-8 mb-5 text-center" style={{ background: cardBg, borderColor: border }} data-testid="paywall-card">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4" style={{ background: 'rgba(168,85,247,0.1)' }}>
+              <Lock className="h-6 w-6" style={{ color: '#a855f7' }} />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Research Tier Required</h2>
+            <p className="text-sm mb-5 max-w-md mx-auto" style={{ color: subtext }}>
+              Stack Trace Surgeon is part of TurboAnswer Research — built for engineers who debug production issues every day. Upgrade to unlock unlimited repo-aware diagnoses.
+            </p>
+            <div className="text-3xl font-bold mb-1">$30<span className="text-sm font-normal" style={{ color: subtext }}>/mo</span></div>
+            <div className="text-xs mb-5" style={{ color: subtext }}>Cancel anytime · Includes Matrix AI, Deep Think, source-cited research, and Stack Trace Surgeon</div>
+            <Link href="/pricing">
+              <Button
+                size="lg"
+                className="px-8 font-semibold"
+                style={{ background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)', color: 'white' }}
+                data-testid="button-upgrade"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Upgrade to Research
+              </Button>
+            </Link>
+          </Card>
+        ) : (
+        <>
         <Card className="p-5 sm:p-6 mb-5" style={{ background: cardBg, borderColor: border }}>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: subtext }}>
             1. Paste your error / stack trace
@@ -293,6 +331,8 @@ export default function StackTraceSurgeon() {
               </Card>
             )}
           </div>
+        )}
+        </>
         )}
 
         <div className="mt-10 pt-6 border-t text-center text-[11px]" style={{ borderColor: border, color: subtext }}>

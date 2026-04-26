@@ -475,10 +475,24 @@ function downloadAAB(){
   // Paste an error/stack trace + GitHub repo URL → we extract the file paths
   // mentioned in the trace, fetch JUST those files from the repo, and feed
   // {trace + relevant source} to the AI for a focused root-cause diagnosis.
-  // No auth required: works for public repos out of the box, optional GitHub
-  // token in the request body unlocks private repos.
-  app.post("/api/stack-trace-surgeon/diagnose", async (req: any, res) => {
+  // RESEARCH-ONLY: gated to Research / Enterprise / Owner / Employee.
+  app.post("/api/stack-trace-surgeon/diagnose", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed =
+        tier === 'research' ||
+        tier === 'enterprise' ||
+        isOwnerAccount(user) ||
+        (user as any)?.isEmployee === true;
+      if (!allowed) {
+        return res.status(403).json({
+          message: "Stack Trace Surgeon is a Research-tier feature. Upgrade to Research to unlock unlimited repo-aware debugging.",
+          code: "RESEARCH_TIER_REQUIRED",
+        });
+      }
+
       const { stackTrace, repoUrl, githubToken } = req.body || {};
       if (!stackTrace || typeof stackTrace !== 'string' || !stackTrace.trim()) {
         return res.status(400).json({ message: "Stack trace is required." });
@@ -487,30 +501,9 @@ function downloadAAB(){
         return res.status(400).json({ message: "GitHub repo URL is required (e.g. https://github.com/owner/repo)." });
       }
 
-      // Light per-IP rate limit so this doesn't get spammed (10 / hour anon).
-      const ip = req.ip || 'anon';
-      const now = Date.now();
-      const stsKey = `sts::${ip}`;
-      const rec = (trialUsage as any).get(stsKey);
-      const win = 60 * 60 * 1000;
-      const limit = 10;
-      if (req.user?.claims?.sub) {
-        // Authed users get a bigger budget.
-      } else {
-        const current = !rec || rec.resetAt < now ? { count: 0, resetAt: now + win } : rec;
-        if (current.count >= limit) {
-          return res.status(429).json({ message: "Rate limit reached. Sign in for unlimited diagnoses." });
-        }
-        current.count += 1;
-        (trialUsage as any).set(stsKey, current);
-      }
-
-      const userId = req.user?.claims?.sub;
-      const user = userId ? await storage.getUser(userId) : null;
-      const tier = (user?.subscriptionTier || 'free').toLowerCase();
-
+      const effectiveTier = isOwnerAccount(user) ? 'owner' : tier;
       const { diagnoseStackTrace } = await import('./services/stack-trace-surgeon.js');
-      const result = await diagnoseStackTrace(stackTrace, repoUrl, tier, githubToken && typeof githubToken === 'string' ? githubToken : undefined);
+      const result = await diagnoseStackTrace(stackTrace, repoUrl, effectiveTier, githubToken && typeof githubToken === 'string' ? githubToken : undefined);
       res.json(result);
     } catch (error: any) {
       console.error("[StackTraceSurgeon] Error:", error?.message || error);

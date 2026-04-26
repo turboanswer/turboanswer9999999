@@ -116,7 +116,12 @@ function UnauthenticatedRouter() {
         return null;
       }}</Route>
       <Route path="/beta" component={BetaApply} />
-      <Route path="/stack-trace-surgeon" component={StackTraceSurgeon} />
+      <Route path="/stack-trace-surgeon">{() => {
+        // Research-only feature: bounce unauthenticated visitors to login
+        // with a return path so they land back here after signing in.
+        window.location.href = '/login?redirect=/stack-trace-surgeon';
+        return null;
+      }}</Route>
       <Route component={LandingPage} />
     </Switch>
   );
