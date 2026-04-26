@@ -4,7 +4,7 @@ import {
   MessageSquare, Brain, LogOut, Code2, Sparkles, ArrowRight, X,
   Film, Camera, Scissors, HandHeart, Users, Crown, Zap, CheckCircle,
   Globe, ChevronDown, Shield, Cpu, Database, LayoutGrid, Rocket,
-  Settings, Star
+  Settings, Star, Stethoscope, GitPullRequest, FlaskConical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -149,6 +149,16 @@ export default function Home() {
               gradient: "linear-gradient(135deg, #1a1a2e, #16213e)",
               iconBg: "rgba(59,130,246,0.12)",
               iconColor: "#60a5fa",
+            },
+            {
+              icon: <Stethoscope className="w-8 h-8" />,
+              title: "Stack Trace Surgeon",
+              desc: "Paste an error + your GitHub repo. Claude Sonnet 4.5 finds the bug and opens a real PR with the fix.",
+              href: "/stack-trace-surgeon",
+              gradient: "linear-gradient(135deg, #1a0a2e, #2a0d3e)",
+              iconBg: "rgba(168,85,247,0.15)",
+              iconColor: "#c084fc",
+              badge: isResearch || isEnterprise ? "Included" : "Research",
             },
             {
               icon: <Film className="w-8 h-8" />,

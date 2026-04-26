@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, Code2, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Star, ChevronRight, Microscope, Cpu, Layers, BarChart3, Film, Swords, Users, CheckCircle } from "lucide-react";
+import { Zap, Brain, FileText, Globe, Shield, MessageSquare, Menu, X, QrCode, ImageIcon, Camera, Sparkles, ArrowRight, Check, Lock, Palette, Search, Code, Code2, BookOpen, Lightbulb, HeartPulse, Scale, TrendingUp, Wrench, Crown, Star, ChevronRight, Microscope, Cpu, Layers, BarChart3, Film, Swords, Users, CheckCircle, Stethoscope, FlaskConical, GitPullRequest, Bug, Github, Terminal } from "lucide-react";
 import { SiCloudflare } from "react-icons/si";
 import { Link } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
@@ -31,6 +31,7 @@ export default function LandingPage() {
 
   const features = [
     { icon: <Brain className="h-7 w-7" />, title: "Matrix AI Chat", desc: "A new era of intelligence — answers cited, verified, and graded by confidence in real time.", color: "#3b82f6", badge: "Research+" },
+    { icon: <Stethoscope className="h-7 w-7" />, title: "Stack Trace Surgeon", desc: "Paste an error + your GitHub repo. Claude Sonnet 4.5 finds the root cause and opens a real pull request with the fix.", color: "#a855f7", badge: "Research+" },
     { icon: <Film className="h-7 w-7" />, title: "AI Video Studio", desc: "Cinematic videos generated from a single line of text.", color: "#a855f7", badge: "Research+" },
     { icon: <FileText className="h-7 w-7" />, title: "Document Analysis", desc: "Upload any document and get instant summaries, key insights, and detailed answers.", color: "#10b981", badge: "Free" },
     { icon: <ImageIcon className="h-7 w-7" />, title: "AI Image Generation", desc: "Generate art and designs from a single prompt.", color: "#ec4899", badge: "Pro+" },
@@ -426,6 +427,102 @@ export default function LandingPage() {
                       <p className={`text-xs leading-relaxed ${D ? "text-gray-400" : "text-gray-500"}`}>{c.body}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== STACK TRACE SURGEON — Research-tier hero ===== */}
+      <section className="py-20 sm:py-28 px-5 relative z-10">
+        <div className="max-w-6xl mx-auto">
+          <div className="rounded-3xl overflow-hidden border relative" style={{ borderColor: D ? "rgba(168,85,247,0.25)" : "rgba(168,85,247,0.3)", background: D ? "linear-gradient(135deg, #150a1e, #1a0d2e)" : "linear-gradient(135deg, #faf5ff, #f3e8ff)" }}>
+            <div className="absolute top-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(168,85,247,0.6), transparent)" }} />
+            <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "radial-gradient(circle, #a855f7, transparent)" }} />
+            <div className="p-8 sm:p-12 lg:p-16 relative">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-6" style={{ background: D ? "rgba(168,85,247,0.15)" : "rgba(168,85,247,0.1)", border: `1px solid ${D ? "rgba(168,85,247,0.3)" : "rgba(168,85,247,0.25)"}`, color: D ? "#c084fc" : "#9333ea" }}>
+                    <FlaskConical className="h-3.5 w-3.5" /> Research Tier · Brand New
+                  </div>
+                  <h2 className="text-3xl sm:text-5xl font-black mb-5 leading-tight">
+                    <span style={{ color: D ? "#c084fc" : "#9333ea" }}>Stack Trace</span><br />
+                    <span className={D ? "text-white" : "text-gray-900"}>Surgeon.</span>
+                  </h2>
+                  <p className={`text-lg mb-6 leading-relaxed ${D ? "text-gray-300" : "text-gray-700"}`}>
+                    The world's first AI debugger that <span className="font-bold" style={{ color: D ? "#c084fc" : "#9333ea" }}>opens the pull request for you</span>. Paste a stack trace, drop in your GitHub repo URL, and Claude Sonnet 4.5 reads the actual files in your codebase to find the root cause — then generates the patch and ships it as a real PR ready for review.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                    {[
+                      { icon: <Bug className="h-4 w-4 text-purple-400" />, label: "Real Root Cause", desc: "Not generic advice — exact file & line" },
+                      { icon: <Github className="h-4 w-4 text-purple-400" />, label: "Reads Your Repo", desc: "Pulls only the files in your trace" },
+                      { icon: <GitPullRequest className="h-4 w-4 text-emerald-400" />, label: "Opens Real PRs", desc: "One click → branch + commit + PR on GitHub" },
+                      { icon: <Terminal className="h-4 w-4 text-purple-400" />, label: "Powered by Sonnet 4.5", desc: "Anthropic's best coding model" },
+                    ].map((f, i) => (
+                      <div key={i} className="flex items-start gap-3 rounded-xl p-3.5 border" style={{ background: D ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.7)", borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(168,85,247,0.15)" }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: D ? "rgba(168,85,247,0.15)" : "rgba(168,85,247,0.1)" }}>{f.icon}</div>
+                        <div>
+                          <div className={`text-sm font-semibold ${D ? "text-white" : "text-gray-900"}`}>{f.label}</div>
+                          <div className={`text-xs mt-0.5 ${D ? "text-gray-400" : "text-gray-500"}`}>{f.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Link href="/stack-trace-surgeon">
+                      <Button className="rounded-xl h-12 px-8 font-bold text-base text-white shadow-xl" style={{ background: "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)", boxShadow: "0 10px 30px rgba(168,85,247,0.35)" }} data-testid="button-try-surgeon">
+                        <Stethoscope className="h-4 w-4 mr-2" />
+                        Try Stack Trace Surgeon
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </Link>
+                    <Link href="/pricing">
+                      <Button variant="outline" className={`rounded-xl h-12 px-6 font-semibold text-base ${D ? "border-white/20 text-white hover:bg-white/5" : "border-gray-300 text-gray-900 hover:bg-gray-50"}`}>
+                        See Research plan
+                      </Button>
+                    </Link>
+                  </div>
+                  <p className={`text-xs mt-3 ${D ? "text-gray-500" : "text-gray-500"}`}>Research tier · $30/mo · Cancel anytime</p>
+                </div>
+
+                {/* Mock surgeon UI panel */}
+                <div className="rounded-2xl border overflow-hidden shadow-2xl" style={{ background: D ? "#0a0a14" : "#ffffff", borderColor: D ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)" }}>
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", background: D ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)" }}>
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500/70" /><span className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" /><span className="w-2.5 h-2.5 rounded-full bg-green-500/70" /></div>
+                      <span className={`text-[11px] ml-2 font-mono ${D ? "text-gray-500" : "text-gray-400"}`}>surgeon.turboanswer.it</span>
+                    </div>
+                    <div className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: "rgba(168,85,247,0.15)", color: "#c084fc" }}>
+                      <Sparkles className="h-2.5 w-2.5" /> SONNET 4.5
+                    </div>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="rounded-lg p-3 font-mono text-[11px] leading-relaxed" style={{ background: D ? "#000" : "#f8fafc", border: `1px solid ${D ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`, color: D ? "#fca5a5" : "#dc2626" }}>
+                      <div>TypeError: Cannot read properties of undefined</div>
+                      <div className={D ? "text-gray-500" : "text-gray-500"}>  at UserList (src/UserList.tsx:24:18)</div>
+                      <div className={D ? "text-gray-500" : "text-gray-500"}>  at renderWithHooks (react-dom.js:14985)</div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px]" style={{ color: D ? "#9ca3af" : "#6b7280" }}>
+                      <Github className="h-3.5 w-3.5" /> github.com/your-team/app
+                    </div>
+                    <div className="rounded-lg p-3" style={{ background: D ? "rgba(16,185,129,0.08)" : "rgba(16,185,129,0.06)", border: `1px solid ${D ? "rgba(16,185,129,0.25)" : "rgba(16,185,129,0.2)"}` }}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                        <span className={`text-xs font-bold ${D ? "text-emerald-300" : "text-emerald-700"}`}>Root cause found</span>
+                      </div>
+                      <p className={`text-[11px] leading-relaxed ${D ? "text-gray-300" : "text-gray-700"}`}>
+                        <code className="font-mono">users</code> prop is undefined on first render. Add a default value <code className="font-mono">users = []</code>.
+                      </p>
+                    </div>
+                    <div className="rounded-lg p-2.5 flex items-center justify-between" style={{ background: "linear-gradient(90deg, rgba(168,85,247,0.12), rgba(99,102,241,0.12))", border: "1px solid rgba(168,85,247,0.25)" }}>
+                      <div className="flex items-center gap-2">
+                        <GitPullRequest className="h-4 w-4" style={{ color: "#10b981" }} />
+                        <span className={`text-xs font-semibold ${D ? "text-white" : "text-gray-900"}`}>Pull request opened</span>
+                      </div>
+                      <span className="text-[10px] font-mono" style={{ color: "#10b981" }}>PR #247</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

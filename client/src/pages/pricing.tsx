@@ -53,8 +53,9 @@ const plans: PricingPlan[] = [
     name: 'Research',
     price: '$30',
     period: 'per month',
-    description: 'Matrix AI Research · Cited & verified · Video Studio',
+    description: 'Stack Trace Surgeon · Matrix AI Research · Video Studio',
     features: [
+      '🩺 Stack Trace Surgeon — AI debugger that opens real GitHub PRs (Claude Sonnet 4.5)',
       '🧠 Matrix AI Deep Research — 20+ sources cross-checked per question',
       '🎬 AI Video Studio (Google Veo 3.1)',
       '🖼️ Unlimited AI image generation',
