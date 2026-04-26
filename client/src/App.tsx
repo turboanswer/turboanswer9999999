@@ -36,6 +36,7 @@ import BetaApply from "@/pages/beta-apply";
 import BetaFeedback from "@/pages/beta-feedback";
 import Workgroups from "@/pages/workgroups";
 import CollabRooms from "@/pages/collab-rooms";
+import StackTraceSurgeon from "@/pages/stack-trace-surgeon";
 
 import NotificationPopup from "@/components/NotificationPopup";
 import DataDeletion from "@/pages/data-deletion";
@@ -76,6 +77,7 @@ function AuthenticatedRouter() {
       <Route path="/video-studio" component={VideoStudio} />
       <Route path="/workgroups" component={Workgroups} />
       <Route path="/collab" component={CollabRooms} />
+      <Route path="/stack-trace-surgeon" component={StackTraceSurgeon} />
 
       <Route path="/beta" component={BetaApply} />
       <Route path="/beta-feedback" component={BetaFeedback} />
@@ -114,6 +116,7 @@ function UnauthenticatedRouter() {
         return null;
       }}</Route>
       <Route path="/beta" component={BetaApply} />
+      <Route path="/stack-trace-surgeon" component={StackTraceSurgeon} />
       <Route component={LandingPage} />
     </Switch>
   );
