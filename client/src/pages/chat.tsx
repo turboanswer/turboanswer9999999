@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -978,6 +978,17 @@ export default function Chat() {
               <Link href="/video-studio">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Video Studio">
                   <Film className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/stack-trace-surgeon">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`h-8 w-8 p-0 rounded-full relative ${isResearchOrAbove ? (isDark ? 'text-purple-300 hover:text-purple-200 hover:bg-[#1e1f20]' : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50') : (isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100')}`}
+                  title={isResearchOrAbove ? 'Stack Trace Surgeon — diagnose errors from your repo' : 'Stack Trace Surgeon (Research tier)'}
+                  data-testid="button-stack-trace-surgeon"
+                >
+                  <Stethoscope className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/workgroups">
