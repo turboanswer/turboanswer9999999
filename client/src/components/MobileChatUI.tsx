@@ -50,6 +50,8 @@ interface Props {
   isTyping: boolean;
   handleSend: () => void;
   isSending: boolean;
+  streamingText?: string;
+  autoDowngraded?: boolean;
   user: any;
   logout: () => void;
   subscriptionData: { tier: string; status: string } | undefined;
@@ -87,7 +89,7 @@ interface Props {
 
 export default function MobileChatUI({
   messages, conversations, currentConversationId, setCurrentConversationId,
-  messageContent, setMessageContent, isTyping, handleSend, isSending,
+  messageContent, setMessageContent, isTyping, handleSend, isSending, streamingText, autoDowngraded,
   user, logout, subscriptionData, selectedAIModel, handleModelChange,
   showProPopup, setShowProPopup, showResearchPopup, setShowResearchPopup,
   showEnterprisePopup, setShowEnterprisePopup, showWelcomePro, setShowWelcomePro,
@@ -612,7 +614,23 @@ export default function MobileChatUI({
               </div>
             ))}
 
-            {isTyping && (
+            {/* Live streaming assistant bubble (token-by-token) */}
+            {isTyping && streamingText ? (
+              <div className="flex gap-3 justify-start mb-3">
+                <img src={turboLogo} alt="Turbo" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
+                <div className="max-w-[82%]">
+                  {autoDowngraded && (
+                    <div className="text-[10px] mb-1 px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold border" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.3)' }}>
+                      ⚡ Auto-routed to fast — toggle Deep Think for verified deep reasoning
+                    </div>
+                  )}
+                  <div className="leading-relaxed break-words whitespace-pre-wrap" style={{ fontSize: msgFontSize, color: TEXT_MAIN, ...getAIBubbleStyle() }}>
+                    {streamingText}
+                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ) : isTyping && (
               <div className="flex gap-3 justify-start">
                 <div className="relative flex-shrink-0 mt-0.5">
                   <img src={turboLogo} alt="Turbo" className="w-7 h-7 rounded-full object-cover" />

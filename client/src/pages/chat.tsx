@@ -362,6 +362,7 @@ export default function Chat() {
   };
 
   const [streamingText, setStreamingText] = useState("");
+  const [autoDowngraded, setAutoDowngraded] = useState(false);
   const streamSessionRef = useRef(0);
 
   const resetReasoningState = () => {
@@ -370,6 +371,7 @@ export default function Chat() {
     setReasoningPanel([]);
     setReasoningMode(null);
     setStreamingText("");
+    setAutoDowngraded(false);
     setQuotaWarning(null);
   };
 
@@ -434,6 +436,10 @@ export default function Chat() {
           if (typeof data?.text === 'string' && data.text.length) {
             setStreamingText(prev => prev + data.text);
           }
+          break;
+        case 'route':
+          if (data?.autoDowngraded) setAutoDowngraded(true);
+          if (data?.mode) setReasoningMode(data.mode);
           break;
         case 'quota':
           if (data?.fellBackToFast) setQuotaWarning({ used: data.used, limit: data.limit, tier: data.tier });
@@ -847,6 +853,8 @@ export default function Chat() {
         isTyping={isTyping}
         handleSend={handleSendWithPromo}
         isSending={sendMessageMutation.isPending}
+        streamingText={streamingText}
+        autoDowngraded={autoDowngraded}
         user={user}
         logout={logout}
         subscriptionData={subscriptionData}
@@ -1467,10 +1475,18 @@ export default function Chat() {
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
               </div>
-              <div className={`flex-1 max-w-2xl rounded-2xl rounded-bl-md px-4 py-3 ${isDark ? 'bg-zinc-900/80 border border-zinc-800 text-zinc-100' : 'bg-white border border-gray-200 shadow-sm text-gray-900'}`}>
-                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words leading-relaxed">
-                  {streamingText}
-                  <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
+              <div className="flex-1 max-w-2xl">
+                {autoDowngraded && isResearchOrAbove && (
+                  <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold border" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.3)' }} data-testid="auto-downgrade-badge">
+                    <Zap className="h-3 w-3" />
+                    Auto-routed to fast — toggle Deep Think for verified deep reasoning
+                  </div>
+                )}
+                <div className={`rounded-2xl rounded-bl-md px-4 py-3 ${isDark ? 'bg-zinc-900/80 border border-zinc-800 text-zinc-100' : 'bg-white border border-gray-200 shadow-sm text-gray-900'}`}>
+                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words leading-relaxed">
+                    {streamingText}
+                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
+                  </div>
                 </div>
               </div>
             </div>

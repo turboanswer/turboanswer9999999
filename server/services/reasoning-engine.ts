@@ -38,6 +38,7 @@ export type EngineEvent =
   | { type: 'sources'; sources: Source[] }
   | { type: 'panel'; model: string; preview: string }
   | { type: 'chunk'; text: string }
+  | { type: 'route'; mode: 'fast' | 'retrieval' | 'deep'; autoDowngraded: boolean; reason: string }
   | { type: 'done'; content: string; verified: 'verified' | 'unverified' | 'unknown'; mode: 'fast' | 'retrieval' | 'deep'; sources: Source[]; claims: ClaimCheck[]; confidence: number }
   | { type: 'error'; message: string }
   | { type: 'quota'; tier: string; used: number; limit: number; fellBackToFast: boolean };
@@ -342,6 +343,58 @@ Output ONLY the final synthesized answer in markdown. Where you cite a source, u
 
   const out = await callOR(MODEL_JUDGE, prompt, { maxTokens: 1800, temperature: 0.2, timeoutMs: 45000 });
   return out || panel[0].answer;
+}
+
+// Streaming version: emits onChunk(text) for each delta as the synthesis judge
+// generates the answer. Returns the full accumulated string. Falls back to the
+// non-streaming path if the streaming call returns nothing useful.
+export async function synthesizeStream(
+  question: string,
+  panel: { model: string; answer: string }[],
+  sources: Source[],
+  arithmetic: string | null,
+  debateOut: { agreements: string[]; disagreements: string[] },
+  onChunk: (text: string) => void,
+): Promise<string> {
+  if (panel.length === 0) return 'I could not generate a verified answer at this time. Please try again.';
+  if (panel.length === 1) {
+    onChunk(panel[0].answer);
+    return panel[0].answer;
+  }
+  const prompt = `You are the synthesis judge. Three expert AI models answered. Produce the BEST single answer following STRICT rules:
+
+CONSENSUS GATING (critical):
+- Only assert a factual claim as fact if AT LEAST 2 of 3 models support it.
+- For a claim where models disagree, wrap it in "[contested]" tags like: "[contested] X may be Y or Z [/contested]" and briefly explain the disagreement.
+- Discard claims supported by only 1 model unless clearly verifiable from the provided sources.
+
+Question: ${question}
+
+${arithmetic ? `Verified arithmetic: ${arithmetic}\n\n` : ''}${sources.length ? `Reference snippets:\n${sources.map((s, i) => `[${i + 1}] ${s.title}: ${s.snippet}`).join('\n')}\n\n` : ''}${debateOut.agreements.length ? `AGREED FACTS (2/3+ consensus):\n${debateOut.agreements.map(a => '- ' + a).join('\n')}\n\n` : ''}${debateOut.disagreements.length ? `DISAGREEMENTS:\n${debateOut.disagreements.map(d => '- ' + d).join('\n')}\n\n` : ''}--- MODEL ANSWERS ---
+${panel.map(p => `## ${p.model}\n${p.answer}`).join('\n\n')}
+--- END ---
+
+Output ONLY the final synthesized answer in markdown. Where you cite a source, use inline markers like [1] [2] matching the reference numbers. Keep [contested] tags around disputed claims.`;
+
+  let acc = '';
+  const streamed = await callORStream(
+    MODEL_JUDGE,
+    prompt,
+    { maxTokens: 1800, temperature: 0.2, timeoutMs: 45000 },
+    (chunk) => { acc += chunk; onChunk(chunk); },
+  );
+  if (acc) return acc;
+  // Streaming failed (provider didn't honor stream:true or all chunks dropped) — fall back
+  if (streamed) {
+    onChunk(streamed);
+    return streamed;
+  }
+  const fallback = await callOR(MODEL_JUDGE, prompt, { maxTokens: 1800, temperature: 0.2, timeoutMs: 45000 });
+  if (fallback) {
+    onChunk(fallback);
+    return fallback;
+  }
+  return panel[0].answer;
 }
 
 // ============= VERIFIER (sentence-level [unverified] marking + confidence) =============
@@ -801,11 +854,14 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
   // stays low. Auto-deep questions get downgraded to retrieval (still cited,
   // still fast) unless the user clicked Deep Think.
   const tLower = (tier || 'free').toLowerCase();
+  let autoDowngraded = false;
   if ((tLower === 'research' || tLower === 'enterprise' || tLower === 'owner') && !manualDeepThink && decision.mode === 'deep') {
     decision = { ...decision, mode: 'retrieval', reason: `${decision.reason}_auto_downgraded` };
+    autoDowngraded = true;
   }
 
   stage('route', `Mode: ${decision.mode === 'deep' ? 'Deep Think' : decision.mode === 'retrieval' ? 'Retrieval' : 'Fast'}`, 'done', decision.reason);
+  onEvent({ type: 'route', mode: decision.mode, autoDowngraded, reason: decision.reason });
 
   // FAST PATH (streamed token-by-token so first words appear in <1s)
   if (decision.mode === 'fast') {
@@ -892,9 +948,17 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
     stage('debate', 'Skipped (cost ceiling)', 'skipped');
   }
 
-  // Synthesize
+  // Synthesize — streamed so user sees the final answer growing in real time
+  // even though verification still runs after.
   stage('synth', 'Synthesizing best answer (2/3 consensus gating)', 'active');
-  const finalAnswer = await synthesize(question, panel, retrieved.sources, retrieved.arithmetic, debateOut);
+  const finalAnswer = await synthesizeStream(
+    question,
+    panel,
+    retrieved.sources,
+    retrieved.arithmetic,
+    debateOut,
+    (chunk) => onEvent({ type: 'chunk', text: chunk }),
+  );
   stage('synth', 'Synthesis complete', 'done');
 
   // Verify + sentence-level marking
