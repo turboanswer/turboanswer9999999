@@ -42,7 +42,7 @@ const PLANS = [
       'Advanced AI reasoning',
       'Superior code analysis',
       'Image Studio (Google AI)',
-      'Priority phone support — call (866) 567-7269',
+      'Phone support — call (866) 467-7269',
       'Everything in Free',
     ],
     cta: 'Subscribe — $6.99/mo',

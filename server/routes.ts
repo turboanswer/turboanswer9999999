@@ -3909,7 +3909,7 @@ YOUR FOUNDING TESTER PERKS
 • Free Pro-tier access — better intelligence and no daily question cap, for the duration of the beta.
 • ✨ Founding Tester badge on your profile — public recognition that you were here first.
 • 50 MB file uploads — 2.5× the standard limit on documents, images, and audio.
-• Priority support — any ticket you open is automatically bumped to high priority.
+• Phone support — call (866) 467-7269 for help any time.
 • 3 referral codes — give friends 1 month of Pro free. Find them on your feedback page after you log in.
 • Early access to new tools before they hit the public release.
 • A direct line to the product team via the feedback page.

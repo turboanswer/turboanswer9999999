@@ -44,7 +44,7 @@ export default function TermsConditions() {
               TurboAnswer is <strong>not intended for, directed to, or usable by children under the age of 13</strong>. By creating an account, you affirm under penalty of Terms violation that you are at least 13 years old. If you are between 13 and 18, you must have the permission of a parent or legal guardian to use the Service, and your parent or guardian is legally responsible for your account.
             </p>
             <p className="text-blue-100">
-              We do not knowingly collect personal information from children under 13. Any account we discover to belong to a user under 13 will be <strong>terminated immediately and all associated data deleted</strong>. Parents may request account deletion at any time by emailing <a href="mailto:support@turboanswer.it.com" className="text-blue-300 underline">support@turboanswer.it.com</a> or calling <a href="tel:+18665677269" className="text-blue-300 underline">(866) 567-7269</a>.
+              We do not knowingly collect personal information from children under 13. Any account we discover to belong to a user under 13 will be <strong>terminated immediately and all associated data deleted</strong>. Parents may request account deletion at any time by emailing <a href="mailto:support@turboanswer.it.com" className="text-blue-300 underline">support@turboanswer.it.com</a> or calling <a href="tel:+18664677269" className="text-blue-300 underline">(866) 467-7269</a>.
             </p>
           </section>
 

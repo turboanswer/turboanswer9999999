@@ -101,7 +101,7 @@ export default function BetaFeedback() {
               <div className="flex items-start gap-2"><Crown className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Pro features unlocked</b> — better intelligence, no daily cap.</span></div>
               <div className="flex items-start gap-2"><Sparkles className="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Founding Tester badge</b> on your profile — recognition that lasts.</span></div>
               <div className="flex items-start gap-2"><Upload className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>50MB uploads</b> — 2.5× the standard file size limit.</span></div>
-              <div className="flex items-start gap-2"><Headphones className="h-4 w-4 text-cyan-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Priority phone support</b> — call (866) 567-7269 any time; your tickets jump the queue automatically.</span></div>
+              <div className="flex items-start gap-2"><Headphones className="h-4 w-4 text-cyan-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>Phone support</b> — call (866) 467-7269 any time.</span></div>
               <div className="flex items-start gap-2 sm:col-span-2"><Gift className="h-4 w-4 text-pink-400 mt-0.5 flex-shrink-0" /><span className="text-zinc-300"><b>3 referral codes</b> — give friends 1 month of Pro on you (see below).</span></div>
             </div>
           </CardContent>

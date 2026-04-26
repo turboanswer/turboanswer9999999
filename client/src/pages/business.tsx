@@ -131,7 +131,7 @@ TurboWidget.init({
         "Matrix AI Pro engine",
         "Advanced customization",
         "Analytics dashboard",
-        "Priority phone support — call (866) 567-7269"
+        "Phone support — call (866) 467-7269"
       ],
       cta: "Start Business Plan",
       popular: true

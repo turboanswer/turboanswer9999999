@@ -128,7 +128,7 @@ export default function PrivacyPolicy() {
                 If we learn, or are notified, that we have inadvertently collected personal information from a child under 13 without verified parental consent, we will <strong>promptly delete that information from our systems</strong>.
               </p>
               <p>
-                <strong>Parents or legal guardians:</strong> if you believe your child under 13 has provided personal information to TurboAnswer, please contact us immediately at <a href="mailto:support@turboanswer.it.com" className="text-blue-300 hover:text-blue-200 underline">support@turboanswer.it.com</a> or call <a href="tel:+18665677269" className="text-blue-300 hover:text-blue-200 underline">(866) 567-7269</a>. We will verify the request and delete the account and all associated data within 10 business days.
+                <strong>Parents or legal guardians:</strong> if you believe your child under 13 has provided personal information to TurboAnswer, please contact us immediately at <a href="mailto:support@turboanswer.it.com" className="text-blue-300 hover:text-blue-200 underline">support@turboanswer.it.com</a> or call <a href="tel:+18664677269" className="text-blue-300 hover:text-blue-200 underline">(866) 467-7269</a>. We will verify the request and delete the account and all associated data within 10 business days.
               </p>
               <p>
                 Users between 13 and 18 should use TurboAnswer only with the involvement and consent of a parent or legal guardian, and the account holder (or their parent/guardian) is responsible for all activity on the account.

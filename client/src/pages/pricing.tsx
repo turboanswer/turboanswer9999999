@@ -42,7 +42,7 @@ const plans: PricingPlan[] = [
       'Faster, longer answers',
       'Superior code analysis',
       'Enhanced problem solving',
-      'Priority phone support — call (866) 567-7269',
+      'Phone support — call (866) 467-7269',
       'Everything in Free'
     ],
     popular: true,
@@ -70,7 +70,7 @@ const plans: PricingPlan[] = [
       'Priority queue · fastest response times',
       'Early access to new Matrix AI features',
       'All Pro features included',
-      'Priority phone support — call (866) 567-7269'
+      'Phone support — call (866) 467-7269'
     ],
     apiPlan: 'research'
   },
