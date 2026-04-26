@@ -1,5 +1,48 @@
 import { fastAnswer } from "./reasoning-engine.js";
 
+// Stack Trace Surgeon uses Claude Sonnet 4.5 directly via OpenRouter — Anthropic's
+// best coding model, ideal for diagnosing stack traces and producing valid diffs.
+// Falls back to Gemini Pro (via fastAnswer) if OpenRouter / Sonnet is unavailable.
+const SURGEON_MODEL = 'anthropic/claude-sonnet-4.5';
+const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+async function callSonnetForSurgeon(prompt: string): Promise<string | null> {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 50000);
+  try {
+    const res = await fetch(OR_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+        'HTTP-Referer': 'https://turboanswer.it.com',
+        'X-Title': 'TurboAnswer Stack Trace Surgeon',
+      },
+      body: JSON.stringify({
+        model: SURGEON_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 3000,
+        temperature: 0.2,
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn(`[StackTraceSurgeon] Sonnet 4.5 HTTP ${res.status}: ${txt.slice(0, 200)}`);
+      return null;
+    }
+    const data: any = await res.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[StackTraceSurgeon] Sonnet 4.5 failed: ${err?.message || err}`);
+    return null;
+  }
+}
+
 export type StackFrame = { file: string; line?: number; raw: string };
 export type RepoRef = { owner: string; repo: string; branch: string };
 
@@ -254,7 +297,14 @@ export async function diagnoseStackTrace(
   if (frames.length > 0 && files.length === 0) warnings.push('no_files_fetched');
 
   const prompt = buildPrompt(stackTrace, files);
-  const raw = await fastAnswer(prompt, undefined, tier);
+  // Primary: Claude Sonnet 4.5 (Anthropic's best coding model — produces cleaner
+  // diffs and more accurate root-cause analysis than Gemini Pro on code tasks).
+  // Fallback: tier-routed Gemini Pro chain via fastAnswer (so we never go silent
+  // if OpenRouter / Sonnet is unavailable).
+  let raw = await callSonnetForSurgeon(prompt);
+  if (!raw || raw.trim().length < 20) {
+    raw = await fastAnswer(prompt, undefined, tier);
+  }
   const { rootCause, suggestedFix } = splitDiagnosis(raw);
 
   return {
