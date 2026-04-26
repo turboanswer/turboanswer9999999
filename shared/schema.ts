@@ -531,3 +531,22 @@ export const deepThinkUsage = pgTable("deep_think_usage", {
 }));
 
 export type DeepThinkUsage = typeof deepThinkUsage.$inferSelect;
+
+export const stackTraceDiagnoses = pgTable("stack_trace_diagnoses", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  title: text("title").notNull(),
+  stackTrace: text("stack_trace").notNull(),
+  repoUrl: text("repo_url").notNull(),
+  rootCause: text("root_cause").notNull(),
+  suggestedFix: text("suggested_fix").notNull(),
+  framesParsed: integer("frames_parsed").notNull().default(0),
+  filesUsed: jsonb("files_used").$type<{ path: string; line?: number }[]>().notNull().default([]),
+  warnings: jsonb("warnings").$type<string[]>().notNull().default([]),
+  prUrl: text("pr_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertStackTraceDiagnosisSchema = createInsertSchema(stackTraceDiagnoses).omit({ id: true, createdAt: true, prUrl: true });
+export type InsertStackTraceDiagnosis = z.infer<typeof insertStackTraceDiagnosisSchema>;
+export type StackTraceDiagnosisRow = typeof stackTraceDiagnoses.$inferSelect;

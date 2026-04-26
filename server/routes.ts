@@ -504,10 +504,181 @@ function downloadAAB(){
       const effectiveTier = isOwnerAccount(user) ? 'owner' : tier;
       const { diagnoseStackTrace } = await import('./services/stack-trace-surgeon.js');
       const result = await diagnoseStackTrace(stackTrace, repoUrl, effectiveTier, githubToken && typeof githubToken === 'string' ? githubToken : undefined);
-      res.json(result);
+
+      // Auto-save to history (best-effort; never block the response on this).
+      let savedId: number | undefined;
+      try {
+        const titleSeed = (stackTrace.split('\n').find(l => l.trim().length > 0) || 'Untitled').trim();
+        const title = titleSeed.length > 100 ? titleSeed.slice(0, 97) + '…' : titleSeed;
+        const saved = await storage.saveStackTraceDiagnosis({
+          userId,
+          title,
+          stackTrace: stackTrace.slice(0, 20000),
+          repoUrl,
+          rootCause: result.rootCause,
+          suggestedFix: result.suggestedFix,
+          framesParsed: result.framesParsed,
+          filesUsed: result.filesUsed,
+          warnings: result.warnings,
+        });
+        savedId = saved.id;
+      } catch (e: any) {
+        console.error("[StackTraceSurgeon] Save failed:", e?.message || e);
+      }
+
+      res.json({ ...result, id: savedId });
     } catch (error: any) {
       console.error("[StackTraceSurgeon] Error:", error?.message || error);
       res.status(500).json({ message: "Diagnosis failed. Please try again." });
+    }
+  });
+
+  // List user's saved diagnoses
+  app.get("/api/stack-trace-surgeon/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
+      const rows = await storage.getStackTraceDiagnosesByUser(userId, 50);
+      res.json(rows);
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] History list failed:", e?.message || e);
+      res.status(500).json({ message: "Failed to load history." });
+    }
+  });
+
+  // Get one saved diagnosis (full payload)
+  app.get("/api/stack-trace-surgeon/history/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid id." });
+      const row = await storage.getStackTraceDiagnosis(id, userId);
+      if (!row) return res.status(404).json({ message: "Not found." });
+      res.json(row);
+    } catch (e: any) {
+      res.status(500).json({ message: "Failed to load diagnosis." });
+    }
+  });
+
+  // Delete a saved diagnosis
+  app.delete("/api/stack-trace-surgeon/history/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid id." });
+      await storage.deleteStackTraceDiagnosis(id, userId);
+      res.json({ ok: true });
+    } catch (e: any) {
+      res.status(500).json({ message: "Failed to delete." });
+    }
+  });
+
+  // Open a Pull Request applying the suggested fix
+  app.post("/api/stack-trace-surgeon/open-pr", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
+
+      const { diagnosisId, githubToken } = req.body || {};
+      if (!diagnosisId || typeof diagnosisId !== 'number') {
+        return res.status(400).json({ message: "diagnosisId is required." });
+      }
+      if (!githubToken || typeof githubToken !== 'string' || !githubToken.trim()) {
+        return res.status(400).json({ message: "A GitHub token with repo write access is required to open a PR.", code: "TOKEN_REQUIRED" });
+      }
+
+      const diag = await storage.getStackTraceDiagnosis(diagnosisId, userId);
+      if (!diag) return res.status(404).json({ message: "Diagnosis not found." });
+
+      const { parseRepoUrl } = await import('./services/stack-trace-surgeon.js');
+      const ref = parseRepoUrl(diag.repoUrl);
+      if (!ref) return res.status(400).json({ message: "Saved repo URL is invalid." });
+
+      const { parseFirstDiff, applyDiff, fetchFileViaContentsApi, createFixPullRequest } = await import('./services/github-pr.js');
+      const diff = parseFirstDiff(diag.suggestedFix);
+      if (!diff) {
+        return res.status(422).json({ message: "Could not extract a unified diff from the suggested fix. The AI's response wasn't in a format we can apply automatically." });
+      }
+
+      // Fetch the live file from the default branch.
+      // Try the diff's path first, then any path the surgeon previously used.
+      const candidatePaths: string[] = [diff.filePath];
+      for (const f of (diag.filesUsed as { path: string }[])) {
+        if (f.path && !candidatePaths.includes(f.path)) candidatePaths.push(f.path);
+      }
+
+      let livePath: string | null = null;
+      let liveContent: string | null = null;
+      for (const cand of candidatePaths) {
+        for (const br of [ref.branch, ref.branch === 'main' ? 'master' : 'main']) {
+          const c = await fetchFileViaContentsApi(ref.owner, ref.repo, cand, br, githubToken);
+          if (c !== null) { livePath = cand; liveContent = c; break; }
+        }
+        if (liveContent !== null) break;
+      }
+
+      if (liveContent === null || livePath === null) {
+        return res.status(404).json({ message: `Couldn't find ${diff.filePath} in the repo. Make sure the path matches and the token has read access.` });
+      }
+
+      const patched = applyDiff(liveContent, diff);
+      if (patched === null) {
+        return res.status(422).json({ message: "Couldn't apply the diff cleanly to the live file — the source may have moved on. Open the PR manually using the diff above." });
+      }
+      if (patched === liveContent) {
+        return res.status(422).json({ message: "Patched file is identical to the original — the fix may already be applied." });
+      }
+
+      const commitMessage = `fix: ${diag.title.slice(0, 60)}`;
+      const prTitle = `🩺 Stack Trace Surgeon fix — ${diag.title.slice(0, 60)}`;
+      const prBody = [
+        `**Auto-generated by [TurboAnswer Stack Trace Surgeon](https://turboanswer.it.com/stack-trace-surgeon).**`,
+        '',
+        '## Root Cause',
+        diag.rootCause,
+        '',
+        '## Suggested Fix',
+        diag.suggestedFix,
+        '',
+        '---',
+        '_Please review carefully before merging. The patch was generated from a stack trace; verify it does not break adjacent behavior._',
+      ].join('\n');
+
+      const pr = await createFixPullRequest({
+        owner: ref.owner,
+        repo: ref.repo,
+        filePath: livePath,
+        newContent: patched,
+        commitMessage,
+        prTitle,
+        prBody,
+        token: githubToken,
+      });
+
+      await storage.setStackTraceDiagnosisPrUrl(diagnosisId, userId, pr.url);
+      res.json({ ok: true, prUrl: pr.url, prNumber: pr.number, branch: pr.branch });
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] Open PR failed:", e?.status, e?.message || e);
+      const status = e?.status === 401 || e?.status === 403 ? 403 : 500;
+      res.status(status).json({
+        message: e?.status === 401 || e?.status === 403
+          ? "GitHub rejected the token. Make sure it has `repo` (or `Contents: read+write` and `Pull requests: read+write` for fine-grained tokens)."
+          : (e?.message || "Failed to open PR."),
+      });
     }
   });
 

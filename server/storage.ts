@@ -1,4 +1,4 @@
-import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, deepThinkUsage, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode } from "@shared/schema";
+import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, deepThinkUsage, stackTraceDiagnoses, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode, type InsertStackTraceDiagnosis, type StackTraceDiagnosisRow } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -103,6 +103,13 @@ export interface IStorage {
   deletePromoCode(id: number): Promise<void>;
   incrementPromoCodeUsage(id: number): Promise<void>;
   seedOwnerPromoCode(): Promise<void>;
+
+  // Stack Trace Surgeon diagnoses
+  saveStackTraceDiagnosis(data: InsertStackTraceDiagnosis): Promise<StackTraceDiagnosisRow>;
+  getStackTraceDiagnosesByUser(userId: string, limit?: number): Promise<StackTraceDiagnosisRow[]>;
+  getStackTraceDiagnosis(id: number, userId: string): Promise<StackTraceDiagnosisRow | undefined>;
+  deleteStackTraceDiagnosis(id: number, userId: string): Promise<void>;
+  setStackTraceDiagnosisPrUrl(id: number, userId: string, prUrl: string): Promise<StackTraceDiagnosisRow | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -745,6 +752,43 @@ export class DatabaseStorage implements IStorage {
       });
       console.log('[PromoCode] Seeded owner lifetime code: TURBOCODE-FOREVER');
     }
+  }
+
+  async saveStackTraceDiagnosis(data: InsertStackTraceDiagnosis): Promise<StackTraceDiagnosisRow> {
+    const [row] = await db.insert(stackTraceDiagnoses).values(data).returning();
+    return row;
+  }
+
+  async getStackTraceDiagnosesByUser(userId: string, limit: number = 50): Promise<StackTraceDiagnosisRow[]> {
+    return await db
+      .select()
+      .from(stackTraceDiagnoses)
+      .where(eq(stackTraceDiagnoses.userId, userId))
+      .orderBy(desc(stackTraceDiagnoses.createdAt))
+      .limit(limit);
+  }
+
+  async getStackTraceDiagnosis(id: number, userId: string): Promise<StackTraceDiagnosisRow | undefined> {
+    const [row] = await db
+      .select()
+      .from(stackTraceDiagnoses)
+      .where(and(eq(stackTraceDiagnoses.id, id), eq(stackTraceDiagnoses.userId, userId)));
+    return row || undefined;
+  }
+
+  async deleteStackTraceDiagnosis(id: number, userId: string): Promise<void> {
+    await db
+      .delete(stackTraceDiagnoses)
+      .where(and(eq(stackTraceDiagnoses.id, id), eq(stackTraceDiagnoses.userId, userId)));
+  }
+
+  async setStackTraceDiagnosisPrUrl(id: number, userId: string, prUrl: string): Promise<StackTraceDiagnosisRow | undefined> {
+    const [row] = await db
+      .update(stackTraceDiagnoses)
+      .set({ prUrl })
+      .where(and(eq(stackTraceDiagnoses.id, id), eq(stackTraceDiagnoses.userId, userId)))
+      .returning();
+    return row || undefined;
   }
 }
 

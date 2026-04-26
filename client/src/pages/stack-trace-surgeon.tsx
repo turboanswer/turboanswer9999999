@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy, Lock, FlaskConical } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy, Lock, FlaskConical, History, Trash2, GitPullRequest, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -11,11 +12,21 @@ import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 
 type Diagnosis = {
+  id?: number;
   rootCause: string;
   suggestedFix: string;
   filesUsed: { path: string; line?: number }[];
   framesParsed: number;
   warnings: string[];
+};
+
+type HistoryItem = {
+  id: number;
+  title: string;
+  repoUrl: string;
+  framesParsed: number;
+  prUrl: string | null;
+  createdAt: string;
 };
 
 const SAMPLE_TRACE = `TypeError: Cannot read properties of undefined (reading 'map')
@@ -43,6 +54,15 @@ export default function StackTraceSurgeon() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Diagnosis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [prLoading, setPrLoading] = useState(false);
+  const [prUrl, setPrUrl] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: history = [] } = useQuery<HistoryItem[]>({
+    queryKey: ['/api/stack-trace-surgeon/history'],
+    enabled: isResearchOrAbove,
+  });
 
   const bg = isDark ? '#0a0a0a' : '#f8fafc';
   const cardBg = isDark ? '#111114' : '#ffffff';
@@ -118,23 +138,24 @@ export default function StackTraceSurgeon() {
   const runDiagnosis = async () => {
     setError(null);
     setResult(null);
+    setPrUrl(null);
     if (!stackTrace.trim() || !repoUrl.trim()) {
       toast({ title: "Missing input", description: "Paste both a stack trace and a GitHub repo URL.", variant: "destructive" });
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/stack-trace-surgeon/diagnose', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ stackTrace, repoUrl, githubToken: githubToken || undefined }),
+      const res = await apiRequest('POST', '/api/stack-trace-surgeon/diagnose', {
+        stackTrace,
+        repoUrl,
+        githubToken: githubToken || undefined,
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data?.message || 'Diagnosis failed.');
       } else {
         setResult(data);
+        queryClient.invalidateQueries({ queryKey: ['/api/stack-trace-surgeon/history'] });
       }
     } catch (e: any) {
       setError(e?.message || 'Network error');
@@ -143,19 +164,142 @@ export default function StackTraceSurgeon() {
     }
   };
 
+  const loadFromHistory = async (id: number) => {
+    try {
+      const res = await fetch(`/api/stack-trace-surgeon/history/${id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load');
+      const row = await res.json();
+      setStackTrace(row.stackTrace);
+      setRepoUrl(row.repoUrl);
+      setResult({
+        id: row.id,
+        rootCause: row.rootCause,
+        suggestedFix: row.suggestedFix,
+        filesUsed: row.filesUsed || [],
+        framesParsed: row.framesParsed,
+        warnings: row.warnings || [],
+      });
+      setPrUrl(row.prUrl || null);
+      setShowHistory(false);
+      setError(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e: any) {
+      toast({ title: 'Failed to load', description: e?.message || '', variant: 'destructive' });
+    }
+  };
+
+  const deleteHistoryItem = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await apiRequest('DELETE', `/api/stack-trace-surgeon/history/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/stack-trace-surgeon/history'] });
+      toast({ title: 'Deleted' });
+    } catch (e: any) {
+      toast({ title: 'Failed to delete', variant: 'destructive' });
+    }
+  };
+
+  const openPullRequest = async () => {
+    if (!result?.id) {
+      toast({ title: 'Save the diagnosis first', description: 'Re-run the diagnosis so we can save it before opening a PR.', variant: 'destructive' });
+      return;
+    }
+    if (!githubToken.trim()) {
+      setShowToken(true);
+      toast({ title: 'GitHub token required', description: 'Add a token with repo write access to open a PR.', variant: 'destructive' });
+      return;
+    }
+    setPrLoading(true);
+    try {
+      const res = await apiRequest('POST', '/api/stack-trace-surgeon/open-pr', {
+        diagnosisId: result.id,
+        githubToken,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: 'Could not open PR', description: data?.message || 'Unknown error', variant: 'destructive' });
+      } else {
+        setPrUrl(data.prUrl);
+        toast({ title: '🎉 Pull request opened!', description: `PR #${data.prNumber} on branch ${data.branch}` });
+        queryClient.invalidateQueries({ queryKey: ['/api/stack-trace-surgeon/history'] });
+      }
+    } catch (e: any) {
+      toast({ title: 'PR failed', description: e?.message || '', variant: 'destructive' });
+    } finally {
+      setPrLoading(false);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: bg, color: text }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 gap-3">
           <Link href="/">
             <span className="inline-flex items-center gap-2 text-sm cursor-pointer hover:opacity-80" style={{ color: subtext }} data-testid="link-back">
               <ArrowLeft size={16} /> Back
             </span>
           </Link>
-          <div className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold border" style={{ color: '#a855f7', background: 'rgba(168,85,247,0.08)', borderColor: 'rgba(168,85,247,0.3)' }}>
-            <Sparkles className="h-3 w-3" /> Beta
+          <div className="flex items-center gap-2">
+            {isResearchOrAbove && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowHistory(s => !s)}
+                className="text-xs"
+                style={{ borderColor: border, background: 'transparent', color: text }}
+                data-testid="button-toggle-history"
+              >
+                <History className="h-3 w-3 mr-1.5" />
+                History {history.length > 0 ? `(${history.length})` : ''}
+              </Button>
+            )}
+            <div className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold border" style={{ color: '#a855f7', background: 'rgba(168,85,247,0.08)', borderColor: 'rgba(168,85,247,0.3)' }}>
+              <Sparkles className="h-3 w-3" /> Beta
+            </div>
           </div>
         </div>
+
+        {showHistory && isResearchOrAbove && (
+          <Card className="p-4 mb-5" style={{ background: cardBg, borderColor: border }} data-testid="history-panel">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><History className="h-4 w-4" /> Saved diagnoses</h3>
+            {history.length === 0 ? (
+              <div className="text-xs py-4 text-center" style={{ color: subtext }}>
+                No diagnoses yet. Run one and it'll appear here automatically.
+              </div>
+            ) : (
+              <ul className="space-y-1.5 max-h-80 overflow-y-auto">
+                {history.map((h) => (
+                  <li
+                    key={h.id}
+                    onClick={() => loadFromHistory(h.id)}
+                    className="group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ background: isDark ? '#0a0a0a' : '#f8fafc', border: `1px solid ${border}` }}
+                    data-testid={`history-item-${h.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-mono truncate" style={{ color: text }}>{h.title}</div>
+                      <div className="text-[10px] mt-0.5 flex items-center gap-2" style={{ color: subtext }}>
+                        <span className="truncate">{h.repoUrl.replace(/^https?:\/\/(www\.)?github\.com\//, '')}</span>
+                        <span>·</span>
+                        <span>{new Date(h.createdAt).toLocaleDateString()}</span>
+                        {h.prUrl && <><span>·</span><span style={{ color: '#10b981' }}>PR opened</span></>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => deleteHistoryItem(h.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-500/10"
+                      style={{ color: '#ef4444' }}
+                      data-testid={`button-delete-history-${h.id}`}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        )}
 
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)' }}>
@@ -304,6 +448,40 @@ export default function StackTraceSurgeon() {
               <div className="text-sm" data-testid="text-suggested-fix">
                 {renderMarkdown(result.suggestedFix)}
               </div>
+
+              {result.id && (
+                <div className="mt-4 pt-4 border-t flex flex-wrap items-center gap-3" style={{ borderColor: border }}>
+                  {prUrl ? (
+                    <a
+                      href={prUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
+                      style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
+                      data-testid="link-pr-opened"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> PR opened — view on GitHub <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
+                    <Button
+                      onClick={openPullRequest}
+                      disabled={prLoading}
+                      size="sm"
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white' }}
+                      data-testid="button-open-pr"
+                    >
+                      {prLoading ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Opening PR…</>
+                      ) : (
+                        <><GitPullRequest className="h-4 w-4 mr-2" /> Open Pull Request with this fix</>
+                      )}
+                    </Button>
+                  )}
+                  <span className="text-[11px]" style={{ color: subtext }}>
+                    Requires a GitHub token with repo write access. Creates a new branch, applies the diff, opens a PR for review.
+                  </span>
+                </div>
+              )}
             </Card>
 
             {result.filesUsed.length > 0 && (

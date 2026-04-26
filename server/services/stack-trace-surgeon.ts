@@ -66,9 +66,20 @@ function normalizeRepoPath(file: string, repo: string): string[] {
   return Array.from(candidates).filter(c => c && FILE_EXT_RE.test(c));
 }
 
+import { fetchFileViaContentsApi, searchFileByBasename } from './github-pr.js';
+
 async function tryFetchRaw(owner: string, repo: string, branch: string, path: string, token?: string): Promise<string | null> {
+  // 1. Authenticated: prefer the Contents API (works for private repos AND fine-grained PATs).
+  if (token) {
+    const viaApi = await fetchFileViaContentsApi(owner, repo, path, branch, token);
+    if (viaApi !== null) {
+      return viaApi.length > FILE_BYTE_LIMIT
+        ? viaApi.slice(0, FILE_BYTE_LIMIT) + '\n…[truncated by Stack Trace Surgeon]'
+        : viaApi;
+    }
+  }
+  // 2. Anonymous (or token failed): use raw.githubusercontent.com (no auth, public repos only).
   const headers: Record<string, string> = { 'User-Agent': 'TurboAnswer-StackTraceSurgeon' };
-  if (token) headers['Authorization'] = `token ${token}`;
   const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
   try {
     const ctrl = new AbortController();
@@ -90,7 +101,7 @@ export async function fetchRepoFiles(
 ): Promise<{ path: string; content: string; line?: number }[]> {
   const results: { path: string; content: string; line?: number }[] = [];
   const tried = new Set<string>();
-  const branchesToTry = Array.from(new Set([ref.branch, ref.branch === 'main' ? 'master' : 'main']));
+  const branchesToTry = Array.from(new Set([ref.branch, ref.branch === 'main' ? 'master' : 'main', 'develop', 'dev', 'trunk']));
   let attempts = 0;
 
   for (const frame of frames) {
@@ -110,6 +121,26 @@ export async function fetchRepoFiles(
       }
       if (fetched) break;
     }
+
+    // Fallback: if we have a token and STILL didn't find the file, search the repo by basename.
+    if (!fetched && token && attempts < MAX_FETCH_ATTEMPTS) {
+      const basename = candidates[0]?.split('/').pop();
+      if (basename && /\.[A-Za-z0-9]+$/.test(basename)) {
+        const found = await searchFileByBasename(ref.owner, ref.repo, basename, token);
+        if (found) {
+          for (const br of branchesToTry) {
+            if (attempts >= MAX_FETCH_ATTEMPTS) break;
+            const key = `${br}::search::${found}`;
+            if (tried.has(key)) continue;
+            tried.add(key);
+            attempts += 1;
+            const content = await tryFetchRaw(ref.owner, ref.repo, br, found, token);
+            if (content) { fetched = { path: found, content }; break; }
+          }
+        }
+      }
+    }
+
     if (fetched) results.push({ ...fetched, line: frame.line });
   }
   return results;
