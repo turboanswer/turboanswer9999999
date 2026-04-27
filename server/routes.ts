@@ -8,7 +8,7 @@ import multer from "multer";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, and, desc, or, inArray, gt, lt, sql } from "drizzle-orm";
+import { eq, and, desc, or, inArray, gt, lt, sql, isNull } from "drizzle-orm";
 import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, referralCodes, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
@@ -6258,6 +6258,186 @@ Rules:
     }
   }
 
+  // ──────────────────────────────────────────────────────────
+  // General (non-workgroup) support tickets — anyone signed in can open one,
+  // staff (isEmployee) can see and reply to all of them, owners always see all.
+  // ──────────────────────────────────────────────────────────
+  const isStaff = (u: any) => !!(u?.isEmployee) || u?.email === 'support@turboanswer.it.com' || isOwnerAccount(u);
+
+  app.post('/api/general-support/tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'Sign in required' });
+
+      const { subject, message, category } = req.body || {};
+      if (!subject?.trim() || !message?.trim()) {
+        return res.status(400).json({ error: 'Subject and message are required' });
+      }
+      if (subject.length > 200) return res.status(400).json({ error: 'Subject too long (max 200)' });
+      if (message.length > 5000) return res.status(400).json({ error: 'Message too long (max 5000)' });
+
+      const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+      const classification = await classifyTicket(subject.trim(), message.trim());
+      const effectivePriority = user.isBetaTester ? 'high' : classification.priority;
+
+      const [ticket] = await db.insert(supportTickets).values({
+        workgroupId: null,
+        requesterId: user.id,
+        requesterEmail: user.email || null,
+        requesterName: senderName,
+        subject: subject.trim().slice(0, 200),
+        context: message.trim(),
+        priority: effectivePriority,
+        category: category?.trim() || classification.category,
+        department: classification.department,
+      }).returning();
+
+      await db.insert(supportTicketMessages).values({
+        ticketId: ticket.id,
+        senderId: user.id,
+        senderName,
+        content: message.trim(),
+      });
+
+      // Notify support@ inbox so staff see it.
+      try {
+        const staffUsers = await db.select().from(users).where(eq(users.isEmployee, true));
+        for (const s of staffUsers) {
+          await db.insert(ticketNotifications).values({
+            userId: s.id,
+            ticketId: ticket.id,
+            workgroupId: null,
+            title: `New Support Ticket: ${ticket.subject.slice(0, 60)}`,
+            body: `From ${senderName} · ${ticket.priority} priority`,
+            type: 'new_ticket',
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[GeneralSupport] Notify staff failed:', notifyErr);
+      }
+
+      res.json({ success: true, ticket });
+    } catch (e: any) {
+      console.error('[GeneralSupport] Create error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to create ticket' });
+    }
+  });
+
+  app.get('/api/general-support/tickets', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'Sign in required' });
+
+      let tickets;
+      if (isStaff(user)) {
+        tickets = await db.select().from(supportTickets).where(isNull(supportTickets.workgroupId)).orderBy(desc(supportTickets.createdAt));
+      } else {
+        tickets = await db.select().from(supportTickets).where(and(isNull(supportTickets.workgroupId), eq(supportTickets.requesterId, user.id))).orderBy(desc(supportTickets.createdAt));
+      }
+      res.json(tickets);
+    } catch (e: any) {
+      console.error('[GeneralSupport] List error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to list tickets' });
+    }
+  });
+
+  app.get('/api/general-support/tickets/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'Sign in required' });
+
+      const ticketId = parseInt(req.params.id);
+      if (Number.isNaN(ticketId)) return res.status(400).json({ error: 'Invalid ticket id' });
+
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket || ticket.workgroupId !== null) return res.status(404).json({ error: 'Ticket not found' });
+      if (!isStaff(user) && ticket.requesterId !== user.id) return res.status(403).json({ error: 'Not authorized' });
+
+      const msgs = await db.select().from(supportTicketMessages).where(eq(supportTicketMessages.ticketId, ticketId)).orderBy(supportTicketMessages.createdAt);
+      res.json({ ticket, messages: msgs });
+    } catch (e: any) {
+      console.error('[GeneralSupport] Detail error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to load ticket' });
+    }
+  });
+
+  app.post('/api/general-support/tickets/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'Sign in required' });
+
+      const ticketId = parseInt(req.params.id);
+      const { content } = req.body || {};
+      if (!content?.trim()) return res.status(400).json({ error: 'Message is required' });
+      if (content.length > 5000) return res.status(400).json({ error: 'Message too long (max 5000)' });
+
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket || ticket.workgroupId !== null) return res.status(404).json({ error: 'Ticket not found' });
+      if (ticket.status === 'resolved') return res.status(400).json({ error: 'This ticket is already resolved' });
+      const staff = isStaff(user);
+      if (!staff && ticket.requesterId !== user.id) return res.status(403).json({ error: 'Not authorized' });
+
+      const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+      const [msg] = await db.insert(supportTicketMessages).values({
+        ticketId,
+        senderId: user.id,
+        senderName,
+        content: content.trim(),
+      }).returning();
+
+      // Notify the other side.
+      try {
+        if (staff && ticket.requesterId !== user.id) {
+          await db.insert(ticketNotifications).values({
+            userId: ticket.requesterId,
+            ticketId,
+            workgroupId: null,
+            title: `Reply on Ticket #${ticket.id}`,
+            body: `${senderName}: ${content.trim().slice(0, 80)}`,
+            type: 'ticket_reply',
+          });
+        } else if (!staff) {
+          const staffUsers = await db.select().from(users).where(eq(users.isEmployee, true));
+          for (const s of staffUsers) {
+            await db.insert(ticketNotifications).values({
+              userId: s.id,
+              ticketId,
+              workgroupId: null,
+              title: `User reply on Ticket #${ticket.id}`,
+              body: `${senderName}: ${content.trim().slice(0, 80)}`,
+              type: 'ticket_reply',
+            });
+          }
+        }
+      } catch (notifyErr) {
+        console.error('[GeneralSupport] Notify reply failed:', notifyErr);
+      }
+
+      res.json(msg);
+    } catch (e: any) {
+      console.error('[GeneralSupport] Reply error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to send reply' });
+    }
+  });
+
+  app.post('/api/general-support/tickets/:id/resolve', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'Sign in required' });
+
+      const ticketId = parseInt(req.params.id);
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket || ticket.workgroupId !== null) return res.status(404).json({ error: 'Ticket not found' });
+      if (!isStaff(user) && ticket.requesterId !== user.id) return res.status(403).json({ error: 'Not authorized' });
+
+      const [updated] = await db.update(supportTickets).set({ status: 'resolved', resolvedAt: new Date() }).where(eq(supportTickets.id, ticketId)).returning();
+      res.json(updated);
+    } catch (e: any) {
+      console.error('[GeneralSupport] Resolve error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to resolve ticket' });
+    }
+  });
+
   app.post('/api/workgroups/:id/support-tickets', isAuthenticated, async (req: any, res) => {
     try {
       const user = await getFullUser(req);
@@ -6362,6 +6542,7 @@ Rules:
       const ticketId = parseInt(req.params.ticketId);
       const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
       if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      if (ticket.workgroupId === null) return res.status(404).json({ error: 'Use /api/general-support for general tickets' });
       const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, ticket.workgroupId), eq(workgroupMembers.userId, userId))).limit(1);
       if (!member[0]) return res.status(403).json({ error: 'Not a member' });
       const isAdmin = member[0].role === 'owner' || member[0].role === 'admin';
@@ -6379,6 +6560,7 @@ Rules:
       const ticketId = parseInt(req.params.ticketId);
       const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
       if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      if (ticket.workgroupId === null) return res.status(404).json({ error: 'Use /api/general-support for general tickets' });
       if (ticket.status === 'resolved') return res.status(400).json({ error: 'Ticket is resolved' });
       const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, ticket.workgroupId), eq(workgroupMembers.userId, user.id))).limit(1);
       if (!member[0]) return res.status(403).json({ error: 'Not a member' });
@@ -6419,6 +6601,7 @@ Rules:
       const ticketId = parseInt(req.params.ticketId);
       const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
       if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      if (ticket.workgroupId === null) return res.status(404).json({ error: 'Use /api/general-support for general tickets' });
       const member = await db.select().from(workgroupMembers).where(and(eq(workgroupMembers.workgroupId, ticket.workgroupId), eq(workgroupMembers.userId, userId))).limit(1);
       if (!member[0]) return res.status(403).json({ error: 'Not a member' });
       const isAdmin = member[0].role === 'owner' || member[0].role === 'admin';

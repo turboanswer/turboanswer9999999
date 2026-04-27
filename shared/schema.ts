@@ -354,8 +354,9 @@ export type WorkgroupApproval = typeof workgroupApprovals.$inferSelect;
 
 export const supportTickets = pgTable("support_tickets", {
   id: serial("id").primaryKey(),
-  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id),
   requesterId: text("requester_id").notNull(),
+  requesterEmail: text("requester_email"),
   requesterName: text("requester_name"),
   assignedTo: text("assigned_to"),
   assignedName: text("assigned_name"),
@@ -382,7 +383,7 @@ export const ticketNotifications = pgTable("ticket_notifications", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
   ticketId: integer("ticket_id").references(() => supportTickets.id).notNull(),
-  workgroupId: integer("workgroup_id").references(() => workgroups.id).notNull(),
+  workgroupId: integer("workgroup_id").references(() => workgroups.id),
   title: text("title").notNull(),
   body: text("body"),
   type: text("type").notNull().default("new_ticket"),
