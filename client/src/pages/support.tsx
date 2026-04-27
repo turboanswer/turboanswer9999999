@@ -193,6 +193,105 @@ function TicketDetail({ ticketId, onClose }: { ticketId: number; onClose: () => 
   );
 }
 
+function GuestTicketForm() {
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [category, setCategory] = useState("general");
+  const [submitted, setSubmitted] = useState<number | null>(null);
+
+  const submit = useMutation({
+    mutationFn: async () =>
+      apiRequest('POST', '/api/general-support/guest-tickets', {
+        name: name.trim(), email: email.trim(), subject: subject.trim(), message: message.trim(), category,
+      }).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setSubmitted(data?.ticketId ?? null);
+      setName(""); setEmail(""); setSubject(""); setMessage(""); setCategory("general");
+      toast({ title: "Ticket submitted!", description: `We'll reply by email shortly.` });
+    },
+    onError: (err: any) => toast({ title: "Couldn't submit", description: err?.message || 'Try again', variant: 'destructive' }),
+  });
+
+  if (submitted !== null) {
+    return (
+      <div style={{ ...card, textAlign: 'center' }}>
+        <CheckCircle2 size={42} color="#10b981" style={{ margin: '0 auto 12px' }} />
+        <h3 style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 8 }}>Ticket #{submitted} received</h3>
+        <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 18 }}>
+          We'll reply to your email as soon as we can. <br />
+          <span style={{ color: '#a78bfa' }}>Sign in</span> next time to track replies right here on this page.
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <a href="/api/login" style={{ ...btnPrimary, textDecoration: 'none' }}>Sign in</a>
+          <button onClick={() => setSubmitted(null)} style={{ ...btnPrimary, background: 'transparent', border: '1px solid #444', color: '#d4d4d8' }}>
+            Submit another
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <Ticket size={22} color="#a855f7" />
+        <h3 style={{ fontSize: 22, fontWeight: 700, color: 'white', margin: 0 }}>Open a Support Ticket</h3>
+      </div>
+      <p style={{ color: '#9ca3af', fontSize: 13, marginBottom: 16 }}>
+        Anyone can open a ticket — no account required. Want to track replies in your dashboard?{" "}
+        <a href="/api/login" style={{ color: '#a78bfa', textDecoration: 'underline' }}>Sign in</a>.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <div>
+          <label style={labelStyle}>Your name</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" maxLength={100} style={inputStyle} disabled={submit.isPending} />
+        </div>
+        <div>
+          <label style={labelStyle}>Your email *</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={200} style={inputStyle} disabled={submit.isPending} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={labelStyle}>Subject *</label>
+        <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="A short summary of your issue" maxLength={200} style={inputStyle} disabled={submit.isPending} />
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={labelStyle}>Category</label>
+        <select value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle} disabled={submit.isPending}>
+          <option value="general">General</option>
+          <option value="billing">Billing or refund</option>
+          <option value="bug">A bug or error</option>
+          <option value="account">Account or login</option>
+          <option value="feature">Feature request</option>
+          <option value="abuse">Report abuse</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>What's going on? *</label>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Describe what happened, what you expected, and any error messages…" rows={5} maxLength={5000} style={{ ...inputStyle, resize: 'vertical' }} disabled={submit.isPending} />
+        <div style={{ textAlign: 'right', color: '#6b7280', fontSize: 11, marginTop: 4 }}>{message.length} / 5000</div>
+      </div>
+
+      <button
+        onClick={() => submit.mutate()}
+        disabled={!email.trim() || !subject.trim() || !message.trim() || submit.isPending}
+        style={{ ...btnPrimary, width: '100%', justifyContent: 'center', opacity: (!email.trim() || !subject.trim() || !message.trim() || submit.isPending) ? 0.5 : 1 }}
+      >
+        {submit.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        Submit ticket
+      </button>
+    </div>
+  );
+}
+
 function TicketWidget() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -226,14 +325,7 @@ function TicketWidget() {
   }
 
   if (!isAuthenticated) {
-    return (
-      <div style={{ ...card, textAlign: 'center' }}>
-        <Ticket size={36} color="#a855f7" style={{ margin: '0 auto 12px' }} />
-        <h3 style={{ fontSize: 22, fontWeight: 700, color: 'white', marginBottom: 8 }}>Open a Support Ticket</h3>
-        <p style={{ color: '#9ca3af', fontSize: 14, marginBottom: 18 }}>Sign in to create a ticket and track replies right here.</p>
-        <a href="/api/login" style={{ ...btnPrimary, textDecoration: 'none' }}>Sign in to continue</a>
-      </div>
-    );
+    return <GuestTicketForm />;
   }
 
   return (

@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import multer from "multer";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, and, desc, or, inArray, gt, lt, sql, isNull } from "drizzle-orm";
@@ -6263,6 +6263,96 @@ Rules:
   // staff (isEmployee) can see and reply to all of them, owners always see all.
   // ──────────────────────────────────────────────────────────
   const isStaff = (u: any) => !!(u?.isEmployee) || u?.email === 'support@turboanswer.it.com' || isOwnerAccount(u);
+
+  // Guest ticket creation — no auth required, rate-limited to prevent spam.
+  // Use the same Azure-aware IP normalization as the global limiters in server/index.ts.
+  const stripPortForLimit = (ip: string): string => {
+    const ipv4 = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/);
+    if (ipv4) return ipv4[1];
+    const ipv6 = ip.match(/^\[([^\]]+)\]:\d+$/);
+    if (ipv6) return ipv6[1];
+    return ip;
+  };
+  const guestTicketLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many tickets — please wait an hour or sign in.' },
+    keyGenerator: (req) => ipKeyGenerator(stripPortForLimit(req.ip || '')),
+  });
+
+  // Secondary limiter keyed by normalized email address — prevents IP-rotation
+  // abuse (a single email can't open more than 5 guest tickets per hour).
+  const guestTicketEmailLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    standardHeaders: false,
+    legacyHeaders: false,
+    message: { error: 'Too many tickets from this email — please wait an hour or sign in.' },
+    keyGenerator: (req) => {
+      const email = (req.body?.email || '').toString().trim().toLowerCase();
+      // Fall back to IP-keyed bucket if no email is provided so the limiter still
+      // applies (the request will be 400'd by validation anyway).
+      return email || `noemail:${ipKeyGenerator(stripPortForLimit(req.ip || ''))}`;
+    },
+  });
+
+  app.post('/api/general-support/guest-tickets', guestTicketLimiter, guestTicketEmailLimiter, async (req: any, res) => {
+    try {
+      const { name, email, subject, message, category } = req.body || {};
+      if (!email?.trim() || !subject?.trim() || !message?.trim()) {
+        return res.status(400).json({ error: 'Email, subject, and message are required' });
+      }
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(email.trim())) return res.status(400).json({ error: 'That email address looks invalid' });
+      if (subject.length > 200) return res.status(400).json({ error: 'Subject too long (max 200)' });
+      if (message.length > 5000) return res.status(400).json({ error: 'Message too long (max 5000)' });
+
+      const senderName = name?.trim() || email.trim().split('@')[0];
+      const classification = await classifyTicket(subject.trim(), message.trim());
+
+      const [ticket] = await db.insert(supportTickets).values({
+        workgroupId: null,
+        requesterId: `guest:${email.trim().toLowerCase()}`,
+        requesterEmail: email.trim().toLowerCase(),
+        requesterName: senderName,
+        subject: subject.trim().slice(0, 200),
+        context: message.trim(),
+        priority: classification.priority,
+        category: category?.trim() || classification.category,
+        department: classification.department,
+      }).returning();
+
+      await db.insert(supportTicketMessages).values({
+        ticketId: ticket.id,
+        senderId: `guest:${email.trim().toLowerCase()}`,
+        senderName: senderName,
+        content: message.trim(),
+      });
+
+      try {
+        const staffUsers = await db.select().from(users).where(eq(users.isEmployee, true));
+        for (const s of staffUsers) {
+          await db.insert(ticketNotifications).values({
+            userId: s.id,
+            ticketId: ticket.id,
+            workgroupId: null,
+            title: `New Guest Ticket: ${ticket.subject.slice(0, 60)}`,
+            body: `From ${senderName} (${email.trim()})`,
+            type: 'new_ticket',
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[GeneralSupport] Notify guest staff failed:', notifyErr);
+      }
+
+      res.json({ success: true, ticketId: ticket.id });
+    } catch (e: any) {
+      console.error('[GeneralSupport] Guest create error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to create ticket' });
+    }
+  });
 
   app.post('/api/general-support/tickets', isAuthenticated, async (req: any, res) => {
     try {

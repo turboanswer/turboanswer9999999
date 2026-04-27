@@ -39,6 +39,7 @@ import CollabRooms from "@/pages/collab-rooms";
 import StackTraceSurgeon from "@/pages/stack-trace-surgeon";
 
 import NotificationPopup from "@/components/NotificationPopup";
+import AutoTranslate from "@/components/AutoTranslate";
 import DataDeletion from "@/pages/data-deletion";
 import TermsConditions from "@/pages/terms-conditions";
 import MobileWelcome from "@/pages/mobile-welcome";
@@ -180,6 +181,7 @@ function AppContent() {
     <>
       {isAuthenticated && <NotificationPopup />}
       {isAuthenticated ? <AuthenticatedRouter /> : <UnauthenticatedRouter />}
+      <AutoTranslate />
     </>
   );
 }
