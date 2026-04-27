@@ -48,11 +48,39 @@ const USERS_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "timezone", ddl: "VARCHAR DEFAULT 'UTC'" },
 ];
 
+// Extra columns we need on tables OTHER than users.
+const EXTRA_TABLE_COLUMNS: Array<{ table: string; name: string; ddl: string }> = [
+  { table: "support_tickets", name: "requester_email", ddl: "TEXT" },
+  { table: "support_tickets", name: "requester_name", ddl: "TEXT" },
+  { table: "support_tickets", name: "context", ddl: "TEXT" },
+  { table: "support_tickets", name: "category", ddl: "TEXT" },
+  { table: "support_tickets", name: "department", ddl: "TEXT" },
+  { table: "support_tickets", name: "priority", ddl: "TEXT DEFAULT 'normal'" },
+  { table: "support_tickets", name: "status", ddl: "TEXT DEFAULT 'open'" },
+  { table: "support_tickets", name: "created_at", ddl: "TIMESTAMP DEFAULT now()" },
+  { table: "support_tickets", name: "updated_at", ddl: "TIMESTAMP DEFAULT now()" },
+];
+
+// Columns that need to be made NULLABLE because we relaxed the constraint.
+const NULLABLE_COLUMNS: Array<{ table: string; column: string }> = [
+  { table: "support_tickets", column: "workgroup_id" },
+  { table: "ticket_notifications", column: "workgroup_id" },
+];
+
+async function tableExists(table: string): Promise<boolean> {
+  const res = await pool.query(
+    "SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1",
+    [table]
+  );
+  return !!(res.rowCount && res.rowCount > 0);
+}
+
 export async function ensureDatabaseSchema(): Promise<void> {
   const startedAt = Date.now();
   let added = 0;
   let alreadyExisted = 0;
   let failed = 0;
+  let relaxed = 0;
 
   for (const col of USERS_COLUMNS) {
     try {
@@ -74,7 +102,46 @@ export async function ensureDatabaseSchema(): Promise<void> {
     }
   }
 
+  for (const col of EXTRA_TABLE_COLUMNS) {
+    try {
+      if (!(await tableExists(col.table))) continue;
+      const beforeRes = await pool.query(
+        "SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1",
+        [col.table, col.name]
+      );
+      const existed = beforeRes.rowCount && beforeRes.rowCount > 0;
+      if (existed) {
+        alreadyExisted++;
+        continue;
+      }
+      await pool.query(`ALTER TABLE ${col.table} ADD COLUMN IF NOT EXISTS ${col.name} ${col.ddl}`);
+      added++;
+      console.log(`[DB Migration] Added ${col.table}.${col.name}`);
+    } catch (e: any) {
+      failed++;
+      console.error(`[DB Migration] Failed to ensure ${col.table}.${col.name}: ${e?.message || e}`);
+    }
+  }
+
+  for (const col of NULLABLE_COLUMNS) {
+    try {
+      if (!(await tableExists(col.table))) continue;
+      const res = await pool.query(
+        "SELECT is_nullable FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1",
+        [col.table, col.column]
+      );
+      if (!res.rowCount) continue;
+      if (res.rows[0].is_nullable === "YES") continue;
+      await pool.query(`ALTER TABLE ${col.table} ALTER COLUMN ${col.column} DROP NOT NULL`);
+      relaxed++;
+      console.log(`[DB Migration] Relaxed NOT NULL on ${col.table}.${col.column}`);
+    } catch (e: any) {
+      failed++;
+      console.error(`[DB Migration] Failed to relax ${col.table}.${col.column}: ${e?.message || e}`);
+    }
+  }
+
   console.log(
-    `[DB Migration] Complete in ${Date.now() - startedAt}ms — added: ${added}, existing: ${alreadyExisted}, failed: ${failed}`
+    `[DB Migration] Complete in ${Date.now() - startedAt}ms — added: ${added}, existing: ${alreadyExisted}, relaxed: ${relaxed}, failed: ${failed}`
   );
 }

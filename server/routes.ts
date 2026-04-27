@@ -6349,8 +6349,9 @@ Rules:
 
       res.json({ success: true, ticketId: ticket.id });
     } catch (e: any) {
-      console.error('[GeneralSupport] Guest create error:', e?.message || e);
-      res.status(500).json({ error: 'Failed to create ticket' });
+      console.error('[GeneralSupport] Guest create error:', e?.stack || e?.message || e);
+      const detail = process.env.NODE_ENV === 'production' ? undefined : (e?.message || String(e));
+      res.status(500).json({ error: 'Failed to create ticket', detail });
     }
   });
 
