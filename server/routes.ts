@@ -6717,6 +6717,309 @@ Rules:
     } catch (e: any) { res.status(500).json({ error: 'Failed to update department' }); }
   });
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // ADMIN: Unified ticket management (general support + workgroup tickets)
+  // ──────────────────────────────────────────────────────────────────────────
+  app.get('/api/admin/tickets', isAdmin, async (_req: any, res) => {
+    try {
+      const allTickets = await db.select().from(supportTickets).orderBy(desc(supportTickets.createdAt));
+
+      // Pull workgroup names + message counts in parallel.
+      const wgIds = Array.from(new Set(allTickets.map(t => t.workgroupId).filter((x): x is number => typeof x === 'number')));
+      const wgRows = wgIds.length ? await db.select().from(workgroups).where(inArray(workgroups.id, wgIds)) : [];
+      const wgNameMap = new Map(wgRows.map(w => [w.id, w.name]));
+
+      const ticketIds = allTickets.map(t => t.id);
+      let countMap = new Map<number, { msgs: number; lastAt: Date | null; lastFrom: string | null; lastPreview: string | null }>();
+      if (ticketIds.length) {
+        const allMsgs = await db.select().from(supportTicketMessages).where(inArray(supportTicketMessages.ticketId, ticketIds)).orderBy(supportTicketMessages.createdAt);
+        for (const m of allMsgs) {
+          const existing = countMap.get(m.ticketId) || { msgs: 0, lastAt: null, lastFrom: null, lastPreview: null };
+          existing.msgs += 1;
+          existing.lastAt = m.createdAt;
+          existing.lastFrom = m.senderName;
+          existing.lastPreview = (m.content || '').slice(0, 120);
+          countMap.set(m.ticketId, existing);
+        }
+      }
+
+      const enriched = allTickets.map(t => {
+        const c = countMap.get(t.id);
+        return {
+          ...t,
+          scope: t.workgroupId ? 'workgroup' : 'general',
+          workgroupName: t.workgroupId ? (wgNameMap.get(t.workgroupId) || `Workgroup #${t.workgroupId}`) : null,
+          messageCount: c?.msgs ?? 0,
+          lastMessageAt: c?.lastAt ?? null,
+          lastMessageFrom: c?.lastFrom ?? null,
+          lastMessagePreview: c?.lastPreview ?? null,
+        };
+      });
+
+      res.json(enriched);
+    } catch (e: any) {
+      console.error('[Admin Tickets] List error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to list tickets' });
+    }
+  });
+
+  app.get('/api/admin/tickets/:id', isAdmin, async (req: any, res) => {
+    try {
+      const ticketId = parseInt(req.params.id);
+      if (Number.isNaN(ticketId)) return res.status(400).json({ error: 'Invalid ticket id' });
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      const msgs = await db.select().from(supportTicketMessages).where(eq(supportTicketMessages.ticketId, ticketId)).orderBy(supportTicketMessages.createdAt);
+      let workgroupName: string | null = null;
+      if (ticket.workgroupId) {
+        const [wg] = await db.select().from(workgroups).where(eq(workgroups.id, ticket.workgroupId));
+        workgroupName = wg?.name || null;
+      }
+      res.json({ ticket: { ...ticket, scope: ticket.workgroupId ? 'workgroup' : 'general', workgroupName }, messages: msgs });
+    } catch (e: any) {
+      console.error('[Admin Tickets] Detail error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to load ticket' });
+    }
+  });
+
+  app.post('/api/admin/tickets/:id/reply', isAdmin, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      if (!user) return res.status(401).json({ error: 'Sign in required' });
+      const ticketId = parseInt(req.params.id);
+      const { content } = req.body || {};
+      if (!content?.trim()) return res.status(400).json({ error: 'Message is required' });
+      if (content.length > 5000) return res.status(400).json({ error: 'Message too long (max 5000)' });
+
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, ticketId));
+      if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+
+      const senderName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Admin';
+      const [msg] = await db.insert(supportTicketMessages).values({
+        ticketId,
+        senderId: user.id,
+        senderName: `${senderName} (Admin)`,
+        content: content.trim(),
+      }).returning();
+
+      // Bump status to in_progress on first staff reply if it was open.
+      if (ticket.status === 'open') {
+        await db.update(supportTickets).set({ status: 'in_progress' }).where(eq(supportTickets.id, ticketId));
+      }
+
+      // Notify the requester (and other staff for workgroup tickets).
+      try {
+        if (ticket.requesterId && ticket.requesterId !== user.id) {
+          await db.insert(ticketNotifications).values({
+            userId: ticket.requesterId,
+            ticketId,
+            workgroupId: ticket.workgroupId ?? null,
+            title: `Reply on Ticket #${ticket.id}`,
+            body: `${senderName}: ${content.trim().slice(0, 80)}`,
+            type: 'ticket_reply',
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[Admin Tickets] Notify reply failed:', notifyErr);
+      }
+
+      res.json(msg);
+    } catch (e: any) {
+      console.error('[Admin Tickets] Reply error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to send reply' });
+    }
+  });
+
+  app.post('/api/admin/tickets/:id/status', isAdmin, async (req: any, res) => {
+    try {
+      const ticketId = parseInt(req.params.id);
+      const { status } = req.body || {};
+      const valid = ['open', 'in_progress', 'resolved', 'closed'];
+      if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+      const patch: any = { status };
+      if (status === 'resolved' || status === 'closed') patch.resolvedAt = new Date();
+      if (status === 'open' || status === 'in_progress') patch.resolvedAt = null;
+      const [updated] = await db.update(supportTickets).set(patch).where(eq(supportTickets.id, ticketId)).returning();
+      if (!updated) return res.status(404).json({ error: 'Ticket not found' });
+      res.json(updated);
+    } catch (e: any) {
+      console.error('[Admin Tickets] Status error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to update status' });
+    }
+  });
+
+  app.post('/api/admin/tickets/:id/priority', isAdmin, async (req: any, res) => {
+    try {
+      const ticketId = parseInt(req.params.id);
+      const { priority } = req.body || {};
+      const valid = ['low', 'normal', 'high', 'urgent'];
+      if (!valid.includes(priority)) return res.status(400).json({ error: 'Invalid priority' });
+      const [updated] = await db.update(supportTickets).set({ priority }).where(eq(supportTickets.id, ticketId)).returning();
+      if (!updated) return res.status(404).json({ error: 'Ticket not found' });
+      res.json(updated);
+    } catch (e: any) {
+      console.error('[Admin Tickets] Priority error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to update priority' });
+    }
+  });
+
+  app.post('/api/admin/tickets/:id/assign', isAdmin, async (req: any, res) => {
+    try {
+      const ticketId = parseInt(req.params.id);
+      const { assigneeId } = req.body || {};
+      let patch: any = { assignedTo: null, assignedName: null };
+      if (assigneeId) {
+        const [target] = await db.select().from(users).where(eq(users.id, assigneeId));
+        if (!target) return res.status(404).json({ error: 'Assignee not found' });
+        if (!target.isEmployee && target.email !== 'support@turboanswer.it.com') {
+          return res.status(400).json({ error: 'Assignee must be an admin/staff member' });
+        }
+        patch = {
+          assignedTo: target.id,
+          assignedName: `${target.firstName || ''} ${target.lastName || ''}`.trim() || target.email || 'Staff',
+        };
+      }
+      const [updated] = await db.update(supportTickets).set(patch).where(eq(supportTickets.id, ticketId)).returning();
+      if (!updated) return res.status(404).json({ error: 'Ticket not found' });
+      res.json(updated);
+    } catch (e: any) {
+      console.error('[Admin Tickets] Assign error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to assign ticket' });
+    }
+  });
+
+  app.delete('/api/admin/tickets/:id', isAdmin, async (req: any, res) => {
+    try {
+      const ticketId = parseInt(req.params.id);
+      // Cascade delete messages and notifications first to avoid FK violations.
+      await db.delete(supportTicketMessages).where(eq(supportTicketMessages.ticketId, ticketId));
+      await db.delete(ticketNotifications).where(eq(ticketNotifications.ticketId, ticketId));
+      await db.delete(supportTickets).where(eq(supportTickets.id, ticketId));
+      res.json({ ok: true });
+    } catch (e: any) {
+      console.error('[Admin Tickets] Delete error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to delete ticket' });
+    }
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ADMIN: Runtime / hosting info for the Command Center "Azure portal" view
+  // ──────────────────────────────────────────────────────────────────────────
+  app.get('/api/admin/runtime-info', isAdmin, async (_req: any, res) => {
+    try {
+      const os = await import('os');
+      const mem = process.memoryUsage();
+      const cpus = os.cpus();
+      const platform = os.platform();
+      const release = os.release();
+      const arch = os.arch();
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const loadAvg = os.loadavg();
+      const hostname = os.hostname();
+      const uptime = process.uptime();
+      const isAzure = !!process.env.WEBSITE_SITE_NAME;
+      const region = process.env.WEBSITE_RESOURCE_GROUP || process.env.AZURE_REGION || (isAzure ? 'Azure App Service' : 'Replit');
+
+      // Count tables / live counts (light queries).
+      const userCount = await db.select().from(users);
+      const ticketCount = await db.select().from(supportTickets);
+      const openTickets = ticketCount.filter(t => t.status === 'open' || t.status === 'in_progress');
+      const urgentTickets = ticketCount.filter(t => t.priority === 'urgent' && t.status !== 'resolved' && t.status !== 'closed');
+
+      res.json({
+        host: {
+          provider: isAzure ? 'Azure App Service' : (process.env.REPL_ID ? 'Replit' : 'Self-hosted'),
+          siteName: process.env.WEBSITE_SITE_NAME || process.env.REPL_SLUG || hostname,
+          region,
+          location: process.env.REGION_NAME || 'West US 2',
+          subscriptionId: process.env.WEBSITE_OWNER_NAME || '0e355811-7b2f-48ff-abc9-4619d3fe71c3',
+          githubRepo: 'https://github.com/turboanswer/turboanswer9999999',
+          customDomain: 'turboanswer.it.com',
+          defaultDomain: process.env.WEBSITE_HOSTNAME || `${process.env.REPL_SLUG || 'turboanswergroup'}-default.azurewebsites.net`,
+          planType: 'App Service plan',
+          planName: 'ASP-turboanswergroupgroup-b1ad',
+          sku: 'Basic (B1)',
+          instanceCount: 1,
+        },
+        runtime: {
+          node: process.version,
+          platform,
+          release,
+          arch,
+          pid: process.pid,
+          uptimeSeconds: Math.round(uptime),
+          uptimeFormatted: formatDuration(uptime),
+          startedAt: new Date(Date.now() - uptime * 1000).toISOString(),
+        },
+        cpu: {
+          count: cpus.length,
+          model: cpus[0]?.model || 'unknown',
+          loadAvg1: loadAvg[0],
+          loadAvg5: loadAvg[1],
+          loadAvg15: loadAvg[2],
+        },
+        memory: {
+          rssMB: Math.round(mem.rss / 1024 / 1024),
+          heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+          heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+          systemTotalMB: Math.round(totalMem / 1024 / 1024),
+          systemFreeMB: Math.round(freeMem / 1024 / 1024),
+          systemUsedPct: Math.round(((totalMem - freeMem) / totalMem) * 100),
+        },
+        deployment: {
+          provider: 'GitHub Action',
+          branch: 'main',
+          commit: process.env.GIT_COMMIT || process.env.WEBSITE_GIT_COMMIT || null,
+          lastDeploy: process.env.WEBSITE_LAST_DEPLOY || null,
+          status: 'Successful',
+          publishingModel: 'Code',
+          runtimeStack: `Node ~ ${process.version.replace(/^v/, '').split('.')[0]}-lts`,
+          runtimeStatus: 'Healthy',
+        },
+        env: {
+          nodeEnv: process.env.NODE_ENV || 'development',
+          tz: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone,
+          locale: process.env.LANG || 'en_US.UTF-8',
+        },
+        integrations: {
+          ai: {
+            openai: !!process.env.OPENAI_API_KEY,
+            anthropic: !!process.env.ANTHROPIC_API_KEY,
+            gemini: !!process.env.GEMINI_API_KEY,
+            geminiPro: !!process.env.GEMINI_PRO_API_KEY,
+            openrouter: !!process.env.OPENROUTER_API_KEY,
+            replicate: !!process.env.REPLICATE_API_TOKEN,
+          },
+          payments: {
+            stripe: !!process.env.STRIPE_SECRET_KEY,
+            paypal: !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET),
+          },
+          comms: {
+            twilio: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+            twilioPhone: !!process.env.TWILIO_PHONE_NUMBER,
+          },
+          database: !!process.env.DATABASE_URL,
+        },
+        counts: {
+          users: userCount.length,
+          tickets: ticketCount.length,
+          openTickets: openTickets.length,
+          urgentTickets: urgentTickets.length,
+        },
+        network: {
+          virtualIp: '20.115.232.11,40.64.128.251',
+          outboundIps: '4.149.168.103, 4.149.168.110, 4.149.168...',
+          additionalOutboundIps: '4.149.168.103, 4.149.168.110, 4.149.168...',
+          vnet: 'Not configured',
+        },
+      });
+    } catch (e: any) {
+      console.error('[Admin Runtime] error:', e?.message || e);
+      res.status(500).json({ error: 'Failed to gather runtime info' });
+    }
+  });
+
   app.get('/api/notifications', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
