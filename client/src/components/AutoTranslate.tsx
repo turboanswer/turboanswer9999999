@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { Globe, Check, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "wouter";
+import { Globe, Check, Search, Loader2, ExternalLink } from "lucide-react";
 
 const SUPPORTED = [
   { code: "en", name: "English", flag: "🇺🇸" },
@@ -73,6 +74,8 @@ const SUPPORTED = [
 
 const STORAGE_KEY = "turbo_translate_lang";
 const SUPPRESSED_KEY = "turbo_translate_suppressed";
+const PENDING_KEY = "turbo_translate_pending";
+const RELOADED_KEY = "turbo_translate_reloaded";
 
 function readCookie(name: string): string {
   const m = document.cookie.match(new RegExp("(^|;\\s*)" + name + "=([^;]*)"));
@@ -86,7 +89,9 @@ function setGoogtransCookie(targetLang: string) {
   document.cookie = `googtrans=${value}${opts}`;
   document.cookie = `googtrans=${value}; domain=${host}${opts}`;
   const root = host.split(".").slice(-2).join(".");
-  if (root && root !== host) document.cookie = `googtrans=${value}; domain=.${root}${opts}`;
+  if (root && root !== host && root.includes(".")) {
+    document.cookie = `googtrans=${value}; domain=.${root}${opts}`;
+  }
 }
 
 function clearGoogtransCookie() {
@@ -95,7 +100,9 @@ function clearGoogtransCookie() {
   document.cookie = `googtrans=${expire}`;
   document.cookie = `googtrans=${expire}; domain=${host}`;
   const root = host.split(".").slice(-2).join(".");
-  if (root && root !== host) document.cookie = `googtrans=${expire}; domain=.${root}`;
+  if (root && root !== host && root.includes(".")) {
+    document.cookie = `googtrans=${expire}; domain=.${root}`;
+  }
 }
 
 function detectBrowserLang(): string {
@@ -110,16 +117,37 @@ function detectBrowserLang(): string {
   return "en";
 }
 
-function loadGoogleScript() {
-  if (document.getElementById("google-translate-script")) return;
-  if (!document.getElementById("google_translate_element")) {
-    const div = document.createElement("div");
-    div.id = "google_translate_element";
-    document.body.appendChild(div);
+let scriptLoadAttempted = false;
+
+function ensureMountTarget() {
+  let el = document.getElementById("google_translate_element");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "google_translate_element";
+    // Off-screen positioning instead of display:none — Google's widget
+    // refuses to attach to a display:none container.
+    el.style.position = "fixed";
+    el.style.top = "-9999px";
+    el.style.left = "-9999px";
+    el.style.width = "1px";
+    el.style.height = "1px";
+    el.style.overflow = "hidden";
+    document.body.appendChild(el);
   }
+  return el;
+}
+
+function loadGoogleScript(onReady: (ok: boolean) => void) {
+  if (scriptLoadAttempted) {
+    // Already attempted; just check if it's there.
+    onReady(!!(window as any).google?.translate?.TranslateElement);
+    return;
+  }
+  scriptLoadAttempted = true;
+  ensureMountTarget();
+
   (window as any).googleTranslateElementInit = function () {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const g = (window as any).google;
       if (g?.translate?.TranslateElement) {
         new g.translate.TranslateElement(
@@ -131,22 +159,48 @@ function loadGoogleScript() {
           },
           "google_translate_element",
         );
+        onReady(true);
+      } else {
+        onReady(false);
       }
     } catch (err) {
       console.warn("[AutoTranslate] init failed:", err);
+      onReady(false);
     }
   };
+
   const s = document.createElement("script");
   s.id = "google-translate-script";
-  s.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+  s.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
   s.async = true;
+  s.onerror = () => {
+    console.warn("[AutoTranslate] Google Translate script failed to load");
+    onReady(false);
+  };
   document.body.appendChild(s);
+}
+
+// Trigger Google Translate to re-scan after dynamic content updates (SPA route changes).
+function nudgeTranslator() {
+  // Dispatch a few "fake" mutations that Google's MutationObserver picks up.
+  const root = document.body;
+  if (!root) return;
+  const marker = document.createElement("span");
+  marker.style.display = "none";
+  marker.textContent = " ";
+  root.appendChild(marker);
+  setTimeout(() => marker.remove(), 50);
 }
 
 export default function AutoTranslate() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [current, setCurrent] = useState<string>("en");
+  const [pending, setPending] = useState<string | null>(null);
+  const [scriptFailed, setScriptFailed] = useState(false);
+  const [widgetReady, setWidgetReady] = useState(false);
+  const reTranslateRef = useRef<number | null>(null);
+  const [location] = useLocation();
 
   // Close menu on Escape
   useEffect(() => {
@@ -165,6 +219,7 @@ export default function AutoTranslate() {
       const suppressed = localStorage.getItem(SUPPRESSED_KEY) === "1";
       const cookie = readCookie("googtrans");
       const cookieLang = cookie?.startsWith("/en/") ? cookie.slice(4) : "";
+      const pendingLang = sessionStorage.getItem(PENDING_KEY);
 
       let initial = stored || cookieLang || "";
 
@@ -174,23 +229,79 @@ export default function AutoTranslate() {
           initial = detected;
           localStorage.setItem(STORAGE_KEY, detected);
           setGoogtransCookie(detected);
-          // Need to reload once for googtrans cookie to take effect on widget init.
-          // Use a flag to avoid loops.
-          if (!sessionStorage.getItem("turbo_translate_reloaded")) {
-            sessionStorage.setItem("turbo_translate_reloaded", "1");
+          if (!sessionStorage.getItem(RELOADED_KEY)) {
+            sessionStorage.setItem(RELOADED_KEY, "1");
+            sessionStorage.setItem(PENDING_KEY, detected);
             window.location.reload();
             return;
           }
         }
       }
 
+      // Sync cookie ↔ storage in BOTH directions so they never disagree.
+      if (initial && initial !== "en" && cookieLang !== initial) {
+        setGoogtransCookie(initial);
+      }
+      if ((!initial || initial === "en") && cookieLang && cookieLang !== "en") {
+        clearGoogtransCookie();
+      }
+
       setCurrent(initial || "en");
+      if (pendingLang) {
+        // We just reloaded after a language switch; keep the indicator until the widget runs.
+        setPending(pendingLang);
+        sessionStorage.removeItem(PENDING_KEY);
+      }
     } catch (err) {
       console.warn("[AutoTranslate] mount error:", err);
     }
 
-    loadGoogleScript();
+    // Load the widget. Give it a 6-second deadline; if it doesn't load, surface a fallback.
+    let resolved = false;
+    const timeout = window.setTimeout(() => {
+      if (!resolved) {
+        setScriptFailed(true);
+        setPending(null);
+      }
+    }, 6000);
+
+    loadGoogleScript((ok) => {
+      resolved = true;
+      window.clearTimeout(timeout);
+      if (!ok) {
+        setScriptFailed(true);
+        setPending(null);
+      } else {
+        // Late success — clear any stale fallback flag from earlier timeout.
+        setScriptFailed(false);
+        setWidgetReady(true);
+        // Give the widget ~1.2 s to apply translations, then drop the indicator.
+        window.setTimeout(() => setPending(null), 1200);
+      }
+    });
+
+    // Low-frequency safety-net nudge in case route-change nudges miss something.
+    reTranslateRef.current = window.setInterval(() => {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && stored !== "en") nudgeTranslator();
+    }, 15000) as unknown as number;
+
+    return () => {
+      if (reTranslateRef.current) window.clearInterval(reTranslateRef.current);
+    };
   }, []);
+
+  // Route-aware nudges: when the SPA route changes and a non-English language is active,
+  // poke the DOM so Google Translate's MutationObserver re-translates the new content.
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored || stored === "en") return;
+    if (!widgetReady) return;
+    // Two nudges: immediately, then again after 600ms (after React has likely settled).
+    nudgeTranslator();
+    const t = window.setTimeout(() => nudgeTranslator(), 600);
+    return () => window.clearTimeout(t);
+  }, [location, widgetReady]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -206,16 +317,26 @@ export default function AutoTranslate() {
       localStorage.setItem(STORAGE_KEY, "en");
       localStorage.setItem(SUPPRESSED_KEY, "1");
       clearGoogtransCookie();
+      sessionStorage.removeItem(PENDING_KEY);
     } else {
       localStorage.setItem(STORAGE_KEY, code);
       localStorage.removeItem(SUPPRESSED_KEY);
       setGoogtransCookie(code);
+      sessionStorage.setItem(PENDING_KEY, code);
     }
-    sessionStorage.removeItem("turbo_translate_reloaded");
-    window.location.reload();
+    sessionStorage.removeItem(RELOADED_KEY);
+    // Small delay so the cookie is committed before reload (some browsers race).
+    window.setTimeout(() => window.location.reload(), 80);
+  };
+
+  const openInGoogleTranslate = (code: string) => {
+    const target = code === "en" ? "es" : code;
+    const url = `https://translate.google.com/translate?sl=en&tl=${target}&u=${encodeURIComponent(window.location.href)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const currentLang = SUPPORTED.find(l => l.code === current) || SUPPORTED[0];
+  const pendingLang = pending ? SUPPORTED.find(l => l.code === pending) : null;
 
   return (
     <>
@@ -253,9 +374,11 @@ export default function AutoTranslate() {
             backdropFilter: "blur(8px)",
           }}
         >
-          <Globe size={14} />
+          {pending ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
           <span>{currentLang.flag}</span>
-          <span style={{ display: window.innerWidth < 480 ? "none" : "inline" }}>{currentLang.name}</span>
+          <span style={{ display: window.innerWidth < 480 ? "none" : "inline" }}>
+            {pending ? `Translating…` : currentLang.name}
+          </span>
         </button>
 
         {open && (
@@ -302,34 +425,58 @@ export default function AutoTranslate() {
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
               {filtered.map(lang => (
-                <button
+                <div
                   key={lang.code}
-                  onClick={() => choose(lang.code)}
-                  data-testid={`option-translate-${lang.code}`}
                   style={{
-                    width: "100%",
-                    padding: "8px 12px",
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
                     background: lang.code === current ? "rgba(168,85,247,0.15)" : "transparent",
-                    border: "none",
-                    color: lang.code === current ? "#c4b5fd" : "white",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    textAlign: "left",
-                  }}
-                  onMouseEnter={e => {
-                    if (lang.code !== current) e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                  }}
-                  onMouseLeave={e => {
-                    if (lang.code !== current) e.currentTarget.style.background = "transparent";
                   }}
                 >
-                  <span style={{ fontSize: 16 }}>{lang.flag}</span>
-                  <span style={{ flex: 1 }}>{lang.name}</span>
-                  {lang.code === current && <Check size={14} color="#a78bfa" />}
-                </button>
+                  <button
+                    onClick={() => choose(lang.code)}
+                    data-testid={`option-translate-${lang.code}`}
+                    style={{
+                      flex: 1,
+                      padding: "8px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "transparent",
+                      border: "none",
+                      color: lang.code === current ? "#c4b5fd" : "white",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      textAlign: "left",
+                    }}
+                    onMouseEnter={e => {
+                      if (lang.code !== current) (e.currentTarget.parentElement as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+                    }}
+                    onMouseLeave={e => {
+                      if (lang.code !== current) (e.currentTarget.parentElement as HTMLElement).style.background = "transparent";
+                    }}
+                  >
+                    <span style={{ fontSize: 16 }}>{lang.flag}</span>
+                    <span style={{ flex: 1 }}>{lang.name}</span>
+                    {lang.code === current && <Check size={14} color="#a78bfa" />}
+                  </button>
+                  {scriptFailed && lang.code !== "en" && (
+                    <button
+                      onClick={() => openInGoogleTranslate(lang.code)}
+                      title="Open in Google Translate"
+                      aria-label={`Open in Google Translate: ${lang.name}`}
+                      style={{
+                        padding: "6px 8px",
+                        background: "transparent",
+                        border: "none",
+                        color: "#888",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <ExternalLink size={12} />
+                    </button>
+                  )}
+                </div>
               ))}
               {filtered.length === 0 && (
                 <div style={{ padding: 16, textAlign: "center", color: "#888", fontSize: 13 }}>
@@ -338,11 +485,42 @@ export default function AutoTranslate() {
               )}
             </div>
             <div style={{ padding: "8px 12px", borderTop: "1px solid #333", fontSize: 11, color: "#888", textAlign: "center" }}>
-              Powered by Google Translate
+              {scriptFailed
+                ? "Translator blocked — click ↗ to open in Google Translate"
+                : "Powered by Google Translate"}
             </div>
           </div>
         )}
       </div>
+
+      {pending && pendingLang && (
+        <div
+          className="notranslate"
+          translate="no"
+          style={{
+            position: "fixed",
+            top: 16,
+            right: 16,
+            zIndex: 9999,
+            background: "rgba(20, 20, 25, 0.95)",
+            color: "white",
+            padding: "8px 14px",
+            borderRadius: 999,
+            border: "1px solid rgba(168,85,247,0.5)",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 13,
+            fontWeight: 500,
+            fontFamily: "system-ui, -apple-system, sans-serif",
+          }}
+        >
+          <Loader2 size={14} className="animate-spin" />
+          <span>Translating to {pendingLang.flag} {pendingLang.name}…</span>
+        </div>
+      )}
     </>
   );
 }
