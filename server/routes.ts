@@ -6833,6 +6833,7 @@ Rules:
   app.post('/api/admin/tickets/:id/status', isAdmin, async (req: any, res) => {
     try {
       const ticketId = parseInt(req.params.id);
+      if (!Number.isFinite(ticketId) || ticketId <= 0) return res.status(400).json({ error: 'Invalid ticket id' });
       const { status } = req.body || {};
       const valid = ['open', 'in_progress', 'resolved', 'closed'];
       if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
@@ -6851,6 +6852,7 @@ Rules:
   app.post('/api/admin/tickets/:id/priority', isAdmin, async (req: any, res) => {
     try {
       const ticketId = parseInt(req.params.id);
+      if (!Number.isFinite(ticketId) || ticketId <= 0) return res.status(400).json({ error: 'Invalid ticket id' });
       const { priority } = req.body || {};
       const valid = ['low', 'normal', 'high', 'urgent'];
       if (!valid.includes(priority)) return res.status(400).json({ error: 'Invalid priority' });
@@ -6866,6 +6868,7 @@ Rules:
   app.post('/api/admin/tickets/:id/assign', isAdmin, async (req: any, res) => {
     try {
       const ticketId = parseInt(req.params.id);
+      if (!Number.isFinite(ticketId) || ticketId <= 0) return res.status(400).json({ error: 'Invalid ticket id' });
       const { assigneeId } = req.body || {};
       let patch: any = { assignedTo: null, assignedName: null };
       if (assigneeId) {
@@ -6891,6 +6894,7 @@ Rules:
   app.delete('/api/admin/tickets/:id', isAdmin, async (req: any, res) => {
     try {
       const ticketId = parseInt(req.params.id);
+      if (!Number.isFinite(ticketId) || ticketId <= 0) return res.status(400).json({ error: 'Invalid ticket id' });
       // Cascade delete messages and notifications first to avoid FK violations.
       await db.delete(supportTicketMessages).where(eq(supportTicketMessages.ticketId, ticketId));
       await db.delete(ticketNotifications).where(eq(ticketNotifications.ticketId, ticketId));
@@ -6949,7 +6953,17 @@ Rules:
           arch,
           pid: process.pid,
           uptimeSeconds: Math.round(uptime),
-          uptimeFormatted: formatDuration(uptime),
+          uptimeFormatted: (() => {
+            const s = Math.round(uptime);
+            const d = Math.floor(s / 86400);
+            const h = Math.floor((s % 86400) / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            if (d) return `${d}d ${h}h ${m}m`;
+            if (h) return `${h}h ${m}m`;
+            if (m) return `${m}m ${sec}s`;
+            return `${sec}s`;
+          })(),
           startedAt: new Date(Date.now() - uptime * 1000).toISOString(),
         },
         cpu: {

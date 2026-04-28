@@ -13,7 +13,9 @@ import {
   Bug, Terminal, Filter, XCircle, AlertOctagon, CheckSquare, SlidersHorizontal,
   ChevronRight, AlertCircle, Layers, LayoutDashboard, LogOut, ChevronLeft,
   Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick, ShieldCheck, Siren, Unlock, Loader2,
-  ShieldOff, ShieldPlus, KeyRound
+  ShieldOff, ShieldPlus, KeyRound, Ticket, Globe, GitBranch, BarChart2, Network, Box,
+  Lock, MapPin, Tag, Cloud, Lightbulb, FileCode, Inbox, ClipboardList, Star, Pin, MoreHorizontal,
+  Phone, Briefcase
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,7 +115,7 @@ interface ActivityEntry {
   duration: number;
 }
 
-type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes' | 'emailTemplates';
+type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes' | 'emailTemplates' | 'tickets';
 
 const EMAIL_TEMPLATES_LIST = [
   { id: 'account-banned', label: 'Account Banned', icon: Ban, color: '#ef4444', description: 'Notify a user that their account has been banned for violating guidelines.' },
@@ -652,6 +654,7 @@ export default function EmployeeDashboard() {
 
   const navItems = [
     { id: 'commandcenter' as TabType, icon: LayoutDashboard, label: 'Command Center' },
+    { id: 'tickets' as TabType, icon: Ticket, label: 'Support Tickets' },
     { id: 'users' as TabType, icon: Users, label: 'Users' },
     { id: 'subscriptions' as TabType, icon: CreditCard, label: 'Subscriptions' },
     { id: 'system' as TabType, icon: Terminal, label: 'System & Debug' },
@@ -770,9 +773,13 @@ export default function EmployeeDashboard() {
             notifications={notifications}
             unreadCount={unreadCount}
             onTabChange={setActiveTab}
-            onViewUser={(userId) => { setSelectedUserId(userId); setActiveTab('users'); }}
-            onMarkRead={(id) => markReadMutation.mutate(id)}
+            onViewUser={(userId: string) => { setSelectedUserId(userId); setActiveTab('users'); }}
+            onMarkRead={(id: number) => markReadMutation.mutate(id)}
           />
+        )}
+
+        {activeTab === 'tickets' && (
+          <TicketsTab currentUser={currentUser} users={users} />
         )}
 
         {activeTab === 'overview' && (
@@ -1470,308 +1477,7 @@ function AdminInviteTab({ currentUser }: { currentUser: any }) {
   );
 }
 
-function CommandCenter({
-  stats, systemHealth, users, notifications, unreadCount, onTabChange, onViewUser, onMarkRead
-}: {
-  stats: AdminStats | undefined;
-  systemHealth: SystemHealth | undefined;
-  users: UserData[];
-  notifications: AdminNotification[];
-  unreadCount: number;
-  onTabChange: (tab: TabType) => void;
-  onViewUser: (id: string) => void;
-  onMarkRead: (id: number) => void;
-}) {
-  const activityRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
-  const [activityFilter, setActivityFilter] = useState<'all' | 'errors' | 'slow'>('all');
-
-  const { data: activity = [] } = useQuery<ActivityEntry[]>({
-    queryKey: ['/api/admin/activity'],
-    refetchInterval: 3000,
-  });
-
-  const { data: errorLog } = useQuery<ErrorLog>({
-    queryKey: ['/api/admin/error-log'],
-    refetchInterval: 10000,
-  });
-
-  useEffect(() => {
-    if (autoScroll && activityRef.current) {
-      activityRef.current.scrollTop = 0;
-    }
-  }, [activity, autoScroll]);
-
-  const filteredActivity = activity.filter(e => {
-    if (activityFilter === 'errors') return e.status >= 400;
-    if (activityFilter === 'slow') return e.duration > 500;
-    return true;
-  });
-
-  const svc = systemHealth?.services;
-  const metrics = [
-    { label: 'Total Users', value: stats?.totalUsers ?? users.length, color: '#22d3ee', icon: Users },
-    { label: 'Revenue/mo', value: `$${stats?.estimatedMonthlyRevenue ?? 0}`, color: '#4ade80', icon: DollarSign },
-    { label: 'Pro Users', value: stats?.subscriptions?.pro ?? 0, color: '#a78bfa', icon: Crown },
-    { label: 'Unread Alerts', value: unreadCount, color: unreadCount > 0 ? '#f87171' : '#4ade80', icon: Bell },
-    { label: 'Active Errors', value: errorLog?.stats?.unresolved ?? 0, color: (errorLog?.stats?.unresolved ?? 0) > 0 ? '#fb923c' : '#4ade80', icon: AlertTriangle },
-    { label: 'Flagged Users', value: users.filter(u => u.isFlagged).length, color: '#fbbf24', icon: Flag },
-  ];
-
-  const statusColor = (s?: string) =>
-    s === 'healthy' ? '#4ade80' : s === 'degraded' ? '#fbbf24' : s ? '#f87171' : '#475569';
-
-  const methodColor = (m: string) =>
-    m === 'GET' ? '#22d3ee' : m === 'POST' ? '#4ade80' : m === 'DELETE' ? '#f87171' : m === 'PATCH' ? '#a78bfa' : '#94a3b8';
-
-  const statusBg = (s: number) =>
-    s >= 500 ? 'rgba(239,68,68,0.15)' : s >= 400 ? 'rgba(251,146,60,0.12)' : s >= 300 ? 'rgba(250,204,21,0.08)' : 'transparent';
-
-  return (
-    <div className="space-y-4">
-
-      {/* ── HEADER ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-white flex items-center gap-2">
-            <LayoutDashboard className="w-5 h-5 text-cyan-400" />
-            Command Center
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5 font-mono">Live system overview · auto-refresh every 3s</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 text-xs font-mono text-slate-500">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            LIVE
-          </div>
-        </div>
-      </div>
-
-      {/* ── KPI ROW ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {metrics.map(m => (
-          <div key={m.label} className="rounded-lg p-3 flex flex-col gap-1"
-            style={{ background: '#0d0d0d', border: '1px solid #0d1e30' }}>
-            <div className="flex items-center justify-between">
-              <m.icon className="w-3.5 h-3.5" style={{ color: m.color }} />
-              <span className="text-[10px] font-mono text-slate-600">KPI</span>
-            </div>
-            <div className="text-lg font-bold font-mono" style={{ color: m.color }}>{m.value}</div>
-            <div className="text-[10px] text-slate-500 truncate">{m.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── MAIN GRID: Activity Feed + Right Panel ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* ── LIVE ACTIVITY FEED ── */}
-        <div className="lg:col-span-2 rounded-lg overflow-hidden"
-          style={{ background: '#080808', border: '1px solid #0d1e30' }}>
-          <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: '#1a1a1a' }}>
-            <div className="flex items-center gap-2">
-              <Radio className="w-3.5 h-3.5 text-green-400 animate-pulse" />
-              <span className="text-xs font-bold text-slate-300 font-mono">LIVE API FEED</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {(['all', 'errors', 'slow'] as const).map(f => (
-                <button key={f} onClick={() => setActivityFilter(f)}
-                  className="px-2 py-0.5 rounded text-[10px] font-mono transition-colors"
-                  style={{
-                    background: activityFilter === f ? '#1a1a1a' : 'transparent',
-                    color: activityFilter === f ? '#22d3ee' : '#475569',
-                    border: activityFilter === f ? '1px solid #1e4a6e' : '1px solid transparent',
-                  }}>
-                  {f === 'all' ? 'ALL' : f === 'errors' ? 'ERR' : 'SLOW'}
-                </button>
-              ))}
-              <button onClick={() => setAutoScroll(a => !a)}
-                className="px-2 py-0.5 rounded text-[10px] font-mono transition-colors ml-1"
-                style={{
-                  background: autoScroll ? 'rgba(74,222,128,0.1)' : 'transparent',
-                  color: autoScroll ? '#4ade80' : '#475569',
-                  border: autoScroll ? '1px solid rgba(74,222,128,0.3)' : '1px solid #1e2a38',
-                }}>
-                {autoScroll ? '▼ AUTO' : '⏸ PAUSED'}
-              </button>
-            </div>
-          </div>
-          <div ref={activityRef} className="overflow-y-auto font-mono text-[11px]" style={{ maxHeight: '420px' }}>
-            {filteredActivity.length === 0 ? (
-              <div className="flex items-center justify-center h-20 text-slate-600 text-xs">
-                Waiting for API calls...
-              </div>
-            ) : (
-              filteredActivity.map((entry, i) => (
-                <div key={entry.id || i} className="flex items-center gap-2 px-3 py-1.5 border-b"
-                  style={{ borderColor: '#111111', background: statusBg(entry.status) }}>
-                  <span className="text-[9px] text-slate-600 w-16 flex-shrink-0">
-                    {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </span>
-                  <span className="w-10 flex-shrink-0 font-bold text-[10px]" style={{ color: methodColor(entry.method) }}>
-                    {entry.method}
-                  </span>
-                  <span className="flex-1 truncate text-slate-400">{entry.path}</span>
-                  <span className="w-8 flex-shrink-0 text-right"
-                    style={{ color: entry.status >= 500 ? '#f87171' : entry.status >= 400 ? '#fb923c' : '#4ade80' }}>
-                    {entry.status}
-                  </span>
-                  <span className="w-14 flex-shrink-0 text-right"
-                    style={{ color: entry.duration > 1000 ? '#f87171' : entry.duration > 500 ? '#fbbf24' : '#475569' }}>
-                    {entry.duration}ms
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* ── RIGHT PANEL: Services + Alerts + Errors ── */}
-        <div className="flex flex-col gap-4">
-
-          {/* Services */}
-          <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
-            <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#1a1a1a' }}>
-              <Server className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-xs font-bold text-slate-300 font-mono">SERVICES</span>
-            </div>
-            <div className="p-3 space-y-2">
-              {[
-                { name: 'Database', key: 'database', icon: Database },
-                { name: 'PayPal', key: 'paypal', icon: CreditCard },
-                { name: 'AI Models', key: 'ai', icon: Brain },
-              ].map(({ name, key, icon: Icon }) => {
-                const s = svc?.[key as keyof typeof svc];
-                const col = statusColor(s);
-                return (
-                  <div key={key} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-3 h-3 text-slate-600" />
-                      <span className="text-xs text-slate-400 font-mono">{name}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span style={{ color: col, fontSize: '10px' }}>●</span>
-                      <span className="text-[10px] font-mono capitalize" style={{ color: col }}>
-                        {s ?? 'unknown'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-              {systemHealth?.uptimeFormatted && (
-                <div className="pt-2 mt-1 border-t text-[10px] font-mono text-slate-600 flex justify-between"
-                  style={{ borderColor: '#1a1a1a' }}>
-                  <span>uptime</span>
-                  <span className="text-green-500">{systemHealth.uptimeFormatted}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Alerts */}
-          <div className="rounded-lg overflow-hidden flex-1" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
-            <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: '#1a1a1a' }}>
-              <div className="flex items-center gap-2">
-                <Bell className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-xs font-bold text-slate-300 font-mono">RECENT ALERTS</span>
-              </div>
-              {unreadCount > 0 && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                  style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' }}>
-                  {unreadCount} unread
-                </span>
-              )}
-            </div>
-            <div className="overflow-y-auto" style={{ maxHeight: '180px' }}>
-              {notifications.slice(0, 8).map(n => (
-                <div key={n.id}
-                  className="px-3 py-2 border-b flex items-start gap-2 cursor-pointer hover:bg-white/5 transition-colors"
-                  style={{ borderColor: '#111111', background: n.isRead === 'false' ? 'rgba(234,88,12,0.05)' : 'transparent' }}
-                  onClick={() => onMarkRead(n.id)}>
-                  <div className="flex-shrink-0 mt-0.5">
-                    {n.type === 'system_outage' ? (
-                      <AlertTriangle className="w-3 h-3 text-red-400" />
-                    ) : n.type === 'content_flagged' ? (
-                      <Flag className="w-3 h-3 text-orange-400" />
-                    ) : (
-                      <Bell className="w-3 h-3 text-blue-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-slate-400 truncate font-mono">
-                      {n.type.replace(/_/g, ' ').toUpperCase()}
-                    </div>
-                    <div className="text-[10px] text-slate-600 truncate">{(n.flaggedContent || n.actionTaken)?.slice(0, 60)}</div>
-                  </div>
-                  {n.isRead === 'false' && (
-                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400 mt-1" />
-                  )}
-                </div>
-              ))}
-              {notifications.length === 0 && (
-                <div className="flex items-center justify-center h-12 text-slate-600 text-[10px] font-mono">
-                  No alerts
-                </div>
-              )}
-            </div>
-            <div className="px-3 py-1.5 border-t" style={{ borderColor: '#1a1a1a' }}>
-              <button onClick={() => onTabChange('notifications')}
-                className="text-[10px] font-mono text-cyan-600 hover:text-cyan-400 transition-colors">
-                View all alerts →
-              </button>
-            </div>
-          </div>
-
-          {/* Error summary */}
-          {errorLog && (errorLog.stats.unresolved > 0 || errorLog.stats.critical > 0) && (
-            <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid rgba(239,68,68,0.25)' }}>
-              <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
-                <Bug className="w-3.5 h-3.5 text-red-400" />
-                <span className="text-xs font-bold text-red-300 font-mono">ERROR TRACKER</span>
-              </div>
-              <div className="p-3 space-y-1.5">
-                <div className="flex justify-between text-[10px] font-mono">
-                  <span className="text-slate-500">Unresolved</span>
-                  <span className="text-orange-400">{errorLog.stats.unresolved}</span>
-                </div>
-                {errorLog.stats.critical > 0 && (
-                  <div className="flex justify-between text-[10px] font-mono">
-                    <span className="text-slate-500">Critical</span>
-                    <span className="text-red-400 font-bold">{errorLog.stats.critical}</span>
-                  </div>
-                )}
-                <button onClick={() => onTabChange('system')}
-                  className="text-[10px] font-mono text-cyan-600 hover:text-cyan-400 transition-colors block mt-1">
-                  View error log →
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── QUICK ACTIONS ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Manage Users', icon: Users, tab: 'users' as TabType, color: '#22d3ee' },
-          { label: 'Subscriptions', icon: CreditCard, tab: 'subscriptions' as TabType, color: '#a78bfa' },
-          { label: 'System & Debug', icon: Terminal, tab: 'system' as TabType, color: '#4ade80' },
-          { label: 'Beta Testing', icon: FlaskConical, tab: 'beta' as TabType, color: '#fb923c' },
-        ].map(action => (
-          <button key={action.tab} onClick={() => onTabChange(action.tab)}
-            className="flex items-center gap-2.5 p-3 rounded-lg text-left transition-all hover:scale-[1.02]"
-            style={{ background: '#0d0d0d', border: '1px solid #0d1e30' }}>
-            <action.icon className="w-4 h-4 flex-shrink-0" style={{ color: action.color }} />
-            <span className="text-xs text-slate-400 font-medium">{action.label}</span>
-            <ChevronRight className="w-3 h-3 text-slate-700 ml-auto" />
-          </button>
-        ))}
-      </div>
-
-    </div>
-  );
-}
-
+function CommandCenter(props: any) { return <CommandCenterAzure {...props} />; }
 function OverviewTab({ stats, systemHealth, users, unreadCount, onTabChange }: {
   stats: AdminStats | undefined;
   systemHealth: SystemHealth | undefined;
@@ -3466,6 +3172,1080 @@ function PromoCodesTab() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TICKETS TAB — full ticket management for admins
+// ════════════════════════════════════════════════════════════════════════════
+interface AdminTicket {
+  id: number;
+  workgroupId: number | null;
+  requesterId: string;
+  requesterEmail: string | null;
+  requesterName: string | null;
+  assignedTo: string | null;
+  assignedName: string | null;
+  subject: string;
+  context: string | null;
+  status: string;
+  priority: string;
+  category: string | null;
+  department: string | null;
+  scope: 'general' | 'workgroup';
+  workgroupName: string | null;
+  messageCount: number;
+  lastMessageAt: string | null;
+  lastMessageFrom: string | null;
+  lastMessagePreview: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+interface AdminTicketDetail {
+  ticket: AdminTicket;
+  messages: Array<{ id: number; ticketId: number; senderId: string; senderName: string | null; content: string; createdAt: string }>;
+}
+
+const TICKET_STATUS_META: Record<string, { color: string; bg: string; label: string }> = {
+  open:        { color: '#60a5fa', bg: 'rgba(96,165,250,0.12)',  label: 'Open' },
+  in_progress: { color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  label: 'In Progress' },
+  resolved:    { color: '#4ade80', bg: 'rgba(74,222,128,0.12)',  label: 'Resolved' },
+  closed:      { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: 'Closed' },
+};
+const TICKET_PRIORITY_META: Record<string, { color: string; bg: string; label: string }> = {
+  low:    { color: '#94a3b8', bg: 'rgba(148,163,184,0.10)', label: 'Low' },
+  normal: { color: '#60a5fa', bg: 'rgba(96,165,250,0.10)',  label: 'Normal' },
+  high:   { color: '#fb923c', bg: 'rgba(251,146,60,0.12)',  label: 'High' },
+  urgent: { color: '#f87171', bg: 'rgba(248,113,113,0.15)', label: 'Urgent' },
+};
+
+function relTime(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso).getTime();
+  const diff = Date.now() - d;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function TicketsTab({ currentUser, users }: { currentUser: any; users: UserData[] }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved' | 'closed'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'normal' | 'high' | 'urgent'>('all');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'general' | 'workgroup'>('all');
+  const [reply, setReply] = useState('');
+
+  const { data: tickets = [], isLoading } = useQuery<AdminTicket[]>({
+    queryKey: ['/api/admin/tickets'],
+    refetchInterval: 15000,
+  });
+
+  const { data: detail, isLoading: detailLoading } = useQuery<AdminTicketDetail>({
+    queryKey: ['/api/admin/tickets', selectedId],
+    enabled: selectedId !== null,
+    refetchInterval: selectedId ? 8000 : false,
+  });
+
+  const filtered = tickets.filter(t => {
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+    if (scopeFilter !== 'all' && t.scope !== scopeFilter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const hay = `${t.subject} ${t.requesterEmail || ''} ${t.requesterName || ''} ${t.context || ''} ${t.workgroupName || ''} #${t.id}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const stats = {
+    total: tickets.length,
+    open: tickets.filter(t => t.status === 'open').length,
+    inProgress: tickets.filter(t => t.status === 'in_progress').length,
+    resolved: tickets.filter(t => t.status === 'resolved').length,
+    urgent: tickets.filter(t => t.priority === 'urgent' && t.status !== 'resolved' && t.status !== 'closed').length,
+    awaitingReply: tickets.filter(t => t.status !== 'resolved' && t.status !== 'closed' && (t.lastMessageFrom || '').toLowerCase().indexOf('admin') === -1).length,
+    today: tickets.filter(t => Date.now() - new Date(t.createdAt).getTime() < 86400000).length,
+  };
+
+  const replyMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const res = await apiRequest('POST', `/api/admin/tickets/${selectedId}/reply`, { content });
+      return res.json();
+    },
+    onSuccess: () => {
+      setReply('');
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets', selectedId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets'] });
+      toast({ title: 'Reply sent', description: 'The user has been notified.' });
+    },
+    onError: (e: any) => toast({ title: 'Failed to send', description: e.message || 'Please try again', variant: 'destructive' }),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await apiRequest('POST', `/api/admin/tickets/${id}/status`, { status });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets', selectedId] });
+    },
+  });
+
+  const priorityMutation = useMutation({
+    mutationFn: async ({ id, priority }: { id: number; priority: string }) => {
+      const res = await apiRequest('POST', `/api/admin/tickets/${id}/priority`, { priority });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets', selectedId] });
+    },
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async ({ id, assigneeId }: { id: number; assigneeId: string | null }) => {
+      const res = await apiRequest('POST', `/api/admin/tickets/${id}/assign`, { assigneeId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets', selectedId] });
+      toast({ title: 'Assignment updated' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest('DELETE', `/api/admin/tickets/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      setSelectedId(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets'] });
+      toast({ title: 'Ticket deleted' });
+    },
+  });
+
+  const adminUsers = users.filter(u => u.isEmployee || u.email === 'support@turboanswer.it.com');
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-white flex items-center gap-2">
+            <Ticket className="w-5 h-5 text-cyan-400" /> Support Tickets
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 font-mono">Every ticket across general support and workgroups · auto-refresh every 15s</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" className="h-8 text-xs text-cyan-400 hover:text-cyan-300" onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/tickets'] })}>
+            <RefreshCw className="w-3 h-3 mr-1.5" /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI tiles */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        {[
+          { label: 'Total', value: stats.total, color: '#22d3ee', icon: Ticket },
+          { label: 'Open', value: stats.open, color: '#60a5fa', icon: Inbox },
+          { label: 'In Progress', value: stats.inProgress, color: '#fbbf24', icon: Clock },
+          { label: 'Urgent', value: stats.urgent, color: '#f87171', icon: AlertTriangle },
+          { label: 'Awaiting Reply', value: stats.awaitingReply, color: '#fb923c', icon: MessageSquare },
+          { label: 'Resolved', value: stats.resolved, color: '#4ade80', icon: CheckCircle },
+          { label: 'Today', value: stats.today, color: '#a78bfa', icon: Calendar },
+        ].map(s => (
+          <div key={s.label} className="rounded-lg p-3" style={{ background: '#0d0d0d', border: '1px solid #0d1e30' }}>
+            <div className="flex items-center justify-between mb-1">
+              <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
+              <span className="text-[9px] font-mono text-slate-600">KPI</span>
+            </div>
+            <div className="text-xl font-bold font-mono" style={{ color: s.color }}>{s.value}</div>
+            <div className="text-[10px] text-slate-500 truncate">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="rounded-lg p-3 flex flex-wrap gap-3 items-center" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by subject, email, ID, workgroup..."
+            className="pl-9 h-8 text-xs bg-black/60 border-zinc-800 text-white" />
+        </div>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="px-2 py-1.5 bg-black/60 border border-zinc-800 rounded text-white text-xs">
+          <option value="all">All statuses</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+        <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value as any)} className="px-2 py-1.5 bg-black/60 border border-zinc-800 rounded text-white text-xs">
+          <option value="all">All priorities</option>
+          <option value="urgent">Urgent</option>
+          <option value="high">High</option>
+          <option value="normal">Normal</option>
+          <option value="low">Low</option>
+        </select>
+        <select value={scopeFilter} onChange={e => setScopeFilter(e.target.value as any)} className="px-2 py-1.5 bg-black/60 border border-zinc-800 rounded text-white text-xs">
+          <option value="all">All scopes</option>
+          <option value="general">General Support</option>
+          <option value="workgroup">Workgroup</option>
+        </select>
+        <span className="text-[10px] font-mono text-slate-500">{filtered.length} of {tickets.length}</span>
+      </div>
+
+      {/* Two-pane layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* List */}
+        <div className="lg:col-span-2 rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>
+          <div className="px-3 py-2 border-b text-[10px] font-mono text-slate-500 flex items-center justify-between" style={{ borderColor: '#1a1a1a' }}>
+            <span>TICKETS</span>
+            <span>{filtered.length}</span>
+          </div>
+          <div className="overflow-y-auto" style={{ maxHeight: '70vh' }}>
+            {isLoading ? (
+              <div className="p-6 text-center text-slate-500 text-xs"><Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />Loading tickets...</div>
+            ) : filtered.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs">No tickets match your filters.</div>
+            ) : filtered.map(t => {
+              const statusMeta = TICKET_STATUS_META[t.status] || TICKET_STATUS_META.open;
+              const prioMeta = TICKET_PRIORITY_META[t.priority] || TICKET_PRIORITY_META.normal;
+              const isSelected = selectedId === t.id;
+              return (
+                <div key={t.id} onClick={() => setSelectedId(t.id)}
+                  className="px-3 py-2.5 border-b cursor-pointer transition-all"
+                  style={{
+                    borderColor: '#141414',
+                    background: isSelected ? 'rgba(34,211,238,0.06)' : 'transparent',
+                    borderLeft: isSelected ? '2px solid #22d3ee' : '2px solid transparent',
+                  }}>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[10px] font-mono text-slate-600 flex-shrink-0">#{t.id}</span>
+                      <span className="text-xs text-slate-200 font-medium truncate">{t.subject}</span>
+                    </div>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono flex-shrink-0" style={{ color: prioMeta.color, background: prioMeta.bg }}>{prioMeta.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                    <span className="px-1.5 py-0.5 rounded font-mono" style={{ color: statusMeta.color, background: statusMeta.bg }}>{statusMeta.label}</span>
+                    <span className="truncate">{t.requesterEmail || t.requesterName || 'Unknown'}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 mt-1 text-[9px] text-slate-600 font-mono">
+                    <span className="truncate">
+                      {t.scope === 'workgroup' ? <><Briefcase className="w-2.5 h-2.5 inline mr-0.5" />{t.workgroupName}</> : <>General Support</>}
+                      {t.category && t.category !== 'general' && <> · {t.category}</>}
+                    </span>
+                    <span className="flex items-center gap-1.5 flex-shrink-0">
+                      <span><MessageSquare className="w-2.5 h-2.5 inline mr-0.5" />{t.messageCount}</span>
+                      <span>{relTime(t.lastMessageAt || t.createdAt)}</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Detail */}
+        <div className="lg:col-span-3 rounded-lg overflow-hidden flex flex-col" style={{ background: '#080808', border: '1px solid #1a1a1a', maxHeight: '78vh' }}>
+          {!selectedId ? (
+            <div className="flex items-center justify-center flex-1 p-8 text-slate-600 text-xs">
+              <div className="text-center">
+                <Inbox className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                Select a ticket on the left to view the conversation.
+              </div>
+            </div>
+          ) : detailLoading ? (
+            <div className="flex items-center justify-center flex-1"><Loader2 className="w-5 h-5 animate-spin text-cyan-400" /></div>
+          ) : detail ? (
+            <>
+              {/* Detail header */}
+              <div className="px-4 py-3 border-b flex-shrink-0" style={{ borderColor: '#1a1a1a' }}>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono text-slate-600">TICKET #{detail.ticket.id}</span>
+                      {detail.ticket.scope === 'workgroup' && <span className="text-[9px] font-mono text-purple-400 px-1.5 py-0.5 rounded bg-purple-900/20 border border-purple-900/40">{detail.ticket.workgroupName}</span>}
+                    </div>
+                    <h3 className="text-sm font-bold text-white">{detail.ticket.subject}</h3>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      from <span className="text-slate-300">{detail.ticket.requesterName || detail.ticket.requesterEmail || 'Unknown'}</span>
+                      {detail.ticket.requesterEmail && detail.ticket.requesterName && <> · <span className="text-slate-400">{detail.ticket.requesterEmail}</span></>}
+                      <> · opened {relTime(detail.ticket.createdAt)}</>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="ghost" className="h-7 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                    onClick={() => { if (confirm('Permanently delete this ticket and all its messages?')) deleteMutation.mutate(detail.ticket.id); }}
+                    disabled={deleteMutation.isPending}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+
+                {/* Action row: status / priority / assignee */}
+                <div className="flex items-center gap-2 flex-wrap mt-2">
+                  <select value={detail.ticket.status} onChange={e => statusMutation.mutate({ id: detail.ticket.id, status: e.target.value })}
+                    className="px-2 py-1 text-[11px] rounded border bg-black/60 text-white"
+                    style={{ borderColor: TICKET_STATUS_META[detail.ticket.status]?.color || '#333' }}>
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                  <select value={detail.ticket.priority} onChange={e => priorityMutation.mutate({ id: detail.ticket.id, priority: e.target.value })}
+                    className="px-2 py-1 text-[11px] rounded border bg-black/60 text-white"
+                    style={{ borderColor: TICKET_PRIORITY_META[detail.ticket.priority]?.color || '#333' }}>
+                    <option value="low">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                  <select value={detail.ticket.assignedTo || ''} onChange={e => assignMutation.mutate({ id: detail.ticket.id, assigneeId: e.target.value || null })}
+                    className="px-2 py-1 text-[11px] rounded border border-zinc-700 bg-black/60 text-white">
+                    <option value="">Unassigned</option>
+                    {adminUsers.map(u => (
+                      <option key={u.id} value={u.id}>{u.firstName} {u.lastName}{u.id === currentUser?.id ? ' (me)' : ''}</option>
+                    ))}
+                  </select>
+                  {detail.ticket.requesterEmail && (
+                    <a href={`mailto:${detail.ticket.requesterEmail}?subject=Re%3A%20${encodeURIComponent(detail.ticket.subject)}%20%5BTicket%20%23${detail.ticket.id}%5D`}
+                      className="px-2 py-1 text-[11px] rounded border border-zinc-700 bg-black/60 text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1">
+                      <Mail className="w-3 h-3" /> Email
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Original context */}
+              {detail.ticket.context && (
+                <div className="px-4 py-3 border-b text-[11px] text-slate-400 whitespace-pre-wrap" style={{ borderColor: '#141414', background: 'rgba(96,165,250,0.04)' }}>
+                  <div className="text-[9px] font-mono text-slate-600 mb-1">ORIGINAL MESSAGE</div>
+                  {detail.ticket.context}
+                </div>
+              )}
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {detail.messages.length === 0 ? (
+                  <div className="text-center text-slate-600 text-xs py-8">No replies yet. Be the first to respond.</div>
+                ) : detail.messages.map(m => {
+                  const isAdminMsg = (m.senderName || '').includes('(Admin)') || m.senderId === detail.ticket.assignedTo;
+                  return (
+                    <div key={m.id} className={`flex ${isAdminMsg ? 'justify-end' : 'justify-start'}`}>
+                      <div className="max-w-[85%] rounded-lg px-3 py-2"
+                        style={{
+                          background: isAdminMsg ? 'rgba(34,211,238,0.08)' : '#111',
+                          border: isAdminMsg ? '1px solid rgba(34,211,238,0.25)' : '1px solid #1f1f1f',
+                        }}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-mono" style={{ color: isAdminMsg ? '#22d3ee' : '#94a3b8' }}>{m.senderName || 'User'}</span>
+                          <span className="text-[9px] text-slate-600 font-mono">{relTime(m.createdAt)}</span>
+                        </div>
+                        <div className="text-[12px] text-slate-200 whitespace-pre-wrap">{m.content}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Reply box */}
+              <div className="border-t p-3 flex-shrink-0" style={{ borderColor: '#1a1a1a' }}>
+                <textarea value={reply} onChange={e => setReply(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && reply.trim()) { e.preventDefault(); replyMutation.mutate(reply.trim()); } }}
+                  placeholder="Type your reply... (⌘/Ctrl+Enter to send)"
+                  rows={3}
+                  className="w-full px-3 py-2 text-xs bg-black/60 border border-zinc-800 rounded text-white resize-none focus:outline-none focus:border-cyan-700" />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[10px] text-slate-600 font-mono">{reply.length}/5000</span>
+                  <div className="flex items-center gap-2">
+                    {detail.ticket.status !== 'resolved' && detail.ticket.status !== 'closed' && (
+                      <Button size="sm" variant="ghost" className="h-7 text-[11px] text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                        onClick={() => statusMutation.mutate({ id: detail.ticket.id, status: 'resolved' })}>
+                        <CheckCircle className="w-3 h-3 mr-1" /> Mark Resolved
+                      </Button>
+                    )}
+                    <Button size="sm" disabled={!reply.trim() || replyMutation.isPending} onClick={() => replyMutation.mutate(reply.trim())}
+                      className="h-7 text-[11px] bg-cyan-600 hover:bg-cyan-700">
+                      {replyMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
+                      Send Reply
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="p-8 text-center text-red-400 text-xs">Failed to load ticket.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// COMMAND CENTER — Azure-portal-styled live overview
+// ════════════════════════════════════════════════════════════════════════════
+interface RuntimeInfo {
+  host: { provider: string; siteName: string; region: string; location: string; subscriptionId: string; githubRepo: string; customDomain: string; defaultDomain: string; planType: string; planName: string; sku: string; instanceCount: number };
+  runtime: { node: string; platform: string; release: string; arch: string; pid: number; uptimeSeconds: number; uptimeFormatted: string; startedAt: string };
+  cpu: { count: number; model: string; loadAvg1: number; loadAvg5: number; loadAvg15: number };
+  memory: { rssMB: number; heapUsedMB: number; heapTotalMB: number; systemTotalMB: number; systemFreeMB: number; systemUsedPct: number };
+  deployment: { provider: string; branch: string; commit: string | null; lastDeploy: string | null; status: string; publishingModel: string; runtimeStack: string; runtimeStatus: string };
+  env: { nodeEnv: string; tz: string; locale: string };
+  integrations: {
+    ai: { openai: boolean; anthropic: boolean; gemini: boolean; geminiPro: boolean; openrouter: boolean; replicate: boolean };
+    payments: { stripe: boolean; paypal: boolean };
+    comms: { twilio: boolean; twilioPhone: boolean };
+    database: boolean;
+  };
+  counts: { users: number; tickets: number; openTickets: number; urgentTickets: number };
+  network: { virtualIp: string; outboundIps: string; additionalOutboundIps: string; vnet: string };
+}
+
+type AzureSubTab = 'properties' | 'monitoring' | 'logs' | 'capabilities' | 'notifications' | 'recommendations';
+
+function CommandCenterAzure({
+  stats, systemHealth, users, notifications, unreadCount, onTabChange, onMarkRead
+}: {
+  stats: AdminStats | undefined;
+  systemHealth: SystemHealth | undefined;
+  users: UserData[];
+  notifications: AdminNotification[];
+  unreadCount: number;
+  onTabChange: (tab: TabType) => void;
+  onViewUser: (id: string) => void;
+  onMarkRead: (id: number) => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [subTab, setSubTab] = useState<AzureSubTab>('properties');
+  const [pinned, setPinned] = useState(false);
+  const [starred, setStarred] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'errors' | 'slow'>('all');
+  const activityRef = useRef<HTMLDivElement>(null);
+
+  const { data: runtime, refetch: refetchRuntime } = useQuery<RuntimeInfo>({
+    queryKey: ['/api/admin/runtime-info'],
+    refetchInterval: 15000,
+  });
+  const { data: activity = [] } = useQuery<ActivityEntry[]>({
+    queryKey: ['/api/admin/activity'],
+    refetchInterval: 3000,
+  });
+  const { data: errorLog } = useQuery<ErrorLog>({
+    queryKey: ['/api/admin/error-log'],
+    refetchInterval: 10000,
+  });
+  const { data: tickets = [] } = useQuery<AdminTicket[]>({
+    queryKey: ['/api/admin/tickets'],
+    refetchInterval: 30000,
+  });
+
+  useEffect(() => { if (autoScroll && activityRef.current) activityRef.current.scrollTop = 0; }, [activity, autoScroll]);
+
+  const filteredActivity = activity.filter(e => {
+    if (activityFilter === 'errors') return e.status >= 400;
+    if (activityFilter === 'slow') return e.duration > 500;
+    return true;
+  });
+
+  const svc = systemHealth?.services;
+  const statusColor = (s?: string) => s === 'healthy' ? '#4ade80' : s === 'degraded' ? '#fbbf24' : s ? '#f87171' : '#475569';
+  const methodColor = (m: string) => m === 'GET' ? '#22d3ee' : m === 'POST' ? '#4ade80' : m === 'DELETE' ? '#f87171' : m === 'PATCH' ? '#a78bfa' : '#94a3b8';
+  const statusBg = (s: number) => s >= 500 ? 'rgba(239,68,68,0.15)' : s >= 400 ? 'rgba(251,146,60,0.12)' : s >= 300 ? 'rgba(250,204,21,0.08)' : 'transparent';
+
+  const overallHealth = svc?.database === 'healthy' && svc?.ai === 'healthy' ? 'healthy' : svc?.database && svc?.ai ? 'degraded' : 'unknown';
+
+  const enabledAiCount = runtime ? Object.values(runtime.integrations.ai).filter(Boolean).length : 0;
+  const totalIntegrations = runtime ? (
+    enabledAiCount +
+    Object.values(runtime.integrations.payments).filter(Boolean).length +
+    Object.values(runtime.integrations.comms).filter(Boolean).length +
+    (runtime.integrations.database ? 1 : 0)
+  ) : 0;
+
+  const recommendations: Array<{ severity: 'info' | 'warn' | 'error'; title: string; body: string; action?: { label: string; tab?: TabType } }> = [];
+  if (runtime) {
+    if (runtime.counts.urgentTickets > 0) recommendations.push({ severity: 'error', title: `${runtime.counts.urgentTickets} urgent ticket(s) waiting`, body: 'These need a response within the SLA. Open the ticket inbox to triage.', action: { label: 'View Tickets', tab: 'tickets' } });
+    if (runtime.memory.systemUsedPct > 85) recommendations.push({ severity: 'warn', title: `System memory at ${runtime.memory.systemUsedPct}%`, body: 'Memory is high — consider scaling up the App Service plan or restarting the workflow.' });
+    if (errorLog && errorLog.stats.critical > 0) recommendations.push({ severity: 'error', title: `${errorLog.stats.critical} critical error(s) unresolved`, body: 'Open the error tracker in System & Debug.', action: { label: 'View Errors', tab: 'system' } });
+    if (!runtime.integrations.payments.stripe && !runtime.integrations.payments.paypal) recommendations.push({ severity: 'warn', title: 'No payment provider connected', body: 'Connect Stripe or PayPal to enable subscriptions.' });
+    if (!runtime.integrations.comms.twilio) recommendations.push({ severity: 'info', title: 'Twilio is not connected', body: 'Add Twilio to enable SMS notifications.' });
+    if (overallHealth === 'healthy' && recommendations.length === 0) recommendations.push({ severity: 'info', title: 'All systems healthy', body: 'No recommendations at this time. Nice work!' });
+  }
+
+  const restartWorkflowMut = useMutation({
+    mutationFn: async () => { await refetchRuntime(); return true; },
+    onSuccess: () => toast({ title: 'Refreshed', description: 'Latest runtime data loaded.' }),
+  });
+
+  const exportSnapshotMut = useMutation({
+    mutationFn: async () => {
+      const snapshot = { timestamp: new Date().toISOString(), runtime, stats, systemHealth, errorStats: errorLog?.stats, ticketCounts: { total: tickets.length, open: tickets.filter(t => t.status === 'open').length, urgent: tickets.filter(t => t.priority === 'urgent').length } };
+      const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `command-center-snapshot-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return true;
+    },
+    onSuccess: () => toast({ title: 'Snapshot exported', description: 'Saved as JSON in your downloads.' }),
+  });
+
+  const subTabs: Array<{ id: AzureSubTab; label: string; badge?: number }> = [
+    { id: 'properties', label: 'Properties' },
+    { id: 'monitoring', label: 'Monitoring' },
+    { id: 'logs', label: 'Logs' },
+    { id: 'capabilities', label: 'Capabilities' },
+    { id: 'notifications', label: 'Notifications', badge: unreadCount },
+    { id: 'recommendations', label: 'Recommendations', badge: recommendations.length },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {/* ── Breadcrumb + Title ── */}
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+        <span>Home</span>
+        <ChevronRight className="w-3 h-3" />
+        <span className="text-slate-400">Command Center</span>
+      </div>
+
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-lg flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15))', border: '1px solid rgba(34,211,238,0.3)' }}>
+            <Cloud className="w-7 h-7 text-cyan-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-white">{runtime?.host.siteName || 'turboanswergroup'}</h1>
+              <button onClick={() => setPinned(p => !p)} className="text-slate-600 hover:text-cyan-400" title="Pin to dashboard">
+                <Pin className="w-4 h-4" style={{ color: pinned ? '#22d3ee' : undefined, fill: pinned ? '#22d3ee' : 'none' }} />
+              </button>
+              <button onClick={() => setStarred(s => !s)} className="text-slate-600 hover:text-yellow-400" title="Add to favorites">
+                <Star className="w-4 h-4" style={{ color: starred ? '#fbbf24' : undefined, fill: starred ? '#fbbf24' : 'none' }} />
+              </button>
+              <button className="text-slate-600 hover:text-slate-300"><MoreHorizontal className="w-4 h-4" /></button>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">Web App · {runtime?.host.provider || 'Loading...'}</div>
+          </div>
+        </div>
+        <button className="text-slate-600 hover:text-slate-300 p-1"><X className="w-4 h-4" /></button>
+      </div>
+
+      {/* ── Top action bar (Azure-style) ── */}
+      <div className="rounded-lg p-2 flex items-center gap-1 flex-wrap" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
+        {[
+          { icon: Globe, label: 'Browse', onClick: () => window.open('/', '_blank'), color: '#22d3ee' },
+          { icon: Pause, label: 'Stop', onClick: () => toast({ title: 'Stop is disabled in production', variant: 'destructive' }), color: '#94a3b8' },
+          { icon: TrendingUp, label: 'Swap', onClick: () => toast({ title: 'Slot swap requires Standard tier', description: 'Upgrade to enable deployment slots.' }), color: '#94a3b8' },
+          { icon: RefreshCw, label: 'Restart', onClick: () => restartWorkflowMut.mutate(), color: '#fb923c' },
+          { icon: Trash2, label: 'Delete', onClick: () => toast({ title: 'Delete is disabled', description: 'This is the live production app.', variant: 'destructive' }), color: '#94a3b8' },
+          { icon: RefreshCw, label: 'Refresh', onClick: () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/runtime-info'] }); queryClient.invalidateQueries({ queryKey: ['/api/admin/system-health'] }); }, color: '#22d3ee' },
+          { icon: FileCode, label: 'Download publish profile', onClick: () => exportSnapshotMut.mutate(), color: '#a78bfa' },
+          { icon: KeyRound, label: 'Reset publish profile', onClick: () => toast({ title: 'Coming soon' }), color: '#94a3b8' },
+          { icon: Send, label: 'Share to mobile', onClick: () => { navigator.clipboard.writeText(window.location.href); toast({ title: 'Link copied to clipboard' }); }, color: '#a78bfa' },
+          { icon: ThumbsUp, label: 'Send us your feedback', onClick: () => onTabChange('beta'), color: '#4ade80' },
+        ].map((b, i) => (
+          <button key={i} onClick={b.onClick}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] hover:bg-white/5 transition-colors text-slate-300">
+            <b.icon className="w-3.5 h-3.5" style={{ color: b.color }} />
+            {b.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Banner ── */}
+      {!bannerDismissed && (
+        <div className="rounded-lg px-3 py-2 flex items-center justify-between gap-3"
+          style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)' }}>
+          <div className="flex items-center gap-2 text-[11px] text-slate-300">
+            <Lightbulb className="w-3.5 h-3.5 text-blue-400" />
+            Consider using a global CDN since your app receives requests from multiple regions.
+          </div>
+          <button onClick={() => setBannerDismissed(true)} className="text-slate-500 hover:text-slate-300">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Property header strip (key/value rows in 2 cols, Azure style) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5 px-1">
+        {[
+          { label: 'Location', value: runtime?.host.location || 'West US 2', link: true },
+          { label: 'Operating System', value: runtime?.runtime.platform === 'linux' ? 'Linux' : (runtime?.runtime.platform || '—') },
+          { label: 'Subscription (move)', value: 'Azure subscription 1', link: true },
+          { label: 'Health Check', value: overallHealth === 'healthy' ? 'Healthy' : overallHealth === 'degraded' ? 'Degraded' : 'Not Configured', valueColor: overallHealth === 'healthy' ? '#4ade80' : overallHealth === 'degraded' ? '#fbbf24' : '#94a3b8' },
+          { label: 'Subscription ID', value: runtime?.host.subscriptionId || '—', mono: true },
+          { label: 'GitHub Project', value: runtime?.host.githubRepo || '—', link: true, href: runtime?.host.githubRepo },
+          { label: 'Tags (edit)', value: 'Add tags', link: true },
+        ].map(row => (
+          <div key={row.label} className="flex items-center gap-2 text-[11px] py-0.5">
+            <span className="text-slate-500 w-44 flex-shrink-0">{row.label}</span>
+            <span className="text-slate-400">:</span>
+            {row.href ? (
+              <a href={row.href} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline truncate" style={{ fontFamily: row.mono ? 'monospace' : undefined }}>{row.value}</a>
+            ) : (
+              <span className={row.link ? 'text-cyan-400 cursor-pointer hover:underline' : ''}
+                style={{ color: row.valueColor || undefined, fontFamily: row.mono ? 'monospace' : undefined }}>{row.value}</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Sub-tabs ── */}
+      <div className="border-b flex items-center gap-1" style={{ borderColor: '#1a1a1a' }}>
+        {subTabs.map(t => {
+          const isActive = subTab === t.id;
+          return (
+            <button key={t.id} onClick={() => setSubTab(t.id)}
+              className="px-3 py-2 text-[11px] font-medium relative transition-colors"
+              style={{ color: isActive ? '#22d3ee' : '#94a3b8', borderBottom: isActive ? '2px solid #22d3ee' : '2px solid transparent', marginBottom: '-1px' }}>
+              {t.label}
+              {t.badge !== undefined && t.badge > 0 && (
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded text-[9px] font-bold" style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>
+                  {t.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ────────────── PROPERTIES TAB ────────────── */}
+      {subTab === 'properties' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Web app */}
+          <AzurePanel icon={Box} title="Web app" iconColor="#22d3ee">
+            <PropRow label="Name" value={runtime?.host.siteName || '—'} />
+            <PropRow label="Publishing model" value={runtime?.deployment.publishingModel || 'Code'} />
+            <PropRow label="Runtime Stack" value={runtime?.deployment.runtimeStack || `Node ${runtime?.runtime.node || ''}`} />
+            <PropRow label="Runtime status" value={runtime?.deployment.runtimeStatus || 'Healthy'} valueColor="#4ade80" link />
+            <PropRow label="Process ID" value={runtime ? String(runtime.runtime.pid) : '—'} mono />
+            <PropRow label="Started" value={runtime ? new Date(runtime.runtime.startedAt).toLocaleString() : '—'} />
+            <PropRow label="Uptime" value={runtime?.runtime.uptimeFormatted || '—'} valueColor="#4ade80" />
+            <PropRow label="Environment" value={runtime?.env.nodeEnv || '—'} mono />
+          </AzurePanel>
+
+          {/* Deployment Center */}
+          <AzurePanel icon={GitBranch} title="Deployment Center" iconColor="#a78bfa">
+            <PropRow label="Deployment logs" value="View logs" link onClick={() => onTabChange('system')} />
+            <PropRow label="Last deployment" value={
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="w-3 h-3 text-green-400" />
+                Successful on {runtime?.deployment.lastDeploy ? new Date(runtime.deployment.lastDeploy).toLocaleString() : 'Recent push'}
+              </span>
+            } />
+            <PropRow label="Deployment provider" value={runtime?.deployment.provider || 'GitHub Action'} />
+            <PropRow label="Branch" value={runtime?.deployment.branch || 'main'} mono />
+            {runtime?.deployment.commit && <PropRow label="Commit SHA" value={runtime.deployment.commit.slice(0, 8)} mono />}
+            <PropRow label="Refresh" value="Re-check status" link onClick={() => refetchRuntime()} />
+          </AzurePanel>
+
+          {/* Domains */}
+          <AzurePanel icon={Globe} title="Domains" iconColor="#22d3ee">
+            <PropRow label="Default domain" value={runtime?.host.defaultDomain || '—'} link={!!runtime?.host.defaultDomain} href={runtime?.host.defaultDomain ? `https://${runtime.host.defaultDomain}` : undefined} />
+            <PropRow label="Custom domain" value={runtime?.host.customDomain || '—'} link={!!runtime?.host.customDomain} href={runtime?.host.customDomain ? `https://${runtime.host.customDomain}` : undefined} />
+            <PropRow label="HTTPS" value="Enforced" valueColor="#4ade80" />
+            <PropRow label="TLS" value="1.2 minimum" />
+          </AzurePanel>
+
+          {/* Application Insights */}
+          <AzurePanel icon={BarChart2} title="Application Insights" iconColor="#22d3ee">
+            <PropRow label="Name" value={runtime?.host.siteName || '—'} link />
+            <PropRow label="Region" value={runtime?.host.location || '—'} />
+            <PropRow label="Active errors" value={String(errorLog?.stats.unresolved || 0)} valueColor={(errorLog?.stats.unresolved || 0) > 0 ? '#fb923c' : '#4ade80'} />
+            <PropRow label="Critical errors" value={String(errorLog?.stats.critical || 0)} valueColor={(errorLog?.stats.critical || 0) > 0 ? '#f87171' : '#4ade80'} />
+            <PropRow label="Open tickets" value={String(runtime?.counts.openTickets || 0)} link onClick={() => onTabChange('tickets')} />
+          </AzurePanel>
+
+          {/* Hosting */}
+          <AzurePanel icon={Server} title="Hosting" iconColor="#a78bfa">
+            <PropRow label="Plan Type" value={runtime?.host.planType || 'App Service plan'} />
+            <PropRow label="Name" value={runtime?.host.planName || '—'} link />
+            <PropRow label="Operating System" value={runtime?.runtime.platform === 'linux' ? 'Linux' : (runtime?.runtime.platform || '—')} />
+            <PropRow label="Instance Count" value={String(runtime?.host.instanceCount ?? 1)} />
+            <PropRow label="SKU and size" value={runtime?.host.sku || 'Basic (B1)'} link />
+            <PropRow label="CPU cores" value={String(runtime?.cpu.count || '—')} />
+            <PropRow label="Load average (1m)" value={runtime ? runtime.cpu.loadAvg1.toFixed(2) : '—'} mono />
+            <PropRow label="Heap used" value={runtime ? `${runtime.memory.heapUsedMB} / ${runtime.memory.heapTotalMB} MB` : '—'} mono />
+            <PropRow label="System memory" value={runtime ? `${runtime.memory.systemUsedPct}% used` : '—'} valueColor={(runtime?.memory.systemUsedPct || 0) > 85 ? '#f87171' : (runtime?.memory.systemUsedPct || 0) > 70 ? '#fbbf24' : '#4ade80'} />
+          </AzurePanel>
+
+          {/* Networking */}
+          <AzurePanel icon={Network} title="Networking" iconColor="#a78bfa">
+            <PropRow label="Virtual IP address" value={runtime?.network.virtualIp || '—'} mono />
+            <PropRow label="Outbound IP addresses" value={<span title={runtime?.network.outboundIps}>{(runtime?.network.outboundIps || '').split(',').slice(0, 3).join(',')} <a className="text-cyan-400 cursor-pointer">Show More</a></span>} mono />
+            <PropRow label="Additional Outbound IP addresses" value={<span title={runtime?.network.additionalOutboundIps}>{(runtime?.network.additionalOutboundIps || '').split(',').slice(0, 3).join(',')} <a className="text-cyan-400 cursor-pointer">Show More</a></span>} mono />
+            <PropRow label="Virtual network integration" value={runtime?.network.vnet || 'Not configured'} link valueColor="#94a3b8" />
+          </AzurePanel>
+
+          {/* Database */}
+          <AzurePanel icon={Database} title="Database" iconColor="#4ade80">
+            <PropRow label="Provider" value="Neon Postgres" />
+            <PropRow label="Status" value={svc?.database || 'unknown'} valueColor={statusColor(svc?.database)} />
+            <PropRow label="Connection" value={runtime?.integrations.database ? 'Configured' : 'Missing'} valueColor={runtime?.integrations.database ? '#4ade80' : '#f87171'} />
+            <PropRow label="Pooled" value="Yes (PgBouncer)" />
+          </AzurePanel>
+
+          {/* AI Models */}
+          <AzurePanel icon={Brain} title="AI Models" iconColor="#a78bfa">
+            <PropRow label="Status" value={svc?.ai || 'unknown'} valueColor={statusColor(svc?.ai)} />
+            <PropRow label="OpenAI (GPT)" value={runtime?.integrations.ai.openai ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openai ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Anthropic (Claude)" value={runtime?.integrations.ai.anthropic ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.anthropic ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Google Gemini" value={runtime?.integrations.ai.gemini ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.gemini ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Gemini Pro" value={runtime?.integrations.ai.geminiPro ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.geminiPro ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="OpenRouter" value={runtime?.integrations.ai.openrouter ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openrouter ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Replicate (Imagen)" value={runtime?.integrations.ai.replicate ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.replicate ? '#4ade80' : '#94a3b8'} />
+          </AzurePanel>
+
+          {/* Payments */}
+          <AzurePanel icon={CreditCard} title="Payments" iconColor="#4ade80">
+            <PropRow label="Stripe" value={runtime?.integrations.payments.stripe ? 'Connected' : 'Not configured'} valueColor={runtime?.integrations.payments.stripe ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="PayPal" value={runtime?.integrations.payments.paypal ? 'Connected' : 'Not configured'} valueColor={runtime?.integrations.payments.paypal ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Status" value={svc?.paypal || 'unknown'} valueColor={statusColor(svc?.paypal)} />
+            <PropRow label="MRR" value={`$${stats?.estimatedMonthlyRevenue || '0'}`} valueColor="#4ade80" mono />
+            <PropRow label="Pro subscribers" value={String(stats?.subscriptions.pro || 0)} />
+            <PropRow label="Research subscribers" value={String(stats?.subscriptions.research || 0)} />
+            <PropRow label="Enterprise subscribers" value={String(stats?.subscriptions.enterprise || 0)} />
+          </AzurePanel>
+
+          {/* Communications */}
+          <AzurePanel icon={Phone} title="Communications" iconColor="#fb923c">
+            <PropRow label="Twilio SMS" value={runtime?.integrations.comms.twilio ? 'Connected' : 'Not configured'} valueColor={runtime?.integrations.comms.twilio ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Twilio number" value={runtime?.integrations.comms.twilioPhone ? 'Provisioned' : 'Missing'} valueColor={runtime?.integrations.comms.twilioPhone ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Email (SMTP)" value="Internal pipeline" />
+            <PropRow label="Support inbox" value="support@turboanswer.it.com" link href="mailto:support@turboanswer.it.com" />
+          </AzurePanel>
+
+          {/* Identity */}
+          <AzurePanel icon={Lock} title="Identity" iconColor="#22d3ee">
+            <PropRow label="Provider" value="Replit Auth (OIDC)" />
+            <PropRow label="Total users" value={String(runtime?.counts.users || users.length)} link onClick={() => onTabChange('users')} />
+            <PropRow label="Admins" value={String(users.filter(u => u.isEmployee || u.email === 'support@turboanswer.it.com').length)} />
+            <PropRow label="Banned users" value={String(users.filter(u => u.isBanned).length)} valueColor={users.filter(u => u.isBanned).length > 0 ? '#f87171' : '#4ade80'} />
+            <PropRow label="Flagged users" value={String(users.filter(u => u.isFlagged).length)} valueColor={users.filter(u => u.isFlagged).length > 0 ? '#fbbf24' : '#4ade80'} />
+          </AzurePanel>
+
+          {/* Support */}
+          <AzurePanel icon={Ticket} title="Support" iconColor="#fb923c">
+            <PropRow label="Total tickets" value={String(runtime?.counts.tickets || tickets.length)} link onClick={() => onTabChange('tickets')} />
+            <PropRow label="Open" value={String(runtime?.counts.openTickets || 0)} valueColor={(runtime?.counts.openTickets || 0) > 0 ? '#fbbf24' : '#4ade80'} />
+            <PropRow label="Urgent" value={String(runtime?.counts.urgentTickets || 0)} valueColor={(runtime?.counts.urgentTickets || 0) > 0 ? '#f87171' : '#4ade80'} />
+            <PropRow label="View tickets" value="Open inbox →" link onClick={() => onTabChange('tickets')} />
+          </AzurePanel>
+        </div>
+      )}
+
+      {/* ────────────── MONITORING TAB ────────────── */}
+      {subTab === 'monitoring' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label: 'Total Users', value: stats?.totalUsers ?? users.length, color: '#22d3ee', icon: Users },
+              { label: 'Revenue/mo', value: `$${stats?.estimatedMonthlyRevenue ?? 0}`, color: '#4ade80', icon: DollarSign },
+              { label: 'Pro Users', value: stats?.subscriptions?.pro ?? 0, color: '#a78bfa', icon: Crown },
+              { label: 'Open Tickets', value: runtime?.counts.openTickets ?? 0, color: '#fbbf24', icon: Ticket },
+              { label: 'Active Errors', value: errorLog?.stats?.unresolved ?? 0, color: (errorLog?.stats?.unresolved ?? 0) > 0 ? '#fb923c' : '#4ade80', icon: AlertTriangle },
+              { label: 'Flagged', value: users.filter(u => u.isFlagged).length, color: '#fbbf24', icon: Flag },
+            ].map(m => (
+              <div key={m.label} className="rounded-lg p-3 flex flex-col gap-1" style={{ background: '#0d0d0d', border: '1px solid #0d1e30' }}>
+                <div className="flex items-center justify-between">
+                  <m.icon className="w-3.5 h-3.5" style={{ color: m.color }} />
+                  <span className="text-[10px] font-mono text-slate-600">KPI</span>
+                </div>
+                <div className="text-lg font-bold font-mono" style={{ color: m.color }}>{m.value}</div>
+                <div className="text-[10px] text-slate-500 truncate">{m.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <AzurePanel icon={Server} title="Services" iconColor="#22d3ee">
+              {[
+                { name: 'Database', key: 'database', icon: Database },
+                { name: 'PayPal', key: 'paypal', icon: CreditCard },
+                { name: 'AI Models', key: 'ai', icon: Brain },
+              ].map(({ name, key, icon: Icon }) => {
+                const s = svc?.[key as keyof typeof svc];
+                return (
+                  <div key={key} className="flex items-center justify-between text-[11px] py-0.5">
+                    <div className="flex items-center gap-2"><Icon className="w-3 h-3 text-slate-500" /><span className="text-slate-400">{name}</span></div>
+                    <span style={{ color: statusColor(s) }}>● {s ?? 'unknown'}</span>
+                  </div>
+                );
+              })}
+              {runtime && (
+                <>
+                  <div className="border-t my-2" style={{ borderColor: '#1a1a1a' }} />
+                  <div className="text-[10px] font-mono space-y-1">
+                    <div className="flex justify-between"><span className="text-slate-600">CPU load (1/5/15)</span><span className="text-slate-400">{runtime.cpu.loadAvg1.toFixed(2)} / {runtime.cpu.loadAvg5.toFixed(2)} / {runtime.cpu.loadAvg15.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">RSS</span><span className="text-slate-400">{runtime.memory.rssMB} MB</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Heap</span><span className="text-slate-400">{runtime.memory.heapUsedMB} / {runtime.memory.heapTotalMB} MB</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">System mem</span><span className="text-slate-400">{runtime.memory.systemUsedPct}%</span></div>
+                    <div className="flex justify-between"><span className="text-slate-600">Uptime</span><span className="text-green-400">{runtime.runtime.uptimeFormatted}</span></div>
+                  </div>
+                </>
+              )}
+            </AzurePanel>
+
+            <div className="lg:col-span-2 rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
+              <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#1a1a1a' }}>
+                <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-xs font-bold text-slate-300 font-mono">REQUEST DISTRIBUTION (last 100)</span>
+              </div>
+              <div className="p-3 space-y-2">
+                {(() => {
+                  const buckets = { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 };
+                  for (const e of activity.slice(0, 100)) {
+                    if (e.status >= 500) buckets['5xx']++;
+                    else if (e.status >= 400) buckets['4xx']++;
+                    else if (e.status >= 300) buckets['3xx']++;
+                    else buckets['2xx']++;
+                  }
+                  const total = Object.values(buckets).reduce((a, b) => a + b, 0) || 1;
+                  return (
+                    <>
+                      {Object.entries(buckets).map(([k, v]) => {
+                        const pct = (v / total) * 100;
+                        const col = k === '2xx' ? '#4ade80' : k === '3xx' ? '#fbbf24' : k === '4xx' ? '#fb923c' : '#f87171';
+                        return (
+                          <div key={k}>
+                            <div className="flex justify-between text-[10px] font-mono mb-0.5"><span style={{ color: col }}>{k}</span><span className="text-slate-500">{v} ({pct.toFixed(0)}%)</span></div>
+                            <div className="h-1.5 rounded-full bg-zinc-900 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: col }} /></div>
+                          </div>
+                        );
+                      })}
+                      <div className="text-[10px] font-mono text-slate-500 text-center pt-1">Avg latency: {activity.length ? Math.round(activity.reduce((a, e) => a + e.duration, 0) / activity.length) : 0}ms · p95: {activity.length ? [...activity].map(e => e.duration).sort((a, b) => a - b)[Math.floor(activity.length * 0.95)] : 0}ms</div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────── LOGS TAB ────────────── */}
+      {subTab === 'logs' && (
+        <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
+          <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: '#1a1a1a' }}>
+            <div className="flex items-center gap-2">
+              <Radio className="w-3.5 h-3.5 text-green-400 animate-pulse" />
+              <span className="text-xs font-bold text-slate-300 font-mono">LIVE API FEED</span>
+            </div>
+            <div className="flex items-center gap-1">
+              {(['all', 'errors', 'slow'] as const).map(f => (
+                <button key={f} onClick={() => setActivityFilter(f)} className="px-2 py-0.5 rounded text-[10px] font-mono"
+                  style={{ background: activityFilter === f ? '#1a1a1a' : 'transparent', color: activityFilter === f ? '#22d3ee' : '#475569', border: activityFilter === f ? '1px solid #1e4a6e' : '1px solid transparent' }}>
+                  {f === 'all' ? 'ALL' : f === 'errors' ? 'ERR' : 'SLOW'}
+                </button>
+              ))}
+              <button onClick={() => setAutoScroll(a => !a)} className="px-2 py-0.5 rounded text-[10px] font-mono ml-1"
+                style={{ background: autoScroll ? 'rgba(74,222,128,0.1)' : 'transparent', color: autoScroll ? '#4ade80' : '#475569', border: autoScroll ? '1px solid rgba(74,222,128,0.3)' : '1px solid #1e2a38' }}>
+                {autoScroll ? '▼ AUTO' : '⏸ PAUSED'}
+              </button>
+            </div>
+          </div>
+          <div ref={activityRef} className="overflow-y-auto font-mono text-[11px]" style={{ maxHeight: '60vh' }}>
+            {filteredActivity.length === 0 ? (
+              <div className="flex items-center justify-center h-20 text-slate-600 text-xs">Waiting for API calls...</div>
+            ) : filteredActivity.map((entry, i) => (
+              <div key={entry.id || i} className="flex items-center gap-2 px-3 py-1.5 border-b" style={{ borderColor: '#111111', background: statusBg(entry.status) }}>
+                <span className="text-[9px] text-slate-600 w-16 flex-shrink-0">
+                  {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+                <span className="w-10 flex-shrink-0 font-bold text-[10px]" style={{ color: methodColor(entry.method) }}>{entry.method}</span>
+                <span className="flex-1 truncate text-slate-400">{entry.path}</span>
+                <span className="w-8 flex-shrink-0 text-right" style={{ color: entry.status >= 500 ? '#f87171' : entry.status >= 400 ? '#fb923c' : '#4ade80' }}>{entry.status}</span>
+                <span className="w-14 flex-shrink-0 text-right" style={{ color: entry.duration > 1000 ? '#f87171' : entry.duration > 500 ? '#fbbf24' : '#475569' }}>{entry.duration}ms</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ────────────── CAPABILITIES TAB ────────────── */}
+      {subTab === 'capabilities' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <AzurePanel icon={Layers} title="Subscription Tiers" iconColor="#a78bfa">
+            <PropRow label="Lite" value="Free · 50 msg/day · 4 models" />
+            <PropRow label="Pro" value="$9.99/mo · 500 msg/day · all chat models" />
+            <PropRow label="Research" value="$29.99/mo · unlimited · vision + voice" />
+            <PropRow label="Enterprise" value="Custom · workgroups · audit logs" />
+          </AzurePanel>
+          <AzurePanel icon={Zap} title="Features Enabled" iconColor="#4ade80">
+            <PropRow label="Multi-AI routing" value="On" valueColor="#4ade80" />
+            <PropRow label="Voice / TTS" value="On" valueColor="#4ade80" />
+            <PropRow label="Image generation" value="On" valueColor="#4ade80" />
+            <PropRow label="Photo editor" value="On" valueColor="#4ade80" />
+            <PropRow label="Video generation" value="Replicate / Luma" valueColor="#4ade80" />
+            <PropRow label="Deep research" value="Gemini Pro" valueColor="#4ade80" />
+            <PropRow label="Code Studio" value="On" valueColor="#4ade80" />
+            <PropRow label="Workgroups" value="On" valueColor="#4ade80" />
+            <PropRow label="Auto-translate" value="65+ languages" valueColor="#4ade80" />
+            <PropRow label="Beta program" value={`${users.filter(u => (u as any).isBetaTester).length || 0} testers`} link onClick={() => onTabChange('beta')} />
+            <PropRow label="Promo codes" value="Active" link onClick={() => onTabChange('promoCodes')} />
+            <PropRow label="Email templates" value="7 templates" link onClick={() => onTabChange('emailTemplates')} />
+          </AzurePanel>
+          <AzurePanel icon={Tag} title="Integrations Summary" iconColor="#22d3ee">
+            <PropRow label="Total connected" value={`${totalIntegrations} integrations`} valueColor="#4ade80" />
+            <PropRow label="AI providers" value={`${enabledAiCount} of 6 enabled`} />
+            <PropRow label="Payment providers" value={runtime ? `${Object.values(runtime.integrations.payments).filter(Boolean).length} of 2` : '—'} />
+            <PropRow label="Comms" value={runtime?.integrations.comms.twilio ? 'Twilio + SMTP' : 'SMTP only'} />
+            <PropRow label="Database" value={runtime?.integrations.database ? 'Neon Postgres' : 'Missing'} valueColor={runtime?.integrations.database ? '#4ade80' : '#f87171'} />
+          </AzurePanel>
+          <AzurePanel icon={MapPin} title="Region & Locale" iconColor="#fb923c">
+            <PropRow label="Region" value={runtime?.host.region || '—'} />
+            <PropRow label="Location" value={runtime?.host.location || '—'} />
+            <PropRow label="Timezone" value={runtime?.env.tz || '—'} />
+            <PropRow label="Locale" value={runtime?.env.locale || '—'} />
+            <PropRow label="Architecture" value={runtime?.runtime.arch || '—'} mono />
+            <PropRow label="Kernel" value={runtime?.runtime.release || '—'} mono />
+          </AzurePanel>
+        </div>
+      )}
+
+      {/* ────────────── NOTIFICATIONS TAB ────────────── */}
+      {subTab === 'notifications' && (
+        <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
+          <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: '#1a1a1a' }}>
+            <div className="flex items-center gap-2">
+              <Bell className="w-3.5 h-3.5 text-slate-500" />
+              <span className="text-xs font-bold text-slate-300 font-mono">RECENT ALERTS</span>
+            </div>
+            <button onClick={() => onTabChange('notifications')} className="text-[10px] font-mono text-cyan-600 hover:text-cyan-400">View all →</button>
+          </div>
+          <div className="overflow-y-auto" style={{ maxHeight: '60vh' }}>
+            {notifications.length === 0 ? (
+              <div className="p-8 text-center text-slate-600 text-xs">No alerts</div>
+            ) : notifications.slice(0, 30).map(n => (
+              <div key={n.id} className="px-3 py-2 border-b flex items-start gap-2 cursor-pointer hover:bg-white/5"
+                style={{ borderColor: '#111111', background: n.isRead === 'false' ? 'rgba(234,88,12,0.05)' : 'transparent' }}
+                onClick={() => onMarkRead(n.id)}>
+                <div className="flex-shrink-0 mt-0.5">
+                  {n.type === 'system_outage' ? <AlertTriangle className="w-3 h-3 text-red-400" /> :
+                    n.type === 'content_flagged' ? <Flag className="w-3 h-3 text-orange-400" /> :
+                    <Bell className="w-3 h-3 text-blue-400" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-slate-400 font-mono">{n.type.replace(/_/g, ' ').toUpperCase()}</div>
+                  <div className="text-[11px] text-slate-500 truncate">{(n.flaggedContent || n.actionTaken)?.slice(0, 120)}</div>
+                </div>
+                {n.isRead === 'false' && <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400 mt-1" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ────────────── RECOMMENDATIONS TAB ────────────── */}
+      {subTab === 'recommendations' && (
+        <div className="space-y-3">
+          {recommendations.length === 0 ? (
+            <div className="rounded-lg p-6 text-center text-slate-600 text-xs" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>
+              <Lightbulb className="w-6 h-6 mx-auto mb-2 opacity-50" />
+              No recommendations yet. Check back after the next data refresh.
+            </div>
+          ) : recommendations.map((r, i) => {
+            const meta = r.severity === 'error' ? { color: '#f87171', bg: 'rgba(248,113,113,0.06)', border: 'rgba(248,113,113,0.3)', Icon: AlertTriangle } :
+              r.severity === 'warn' ? { color: '#fbbf24', bg: 'rgba(251,191,36,0.06)', border: 'rgba(251,191,36,0.3)', Icon: AlertCircle } :
+              { color: '#60a5fa', bg: 'rgba(96,165,250,0.06)', border: 'rgba(96,165,250,0.3)', Icon: Lightbulb };
+            return (
+              <div key={i} className="rounded-lg p-3 flex items-start gap-3" style={{ background: meta.bg, border: `1px solid ${meta.border}` }}>
+                <meta.Icon className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: meta.color }} />
+                <div className="flex-1">
+                  <div className="text-xs font-bold mb-0.5" style={{ color: meta.color }}>{r.title}</div>
+                  <div className="text-[11px] text-slate-400">{r.body}</div>
+                </div>
+                {r.action && (
+                  <button onClick={() => r.action!.tab && onTabChange(r.action!.tab)}
+                    className="px-2.5 py-1 text-[11px] rounded border bg-black/30 hover:bg-black/50"
+                    style={{ borderColor: meta.border, color: meta.color }}>
+                    {r.action.label} <ChevronRight className="w-3 h-3 inline" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Quick actions footer (always visible) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-2">
+        {[
+          { label: 'Tickets', icon: Ticket, tab: 'tickets' as TabType, color: '#fb923c' },
+          { label: 'Users', icon: Users, tab: 'users' as TabType, color: '#22d3ee' },
+          { label: 'Subscriptions', icon: CreditCard, tab: 'subscriptions' as TabType, color: '#a78bfa' },
+          { label: 'System', icon: Terminal, tab: 'system' as TabType, color: '#4ade80' },
+          { label: 'Beta', icon: FlaskConical, tab: 'beta' as TabType, color: '#fbbf24' },
+          { label: 'Email', icon: Mail, tab: 'emailTemplates' as TabType, color: '#a78bfa' },
+        ].map(action => (
+          <button key={action.tab} onClick={() => onTabChange(action.tab)}
+            className="flex items-center gap-2 p-2.5 rounded-lg text-left transition-all hover:scale-[1.02]"
+            style={{ background: '#0d0d0d', border: '1px solid #0d1e30' }}>
+            <action.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: action.color }} />
+            <span className="text-[11px] text-slate-400 font-medium">{action.label}</span>
+            <ChevronRight className="w-3 h-3 text-slate-700 ml-auto" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Reusable Azure-style panel + property row
+function AzurePanel({ icon: Icon, title, iconColor, children }: { icon: any; title: string; iconColor: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>
+      <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#1a1a1a' }}>
+        <Icon className="w-4 h-4" style={{ color: iconColor }} />
+        <span className="text-[12px] font-semibold" style={{ color: iconColor }}>{title}</span>
+      </div>
+      <div className="p-3 space-y-1">{children}</div>
+    </div>
+  );
+}
+
+function PropRow({ label, value, valueColor, link, mono, href, onClick }: {
+  label: string;
+  value: React.ReactNode;
+  valueColor?: string;
+  link?: boolean;
+  mono?: boolean;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const valueClass = link ? 'text-cyan-400 hover:underline cursor-pointer' : '';
+  const style: React.CSSProperties = { color: valueColor, fontFamily: mono ? 'monospace' : undefined };
+  const content = href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={valueClass} style={style}>{value}</a>
+  ) : onClick ? (
+    <span onClick={onClick} className={valueClass} style={style}>{value}</span>
+  ) : (
+    <span className={valueClass} style={style}>{value}</span>
+  );
+  return (
+    <div className="flex items-center justify-between gap-3 text-[11px] py-0.5">
+      <span className="text-slate-500 flex-shrink-0">{label}</span>
+      <span className="text-slate-300 text-right truncate">{content}</span>
     </div>
   );
 }
