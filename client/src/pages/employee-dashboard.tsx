@@ -3596,10 +3596,10 @@ function TicketsTab({ currentUser, users }: { currentUser: any; users: UserData[
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// COMMAND CENTER — Azure-portal-styled live overview
+// COMMAND CENTER — TurboAnswer Control Hub (live operational overview)
 // ════════════════════════════════════════════════════════════════════════════
 interface RuntimeInfo {
-  host: { provider: string; siteName: string; region: string; location: string; subscriptionId: string; githubRepo: string; customDomain: string; defaultDomain: string; planType: string; planName: string; sku: string; instanceCount: number };
+  host: { provider: string; siteName: string; environmentName?: string; region: string; location: string; subscriptionId: string; githubRepo: string; customDomain: string; defaultDomain: string; planType: string; planName: string; sku: string; instanceCount: number };
   runtime: { node: string; platform: string; release: string; arch: string; pid: number; uptimeSeconds: number; uptimeFormatted: string; startedAt: string };
   cpu: { count: number; model: string; loadAvg1: number; loadAvg5: number; loadAvg15: number };
   memory: { rssMB: number; heapUsedMB: number; heapTotalMB: number; systemTotalMB: number; systemFreeMB: number; systemUsedPct: number };
@@ -3615,7 +3615,7 @@ interface RuntimeInfo {
   network: { virtualIp: string; outboundIps: string; additionalOutboundIps: string; vnet: string };
 }
 
-type AzureSubTab = 'properties' | 'monitoring' | 'logs' | 'capabilities' | 'notifications' | 'recommendations';
+type HubSubTab = 'properties' | 'monitoring' | 'logs' | 'capabilities' | 'notifications' | 'recommendations';
 
 function CommandCenterAzure({
   stats, systemHealth, users, notifications, unreadCount, onTabChange, onMarkRead
@@ -3631,7 +3631,7 @@ function CommandCenterAzure({
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [subTab, setSubTab] = useState<AzureSubTab>('properties');
+  const [subTab, setSubTab] = useState<HubSubTab>('properties');
   const [pinned, setPinned] = useState(false);
   const [starred, setStarred] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -3670,6 +3670,8 @@ function CommandCenterAzure({
   const statusBg = (s: number) => s >= 500 ? 'rgba(239,68,68,0.15)' : s >= 400 ? 'rgba(251,146,60,0.12)' : s >= 300 ? 'rgba(250,204,21,0.08)' : 'transparent';
 
   const overallHealth = svc?.database === 'healthy' && svc?.ai === 'healthy' ? 'healthy' : svc?.database && svc?.ai ? 'degraded' : 'unknown';
+  const urgentTickets = tickets.filter(t => t.priority === 'urgent' && t.status !== 'resolved' && t.status !== 'closed').length;
+  const openTicketsCount = tickets.filter(t => t.status === 'open' || t.status === 'in_progress').length;
 
   const enabledAiCount = runtime ? Object.values(runtime.integrations.ai).filter(Boolean).length : 0;
   const totalIntegrations = runtime ? (
@@ -3709,7 +3711,7 @@ function CommandCenterAzure({
     onSuccess: () => toast({ title: 'Snapshot exported', description: 'Saved as JSON in your downloads.' }),
   });
 
-  const subTabs: Array<{ id: AzureSubTab; label: string; badge?: number }> = [
+  const subTabs: Array<{ id: HubSubTab; label: string; badge?: number }> = [
     { id: 'properties', label: 'Properties' },
     { id: 'monitoring', label: 'Monitoring' },
     { id: 'logs', label: 'Logs' },
@@ -3735,7 +3737,7 @@ function CommandCenterAzure({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-white">{runtime?.host.siteName || 'turboanswergroup'}</h1>
+              <h1 className="text-xl font-bold text-white">TurboAnswer Control Hub</h1>
               <button onClick={() => setPinned(p => !p)} className="text-slate-600 hover:text-cyan-400" title="Pin to dashboard">
                 <Pin className="w-4 h-4" style={{ color: pinned ? '#22d3ee' : undefined, fill: pinned ? '#22d3ee' : 'none' }} />
               </button>
@@ -3744,25 +3746,22 @@ function CommandCenterAzure({
               </button>
               <button className="text-slate-600 hover:text-slate-300"><MoreHorizontal className="w-4 h-4" /></button>
             </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Web App · {runtime?.host.provider || 'Loading...'}</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">{runtime?.host.environmentName || 'TurboAnswer Production'} · {runtime?.host.provider || 'Loading...'}</div>
           </div>
         </div>
         <button className="text-slate-600 hover:text-slate-300 p-1"><X className="w-4 h-4" /></button>
       </div>
 
-      {/* ── Top action bar (Azure-style) ── */}
+      {/* ── Top action bar ── */}
       <div className="rounded-lg p-2 flex items-center gap-1 flex-wrap" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
         {[
-          { icon: Globe, label: 'Browse', onClick: () => window.open('/', '_blank'), color: '#22d3ee' },
-          { icon: Pause, label: 'Stop', onClick: () => toast({ title: 'Stop is disabled in production', variant: 'destructive' }), color: '#94a3b8' },
-          { icon: TrendingUp, label: 'Swap', onClick: () => toast({ title: 'Slot swap requires Standard tier', description: 'Upgrade to enable deployment slots.' }), color: '#94a3b8' },
-          { icon: RefreshCw, label: 'Restart', onClick: () => restartWorkflowMut.mutate(), color: '#fb923c' },
-          { icon: Trash2, label: 'Delete', onClick: () => toast({ title: 'Delete is disabled', description: 'This is the live production app.', variant: 'destructive' }), color: '#94a3b8' },
-          { icon: RefreshCw, label: 'Refresh', onClick: () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/runtime-info'] }); queryClient.invalidateQueries({ queryKey: ['/api/admin/system-health'] }); }, color: '#22d3ee' },
-          { icon: FileCode, label: 'Download publish profile', onClick: () => exportSnapshotMut.mutate(), color: '#a78bfa' },
-          { icon: KeyRound, label: 'Reset publish profile', onClick: () => toast({ title: 'Coming soon' }), color: '#94a3b8' },
-          { icon: Send, label: 'Share to mobile', onClick: () => { navigator.clipboard.writeText(window.location.href); toast({ title: 'Link copied to clipboard' }); }, color: '#a78bfa' },
-          { icon: ThumbsUp, label: 'Send us your feedback', onClick: () => onTabChange('beta'), color: '#4ade80' },
+          { icon: Globe, label: 'Open Site', onClick: () => window.open('/', '_blank'), color: '#22d3ee' },
+          { icon: RefreshCw, label: 'Restart Server', onClick: () => restartWorkflowMut.mutate(), color: '#fb923c' },
+          { icon: RefreshCw, label: 'Refresh Data', onClick: () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/runtime-info'] }); queryClient.invalidateQueries({ queryKey: ['/api/admin/system-health'] }); }, color: '#22d3ee' },
+          { icon: FileCode, label: 'Export Snapshot', onClick: () => exportSnapshotMut.mutate(), color: '#a78bfa' },
+          { icon: GitBranch, label: 'View on GitHub', onClick: () => window.open(runtime?.host.githubRepo || 'https://github.com/turboanswer/turboanswer9999999', '_blank'), color: '#a78bfa' },
+          { icon: Send, label: 'Copy Hub Link', onClick: () => { navigator.clipboard.writeText(window.location.href); toast({ title: 'Link copied to clipboard' }); }, color: '#a78bfa' },
+          { icon: ThumbsUp, label: 'Beta Feedback', onClick: () => onTabChange('beta'), color: '#4ade80' },
         ].map((b, i) => (
           <button key={i} onClick={b.onClick}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] hover:bg-white/5 transition-colors text-slate-300">
@@ -3778,7 +3777,9 @@ function CommandCenterAzure({
           style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)' }}>
           <div className="flex items-center gap-2 text-[11px] text-slate-300">
             <Lightbulb className="w-3.5 h-3.5 text-blue-400" />
-            Consider using a global CDN since your app receives requests from multiple regions.
+            {urgentTickets > 0
+              ? `${urgentTickets} urgent ticket${urgentTickets === 1 ? '' : 's'} awaiting reply — review the Tickets tab.`
+              : `Live overview of your TurboAnswer stack. All real-time data shown below.`}
           </div>
           <button onClick={() => setBannerDismissed(true)} className="text-slate-500 hover:text-slate-300">
             <X className="w-3.5 h-3.5" />
@@ -3786,25 +3787,26 @@ function CommandCenterAzure({
         </div>
       )}
 
-      {/* ── Property header strip (key/value rows in 2 cols, Azure style) ── */}
+      {/* ── Property header strip (key/value rows in 2 cols) ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5 px-1">
         {[
-          { label: 'Location', value: runtime?.host.location || 'West US 2', link: true },
+          { label: 'Custom Domain', value: runtime?.host.customDomain || 'turboanswer.it.com', link: true, href: `https://${runtime?.host.customDomain || 'turboanswer.it.com'}` },
           { label: 'Operating System', value: runtime?.runtime.platform === 'linux' ? 'Linux' : (runtime?.runtime.platform || '—') },
-          { label: 'Subscription (move)', value: 'Azure subscription 1', link: true },
+          { label: 'Environment', value: runtime?.host.environmentName || 'TurboAnswer Production' },
           { label: 'Health Check', value: overallHealth === 'healthy' ? 'Healthy' : overallHealth === 'degraded' ? 'Degraded' : 'Not Configured', valueColor: overallHealth === 'healthy' ? '#4ade80' : overallHealth === 'degraded' ? '#fbbf24' : '#94a3b8' },
-          { label: 'Subscription ID', value: runtime?.host.subscriptionId || '—', mono: true },
-          { label: 'GitHub Project', value: runtime?.host.githubRepo || '—', link: true, href: runtime?.host.githubRepo },
-          { label: 'Tags (edit)', value: 'Add tags', link: true },
+          { label: 'Hosting Provider', value: runtime?.host.provider || '—' },
+          { label: 'GitHub Repository', value: runtime?.host.githubRepo?.replace('https://github.com/', '') || '—', link: true, href: runtime?.host.githubRepo },
+          { label: 'Open Tickets', value: `${openTicketsCount}${urgentTickets > 0 ? ` (${urgentTickets} urgent)` : ''}`, valueColor: urgentTickets > 0 ? '#f87171' : openTicketsCount > 0 ? '#fbbf24' : '#94a3b8' },
+          { label: 'Total Users', value: runtime?.counts.users?.toLocaleString() || '—' },
         ].map(row => (
           <div key={row.label} className="flex items-center gap-2 text-[11px] py-0.5">
             <span className="text-slate-500 w-44 flex-shrink-0">{row.label}</span>
             <span className="text-slate-400">:</span>
             {row.href ? (
-              <a href={row.href} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline truncate" style={{ fontFamily: row.mono ? 'monospace' : undefined }}>{row.value}</a>
+              <a href={row.href} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline truncate">{row.value}</a>
             ) : (
               <span className={row.link ? 'text-cyan-400 cursor-pointer hover:underline' : ''}
-                style={{ color: row.valueColor || undefined, fontFamily: row.mono ? 'monospace' : undefined }}>{row.value}</span>
+                style={{ color: row.valueColor || undefined }}>{row.value}</span>
             )}
           </div>
         ))}
@@ -3832,8 +3834,8 @@ function CommandCenterAzure({
       {/* ────────────── PROPERTIES TAB ────────────── */}
       {subTab === 'properties' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Web app */}
-          <AzurePanel icon={Box} title="Web app" iconColor="#22d3ee">
+          {/* Application */}
+          <HubPanel icon={Box} title="Application" iconColor="#22d3ee">
             <PropRow label="Name" value={runtime?.host.siteName || '—'} />
             <PropRow label="Publishing model" value={runtime?.deployment.publishingModel || 'Code'} />
             <PropRow label="Runtime Stack" value={runtime?.deployment.runtimeStack || `Node ${runtime?.runtime.node || ''}`} />
@@ -3842,10 +3844,10 @@ function CommandCenterAzure({
             <PropRow label="Started" value={runtime ? new Date(runtime.runtime.startedAt).toLocaleString() : '—'} />
             <PropRow label="Uptime" value={runtime?.runtime.uptimeFormatted || '—'} valueColor="#4ade80" />
             <PropRow label="Environment" value={runtime?.env.nodeEnv || '—'} mono />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Deployment Center */}
-          <AzurePanel icon={GitBranch} title="Deployment Center" iconColor="#a78bfa">
+          <HubPanel icon={GitBranch} title="Deployment Center" iconColor="#a78bfa">
             <PropRow label="Deployment logs" value="View logs" link onClick={() => onTabChange('system')} />
             <PropRow label="Last deployment" value={
               <span className="flex items-center gap-1.5">
@@ -3857,27 +3859,27 @@ function CommandCenterAzure({
             <PropRow label="Branch" value={runtime?.deployment.branch || 'main'} mono />
             {runtime?.deployment.commit && <PropRow label="Commit SHA" value={runtime.deployment.commit.slice(0, 8)} mono />}
             <PropRow label="Refresh" value="Re-check status" link onClick={() => refetchRuntime()} />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Domains */}
-          <AzurePanel icon={Globe} title="Domains" iconColor="#22d3ee">
+          <HubPanel icon={Globe} title="Domains" iconColor="#22d3ee">
             <PropRow label="Default domain" value={runtime?.host.defaultDomain || '—'} link={!!runtime?.host.defaultDomain} href={runtime?.host.defaultDomain ? `https://${runtime.host.defaultDomain}` : undefined} />
             <PropRow label="Custom domain" value={runtime?.host.customDomain || '—'} link={!!runtime?.host.customDomain} href={runtime?.host.customDomain ? `https://${runtime.host.customDomain}` : undefined} />
             <PropRow label="HTTPS" value="Enforced" valueColor="#4ade80" />
             <PropRow label="TLS" value="1.2 minimum" />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Application Insights */}
-          <AzurePanel icon={BarChart2} title="Application Insights" iconColor="#22d3ee">
+          <HubPanel icon={BarChart2} title="Application Insights" iconColor="#22d3ee">
             <PropRow label="Name" value={runtime?.host.siteName || '—'} link />
             <PropRow label="Region" value={runtime?.host.location || '—'} />
             <PropRow label="Active errors" value={String(errorLog?.stats.unresolved || 0)} valueColor={(errorLog?.stats.unresolved || 0) > 0 ? '#fb923c' : '#4ade80'} />
             <PropRow label="Critical errors" value={String(errorLog?.stats.critical || 0)} valueColor={(errorLog?.stats.critical || 0) > 0 ? '#f87171' : '#4ade80'} />
             <PropRow label="Open tickets" value={String(runtime?.counts.openTickets || 0)} link onClick={() => onTabChange('tickets')} />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Hosting */}
-          <AzurePanel icon={Server} title="Hosting" iconColor="#a78bfa">
+          <HubPanel icon={Server} title="Hosting" iconColor="#a78bfa">
             <PropRow label="Plan Type" value={runtime?.host.planType || 'App Service plan'} />
             <PropRow label="Name" value={runtime?.host.planName || '—'} link />
             <PropRow label="Operating System" value={runtime?.runtime.platform === 'linux' ? 'Linux' : (runtime?.runtime.platform || '—')} />
@@ -3887,26 +3889,26 @@ function CommandCenterAzure({
             <PropRow label="Load average (1m)" value={runtime ? runtime.cpu.loadAvg1.toFixed(2) : '—'} mono />
             <PropRow label="Heap used" value={runtime ? `${runtime.memory.heapUsedMB} / ${runtime.memory.heapTotalMB} MB` : '—'} mono />
             <PropRow label="System memory" value={runtime ? `${runtime.memory.systemUsedPct}% used` : '—'} valueColor={(runtime?.memory.systemUsedPct || 0) > 85 ? '#f87171' : (runtime?.memory.systemUsedPct || 0) > 70 ? '#fbbf24' : '#4ade80'} />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Networking */}
-          <AzurePanel icon={Network} title="Networking" iconColor="#a78bfa">
+          <HubPanel icon={Network} title="Networking" iconColor="#a78bfa">
             <PropRow label="Virtual IP address" value={runtime?.network.virtualIp || '—'} mono />
             <PropRow label="Outbound IP addresses" value={<span title={runtime?.network.outboundIps}>{(runtime?.network.outboundIps || '').split(',').slice(0, 3).join(',')} <a className="text-cyan-400 cursor-pointer">Show More</a></span>} mono />
             <PropRow label="Additional Outbound IP addresses" value={<span title={runtime?.network.additionalOutboundIps}>{(runtime?.network.additionalOutboundIps || '').split(',').slice(0, 3).join(',')} <a className="text-cyan-400 cursor-pointer">Show More</a></span>} mono />
             <PropRow label="Virtual network integration" value={runtime?.network.vnet || 'Not configured'} link valueColor="#94a3b8" />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Database */}
-          <AzurePanel icon={Database} title="Database" iconColor="#4ade80">
+          <HubPanel icon={Database} title="Database" iconColor="#4ade80">
             <PropRow label="Provider" value="Neon Postgres" />
             <PropRow label="Status" value={svc?.database || 'unknown'} valueColor={statusColor(svc?.database)} />
             <PropRow label="Connection" value={runtime?.integrations.database ? 'Configured' : 'Missing'} valueColor={runtime?.integrations.database ? '#4ade80' : '#f87171'} />
             <PropRow label="Pooled" value="Yes (PgBouncer)" />
-          </AzurePanel>
+          </HubPanel>
 
           {/* AI Models */}
-          <AzurePanel icon={Brain} title="AI Models" iconColor="#a78bfa">
+          <HubPanel icon={Brain} title="AI Models" iconColor="#a78bfa">
             <PropRow label="Status" value={svc?.ai || 'unknown'} valueColor={statusColor(svc?.ai)} />
             <PropRow label="OpenAI (GPT)" value={runtime?.integrations.ai.openai ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openai ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Anthropic (Claude)" value={runtime?.integrations.ai.anthropic ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.anthropic ? '#4ade80' : '#94a3b8'} />
@@ -3914,10 +3916,10 @@ function CommandCenterAzure({
             <PropRow label="Gemini Pro" value={runtime?.integrations.ai.geminiPro ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.geminiPro ? '#4ade80' : '#94a3b8'} />
             <PropRow label="OpenRouter" value={runtime?.integrations.ai.openrouter ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openrouter ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Replicate (Imagen)" value={runtime?.integrations.ai.replicate ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.replicate ? '#4ade80' : '#94a3b8'} />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Payments */}
-          <AzurePanel icon={CreditCard} title="Payments" iconColor="#4ade80">
+          <HubPanel icon={CreditCard} title="Payments" iconColor="#4ade80">
             <PropRow label="Stripe" value={runtime?.integrations.payments.stripe ? 'Connected' : 'Not configured'} valueColor={runtime?.integrations.payments.stripe ? '#4ade80' : '#94a3b8'} />
             <PropRow label="PayPal" value={runtime?.integrations.payments.paypal ? 'Connected' : 'Not configured'} valueColor={runtime?.integrations.payments.paypal ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Status" value={svc?.paypal || 'unknown'} valueColor={statusColor(svc?.paypal)} />
@@ -3925,32 +3927,32 @@ function CommandCenterAzure({
             <PropRow label="Pro subscribers" value={String(stats?.subscriptions.pro || 0)} />
             <PropRow label="Research subscribers" value={String(stats?.subscriptions.research || 0)} />
             <PropRow label="Enterprise subscribers" value={String(stats?.subscriptions.enterprise || 0)} />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Communications */}
-          <AzurePanel icon={Phone} title="Communications" iconColor="#fb923c">
+          <HubPanel icon={Phone} title="Communications" iconColor="#fb923c">
             <PropRow label="Twilio SMS" value={runtime?.integrations.comms.twilio ? 'Connected' : 'Not configured'} valueColor={runtime?.integrations.comms.twilio ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Twilio number" value={runtime?.integrations.comms.twilioPhone ? 'Provisioned' : 'Missing'} valueColor={runtime?.integrations.comms.twilioPhone ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Email (SMTP)" value="Internal pipeline" />
             <PropRow label="Support inbox" value="support@turboanswer.it.com" link href="mailto:support@turboanswer.it.com" />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Identity */}
-          <AzurePanel icon={Lock} title="Identity" iconColor="#22d3ee">
+          <HubPanel icon={Lock} title="Identity" iconColor="#22d3ee">
             <PropRow label="Provider" value="Replit Auth (OIDC)" />
             <PropRow label="Total users" value={String(runtime?.counts.users || users.length)} link onClick={() => onTabChange('users')} />
             <PropRow label="Admins" value={String(users.filter(u => u.isEmployee || u.email === 'support@turboanswer.it.com').length)} />
             <PropRow label="Banned users" value={String(users.filter(u => u.isBanned).length)} valueColor={users.filter(u => u.isBanned).length > 0 ? '#f87171' : '#4ade80'} />
             <PropRow label="Flagged users" value={String(users.filter(u => u.isFlagged).length)} valueColor={users.filter(u => u.isFlagged).length > 0 ? '#fbbf24' : '#4ade80'} />
-          </AzurePanel>
+          </HubPanel>
 
           {/* Support */}
-          <AzurePanel icon={Ticket} title="Support" iconColor="#fb923c">
+          <HubPanel icon={Ticket} title="Support" iconColor="#fb923c">
             <PropRow label="Total tickets" value={String(runtime?.counts.tickets || tickets.length)} link onClick={() => onTabChange('tickets')} />
             <PropRow label="Open" value={String(runtime?.counts.openTickets || 0)} valueColor={(runtime?.counts.openTickets || 0) > 0 ? '#fbbf24' : '#4ade80'} />
             <PropRow label="Urgent" value={String(runtime?.counts.urgentTickets || 0)} valueColor={(runtime?.counts.urgentTickets || 0) > 0 ? '#f87171' : '#4ade80'} />
             <PropRow label="View tickets" value="Open inbox →" link onClick={() => onTabChange('tickets')} />
-          </AzurePanel>
+          </HubPanel>
         </div>
       )}
 
@@ -3978,7 +3980,7 @@ function CommandCenterAzure({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <AzurePanel icon={Server} title="Services" iconColor="#22d3ee">
+            <HubPanel icon={Server} title="Services" iconColor="#22d3ee">
               {[
                 { name: 'Database', key: 'database', icon: Database },
                 { name: 'PayPal', key: 'paypal', icon: CreditCard },
@@ -4004,7 +4006,7 @@ function CommandCenterAzure({
                   </div>
                 </>
               )}
-            </AzurePanel>
+            </HubPanel>
 
             <div className="lg:col-span-2 rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
               <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#1a1a1a' }}>
@@ -4085,13 +4087,13 @@ function CommandCenterAzure({
       {/* ────────────── CAPABILITIES TAB ────────────── */}
       {subTab === 'capabilities' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <AzurePanel icon={Layers} title="Subscription Tiers" iconColor="#a78bfa">
+          <HubPanel icon={Layers} title="Subscription Tiers" iconColor="#a78bfa">
             <PropRow label="Lite" value="Free · 50 msg/day · 4 models" />
             <PropRow label="Pro" value="$9.99/mo · 500 msg/day · all chat models" />
             <PropRow label="Research" value="$29.99/mo · unlimited · vision + voice" />
             <PropRow label="Enterprise" value="Custom · workgroups · audit logs" />
-          </AzurePanel>
-          <AzurePanel icon={Zap} title="Features Enabled" iconColor="#4ade80">
+          </HubPanel>
+          <HubPanel icon={Zap} title="Features Enabled" iconColor="#4ade80">
             <PropRow label="Multi-AI routing" value="On" valueColor="#4ade80" />
             <PropRow label="Voice / TTS" value="On" valueColor="#4ade80" />
             <PropRow label="Image generation" value="On" valueColor="#4ade80" />
@@ -4104,22 +4106,22 @@ function CommandCenterAzure({
             <PropRow label="Beta program" value={`${users.filter(u => (u as any).isBetaTester).length || 0} testers`} link onClick={() => onTabChange('beta')} />
             <PropRow label="Promo codes" value="Active" link onClick={() => onTabChange('promoCodes')} />
             <PropRow label="Email templates" value="7 templates" link onClick={() => onTabChange('emailTemplates')} />
-          </AzurePanel>
-          <AzurePanel icon={Tag} title="Integrations Summary" iconColor="#22d3ee">
+          </HubPanel>
+          <HubPanel icon={Tag} title="Integrations Summary" iconColor="#22d3ee">
             <PropRow label="Total connected" value={`${totalIntegrations} integrations`} valueColor="#4ade80" />
             <PropRow label="AI providers" value={`${enabledAiCount} of 6 enabled`} />
             <PropRow label="Payment providers" value={runtime ? `${Object.values(runtime.integrations.payments).filter(Boolean).length} of 2` : '—'} />
             <PropRow label="Comms" value={runtime?.integrations.comms.twilio ? 'Twilio + SMTP' : 'SMTP only'} />
             <PropRow label="Database" value={runtime?.integrations.database ? 'Neon Postgres' : 'Missing'} valueColor={runtime?.integrations.database ? '#4ade80' : '#f87171'} />
-          </AzurePanel>
-          <AzurePanel icon={MapPin} title="Region & Locale" iconColor="#fb923c">
+          </HubPanel>
+          <HubPanel icon={MapPin} title="Region & Locale" iconColor="#fb923c">
             <PropRow label="Region" value={runtime?.host.region || '—'} />
             <PropRow label="Location" value={runtime?.host.location || '—'} />
             <PropRow label="Timezone" value={runtime?.env.tz || '—'} />
             <PropRow label="Locale" value={runtime?.env.locale || '—'} />
             <PropRow label="Architecture" value={runtime?.runtime.arch || '—'} mono />
             <PropRow label="Kernel" value={runtime?.runtime.release || '—'} mono />
-          </AzurePanel>
+          </HubPanel>
         </div>
       )}
 
@@ -4212,7 +4214,7 @@ function CommandCenterAzure({
 }
 
 // Reusable Azure-style panel + property row
-function AzurePanel({ icon: Icon, title, iconColor, children }: { icon: any; title: string; iconColor: string; children: React.ReactNode }) {
+function HubPanel({ icon: Icon, title, iconColor, children }: { icon: any; title: string; iconColor: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>
       <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#1a1a1a' }}>

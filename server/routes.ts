@@ -6923,7 +6923,11 @@ Rules:
       const hostname = os.hostname();
       const uptime = process.uptime();
       const isAzure = !!process.env.WEBSITE_SITE_NAME;
-      const region = process.env.WEBSITE_RESOURCE_GROUP || process.env.AZURE_REGION || (isAzure ? 'Azure App Service' : 'Replit');
+      const isReplit = !!process.env.REPL_ID;
+      const provider = isAzure ? 'Azure App Service' : isReplit ? 'Replit Dev Workspace' : 'Self-hosted';
+      const environmentName = process.env.NODE_ENV === 'production' ? 'TurboAnswer Production' : 'TurboAnswer Development';
+      const region = isAzure ? (process.env.WEBSITE_RESOURCE_GROUP || 'East US') : isReplit ? 'Replit Cloud' : 'Local';
+      const location = isAzure ? (process.env.REGION_NAME || 'East US') : isReplit ? 'us-east-1' : (process.env.TZ || 'localhost');
 
       // Count tables / live counts (light queries).
       const userCount = await db.select().from(users);
@@ -6933,18 +6937,19 @@ Rules:
 
       res.json({
         host: {
-          provider: isAzure ? 'Azure App Service' : (process.env.REPL_ID ? 'Replit' : 'Self-hosted'),
-          siteName: process.env.WEBSITE_SITE_NAME || process.env.REPL_SLUG || hostname,
+          provider,
+          siteName: 'TurboAnswer',
+          environmentName,
           region,
-          location: process.env.REGION_NAME || 'West US 2',
-          subscriptionId: process.env.WEBSITE_OWNER_NAME || '0e355811-7b2f-48ff-abc9-4619d3fe71c3',
+          location,
+          subscriptionId: process.env.WEBSITE_OWNER_NAME || (isReplit ? `repl-${process.env.REPL_ID?.slice(0, 8)}` : 'local-dev'),
           githubRepo: 'https://github.com/turboanswer/turboanswer9999999',
           customDomain: 'turboanswer.it.com',
-          defaultDomain: process.env.WEBSITE_HOSTNAME || `${process.env.REPL_SLUG || 'turboanswergroup'}-default.azurewebsites.net`,
-          planType: 'App Service plan',
-          planName: 'ASP-turboanswergroupgroup-b1ad',
-          sku: 'Basic (B1)',
-          instanceCount: 1,
+          defaultDomain: process.env.WEBSITE_HOSTNAME || (isReplit ? (process.env.REPLIT_DOMAINS?.split(',')[0] || 'replit.dev') : 'turboanswer.it.com'),
+          planType: isAzure ? 'App Service plan' : isReplit ? 'Replit Reserved VM' : 'Self-managed',
+          planName: isAzure ? (process.env.WEBSITE_SKU_FAMILY || 'turboanswer-app-plan') : 'TurboAnswer Stack',
+          sku: isAzure ? (process.env.WEBSITE_SKU || 'Basic (B1)') : isReplit ? 'Reserved VM' : 'Custom',
+          instanceCount: parseInt(process.env.WEBSITE_INSTANCE_ID ? '1' : '1'),
         },
         runtime: {
           node: process.version,
