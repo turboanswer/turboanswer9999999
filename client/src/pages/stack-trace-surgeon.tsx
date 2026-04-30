@@ -330,7 +330,14 @@ export default function StackTraceSurgeon() {
                         <span className="truncate">{h.repoUrl.replace(/^https?:\/\/(www\.)?github\.com\//, '')}</span>
                         <span>·</span>
                         <span>{new Date(h.createdAt).toLocaleDateString()}</span>
-                        {h.prUrl && <><span>·</span><span style={{ color: '#10b981' }}>PR opened</span></>}
+                        {h.prUrl && (
+                          <>
+                            <span>·</span>
+                            <span style={{ color: '#10b981' }}>
+                              {h.prUrl.includes('/commit/') ? 'Committed' : 'PR opened'}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <button
@@ -463,6 +470,78 @@ export default function StackTraceSurgeon() {
             )}
           </Button>
         </div>
+
+        {!loading && !error && !result && (() => {
+          const shipped = history.filter(h => typeof h.prUrl === 'string' && h.prUrl.trim().length > 0).slice(0, 5);
+          if (shipped.length === 0) return null;
+          return (
+            <Card className="p-5 mb-5" style={{ background: cardBg, borderColor: border }} data-testid="shipped-fixes-panel">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Recently shipped fixes
+                </h3>
+                <span className="text-[11px]" style={{ color: subtext }}>
+                  Last {shipped.length} {shipped.length === 1 ? 'fix' : 'fixes'} this AI pushed to your repos
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {shipped.map((h) => {
+                  const url = h.prUrl!;
+                  const kind: 'commit' | 'pr' | 'link' = url.includes('/commit/')
+                    ? 'commit'
+                    : url.includes('/pull/')
+                    ? 'pr'
+                    : 'link';
+                  const badgeStyle =
+                    kind === 'commit'
+                      ? { color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }
+                      : kind === 'pr'
+                      ? { color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)' }
+                      : { color: subtext, background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', border: `1px solid ${border}` };
+                  const linkColor = kind === 'commit' ? '#f59e0b' : kind === 'pr' ? '#10b981' : (isDark ? '#94a3b8' : '#475569');
+                  return (
+                    <li
+                      key={h.id}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+                      style={{ background: isDark ? '#0a0a0a' : '#f8fafc', border: `1px solid ${border}` }}
+                      data-testid={`shipped-fix-${h.id}`}
+                    >
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide flex-shrink-0"
+                        style={badgeStyle}
+                      >
+                        {kind === 'commit' ? 'Direct' : kind === 'pr' ? 'PR' : 'Link'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <button
+                          onClick={() => loadFromHistory(h.id)}
+                          className="text-xs font-mono truncate text-left hover:underline block w-full"
+                          style={{ color: text }}
+                          data-testid={`shipped-fix-load-${h.id}`}
+                        >
+                          {h.title}
+                        </button>
+                        <div className="text-[10px] mt-0.5 truncate" style={{ color: subtext }}>
+                          {h.repoUrl.replace(/^https?:\/\/(www\.)?github\.com\//, '')} · {new Date(h.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium hover:underline flex-shrink-0"
+                        style={{ color: linkColor }}
+                        data-testid={`shipped-fix-link-${h.id}`}
+                      >
+                        View <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          );
+        })()}
 
         {error && (
           <Card className="p-4 mb-5 border-red-500/40" style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.4)' }} data-testid="error-banner">
