@@ -593,22 +593,32 @@ function downloadAAB(){
       const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
       if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
 
-      const { diagnosisId, githubToken } = req.body || {};
+      const { diagnosisId, githubToken: providedToken } = req.body || {};
       if (!diagnosisId || typeof diagnosisId !== 'number') {
         return res.status(400).json({ message: "diagnosisId is required." });
       }
-      if (!githubToken || typeof githubToken !== 'string' || !githubToken.trim()) {
-        return res.status(400).json({ message: "A GitHub token with repo write access is required to open a PR.", code: "TOKEN_REQUIRED" });
+
+      const { parseRepoUrl } = await import('./services/stack-trace-surgeon.js');
+      const { parseFirstDiff, applyDiff, fetchFileViaContentsApi, createFixPullRequest, getReplitGithubToken } = await import('./services/github-pr.js');
+
+      // Prefer the user-provided token; fall back to the GitHub integration token.
+      let githubToken = (typeof providedToken === 'string' && providedToken.trim()) ? providedToken.trim() : '';
+      if (!githubToken) {
+        const integrationToken = await getReplitGithubToken();
+        if (integrationToken) githubToken = integrationToken;
+      }
+      if (!githubToken) {
+        return res.status(400).json({
+          message: "A GitHub token with repo write access is required. Either paste one here or connect GitHub via Replit integrations.",
+          code: "TOKEN_REQUIRED",
+        });
       }
 
       const diag = await storage.getStackTraceDiagnosis(diagnosisId, userId);
       if (!diag) return res.status(404).json({ message: "Diagnosis not found." });
 
-      const { parseRepoUrl } = await import('./services/stack-trace-surgeon.js');
       const ref = parseRepoUrl(diag.repoUrl);
       if (!ref) return res.status(400).json({ message: "Saved repo URL is invalid." });
-
-      const { parseFirstDiff, applyDiff, fetchFileViaContentsApi, createFixPullRequest } = await import('./services/github-pr.js');
       const diff = parseFirstDiff(diag.suggestedFix);
       if (!diff) {
         return res.status(422).json({ message: "Could not extract a unified diff from the suggested fix. The AI's response wasn't in a format we can apply automatically." });
@@ -679,6 +689,154 @@ function downloadAAB(){
           ? "GitHub rejected the token. Make sure it has `repo` (or `Contents: read+write` and `Pull requests: read+write` for fine-grained tokens)."
           : (e?.message || "Failed to open PR."),
       });
+    }
+  });
+
+  // ─── APPLY FIX DIRECTLY TO REPO ─────────────────────────────────────────────
+  // Commits the patch straight to the default branch (no PR, no review).
+  // Uses the Replit GitHub integration token if available, so the user doesn't
+  // have to paste a PAT every time. Owner/employee-only when using the
+  // integration token; paid users may direct-apply with their own PAT.
+  // In-flight dedupe prevents double-click producing two commits.
+  const _applyFixInFlight = new Set<string>();
+  app.post("/api/stack-trace-surgeon/apply-fix", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      // Direct-to-main commits use the workspace owner's GitHub OAuth token (the token
+      // attached to the Replit GitHub integration). Only the actual owner/employees may
+      // push under that identity — paid Research-tier customers must use the safer
+      // PR flow (which still requires their own PAT, not the integration token).
+      const ownerLike = isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      const { githubToken: providedTokenForGate } = req.body || {};
+      const hasOwnPat = typeof providedTokenForGate === 'string' && providedTokenForGate.trim().length > 0;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const tierAllows = tier === 'research' || tier === 'enterprise';
+      if (!ownerLike && !(tierAllows && hasOwnPat)) {
+        return res.status(403).json({
+          message: "Direct-apply is owner-only when using the Replit GitHub integration. Paste your own personal-access token to apply with your own GitHub identity.",
+          code: "OWNER_OR_OWN_PAT_REQUIRED",
+        });
+      }
+
+      const { diagnosisId, githubToken: providedToken, confirmedDirect } = req.body || {};
+      if (!diagnosisId || typeof diagnosisId !== 'number') {
+        return res.status(400).json({ message: "diagnosisId is required." });
+      }
+      if (confirmedDirect !== true) {
+        return res.status(400).json({
+          message: "Direct-apply requires explicit confirmation. Send confirmedDirect: true.",
+          code: "CONFIRMATION_REQUIRED",
+        });
+      }
+
+      const { parseRepoUrl } = await import('./services/stack-trace-surgeon.js');
+      const { parseFirstDiff, applyDiff, fetchFileViaContentsApi, applyFixDirect, getReplitGithubToken } = await import('./services/github-pr.js');
+
+      let githubToken = (typeof providedToken === 'string' && providedToken.trim()) ? providedToken.trim() : '';
+      if (!githubToken) {
+        const integrationToken = await getReplitGithubToken();
+        if (integrationToken) githubToken = integrationToken;
+      }
+      if (!githubToken) {
+        return res.status(400).json({
+          message: "GitHub not connected. Either paste a token with repo write access or connect GitHub via Replit integrations.",
+          code: "TOKEN_REQUIRED",
+        });
+      }
+
+      const diag = await storage.getStackTraceDiagnosis(diagnosisId, userId);
+      if (!diag) return res.status(404).json({ message: "Diagnosis not found." });
+
+      const ref = parseRepoUrl(diag.repoUrl);
+      if (!ref) return res.status(400).json({ message: "Saved repo URL is invalid." });
+
+      const diff = parseFirstDiff(diag.suggestedFix);
+      if (!diff) {
+        return res.status(422).json({ message: "Could not extract a unified diff from the suggested fix." });
+      }
+
+      // Locate the live file on the default branch.
+      const candidatePaths: string[] = [diff.filePath];
+      for (const f of (diag.filesUsed as { path: string }[])) {
+        if (f.path && !candidatePaths.includes(f.path)) candidatePaths.push(f.path);
+      }
+      let livePath: string | null = null;
+      let liveContent: string | null = null;
+      for (const cand of candidatePaths) {
+        for (const br of [ref.branch, ref.branch === 'main' ? 'master' : 'main']) {
+          const c = await fetchFileViaContentsApi(ref.owner, ref.repo, cand, br, githubToken);
+          if (c !== null) { livePath = cand; liveContent = c; break; }
+        }
+        if (liveContent !== null) break;
+      }
+      if (liveContent === null || livePath === null) {
+        return res.status(404).json({ message: `Couldn't find ${diff.filePath} in the repo. Make sure the path matches and the token has read access.` });
+      }
+
+      const patched = applyDiff(liveContent, diff);
+      if (patched === null) {
+        return res.status(422).json({ message: "Couldn't apply the diff cleanly to the live file — the source has changed. Open a PR manually using the diff." });
+      }
+      if (patched === liveContent) {
+        return res.status(422).json({ message: "Patched file is identical to the original — the fix may already be applied." });
+      }
+
+      // In-flight dedupe: prevent double-click from producing two commits for the
+      // same diagnosis on the same target file. Key by diagnosisId + livePath.
+      const inflightKey = `${userId}:${diagnosisId}:${livePath}`;
+      if (_applyFixInFlight.has(inflightKey)) {
+        return res.status(409).json({ message: "An apply for this diagnosis is already in progress. Please wait." });
+      }
+      _applyFixInFlight.add(inflightKey);
+
+      const commitMessage = `fix: ${diag.title.slice(0, 60)}\n\nApplied via TurboAnswer Stack Trace Surgeon.\nDiagnosis #${diag.id}.`;
+
+      let result;
+      try {
+        result = await applyFixDirect({
+          owner: ref.owner,
+          repo: ref.repo,
+          filePath: livePath,
+          newContent: patched,
+          commitMessage,
+          token: githubToken,
+        });
+      } finally {
+        _applyFixInFlight.delete(inflightKey);
+      }
+
+      // Record the commit URL alongside any prior PR URL (reuse same column).
+      await storage.setStackTraceDiagnosisPrUrl(diagnosisId, userId, result.commitUrl);
+
+      console.log(`[StackTraceSurgeon] Direct fix applied: ${ref.owner}/${ref.repo}@${result.commitSha.slice(0, 7)} on ${result.branch}`);
+      res.json({
+        ok: true,
+        commitSha: result.commitSha,
+        commitUrl: result.commitUrl,
+        branch: result.branch,
+        filePath: livePath,
+      });
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] Direct apply failed:", e?.status, e?.message || e);
+      const status = e?.status === 401 || e?.status === 403 ? 403 : 500;
+      res.status(status).json({
+        message: e?.status === 401 || e?.status === 403
+          ? "GitHub rejected the token. It needs `repo` write access (or `Contents: read+write` for fine-grained tokens). For protected branches, also disable required reviews or use a token from a user who can bypass them."
+          : (e?.message || "Failed to apply fix."),
+      });
+    }
+  });
+
+  // Check whether the Replit GitHub integration is connected.
+  // Lets the frontend hide the token input when we already have a usable token.
+  app.get("/api/stack-trace-surgeon/github-status", isAuthenticated, async (_req: any, res) => {
+    try {
+      const { getReplitGithubToken } = await import('./services/github-pr.js');
+      const token = await getReplitGithubToken();
+      res.json({ connected: !!token, source: token ? 'replit-integration' : 'none' });
+    } catch {
+      res.json({ connected: false, source: 'none' });
     }
   });
 

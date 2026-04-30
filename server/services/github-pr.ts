@@ -243,3 +243,93 @@ export async function searchFileByBasename(
     return null;
   }
 }
+
+/**
+ * Apply a fix DIRECTLY to the repo's default branch — no separate branch, no PR.
+ * One commit lands straight on `main` (or whatever the default is).
+ *
+ * Use with care: this is irreversible without a manual git revert. The Stack Trace
+ * Surgeon UI must show a confirmation dialog before calling this.
+ */
+export async function applyFixDirect(opts: {
+  owner: string;
+  repo: string;
+  filePath: string;
+  newContent: string;
+  baseBranch?: string;
+  commitMessage: string;
+  token: string;
+}): Promise<{ commitSha: string; commitUrl: string; branch: string }> {
+  const { owner, repo, filePath, newContent, commitMessage, token } = opts;
+
+  // Resolve default branch.
+  const repoInfo = await ghFetch(token, `/repos/${owner}/${repo}`);
+  const baseBranch = opts.baseBranch || repoInfo.default_branch || 'main';
+
+  // Get existing file SHA on default branch (required for an update commit).
+  let fileSha: string | undefined;
+  try {
+    const existing = await ghFetch(token, `/repos/${owner}/${repo}/contents/${encodeURIComponent(filePath).replace(/%2F/g, '/')}?ref=${encodeURIComponent(baseBranch)}`);
+    if (existing && existing.sha) fileSha = existing.sha;
+  } catch (e: any) {
+    if (e.status !== 404) throw e;
+  }
+
+  // PUT contents directly on default branch — produces one commit on main.
+  const contentB64 = Buffer.from(newContent, 'utf8').toString('base64');
+  const result = await ghFetch(token, `/repos/${owner}/${repo}/contents/${encodeURIComponent(filePath).replace(/%2F/g, '/')}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      message: commitMessage,
+      content: contentB64,
+      branch: baseBranch,
+      ...(fileSha ? { sha: fileSha } : {}),
+    }),
+  });
+
+  return {
+    commitSha: result?.commit?.sha || 'unknown',
+    commitUrl: result?.commit?.html_url || `https://github.com/${owner}/${repo}/commits/${baseBranch}`,
+    branch: baseBranch,
+  };
+}
+
+/**
+ * Pull the GitHub OAuth access token from the Replit Connectors API. This lets the
+ * Stack Trace Surgeon use the user's already-connected GitHub account instead of
+ * asking them to paste a personal access token every time.
+ *
+ * Returns null if the connector is not configured (e.g. local dev outside Replit).
+ */
+let _cachedGhConn: any = null;
+export async function getReplitGithubToken(): Promise<string | null> {
+  try {
+    if (_cachedGhConn?.settings?.expires_at && new Date(_cachedGhConn.settings.expires_at).getTime() > Date.now() + 60_000) {
+      return _cachedGhConn.settings.access_token
+        || _cachedGhConn.settings?.oauth?.credentials?.access_token
+        || null;
+    }
+    const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+    if (!hostname) return null;
+    const xReplitToken = process.env.REPL_IDENTITY
+      ? 'repl ' + process.env.REPL_IDENTITY
+      : process.env.WEB_REPL_RENEWAL
+      ? 'depl ' + process.env.WEB_REPL_RENEWAL
+      : null;
+    if (!xReplitToken) return null;
+
+    const res = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=github',
+      { headers: { 'Accept': 'application/json', 'X_REPLIT_TOKEN': xReplitToken } }
+    );
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    _cachedGhConn = data.items?.[0] || null;
+    if (!_cachedGhConn) return null;
+    return _cachedGhConn.settings?.access_token
+      || _cachedGhConn.settings?.oauth?.credentials?.access_token
+      || null;
+  } catch {
+    return null;
+  }
+}

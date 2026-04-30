@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy, Lock, FlaskConical, History, Trash2, GitPullRequest, ExternalLink } from "lucide-react";
+import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy, Lock, FlaskConical, History, Trash2, GitPullRequest, ExternalLink, Zap, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,9 @@ export default function StackTraceSurgeon() {
   const [error, setError] = useState<string | null>(null);
   const [prLoading, setPrLoading] = useState(false);
   const [prUrl, setPrUrl] = useState<string | null>(null);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [appliedCommit, setAppliedCommit] = useState<{ url: string; sha: string; branch: string; filePath: string } | null>(null);
+  const [showApplyConfirm, setShowApplyConfirm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const queryClient = useQueryClient();
 
@@ -63,6 +66,14 @@ export default function StackTraceSurgeon() {
     queryKey: ['/api/stack-trace-surgeon/history'],
     enabled: isResearchOrAbove,
   });
+
+  const { data: ghStatus } = useQuery<{ connected: boolean; source: string }>({
+    queryKey: ['/api/stack-trace-surgeon/github-status'],
+    enabled: isResearchOrAbove,
+  });
+  const ghIntegrated = !!ghStatus?.connected;
+  const isOwnerLike = (user as any)?.isOwner === true || (user as any)?.isEmployee === true;
+  const canDirectApply = isOwnerLike || githubToken.trim().length > 0;
 
   const bg = isDark ? '#0a0a0a' : '#f8fafc';
   const cardBg = isDark ? '#111114' : '#ffffff';
@@ -139,6 +150,8 @@ export default function StackTraceSurgeon() {
     setError(null);
     setResult(null);
     setPrUrl(null);
+    setAppliedCommit(null);
+    setShowApplyConfirm(false);
     if (!stackTrace.trim() || !repoUrl.trim()) {
       toast({ title: "Missing input", description: "Paste both a stack trace and a GitHub repo URL.", variant: "destructive" });
       return;
@@ -180,6 +193,8 @@ export default function StackTraceSurgeon() {
         warnings: row.warnings || [],
       });
       setPrUrl(row.prUrl || null);
+      setAppliedCommit(null);
+      setShowApplyConfirm(false);
       setShowHistory(false);
       setError(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -204,7 +219,7 @@ export default function StackTraceSurgeon() {
       toast({ title: 'Save the diagnosis first', description: 'Re-run the diagnosis so we can save it before opening a PR.', variant: 'destructive' });
       return;
     }
-    if (!githubToken.trim()) {
+    if (!githubToken.trim() && !ghIntegrated) {
       setShowToken(true);
       toast({ title: 'GitHub token required', description: 'Add a token with repo write access to open a PR.', variant: 'destructive' });
       return;
@@ -213,20 +228,53 @@ export default function StackTraceSurgeon() {
     try {
       const res = await apiRequest('POST', '/api/stack-trace-surgeon/open-pr', {
         diagnosisId: result.id,
-        githubToken,
+        githubToken: githubToken || undefined,
       });
       const data = await res.json();
       if (!res.ok) {
         toast({ title: 'Could not open PR', description: data?.message || 'Unknown error', variant: 'destructive' });
       } else {
         setPrUrl(data.prUrl);
-        toast({ title: '🎉 Pull request opened!', description: `PR #${data.prNumber} on branch ${data.branch}` });
+        toast({ title: 'Pull request opened', description: `PR #${data.prNumber} on branch ${data.branch}` });
         queryClient.invalidateQueries({ queryKey: ['/api/stack-trace-surgeon/history'] });
       }
     } catch (e: any) {
       toast({ title: 'PR failed', description: e?.message || '', variant: 'destructive' });
     } finally {
       setPrLoading(false);
+    }
+  };
+
+  const applyDirectly = async () => {
+    if (!result?.id) {
+      toast({ title: 'Save the diagnosis first', description: 'Re-run the diagnosis so we can save it before applying.', variant: 'destructive' });
+      return;
+    }
+    if (!githubToken.trim() && !ghIntegrated) {
+      setShowToken(true);
+      toast({ title: 'GitHub not connected', description: 'Connect GitHub via Replit integrations or paste a token with repo write access.', variant: 'destructive' });
+      return;
+    }
+    setApplyLoading(true);
+    setShowApplyConfirm(false);
+    try {
+      const res = await apiRequest('POST', '/api/stack-trace-surgeon/apply-fix', {
+        diagnosisId: result.id,
+        githubToken: githubToken || undefined,
+        confirmedDirect: true,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: 'Could not apply fix', description: data?.message || 'Unknown error', variant: 'destructive' });
+      } else {
+        setAppliedCommit({ url: data.commitUrl, sha: data.commitSha, branch: data.branch, filePath: data.filePath });
+        toast({ title: 'Fix committed to repo', description: `Commit ${String(data.commitSha).slice(0, 7)} on ${data.branch}` });
+        queryClient.invalidateQueries({ queryKey: ['/api/stack-trace-surgeon/history'] });
+      }
+    } catch (e: any) {
+      toast({ title: 'Apply failed', description: e?.message || '', variant: 'destructive' });
+    } finally {
+      setApplyLoading(false);
     }
   };
 
@@ -450,8 +498,33 @@ export default function StackTraceSurgeon() {
               </div>
 
               {result.id && (
-                <div className="mt-4 pt-4 border-t flex flex-wrap items-center gap-3" style={{ borderColor: border }}>
-                  {prUrl ? (
+                <div className="mt-4 pt-4 border-t space-y-3" style={{ borderColor: border }}>
+                  {/* GitHub connection status pill */}
+                  <div className="flex items-center gap-2 text-[11px]" style={{ color: subtext }}>
+                    <Github className="h-3 w-3" />
+                    {ghIntegrated ? (
+                      <span style={{ color: '#10b981' }}>GitHub connected via Replit — ready to commit</span>
+                    ) : (
+                      <span>No GitHub integration detected — paste a token below to enable repo writes</span>
+                    )}
+                  </div>
+
+                  {/* Already-applied state */}
+                  {appliedCommit && (
+                    <a
+                      href={appliedCommit.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
+                      style={{ background: 'rgba(34,211,238,0.1)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.3)' }}
+                      data-testid="link-commit-applied"
+                    >
+                      <CheckCircle2 className="h-4 w-4" /> Fix committed to <code className="font-mono text-xs">{appliedCommit.branch}</code> · {appliedCommit.sha.slice(0, 7)} <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+
+                  {/* Already-PR state */}
+                  {prUrl && !appliedCommit && (
                     <a
                       href={prUrl}
                       target="_blank"
@@ -462,24 +535,86 @@ export default function StackTraceSurgeon() {
                     >
                       <CheckCircle2 className="h-4 w-4" /> PR opened — view on GitHub <ExternalLink className="h-3.5 w-3.5" />
                     </a>
-                  ) : (
-                    <Button
-                      onClick={openPullRequest}
-                      disabled={prLoading}
-                      size="sm"
-                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: 'white' }}
-                      data-testid="button-open-pr"
-                    >
-                      {prLoading ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Opening PR…</>
-                      ) : (
-                        <><GitPullRequest className="h-4 w-4 mr-2" /> Open Pull Request with this fix</>
-                      )}
-                    </Button>
                   )}
-                  <span className="text-[11px]" style={{ color: subtext }}>
-                    Requires a GitHub token with repo write access. Creates a new branch, applies the diff, opens a PR for review.
-                  </span>
+
+                  {/* Action buttons */}
+                  {!appliedCommit && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canDirectApply ? (
+                        <Button
+                          onClick={() => setShowApplyConfirm(true)}
+                          disabled={applyLoading || prLoading}
+                          size="sm"
+                          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: 'white' }}
+                          data-testid="button-apply-direct"
+                        >
+                          {applyLoading ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Applying to repo…</>
+                          ) : (
+                            <><Zap className="h-4 w-4 mr-2" /> Apply directly to repo</>
+                          )}
+                        </Button>
+                      ) : (
+                        <div className="text-[11px] px-3 py-2 rounded border" style={{ borderColor: border, color: subtext, background: isDark ? '#0a0a0a' : '#f8fafc' }}>
+                          Direct-apply needs your own GitHub token (paste below) — only the workspace owner can use the integration token to commit straight to main.
+                        </div>
+                      )}
+                      {!prUrl && (
+                        <Button
+                          onClick={openPullRequest}
+                          disabled={prLoading || applyLoading}
+                          size="sm"
+                          variant="outline"
+                          style={{ borderColor: border, background: 'transparent', color: text }}
+                          data-testid="button-open-pr"
+                        >
+                          {prLoading ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Opening PR…</>
+                          ) : (
+                            <><GitPullRequest className="h-4 w-4 mr-2" /> Open PR for review instead</>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-[11px]" style={{ color: subtext }}>
+                    <strong style={{ color: '#f59e0b' }}>Apply directly</strong> commits the patch straight to your default branch (no review). Use <strong>Open PR</strong> if you want to review the change before it lands.
+                  </p>
+
+                  {/* Confirmation modal */}
+                  {showApplyConfirm && (
+                    <div className="rounded-lg p-4 border" style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.4)' }}>
+                      <div className="flex items-start gap-3">
+                        <ShieldAlert className="h-5 w-5 mt-0.5 flex-shrink-0" style={{ color: '#f59e0b' }} />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold mb-1" style={{ color: '#f59e0b' }}>Commit directly to default branch?</h4>
+                          <p className="text-xs mb-3" style={{ color: subtext }}>
+                            This will push one commit straight to <strong>main</strong> (or your default branch) without a pull request. There's no automatic rollback — you'd need to <code>git revert</code> manually.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={applyDirectly}
+                              size="sm"
+                              style={{ background: '#f59e0b', color: 'white' }}
+                              data-testid="button-apply-confirm"
+                            >
+                              Yes, commit it now
+                            </Button>
+                            <Button
+                              onClick={() => setShowApplyConfirm(false)}
+                              size="sm"
+                              variant="outline"
+                              style={{ borderColor: border, background: 'transparent', color: text }}
+                              data-testid="button-apply-cancel"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>
