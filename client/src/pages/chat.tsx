@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { cleanMarkdown } from "@/lib/clean-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope } from "lucide-react";
@@ -678,16 +679,18 @@ export default function Chat() {
   };
 
   const renderMessageContent = (content: string, role: string) => {
+    // Only clean assistant output — user messages are shown verbatim.
+    const cleaned = role === 'assistant' ? cleanMarkdown(content) : content;
     const imageRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g;
     const parts: Array<{ type: 'text' | 'image'; value: string; alt?: string }> = [];
     let lastIndex = 0;
     let match;
-    while ((match = imageRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) parts.push({ type: 'text', value: content.slice(lastIndex, match.index) });
+    while ((match = imageRegex.exec(cleaned)) !== null) {
+      if (match.index > lastIndex) parts.push({ type: 'text', value: cleaned.slice(lastIndex, match.index) });
       parts.push({ type: 'image', value: match[2], alt: match[1] });
       lastIndex = match.index + match[0].length;
     }
-    if (lastIndex < content.length) parts.push({ type: 'text', value: content.slice(lastIndex) });
+    if (lastIndex < cleaned.length) parts.push({ type: 'text', value: cleaned.slice(lastIndex) });
     const renderTextWithTags = (text: string) => {
       // Highlight [unverified]…[/unverified] / [contested]…[/contested] / [unverified] sentence / [contested] sentence
       const tagRegex = /\[(unverified|contested)\](?:\s*([\s\S]*?)(?:\s*\[\/(?:unverified|contested)\])|([^[\n.!?]*[.!?]?))/g;
@@ -1495,7 +1498,7 @@ export default function Chat() {
                 )}
                 <div className={`rounded-2xl rounded-bl-md px-4 py-3 ${isDark ? 'bg-zinc-900/80 border border-zinc-800 text-zinc-100' : 'bg-white border border-gray-200 shadow-sm text-gray-900'}`}>
                   <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words leading-relaxed">
-                    {streamingText}
+                    {cleanMarkdown(streamingText)}
                     <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
                   </div>
                 </div>

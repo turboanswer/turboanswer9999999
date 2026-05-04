@@ -258,7 +258,7 @@ export async function runMultiAgentResearch(question: string, languageInstructio
   if (verifiedAnswer) {
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`[Multi-Agent] Arithmetic detected — short-circuiting with exact result in ${totalTime}s`);
-    return `**${verifiedAnswer}**\n\n*Computed exactly with arbitrary-precision arithmetic in ${totalTime}s.*`;
+    return `${verifiedAnswer}\n\nComputed exactly with arbitrary-precision arithmetic in ${totalTime}s.`;
   }
 
   const agentPromises = AGENT_PERSPECTIVES.map(p => callAgent(p, question, verifiedAnswer));
@@ -292,13 +292,19 @@ AGENT ANALYSES:
 ${synthesisInput}
 
 YOUR TASK:
-Create one comprehensive, well-structured response that:
-1. Opens with a clear, direct answer to the question
+Create one well-organized response that:
+1. Opens with a clear, direct answer to the question in the first 1-2 sentences
 2. Weaves together the strongest insights from all agents into a cohesive narrative
-3. Uses headings (##) to organize by theme, not by agent
-4. Highlights areas of consensus and important disagreements
-5. Ends with actionable takeaways or a clear conclusion
+3. Organizes ideas by theme using short paragraphs separated by blank lines (NOT headings)
+4. Highlights areas of consensus and important disagreements when relevant
+5. Ends with a clear conclusion or actionable takeaway
 6. Does NOT mention the agents by name or say "the technical agent said..." — present it as unified expert analysis
+
+Formatting rules — follow STRICTLY:
+- Plain text only. NEVER use markdown: no **bold**, no *italic*, no # or ## headings, no \`backticks\`, no --- dividers.
+- Keep it tight: short sentences, blank line between paragraphs.
+- Use a simple dash + space for short lists ("- Item"). Only use a list when there are 3+ items.
+- No filler phrases like "Great question!" or "Let me explain". Just answer.
 
 ${languageInstruction ? languageInstruction : ''}
 ${behaviorInstruction ? behaviorInstruction : ''}

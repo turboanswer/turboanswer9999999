@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { cleanMarkdown } from "@/lib/clean-markdown";
 import { X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, ClipboardCheck, ArrowUp, Film, Phone, Mail, Clock, ImagePlus, Loader2, Plus, Pencil, Trash2, Check, Stethoscope } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -630,7 +631,7 @@ export default function MobileChatUI({
                     </div>
                   )}
                   <div className="leading-relaxed break-words whitespace-pre-wrap" style={{ fontSize: msgFontSize, color: TEXT_MAIN, ...getAIBubbleStyle() }}>
-                    {streamingText}
+                    {cleanMarkdown(streamingText)}
                     <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
                   </div>
                 </div>
