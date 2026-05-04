@@ -30,6 +30,12 @@ uri = "file://attached_assets/generated_images/turboanswer_gallery_shield.png"
 type = "image"
 title = "shield in hand trust"
 
+[[generated]]
+id = "92uDyyiEpB1rppuLEgrES"
+uri = "file://artifacts/mockup-sandbox/public/images/steel-texture.png"
+type = "image"
+title = "machined metal steel texture macro"
+
 [[outputs]]
 id = "xQO9WI8CP45Xz4LOhZIMh"
 uri = "file://turboanswer.tar.gz"

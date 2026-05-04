@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+:root {
+  --brutal-bg: #000000;
+  --brutal-fg: #ffffff;
+  --brutal-accent: #ff003c; /* Blood red */
+}
+
+.brutal-mono-page {
+  font-family: 'Space Mono', monospace;
+  background-color: var(--brutal-bg);
+  color: var(--brutal-fg);
+  min-height: 100vh;
+  overflow-x: hidden;
+  selection-background: var(--brutal-accent);
+  selection-color: var(--brutal-fg);
+}
+
+.brutal-mono-page ::selection {
+  background-color: var(--brutal-accent);
+  color: var(--brutal-bg);
+}
+
+.font-display {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.brutal-border {
+  border: 2px solid var(--brutal-fg);
+}
+
+.brutal-border-accent {
+  border: 2px solid var(--brutal-accent);
+}
+
+.brutal-shadow {
+  box-shadow: 8px 8px 0px 0px var(--brutal-accent);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.brutal-shadow:hover {
+  transform: translate(4px, 4px);
+  box-shadow: 4px 4px 0px 0px var(--brutal-accent);
+}
+
+.brutal-shadow:active {
+  transform: translate(8px, 8px);
+  box-shadow: 0px 0px 0px 0px var(--brutal-accent);
+}
+
+/* Animations */
+@keyframes reveal-up {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-reveal {
+  animation: reveal-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+
+/* Grid background */
+.brutal-grid {
+  background-image: 
+    linear-gradient(var(--brutal-fg) 1px, transparent 1px),
+    linear-gradient(90deg, var(--brutal-fg) 1px, transparent 1px);
+  background-size: 50px 50px;
+  background-position: center center;
+  opacity: 0.05;
+}

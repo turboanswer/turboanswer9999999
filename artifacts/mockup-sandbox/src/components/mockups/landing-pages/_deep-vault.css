@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Outfit:wght@300;400;500;600&display=swap');
+
+.deep-vault-container {
+  --bg-dark: #020617;
+  --bg-darker: #000000;
+  --accent-cyan: #06b6d4;
+  --accent-emerald: #10b981;
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  
+  background-color: var(--bg-darker);
+  color: var(--text-main);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  selection: bg-emerald-500/30 text-white;
+}
+
+.deep-vault-container::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 0%, rgba(6, 182, 212, 0.05), transparent 60%),
+              radial-gradient(circle at 50% 100%, rgba(16, 185, 129, 0.03), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.font-mono-display {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.05em;
+}
+
+.glow-text {
+  text-shadow: 0 0 40px rgba(6, 182, 212, 0.3);
+}
+
+.glow-box {
+  position: relative;
+}
+
+.glow-box::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(to bottom, rgba(6, 182, 212, 0.2), rgba(16, 185, 129, 0.05), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.fade-in-up {
+  animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scanline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(6, 182, 212, 0.02) 51%,
+    transparent 51%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.5;
+}
