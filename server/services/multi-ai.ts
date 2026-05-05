@@ -563,8 +563,9 @@ export async function generateAIResponse(
 }
 
 async function callGeminiBasic(prompt: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
-  // LOCKED per product spec: Free tier is ONLY Gemini 3.1 Flash.
-  const models = ['gemini-3.1-flash'];
+  // LOCKED per product spec: Free tier is Gemini 3.1 Flash, with Gemini 3.1 Pro
+  // as an emergency fallback ONLY when Flash errors/quotas (not for normal traffic).
+  const models = ['gemini-3.1-flash', 'gemini-3.1-pro'];
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature, maxOutputTokens: maxTokens }

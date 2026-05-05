@@ -461,9 +461,12 @@ Output STRICT JSON:
 // Keys are kept separate so quota and billing can be tracked independently.
 const GEMINI_FREE_KEY = () => process.env.GEMINI_API_KEY || '';
 const GEMINI_PRO_KEY = () => process.env.GEMINI_PRO_API_KEY || '';
-// LOCKED per product spec: Free is ONLY Gemini 3.1 Flash, Pro is ONLY Gemini 3.1 Pro.
-// No silent fall-through to older Gemini generations.
-const GEMINI_FREE_MODELS = ['gemini-3.1-flash'];
+// LOCKED per product spec:
+//   Free → Gemini 3.1 Flash (primary). Falls back to Gemini 3.1 Pro ONLY if
+//          Flash errors/quotas — never used for normal traffic.
+//   Pro  → Gemini 3.1 Pro only.
+// No fall-through to older Gemini generations (2.x).
+const GEMINI_FREE_MODELS = ['gemini-3.1-flash', 'gemini-3.1-pro'];
 const GEMINI_PRO_MODELS = ['gemini-3.1-pro'];
 
 async function callGeminiDirect(
@@ -533,9 +536,11 @@ async function callGeminiWithFallback(
 // Free is handled directly via callGeminiWithFallback above (no OpenRouter cost).
 function modelsForTier(tier?: string): string[] {
   const t = (tier || 'free').toLowerCase();
-  // LOCKED per product spec: Pro = Gemini 3.1 Pro only, Free = Gemini 3.1 Flash only.
+  // LOCKED per product spec:
+  //   Pro  → Gemini 3.1 Pro only.
+  //   Free → Gemini 3.1 Flash, with Gemini 3.1 Pro as emergency fallback only.
   if (t === 'pro') return ['google/gemini-3.1-pro'];
-  return ['google/gemini-3.1-flash'];
+  return ['google/gemini-3.1-flash', 'google/gemini-3.1-pro'];
 }
 
 async function callORWithFallback(
