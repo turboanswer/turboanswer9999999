@@ -753,7 +753,10 @@ export default function Chat() {
   // Gate all paid UI off the live subscription data (not the stale user object).
   const userTier = (subscriptionData?.tier || (user as any)?.tier || 'free') as string;
   const isPaidPro = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
-  const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
+  // LAUNCH NIGHT (HN demo): show verification badges, confidence scores,
+  // and the "see reasoning" toggle to ALL tiers so HN visitors see them on
+  // the free tier. To revert: restore the original tier check.
+  const isResearchOrAbove = true; // LAUNCH NIGHT — was: userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const isEnterpriseTier = userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const isFreeTier = !subscriptionData?.tier || subscriptionData?.tier === 'free';
   const isAnyPopupOpen = showProPopup || showResearchPopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;

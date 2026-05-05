@@ -81,3 +81,17 @@ Subscription preference: Lifetime free premium access through promo code system 
 ## Recent Changes (May 2026)
 - **Cleaner & faster chat answers**: Feedback was that answers showed too many raw asterisks/stars (the chat UI renders plain text, so `**bold**` was visible literally) and felt slow. Four-part fix: (1) Strict "Formatting rules" block added to all system prompts in `server/services/multi-ai.ts` (free, pro, research single-model, vision) — plain text only, no `**bold**`, no `*italic*`, no `#` headings, no backticks, short paragraphs, dash-prefixed lists only when 3+ items, lead with the answer with no filler. (2) Same rules added to the multi-agent Deep Think synthesis prompt in `server/services/multi-agent.ts`, replacing the old "use `##` headings to organize by theme" with "use short paragraphs separated by blank lines, NOT headings". The arithmetic short-circuit also no longer wraps results in `**…**` / `*…*`. (3) Shared `cleanMarkdown()` util in `client/src/lib/clean-markdown.ts` strips leftover `**bold**` / `*italic*` / `__bold__` / `_italic_` / inline `` `code` `` / leading `## headings` / `--- *** ___` rules, and converts `* item` / `+ item` bullets to `- item`. The stripper uses lookbehind/lookahead so it does NOT break `5*8` arithmetic or `snake_case` identifiers; `[text](url)` markdown links become `text (url)`; fact-check tags `[unverified]…[/unverified]` are left untouched. Applied to **both** finalized assistant messages AND live streaming bubbles (desktop `chat.tsx` and `MobileChatUI.tsx`) so users never see literal asterisks even mid-stream. (4) Speed: trimmed pro-tier max_tokens 4000→1200 and research single-model 4000→2000 (free 400→350) so answers come back faster and feel less bloated.
 - **Gemini Grounded Search**: Real-time web search for current events queries
+## LAUNCH NIGHT — Hacker News demo (revert tomorrow)
+
+For the HN "Show HN" post, four tier gates were temporarily relaxed so free-tier visitors experience the verification engine the post advertises. Search the codebase for `LAUNCH NIGHT` to find every flag in one pass.
+
+| File | Original | Launch-night value |
+|------|----------|--------------------|
+| `server/services/reasoning-engine.ts` (`DEEP_QUOTA`) | `free: 0, pro: 0` | `free: 5, pro: 10` |
+| `server/routes.ts` (legacy `/messages` verify gate, ~line 1433) | `if (senderTier === 'free') return "unknown";` | gate removed |
+| `server/routes.ts` (streaming `/messages/stream`, ~line 1560) | `tierBlocksDeep = effectiveTier === 'free' \|\| effectiveTier === 'pro'` | `tierBlocksDeep = false` |
+| `client/src/pages/chat.tsx` (~line 762, `isResearchOrAbove`) | tier check | `true` |
+
+Cost guardrail: deep mode is hard-capped per request by `COST_CEILING_USD` in reasoning-engine.ts (~$0.30/query) and per user by the daily `DEEP_QUOTA`. Worst-case spend if 10,000 free users each burn their full 5-query allowance in one day: ~$15,000. Watch the dashboard.
+
+To revert, search `LAUNCH NIGHT` and restore each block per the comment above it.

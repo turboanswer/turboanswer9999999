@@ -1428,7 +1428,8 @@ function downloadAAB(){
       const senderTier = senderForVerify?.subscriptionTier || 'free';
 
       const verifyPromise = (async (): Promise<"verified" | "unverified" | "unknown"> => {
-        if (senderTier === 'free') return "unknown";
+        // LAUNCH NIGHT (HN demo): free tier now gets the verification pass.
+        // To revert: re-add `if (senderTier === 'free') return "unknown";`
         try {
           const { verifyAIResponse } = await import('./services/multi-ai.js');
           if (responseUsedGroundedSearch) return "verified";
@@ -1545,13 +1546,15 @@ function downloadAAB(){
       const userMessage = await storage.createMessage({ conversationId, content, role: "user" });
 
       // Deep-think quota check.
-      // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE.
-      // Free and Pro tiers always run fast mode regardless of the manualDeepThink flag.
+      // LAUNCH NIGHT (HN demo): free + pro tiers can run deep mode, capped by
+      // their DEEP_QUOTA (5/day for free, 10/day for pro). Reasoning Engine
+      // returns confidence + sources to ALL tiers tonight.
+      // To revert: restore `const tierBlocksDeep = effectiveTier === 'free' || effectiveTier === 'pro';`
       const tre = await import('./services/reasoning-engine');
       const today = tre.todayUTC();
       const deepUsed = userId ? await (await import('./storage')).getDeepThinkUsage(userId, today) : 0;
       const deepLimit = tre.DEEP_QUOTA[effectiveTier] ?? tre.DEEP_QUOTA.free;
-      const tierBlocksDeep = effectiveTier === 'free' || effectiveTier === 'pro';
+      const tierBlocksDeep = false; // LAUNCH NIGHT — gate disabled
       let allowDeep = !tierBlocksDeep;
       let quotaFellBack = false;
       if (allowDeep && deepLimit !== -1 && deepUsed >= deepLimit) {

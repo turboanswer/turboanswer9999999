@@ -973,11 +973,12 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
 }
 
 // ============= QUOTAS =============
-// Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
-// Free and Pro users do not have access (quota = 0).
+// LAUNCH NIGHT (HN demo): free tier temporarily gets 5 deep verifications/day
+// so HN visitors can experience the verification engine on the free tier.
+// To revert: set free back to 0 and pro back to 0.
 export const DEEP_QUOTA: Record<string, number> = {
-  free: 0,
-  pro: 0,
+  free: 5,   // LAUNCH NIGHT — was 0
+  pro: 10,   // LAUNCH NIGHT — was 0
   research: 200,
   enterprise: -1,
   owner: -1,
