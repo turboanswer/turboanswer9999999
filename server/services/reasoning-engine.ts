@@ -283,13 +283,14 @@ export async function retrieve(question: string, isMath: boolean): Promise<{ sou
 
 // ============= PLANNER =============
 export async function planSubQuestions(question: string): Promise<string[]> {
-  const prompt = `Break this question into 2-4 atomic sub-questions that, when answered together, fully address the original. Output STRICT JSON: {"subs":["...","..."]}.
+  const prompt = `Break this question into 2-3 atomic sub-questions that, when answered together, fully address the original. Output STRICT JSON: {"subs":["...","..."]}.
 If the question is already atomic, return one item.
 
-Question: """${question.slice(0, 1500)}"""`;
-  const raw = await callOR(MODEL_PLANNER, prompt, { maxTokens: 400, temperature: 0.2, jsonMode: true, timeoutMs: 10000 });
+Question: """${question.slice(0, 1200)}"""`;
+  // Tighter budget: planner is on the critical path before the panel can fire.
+  const raw = await callOR(MODEL_PLANNER, prompt, { maxTokens: 250, temperature: 0.2, jsonMode: true, timeoutMs: 6000 });
   const parsed = parseJSON<{ subs?: string[] }>(raw, { subs: [question] });
-  const subs = (parsed.subs || []).filter(s => typeof s === 'string' && s.trim()).slice(0, 4);
+  const subs = (parsed.subs || []).filter(s => typeof s === 'string' && s.trim()).slice(0, 3);
   return subs.length ? subs : [question];
 }
 
@@ -306,14 +307,52 @@ Rules:
 - If math is involved, show steps.`;
 }
 
-export async function panelAnswer(question: string, subQs: string[], context: string, modelIds: { id: string; name: string }[], onPanel: (model: string, preview: string) => void): Promise<{ model: string; answer: string }[]> {
+export async function panelAnswer(
+  question: string,
+  subQs: string[],
+  context: string,
+  modelIds: { id: string; name: string }[],
+  onPanel: (model: string, preview: string) => void,
+  opts: { quorum?: number; graceMs?: number; onQuorum?: (n: number) => void } = {},
+): Promise<{ model: string; answer: string }[]> {
   const prompt = buildPanelPrompt(question, subQs, context);
-  const results = await Promise.all(modelIds.map(async m => {
-    const ans = await callOR(m.id, prompt, { maxTokens: 1200, temperature: 0.3, timeoutMs: 40000 });
-    if (ans) onPanel(m.name, ans.slice(0, 160));
-    return { model: m.name, answer: ans || '' };
-  }));
-  return results.filter(r => r.answer.trim().length > 0);
+  const quorum = opts.quorum ?? modelIds.length;     // default = wait for all (back-compat)
+  const graceMs = opts.graceMs ?? 4000;
+  const results: { model: string; answer: string }[] = [];
+
+  return new Promise(resolve => {
+    let resolved = false;
+    let settled = 0;
+    let graceTimer: ReturnType<typeof setTimeout> | null = null;
+    const finish = () => {
+      if (resolved) return;
+      resolved = true;
+      if (graceTimer) clearTimeout(graceTimer);
+      resolve(results.filter(r => r.answer.trim().length > 0));
+    };
+
+    modelIds.forEach(m => {
+      // Per-model timeout 20s — quorum + grace handles tail latency anyway.
+      callOR(m.id, prompt, { maxTokens: 1200, temperature: 0.3, timeoutMs: 20000 })
+        .then(ans => {
+          if (ans && ans.trim()) {
+            results.push({ model: m.name, answer: ans });
+            onPanel(m.name, ans.slice(0, 160));
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          settled++;
+          // All models settled — finish immediately.
+          if (settled === modelIds.length) return finish();
+          // Quorum reached — start grace window for stragglers.
+          if (results.length >= quorum && !graceTimer) {
+            opts.onQuorum?.(results.length);
+            graceTimer = setTimeout(finish, graceMs);
+          }
+        });
+    });
+  });
 }
 
 // ============= DEBATE / CROSS-CRITIQUE =============
@@ -327,7 +366,8 @@ consensus_score = fraction of key claims with 2/3+ agreement.
 Question: ${question}
 
 ${panel.map(p => `## ${p.model}\n${p.answer.slice(0, 1500)}`).join('\n\n')}`;
-  const raw = await callOR(MODEL_DEBATE, prompt, { maxTokens: 800, temperature: 0.1, jsonMode: true, timeoutMs: 20000 });
+  // Tighter debate budget: it sits between panel and synthesis on the critical path.
+  const raw = await callOR(MODEL_DEBATE, prompt, { maxTokens: 400, temperature: 0.1, jsonMode: true, timeoutMs: 12000 });
   const parsed = parseJSON<{ agreements?: string[]; disagreements?: string[]; consensus_score?: number }>(raw, {});
   return {
     agreements: parsed.agreements || [],
@@ -432,7 +472,8 @@ Output STRICT JSON:
 - "unknown" + confidence 50-70 if you cannot tell.
 - confidence reflects your overall trust in the answer.`;
 
-  const raw = await callOR(MODEL_VERIFIER, prompt, { maxTokens: 900, temperature: 0, jsonMode: true, timeoutMs: 18000 });
+  // Tighter verifier budget: runs after synth and gates the final badge.
+  const raw = await callOR(MODEL_VERIFIER, prompt, { maxTokens: 500, temperature: 0, jsonMode: true, timeoutMs: 10000 });
   const parsed = parseJSON<{ verdict?: string; confidence?: number; claims?: ClaimCheck[]; sentences_to_mark?: { sentence_substring?: string; tag?: string }[] }>(raw, {});
   const verdict: 'verified' | 'unverified' | 'unknown' =
     parsed.verdict === 'verified' ? 'verified'
@@ -951,7 +992,18 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
   }
 
   stage('panel', `Asking ${panelModels.length} expert AI models in parallel`, 'active');
-  const panel = await panelAnswer(question, subQs, context, panelModels, (m, p) => onEvent({ type: 'panel', model: m, preview: p }));
+  // Quorum-of-3 with 4s grace: synthesis fires once 3 of N panel models return,
+  // giving stragglers a short window to land. Cuts perceived latency by 4-8s
+  // versus waiting for the slowest model in the panel.
+  const quorumTarget = Math.min(3, panelModels.length);
+  const panel = await panelAnswer(question, subQs, context, panelModels,
+    (m, p) => onEvent({ type: 'panel', model: m, preview: p }),
+    {
+      quorum: quorumTarget,
+      graceMs: 4000,
+      onQuorum: (n) => stage('panel', `Quorum reached (${n}/${panelModels.length}) — starting synthesis`, 'active'),
+    },
+  );
   if (panel.length === 0) {
     stage('panel', 'All models failed — falling back', 'error');
     const content = await fastAnswer(question, systemPrompt, tier);
