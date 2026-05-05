@@ -196,4 +196,10 @@ title = "TurboAnswer Chat Dashboard — 8K Press JPG (5.6 MB)"
 id = "jd12RQZWyaOZKc50mYTy3"
 uri = "file://exports/press/turboanswer-logo.jpg"
 type = "image"
-title = "TurboAnswer Logo — 200×200 JPG (5 KB)"
+title = "TurboAnswer Logo (5 KB)"
+
+[[outputs]]
+id = "XuYcr4PIvS_sVTXW6ICjF"
+uri = "file://exports/press/HN_LAUNCH_KIT.md"
+type = "text"
+title = "TurboAnswer — Hacker News Launch Kit"
