@@ -1325,7 +1325,7 @@ export default function Chat() {
                       {confidenceMessages[message.id]}% confidence
                     </span>
                   )}
-                  {message.role === 'assistant' && reasoningTraces[message.id] && (
+                  {message.role === 'assistant' && reasoningTraces[message.id] && (reasoningTraces[message.id].mode !== 'fast' || reasoningTraces[message.id].sources.length > 0 || reasoningTraces[message.id].panel.length > 0) && (
                     <button
                       onClick={() => setExpandedReasoning(prev => ({ ...prev, [message.id]: !prev[message.id] }))}
                       className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${isDark ? 'text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20' : 'text-emerald-700 hover:bg-emerald-50 border border-emerald-200'}`}

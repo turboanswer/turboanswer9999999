@@ -114,11 +114,26 @@ function parseJSON<T>(s: string | null, fallback: T): T {
 }
 
 // ============= ROUTER =============
+// Trivial-message fast-path: skip the LLM router entirely for greetings,
+// chit-chat, and ultra-short inputs. Saves 1-3s + a model call per "hi".
+const TRIVIAL_RE = /^(hi+|hey+|hello+|yo+|sup|howdy|hola|salut|ciao|good\s*(morning|afternoon|evening|night)|gm|gn|thanks?|thank\s*you|ty|thx|ok(ay)?|cool|nice|great|awesome|lol|lmao|haha+|bye+|cya|see\s*ya|goodbye|👋|🙂|😊|test|testing|ping)[\s!.?,👋🙂😊]*$/i;
+function isTrivial(q: string): boolean {
+  const t = q.trim();
+  if (!t) return true;
+  if (TRIVIAL_RE.test(t)) return true;
+  // Anything ≤ 18 chars with no question mark, no digits, no research keywords
+  if (t.length <= 18 && !/[?]/.test(t) && !/\d/.test(t) && !/\b(why|how|what|when|where|who|which|explain|compare|vs|versus|prove|calculate|solve|cite|source)\b/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
 export async function routeQuestion(question: string, hasImage: boolean, manualDeepThink: boolean): Promise<RouteDecision> {
   if (manualDeepThink) {
     return { mode: 'deep', needsRetrieval: true, isMath: /\d.*[+\-*/=].*\d|\bcalculate\b|\bsolve\b/i.test(question), reason: 'manual_override' };
   }
   if (hasImage) return { mode: 'fast', needsRetrieval: false, isMath: false, reason: 'image_query' };
+  if (isTrivial(question)) return { mode: 'fast', needsRetrieval: false, isMath: false, reason: 'trivial_skip_router' };
 
   const prompt = `Classify this user question. Output STRICT JSON only:
 {"mode":"fast"|"retrieval"|"deep","needs_retrieval":true|false,"is_math":true|false,"reason":"short"}
@@ -879,8 +894,10 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
     }
     if (!acc) acc = 'I could not generate an answer right now. Please try again.';
     stage('answer', 'Answer ready', 'done');
-    onEvent({ type: 'done', content: acc, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 });
-    return { content: acc, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: 70 };
+    // Fast path has no verification pass — emit null confidence so the UI does
+    // not render a misleading "70% confidence" chip on greetings/chit-chat.
+    onEvent({ type: 'done', content: acc, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: null as any });
+    return { content: acc, verified: 'unknown', mode: 'fast', sources: [], claims: [], confidence: null as any };
   }
 
   // RETRIEVAL-ONLY PATH
