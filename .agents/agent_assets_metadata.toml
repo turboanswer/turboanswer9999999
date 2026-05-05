@@ -191,3 +191,9 @@ id = "BqNfmDnsrXBKHf6aYWKZq"
 uri = "file://exports/press/turboanswer-dashboard.jpg"
 type = "image"
 title = "TurboAnswer Chat Dashboard — 8K Press JPG (5.6 MB)"
+
+[[outputs]]
+id = "jd12RQZWyaOZKc50mYTy3"
+uri = "file://exports/press/turboanswer-logo.jpg"
+type = "image"
+title = "TurboAnswer Logo — 200×200 JPG (5 KB)"
