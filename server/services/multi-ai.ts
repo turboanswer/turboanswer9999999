@@ -541,15 +541,15 @@ export async function generateAIResponse(
       if (!geminiApiKey) return "API key not configured.";
       const systemPrompt = `You are Turbo Answer — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
-      console.log(`[AI] Pro → Gemini Flash Lite`);
-      const text = await callGemini(fullPrompt, 'gemini-2.0-flash-lite', 1200, 0.3, geminiApiKey);
+      console.log(`[AI] Pro → Gemini 3.1 Pro`);
+      const text = await callGemini(fullPrompt, 'gemini-3.1-pro', 1200, 0.3, geminiApiKey);
       return { text, usedGroundedSearch };
     } else {
       if (!geminiApiKey) return "API key not configured.";
       const freeSearchContext = additionalContext || "";
       const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.\n\n${formattingRules}${languageInstruction ? '\n\n' + languageInstruction : ''}${freeSearchContext}`;
       const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}`;
-      console.log(`[AI] Free → Gemini 2.0 Flash Lite (basic, no history)`);
+      console.log(`[AI] Free → Gemini 3.1 Flash (basic, no history)`);
       return await callGeminiBasic(fullPrompt, 350, 0.7, geminiApiKey);
     }
 
@@ -563,7 +563,8 @@ export async function generateAIResponse(
 }
 
 async function callGeminiBasic(prompt: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
-  const models = ['gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+  // LOCKED per product spec: Free tier is ONLY Gemini 3.1 Flash.
+  const models = ['gemini-3.1-flash'];
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature, maxOutputTokens: maxTokens }
