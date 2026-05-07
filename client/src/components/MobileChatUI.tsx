@@ -498,84 +498,76 @@ export default function MobileChatUI({
         </div>
       </div>
 
-      {/* Header */}
-      <header className="flex items-center justify-between px-3 shrink-0" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: "8px", borderBottom: `1px solid rgba(66,133,244,0.1)`, background: isDark ? "linear-gradient(180deg, rgba(66,133,244,0.05) 0%, transparent 100%)" : "linear-gradient(180deg, rgba(66,133,244,0.04) 0%, transparent 100%)" }}>
-        <button onClick={() => setShowDrawer(true)} className="w-9 h-9 flex items-center justify-center rounded-full transition-colors" style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }}>
-          <Menu className="h-4 w-4" style={{ color: TEXT_DIM }} />
+      {/* Header — minimal Gemini-style: no gradient overlay, no border, generous touch targets */}
+      <header className="flex items-center justify-between px-3 shrink-0" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: "8px" }}>
+        <button onClick={() => setShowDrawer(true)} className="w-10 h-10 flex items-center justify-center rounded-full transition-colors active:bg-white/5" aria-label="Menu">
+          <Menu className="h-5 w-5" style={{ color: TEXT_MAIN }} />
         </button>
 
-        <div className="flex items-center gap-1.5">
-          <img src={turboLogo} alt="Turbo" className="w-5 h-5 rounded-md object-cover" />
-          <span className="font-semibold text-sm tracking-tight" style={{ color: TEXT_MAIN }}>TurboAnswer</span>
-        </div>
+        <Select value={selectedAIModel} onValueChange={handleModelChange}>
+          <SelectTrigger className="h-9 text-[14px] font-medium rounded-full border-0 px-3.5 gap-1.5 focus:ring-0" style={{ background: "transparent", color: TEXT_MAIN }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="gemini-flash">Free</SelectItem>
+            <SelectItem value="gemini-pro">Pro</SelectItem>
+            <SelectItem value="claude-research">Research</SelectItem>
+            <SelectItem value="enterprise-research">Enterprise</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <div className="flex items-center gap-1">
-          <Select value={selectedAIModel} onValueChange={handleModelChange}>
-            <SelectTrigger className="h-7 text-[10px] rounded-full border-0 px-2.5" style={{ background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)", color: TEXT_DIM, minWidth: "60px" }}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="gemini-flash">Free (Basic)</SelectItem>
-              <SelectItem value="gemini-pro">Pro (Advanced)</SelectItem>
-              <SelectItem value="claude-research">Research (Matrix AI)</SelectItem>
-              <SelectItem value="enterprise-research">Enterprise</SelectItem>
-            </SelectContent>
-          </Select>
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #4285F4, #8B5CF6)" }}
-          >
-            {firstName[0]?.toUpperCase() || "U"}
-          </div>
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-medium flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #4285F4, #9B72F2)" }}
+          aria-label="Account"
+        >
+          {firstName[0]?.toUpperCase() || "U"}
         </div>
       </header>
 
       {/* Main messages / welcome area */}
       <main className="flex-1 overflow-y-auto">
         {messages.length === 0 && !isTyping ? (
-          /* Welcome screen */
-          <div className="flex flex-col items-center px-4 pt-5 pb-2 relative">
-            {/* Background glow orbs */}
-            <div className="absolute top-0 left-1/4 w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(66,133,244,0.07) 0%, transparent 70%)" }} />
-            <div className="absolute top-12 right-1/4 w-36 h-36 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)" }} />
-
-            {/* Big logo with ring glow */}
-            <div className="relative mb-3 z-10">
-              <div className="absolute -inset-2 rounded-[28px]" style={{ background: "linear-gradient(135deg, rgba(66,133,244,0.3), rgba(139,92,246,0.3))", filter: "blur(12px)" }} />
-              <img src={turboLogo} alt="TurboAnswer" className="relative w-24 h-24 rounded-3xl object-cover" style={{ boxShadow: "0 8px 32px rgba(66,133,244,0.3)" }} />
-            </div>
-
-            <h1 className="text-2xl font-bold text-center mb-1 leading-tight z-10" style={{
-              background: "linear-gradient(135deg, #4285F4 0%, #EA4335 35%, #FBBC05 65%, #34A853 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}>
-              {getGreeting()}, {firstName}
+          /* Gemini-style welcome — generous whitespace, big light gradient greeting, monochrome suggestions */
+          <div className="flex flex-col h-full px-6 pt-12 pb-4">
+            {/* Big greeting in soft 4-color gradient — light weight, lots of air */}
+            <h1
+              className="text-[44px] font-light leading-[1.05] tracking-tight"
+              style={{
+                background: "linear-gradient(90deg, #4285F4 0%, #9B72F2 35%, #D96570 65%, #F2B95E 100%)",
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              {getGreeting()},
             </h1>
-            <p className="text-sm mb-4 text-center z-10" style={{ color: TEXT_MUTED }}>How can I help you today?</p>
+            <h2
+              className="text-[44px] font-light leading-[1.05] tracking-tight mb-2"
+              style={{ color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)" }}
+            >
+              {firstName}.
+            </h2>
 
-            {/* Colorful suggestion grid */}
-            <div className="grid grid-cols-2 gap-2.5 w-full z-10">
+            {/* Push suggestions to the bottom of the welcome area */}
+            <div className="flex-1" />
+
+            {/* Minimal monochrome suggestion chips — Gemini-style */}
+            <div className="grid grid-cols-2 gap-2 w-full">
               {SUGGESTIONS.map((s, i) => (
                 <button
                   key={i}
                   onClick={() => setMessageContent(s.prompt)}
-                  className="rounded-2xl p-3 text-left transition-all active:scale-95"
-                  style={{ background: ACTIVE_CARD_STYLES[i].bg, border: ACTIVE_CARD_STYLES[i].border }}
+                  className="rounded-2xl p-3.5 text-left transition-all active:scale-[0.98]"
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${BORDER}`,
+                  }}
                 >
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ACTIVE_CARD_STYLES[i].dot }} />
-                    <span className="text-base">{s.icon}</span>
-                  </div>
-                  <p className="text-xs font-medium leading-snug" style={{ color: TEXT_DIM }}>{s.text}</p>
+                  <div className="text-base mb-1.5 opacity-80">{s.icon}</div>
+                  <p className="text-[13px] leading-snug" style={{ color: TEXT_DIM }}>{s.text}</p>
                 </button>
               ))}
-            </div>
-
-            {/* Tier badge */}
-            <div className="mt-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs" style={{ background: "rgba(66,133,244,0.1)", border: "1px solid rgba(66,133,244,0.2)", color: "#7BA7F7" }}>
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-              {tierLabel} · Ready
             </div>
           </div>
         ) : (
@@ -703,15 +695,22 @@ export default function MobileChatUI({
             </div>
           )}
 
-          {/* Input bar */}
-          <div className="flex items-end gap-2 px-3 py-2.5 rounded-3xl" style={{ background: INPUT_BG, border: `1px solid ${isDark ? "rgba(66,133,244,0.2)" : "rgba(66,133,244,0.25)"}`, boxShadow: "0 0 20px rgba(66,133,244,0.05)" }}>
+          {/* Input bar — Gemini-style pill: rounded-full, neutral border, monochrome send */}
+          <div
+            className="flex items-end gap-2 pl-4 pr-2 py-2 rounded-full"
+            style={{
+              background: INPUT_BG,
+              border: `1px solid ${BORDER}`,
+            }}
+          >
             <button
               onClick={() => cameraInputRef.current?.click()}
-              className="flex-shrink-0 mb-0.5 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
-              style={{ background: "rgba(66,133,244,0.12)", color: "#7BA7F7" }}
-              title="Take a photo to edit with AI"
+              className="flex-shrink-0 mb-1 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 -ml-2"
+              style={{ color: TEXT_DIM }}
+              title="Take a photo"
+              aria-label="Camera"
             >
-              <Camera className="h-4 w-4" />
+              <Camera className="h-[18px] w-[18px]" />
             </button>
 
             <textarea
@@ -719,19 +718,27 @@ export default function MobileChatUI({
               value={messageContent}
               onChange={(e) => setMessageContent(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask Turbo..."
+              placeholder="Ask Turbo Answer"
               rows={1}
-              className="flex-1 bg-transparent text-sm resize-none outline-none py-0.5"
-              style={{ color: TEXT_MAIN, minHeight: "22px", maxHeight: "112px" }}
+              className="flex-1 bg-transparent text-[15px] resize-none outline-none py-2 placeholder:opacity-60"
+              style={{ color: TEXT_MAIN, minHeight: "24px", maxHeight: "120px" }}
             />
 
             <button
               onClick={handleSend}
               disabled={!messageContent.trim() || isSending}
-              className="flex-shrink-0 mb-0.5 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-30"
-              style={{ background: messageContent.trim() ? "linear-gradient(135deg, #4285F4, #8B5CF6)" : "rgba(255,255,255,0.06)", boxShadow: messageContent.trim() ? "0 4px 12px rgba(66,133,244,0.4)" : "none" }}
+              className="flex-shrink-0 mb-0.5 w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-30"
+              style={{
+                background: messageContent.trim()
+                  ? (isDark ? "#fff" : "#0b0b0d")
+                  : "transparent",
+                color: messageContent.trim()
+                  ? (isDark ? "#0b0b0d" : "#fff")
+                  : TEXT_DIM,
+              }}
+              aria-label="Send"
             >
-              <ArrowUp className="h-4 w-4 text-white" />
+              <ArrowUp className="h-[18px] w-[18px]" />
             </button>
           </div>
         </div>

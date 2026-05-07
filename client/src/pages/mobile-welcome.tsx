@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Shield, ArrowRight, Check } from "lucide-react";
-import TurboLogo from "@/components/TurboLogo";
+import { ShieldCheck, Sparkles } from "lucide-react";
+import turboLogo from "@/assets/turboanswer-logo.png";
 
 export default function MobileWelcome() {
   const [, setLocation] = useLocation();
@@ -14,106 +14,99 @@ export default function MobileWelcome() {
 
   const fade = (delay: number) => ({
     opacity: visible ? 1 : 0,
-    transform: visible ? "translateY(0)" : "translateY(10px)",
-    transition: `opacity 700ms ease-out ${delay}ms, transform 700ms ease-out ${delay}ms`,
+    transform: visible ? "translateY(0)" : "translateY(8px)",
+    transition: `opacity 600ms ease-out ${delay}ms, transform 600ms ease-out ${delay}ms`,
   });
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-between px-7 pt-16 pb-8 relative overflow-hidden"
-      style={{ background: "#05060a", color: "#fff" }}
+      className="min-h-screen flex flex-col items-center justify-between px-7 pt-20 pb-10"
+      style={{ background: "#0b0b0d", color: "#fff" }}
     >
-      {/* Soft emerald glow background */}
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          top: "-10%",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: 600,
-          height: 600,
-          background: "radial-gradient(ellipse, rgba(16,185,129,0.18), rgba(16,185,129,0.04) 40%, transparent 70%)",
-          filter: "blur(40px)",
-        }}
-      />
-
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-sm text-center">
-        <div style={fade(0)} className="mb-8">
-          <TurboLogo size={84} animated={false} />
-        </div>
-
-        {/* Verified badge */}
-        <div
-          style={fade(80)}
-          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-6"
-          aria-label="Powered by Matrix AI"
+      {/* Top: logo + wordmark */}
+      <div style={fade(0)} className="flex flex-col items-center">
+        <img
+          src={turboLogo}
+          alt="Turbo Answer"
+          className="w-14 h-14 rounded-2xl object-cover mb-4"
+        />
+        <span
+          className="text-[13px] font-medium tracking-[0.18em] uppercase"
+          style={{ color: "rgba(255,255,255,0.55)" }}
         >
-          <Shield size={12} className="text-emerald-400" />
-          <span className="text-[11px] font-bold tracking-wider uppercase text-emerald-400">
-            Matrix AI
-          </span>
-        </div>
+          Turbo Answer
+        </span>
+      </div>
 
+      {/* Middle: greeting */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-sm text-center">
         <h1
-          style={{ ...fade(160), letterSpacing: "-0.02em" }}
-          className="text-[34px] font-semibold tracking-tight mb-3 leading-[1.1]"
+          style={{
+            ...fade(120),
+            letterSpacing: "-0.035em",
+            background: "linear-gradient(90deg, #4285F4 0%, #9B72F2 35%, #D96570 65%, #F2B95E 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+          className="text-[56px] font-light leading-[1] mb-6"
         >
-          The AI you can<br />
-          <span
-            style={{
-              background: "linear-gradient(90deg, #10b981, #34d399)",
-              WebkitBackgroundClip: "text",
-              backgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            actually trust.
-          </span>
+          Hello.
         </h1>
-
         <p
-          style={fade(240)}
-          className="text-[15px] leading-relaxed text-zinc-400 max-w-[300px]"
+          style={fade(220)}
+          className="text-[17px] leading-relaxed font-light max-w-[280px]"
+          /* Soft white, lots of whitespace — Gemini-style intro */
         >
-          Meet Matrix AI — a new kind of intelligence. Cited, verified, delivered in seconds.
+          A new kind of intelligence.
+          <br />
+          <span style={{ color: "rgba(255,255,255,0.55)" }}>
+            Verified. Cited. In seconds.
+          </span>
         </p>
       </div>
 
+      {/* Bottom: actions + trust strip */}
       <div
-        className="relative z-10 w-full max-w-sm space-y-3"
+        className="w-full max-w-sm space-y-3"
         style={{
-          ...fade(340),
+          ...fade(320),
           paddingBottom: "max(0px, env(safe-area-inset-bottom))",
         }}
       >
         <button
           onClick={() => setLocation("/trial-chat")}
-          className="w-full h-[54px] rounded-2xl font-semibold text-[15px] active:opacity-90 transition-all flex items-center justify-center gap-2 text-white"
+          className="w-full h-[52px] rounded-full font-medium text-[15px] active:opacity-90 transition-all flex items-center justify-center gap-2"
           style={{
-            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-            boxShadow: "0 10px 30px rgba(16,185,129,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
+            background: "#fff",
+            color: "#0b0b0d",
+            letterSpacing: "-0.005em",
           }}
           data-testid="button-get-started"
         >
+          <Sparkles size={15} />
           Get started
-          <ArrowRight size={17} />
         </button>
 
         <button
           onClick={() => setLocation("/login")}
-          className="w-full h-[54px] rounded-2xl font-medium text-[15px] active:bg-white/5 transition-colors text-zinc-300"
+          className="w-full h-[52px] rounded-full font-medium text-[15px] active:bg-white/5 transition-colors"
           style={{
             background: "transparent",
-            border: "1px solid rgba(255,255,255,0.14)",
+            color: "rgba(255,255,255,0.85)",
+            border: "1px solid rgba(255,255,255,0.12)",
           }}
           data-testid="button-sign-in"
         >
           Sign in
         </button>
 
-        <div className="flex items-center justify-center gap-4 pt-3 text-[11px] text-zinc-500">
-          <span className="flex items-center gap-1"><Check size={11} className="text-emerald-500" /> Free forever</span>
-          <span className="flex items-center gap-1"><Check size={11} className="text-emerald-500" /> No credit card</span>
+        <div
+          className="flex items-center justify-center gap-2 pt-4 text-[11px]"
+          style={{ color: "rgba(255,255,255,0.4)" }}
+        >
+          <ShieldCheck size={12} />
+          <span>Free to start. No card required.</span>
         </div>
       </div>
     </div>
