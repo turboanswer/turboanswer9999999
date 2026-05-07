@@ -116,9 +116,10 @@ export default function MobileChatUI({
   const msgFontSize = fontSizePref === "small" ? "11px" : fontSizePref === "large" ? "16px" : "14px";
   const msgSpacing = chatDensityPref === "compact" ? "12px" : chatDensityPref === "spacious" ? "24px" : "20px";
   const getUserBubbleStyle = (): CSSProperties => {
-    if (bubbleStylePref === "flat") return { background: "#2563EB", borderRadius: "8px", padding: "10px 14px" };
-    if (bubbleStylePref === "minimal") return { background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: "14px", padding: "8px 12px" };
-    return { background: "#2563EB", borderRadius: "18px 18px 4px 18px", padding: "12px 16px" };
+    // Gemini-style: soft neutral pill, not heavy blue. Color is theme-driven.
+    if (bubbleStylePref === "flat") return { background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", color: TEXT_MAIN, borderRadius: "10px", padding: "10px 14px" };
+    if (bubbleStylePref === "minimal") return { background: "transparent", border: `1px solid ${BORDER}`, color: TEXT_MAIN, borderRadius: "16px", padding: "8px 14px" };
+    return { background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)", color: TEXT_MAIN, borderRadius: "20px 20px 6px 20px", padding: "10px 16px" };
   };
   const getAIBubbleStyle = (): CSSProperties => {
     if (bubbleStylePref === "flat") return { background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: "8px", padding: "10px 14px" };
@@ -584,7 +585,7 @@ export default function MobileChatUI({
                 )}
                 <div className="max-w-[82%]">
                   {msg.role === "user" ? (
-                    <div className="leading-relaxed break-words text-white" style={{ fontSize: msgFontSize, ...getUserBubbleStyle() }}>
+                    <div className="leading-relaxed break-words" style={{ fontSize: msgFontSize, ...getUserBubbleStyle() }}>
                       {renderMessageContent(msg.content, msg.role)}
                     </div>
                   ) : (
@@ -629,36 +630,40 @@ export default function MobileChatUI({
                 </div>
               </div>
             ) : isTyping && (
+              /* Gemini-style thinking state — clean shimmer line + dot, no rainbow circus */
               <div className="flex gap-3 justify-start">
-                <div className="relative flex-shrink-0 mt-0.5">
-                  <img src={turboLogo} alt="Turbo" className="w-7 h-7 rounded-full object-cover" />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#0f0f14' : '#fff' }} />
-                </div>
-                <div className="relative overflow-hidden px-4 py-3 rounded-2xl" style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}>
+                <img src={turboLogo} alt="Turbo" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
+                <div className="flex items-center gap-2 pt-2">
                   <style>{`
-                    @keyframes turbo-bounce { 0%,80%,100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1.2); opacity: 1; } }
-                    @keyframes turbo-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
-                    @keyframes turbo-glow { 0%,100% { box-shadow: 0 0 8px rgba(99,102,241,0.3); } 50% { box-shadow: 0 0 16px rgba(168,85,247,0.5); } }
-                    @keyframes turbo-gradient-text { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+                    @keyframes turbo-pulse { 0%,100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+                    @keyframes turbo-shimmer-line {
+                      0% { background-position: -200% 0; }
+                      100% { background-position: 200% 0; }
+                    }
                   `}</style>
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ animation: animationsPref ? 'turbo-glow 2s ease-in-out infinite' : 'none' }}>
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.08) 50%, transparent 100%)', animation: animationsPref ? 'turbo-shimmer 2s ease-in-out infinite' : 'none' }} />
-                  </div>
-                  <div className="flex items-center gap-2.5 relative z-10">
-                    <div className="flex gap-1">
-                      {[
-                        { color: '#818cf8', delay: '0s' },
-                        { color: '#a78bfa', delay: '0.15s' },
-                        { color: '#c084fc', delay: '0.3s' },
-                        { color: '#e879f9', delay: '0.45s' },
-                      ].map((dot, i) => (
-                        <div key={i} className="w-2 h-2 rounded-full" style={{ backgroundColor: dot.color, animation: animationsPref ? `turbo-bounce 1.4s ease-in-out ${dot.delay} infinite` : 'none', opacity: animationsPref ? 1 : 1 - i * 0.15 }} />
-                      ))}
-                    </div>
-                    <span className="text-xs font-medium" style={{ color: isDark ? '#a1a1aa' : '#6b7280', background: animationsPref ? 'linear-gradient(90deg, #818cf8, #c084fc, #818cf8)' : 'none', backgroundSize: '200% auto', WebkitBackgroundClip: animationsPref ? 'text' : 'unset', WebkitTextFillColor: animationsPref ? 'transparent' : 'inherit', animation: animationsPref ? 'turbo-gradient-text 3s linear infinite' : 'none' }}>
-                      Generating response...
-                    </span>
-                  </div>
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)',
+                      animation: animationsPref ? 'turbo-pulse 1.4s ease-in-out infinite' : 'none',
+                    }}
+                  />
+                  <span
+                    className="text-[13px] font-normal"
+                    style={{
+                      background: animationsPref
+                        ? `linear-gradient(90deg, ${TEXT_MUTED} 0%, ${TEXT_MAIN} 50%, ${TEXT_MUTED} 100%)`
+                        : 'none',
+                      backgroundSize: '200% 100%',
+                      WebkitBackgroundClip: animationsPref ? 'text' : 'unset',
+                      backgroundClip: animationsPref ? 'text' : 'unset',
+                      WebkitTextFillColor: animationsPref ? 'transparent' : 'inherit',
+                      color: animationsPref ? undefined : TEXT_MUTED,
+                      animation: animationsPref ? 'turbo-shimmer-line 2.2s linear infinite' : 'none',
+                    }}
+                  >
+                    Thinking
+                  </span>
                 </div>
               </div>
             )}
