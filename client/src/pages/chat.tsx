@@ -909,7 +909,7 @@ export default function Chat() {
     >
       {isDragging && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none p-6">
-          <div className={`w-full h-full rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-3 ${isDark ? 'bg-emerald-500/10 border-emerald-400 text-emerald-200' : 'bg-emerald-50 border-emerald-500 text-emerald-700'}`}>
+          <div className={`w-full h-full rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-3 ${isDark ? 'bg-blue-500/10 border-blue-400 text-blue-200' : 'bg-blue-50 border-blue-500 text-blue-700'}`}>
             <Upload className="h-12 w-12" />
             <div className="text-lg font-semibold">Drop your file to upload</div>
             <div className="text-sm opacity-75">Images get analyzed in chat • Documents open in the analysis panel</div>
@@ -947,7 +947,7 @@ export default function Chat() {
                 title={deepThink ? "Deep Think ON — forces full Matrix AI reasoning + verification" : "Deep Think OFF — Matrix AI auto-decides fast vs deep"}
                 className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
                   deepThink
-                    ? (isDark ? 'bg-emerald-600/30 border border-emerald-500 text-emerald-200' : 'bg-emerald-100 border border-emerald-400 text-emerald-700')
+                    ? (isDark ? 'bg-blue-600/30 border border-blue-500 text-blue-200' : 'bg-blue-100 border border-blue-400 text-blue-700')
                     : (isDark ? 'bg-[#1e1f20] border border-[#3c4043] text-[#8e918f] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
                 }`}
                 data-testid="button-deep-think"
@@ -958,7 +958,7 @@ export default function Chat() {
                   <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                     deepThinkUsageQuery.data.used >= deepThinkUsageQuery.data.limit
                       ? 'bg-red-500/20 text-red-500'
-                      : (isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-200 text-emerald-800')
+                      : (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-200 text-blue-800')
                   }`} data-testid="deep-think-quota">
                     {Math.max(0, deepThinkUsageQuery.data.limit - deepThinkUsageQuery.data.used)}/{deepThinkUsageQuery.data.limit}
                   </span>
@@ -1020,7 +1020,7 @@ export default function Chat() {
               )}
               {user?.isBetaTester && (
                 <Link href="/beta-feedback">
-                  <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-emerald-400 hover:text-emerald-300 ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="Beta Feedback (3 questions)" data-testid="link-beta-feedback">
+                  <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-blue-400 hover:text-blue-300 ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="Beta Feedback (3 questions)" data-testid="link-beta-feedback">
                     <ClipboardCheck className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -1076,7 +1076,7 @@ export default function Chat() {
                 </Button>
               </Link>
               <div className="relative">
-                <Button onClick={() => setShowSupportPanel(!showSupportPanel)} variant="ghost" size="sm" className={`h-8 w-8 p-0 ${showSupportPanel ? 'text-green-400' : isDark ? 'text-gray-400 hover:text-green-400' : 'text-gray-500 hover:text-green-600'}`} title="Contact Support">
+                <Button onClick={() => setShowSupportPanel(!showSupportPanel)} variant="ghost" size="sm" className={`h-8 w-8 p-0 ${showSupportPanel ? 'text-blue-400' : isDark ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-600'}`} title="Contact Support">
                   <Phone className="h-4 w-4" />
                 </Button>
                 {showSupportPanel && (
@@ -1098,12 +1098,12 @@ export default function Chat() {
                         </div>
                       </a>
                       <a href="tel:8664677269" className={`flex items-center gap-3 p-2.5 rounded-xl transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-50'}`}>
-                        <div className="w-8 h-8 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
-                          <Phone className="h-4 w-4 text-green-400" />
+                        <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+                          <Phone className="h-4 w-4 text-blue-400" />
                         </div>
                         <div>
                           <p className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Phone</p>
-                          <p className="text-xs text-green-400">866-467-7269</p>
+                          <p className="text-xs text-blue-400">866-467-7269</p>
                         </div>
                       </a>
                       <div className={`flex items-center gap-3 p-2.5 rounded-xl ${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'}`}>
@@ -1301,7 +1301,7 @@ export default function Chat() {
                 <div className={`flex items-center gap-2 mt-1 ${message.role === 'user' ? 'justify-end mr-1' : 'ml-1'}`}>
                   {isResearchOrAbove && message.role === 'assistant' && verifiedMessages[message.id] && verifiedMessages[message.id] !== "unknown" && (
                     <span
-                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[message.id] === "verified" ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}
+                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[message.id] === "verified" ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}
                       title={verifiedMessages[message.id] === "verified" ? "Verified by Matrix AI" : "Matrix AI could not fully verify this answer — treat with caution"}
                       data-testid={`badge-verified-${message.id}`}
                     >
@@ -1315,7 +1315,7 @@ export default function Chat() {
                   {isResearchOrAbove && message.role === 'assistant' && typeof confidenceMessages[message.id] === 'number' && (
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold border ${
-                        confidenceMessages[message.id] >= 80 ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30'
+                        confidenceMessages[message.id] >= 80 ? 'text-blue-500 bg-blue-500/10 border-blue-500/30'
                         : confidenceMessages[message.id] >= 50 ? 'text-amber-500 bg-amber-500/10 border-amber-500/30'
                         : 'text-red-500 bg-red-500/10 border-red-500/30'
                       }`}
@@ -1328,7 +1328,7 @@ export default function Chat() {
                   {message.role === 'assistant' && reasoningTraces[message.id] && (reasoningTraces[message.id].mode !== 'fast' || reasoningTraces[message.id].sources.length > 0 || reasoningTraces[message.id].panel.length > 0) && (
                     <button
                       onClick={() => setExpandedReasoning(prev => ({ ...prev, [message.id]: !prev[message.id] }))}
-                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${isDark ? 'text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20' : 'text-emerald-700 hover:bg-emerald-50 border border-emerald-200'}`}
+                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${isDark ? 'text-blue-400 hover:bg-blue-500/10 border border-blue-500/20' : 'text-blue-700 hover:bg-blue-50 border border-blue-200'}`}
                       data-testid={`toggle-reasoning-${message.id}`}
                     >
                       <Brain className="h-3 w-3" />
@@ -1346,7 +1346,7 @@ export default function Chat() {
                       disabled={factCheckLoading[message.id]}
                       className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
                         factChecks[message.id]
-                          ? factChecks[message.id].verdict === 'VERIFIED' ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                          ? factChecks[message.id].verdict === 'VERIFIED' ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20'
                             : factChecks[message.id].verdict === 'UNVERIFIED' ? 'text-red-400 bg-red-500/10 border border-red-500/20'
                             : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
                           : isDark ? 'text-zinc-500 hover:text-cyan-400 hover:bg-white/5' : 'text-gray-400 hover:text-cyan-600 hover:bg-gray-100'
@@ -1378,8 +1378,8 @@ export default function Chat() {
                   )}
                 </div>
                 {isResearchOrAbove && message.role === 'assistant' && expandedReasoning[message.id] && reasoningTraces[message.id] && (
-                  <div className={`mt-2 rounded-xl p-3 text-xs ${isDark ? 'bg-zinc-900/60 border border-emerald-700/30' : 'bg-emerald-50/50 border border-emerald-200'}`} data-testid={`reasoning-trace-${message.id}`}>
-                    <div className={`flex items-center gap-2 mb-2 font-bold uppercase tracking-wider text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                  <div className={`mt-2 rounded-xl p-3 text-xs ${isDark ? 'bg-zinc-900/60 border border-blue-700/30' : 'bg-blue-50/50 border border-blue-200'}`} data-testid={`reasoning-trace-${message.id}`}>
+                    <div className={`flex items-center gap-2 mb-2 font-bold uppercase tracking-wider text-[10px] ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
                       <Brain className="h-3 w-3" /> Reasoning trace
                       <span className={`ml-auto text-[10px] font-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
                         Mode: {reasoningTraces[message.id].mode} • {reasoningTraces[message.id].confidence}% confidence
@@ -1389,7 +1389,7 @@ export default function Chat() {
                       {reasoningTraces[message.id].stages.map((s, i) => (
                         <li key={i} className="flex items-start gap-2">
                           <span className={`mt-0.5 w-3 h-3 rounded-full flex items-center justify-center text-[8px] flex-shrink-0 ${
-                            s.status === 'done' ? 'bg-emerald-500 text-white'
+                            s.status === 'done' ? 'bg-blue-500 text-white'
                             : s.status === 'error' ? 'bg-red-500 text-white'
                             : s.status === 'skipped' ? 'bg-gray-400 text-white'
                             : 'bg-gray-300 text-gray-600'
@@ -1415,7 +1415,7 @@ export default function Chat() {
                           {reasoningTraces[message.id].sources.slice(0, 5).map((s, i) => (
                             <li key={i} className="text-[11px] truncate">
                               <span className="opacity-50 mr-1">[{i + 1}]</span>
-                              <a href={s.url} target="_blank" rel="noopener noreferrer" className={`${isDark ? 'text-emerald-400 hover:underline' : 'text-emerald-700 hover:underline'}`}>{s.title}</a>
+                              <a href={s.url} target="_blank" rel="noopener noreferrer" className={`${isDark ? 'text-blue-400 hover:underline' : 'text-blue-700 hover:underline'}`}>{s.title}</a>
                             </li>
                           ))}
                         </ul>
@@ -1428,11 +1428,11 @@ export default function Chat() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={
-                          factChecks[message.id].verdict === 'VERIFIED' ? 'text-emerald-400' : factChecks[message.id].verdict === 'UNVERIFIED' ? 'text-red-400' : 'text-amber-400'
+                          factChecks[message.id].verdict === 'VERIFIED' ? 'text-blue-400' : factChecks[message.id].verdict === 'UNVERIFIED' ? 'text-red-400' : 'text-amber-400'
                         }><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
                         <span className="font-semibold">AI Fact-Check Report</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          factChecks[message.id].verdict === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-400'
+                          factChecks[message.id].verdict === 'VERIFIED' ? 'bg-blue-500/20 text-blue-400'
                           : factChecks[message.id].verdict === 'UNVERIFIED' ? 'bg-red-500/20 text-red-400'
                           : 'bg-amber-500/20 text-amber-400'
                         }`}>{factChecks[message.id].verdict.replace(/_/g, ' ')}</span>
@@ -1444,7 +1444,7 @@ export default function Chat() {
                         <span className={isDark ? 'text-zinc-400' : 'text-gray-600'}>Confidence:</span>
                         <div className={`flex-1 h-2 rounded-full overflow-hidden ${isDark ? 'bg-zinc-800' : 'bg-gray-200'}`}>
                           <div className={`h-full rounded-full transition-all ${
-                            factChecks[message.id].confidenceScore >= 70 ? 'bg-emerald-500'
+                            factChecks[message.id].confidenceScore >= 70 ? 'bg-blue-500'
                             : factChecks[message.id].confidenceScore >= 40 ? 'bg-amber-500'
                             : 'bg-red-500'
                           }`} style={{ width: `${factChecks[message.id].confidenceScore}%` }} />
@@ -1460,7 +1460,7 @@ export default function Chat() {
                         <div key={ci} className={`rounded-lg p-2.5 ${isDark ? 'bg-black/40 border border-[#222]' : 'bg-white border border-gray-200'}`}>
                           <div className="flex items-start gap-2">
                             <span className={`mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
-                              claim.status === 'verified' ? 'bg-emerald-500/20 text-emerald-400'
+                              claim.status === 'verified' ? 'bg-blue-500/20 text-blue-400'
                               : claim.status === 'unverified' ? 'bg-red-500/20 text-red-400'
                               : claim.status === 'opinion' ? 'bg-purple-500/20 text-purple-400'
                               : 'bg-zinc-500/20 text-zinc-400'
@@ -1490,7 +1490,7 @@ export default function Chat() {
             <div className="flex items-start gap-2 sm:gap-3 mb-4 sm:mb-5" data-testid="streaming-bubble">
               <div className="relative flex-shrink-0">
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
               </div>
               <div className="flex-1 max-w-2xl">
                 {autoDowngraded && isResearchOrAbove && (
@@ -1502,7 +1502,7 @@ export default function Chat() {
                 <div className={`rounded-2xl rounded-bl-md px-4 py-3 ${isDark ? 'bg-zinc-900/80 border border-zinc-800 text-zinc-100' : 'bg-white border border-gray-200 shadow-sm text-gray-900'}`}>
                   <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap break-words leading-relaxed">
                     {cleanMarkdown(streamingText)}
-                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
+                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-blue-500 animate-pulse" />
                   </div>
                 </div>
               </div>
@@ -1514,12 +1514,12 @@ export default function Chat() {
             <div className="flex items-start gap-2 sm:gap-3 mb-4 sm:mb-5" data-testid="reasoning-panel">
               <div className="relative flex-shrink-0">
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
               </div>
-              <div className={`flex-1 max-w-2xl rounded-2xl rounded-bl-md p-4 ${isDark ? 'bg-zinc-900/80 border border-emerald-700/30' : 'bg-white border border-emerald-200 shadow-sm'}`}>
+              <div className={`flex-1 max-w-2xl rounded-2xl rounded-bl-md p-4 ${isDark ? 'bg-zinc-900/80 border border-blue-700/30' : 'bg-white border border-blue-200 shadow-sm'}`}>
                 <div className="flex items-center gap-2 mb-3">
-                  <Brain className={`h-4 w-4 ${isResearchOrAbove && reasoningMode === 'deep' ? 'text-emerald-500 animate-pulse' : 'text-blue-500'}`} />
-                  <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                  <Brain className={`h-4 w-4 ${isResearchOrAbove && reasoningMode === 'deep' ? 'text-blue-500 animate-pulse' : 'text-blue-500'}`} />
+                  <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-blue-400' : 'text-blue-700'}`}>
                     {isResearchOrAbove
                       ? (reasoningMode === 'deep' ? 'Deep Reasoning' : reasoningMode === 'fast' ? 'Fast Mode' : 'Thinking…')
                       : 'Thinking…'}
@@ -1534,7 +1534,7 @@ export default function Chat() {
                   {reasoningStages.map((s) => (
                     <li key={s.id} className="flex items-start gap-2 text-xs sm:text-sm">
                       <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
-                        s.status === 'done' ? 'bg-emerald-500 text-white' :
+                        s.status === 'done' ? 'bg-blue-500 text-white' :
                         s.status === 'active' ? 'bg-blue-500 text-white animate-pulse' :
                         s.status === 'error' ? 'bg-red-500 text-white' :
                         isDark ? 'bg-zinc-700 text-zinc-400' : 'bg-gray-200 text-gray-500'
@@ -1568,7 +1568,7 @@ export default function Chat() {
                     <ul className="space-y-1">
                       {reasoningSources.slice(0, 3).map((s, i) => (
                         <li key={i} className="text-[11px] truncate">
-                          <a href={s.url} target="_blank" rel="noopener noreferrer" className={`${isDark ? 'text-emerald-400 hover:underline' : 'text-emerald-700 hover:underline'}`}>
+                          <a href={s.url} target="_blank" rel="noopener noreferrer" className={`${isDark ? 'text-blue-400 hover:underline' : 'text-blue-700 hover:underline'}`}>
                             {s.title}
                           </a>
                         </li>
@@ -1583,7 +1583,7 @@ export default function Chat() {
             <div className="flex items-end gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="relative flex-shrink-0">
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
               </div>
               <div className={`px-4 py-3 rounded-2xl rounded-bl-md relative overflow-hidden ${isDark ? 'bg-zinc-800/80 border border-zinc-700/50' : 'bg-white border border-gray-200 shadow-sm'}`}>
                 <style>{`
@@ -1738,7 +1738,7 @@ export default function Chat() {
               <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Unlock Advanced AI</p>
             </div>
             <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
+              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
                 <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
               </div>
             </div>
@@ -1750,8 +1750,8 @@ export default function Chat() {
             <ul className="space-y-3 mb-6">
               {["7 days free — cancel anytime", "Advanced AI (Gemini Flash vs basic Lite)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation (DALL-E 3)", "Unlimited questions (vs 15/day free)"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className={`w-4 h-4 flex-shrink-0 ${i === 0 ? 'text-green-400' : 'text-green-400'}`} />
-                  <span className={`text-sm ${i === 0 ? 'font-semibold text-green-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
+                  <CheckCircle className={`w-4 h-4 flex-shrink-0 ${i === 0 ? 'text-blue-400' : 'text-blue-400'}`} />
+                  <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
                 </li>
               ))}
             </ul>
@@ -1801,7 +1801,7 @@ export default function Chat() {
               {["#4285F4","#EA4335","#FBBC05","#34A853"].map((c,i) => <div key={i} className="flex-1" style={{background:c}} />)}
             </div>
             <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
+              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
                 <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
               </div>
             </div>
@@ -1813,8 +1813,8 @@ export default function Chat() {
             <ul className="space-y-3 mb-6">
               {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "Everything in Pro + Free included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                  <span className={`text-sm ${i === 0 ? 'font-semibold text-green-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
+                  <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
                 </li>
               ))}
             </ul>
@@ -1859,7 +1859,7 @@ export default function Chat() {
               <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI Research · For up to 5 team members</p>
             </div>
             <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
+              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
                 <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
               </div>
             </div>
@@ -1906,7 +1906,7 @@ export default function Chat() {
                     }
                   }}
                   disabled={!entCoupon.trim() || entCouponApplied}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold ${entCouponApplied ? 'bg-green-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'} ${!entCoupon.trim() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold ${entCouponApplied ? 'bg-blue-500 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'} ${!entCoupon.trim() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   {entCouponApplied ? '✓' : 'Apply'}
                 </button>
@@ -1915,8 +1915,8 @@ export default function Chat() {
             <ul className="space-y-3 mb-6">
               {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                  <span className={`text-sm ${i === 0 ? 'font-semibold text-green-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
+                  <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
                 </li>
               ))}
             </ul>
@@ -2043,7 +2043,7 @@ export default function Chat() {
               )}
               <div className={`${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-gray-50 border-gray-200'} rounded-xl p-4 border`}>
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><CheckCircle className="w-4 h-4 text-green-400" /></div>
+                  <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><CheckCircle className="w-4 h-4 text-blue-400" /></div>
                   <div>
                     <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{welcomeTier === 'enterprise' ? 'Your Code is Saved' : 'How to Switch Models'}</p>
                     <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
@@ -2299,10 +2299,10 @@ export default function Chat() {
             </div>
             {betaFeedbackSent ? (
               <div className="text-center py-8">
-                <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-3" />
+                <CheckCircle className="w-12 h-12 text-blue-400 mx-auto mb-3" />
                 <p className="font-semibold text-lg mb-1">Thank you!</p>
                 <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Your feedback has been sent to the team.</p>
-                <Button className="mt-4 bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowBetaFeedback(false)}>Close</Button>
+                <Button className="mt-4 bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setShowBetaFeedback(false)}>Close</Button>
               </div>
             ) : (
               <>
@@ -2334,7 +2334,7 @@ export default function Chat() {
                   />
                 </div>
                 <Button
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                   disabled={!betaFeedbackMsg.trim()}
                   onClick={async () => {
                     try {

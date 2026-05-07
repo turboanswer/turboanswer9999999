@@ -377,7 +377,7 @@ export default function MobileChatUI({
                       />
                       <button
                         onClick={() => { if (renameValue.trim()) renameMutation.mutate({ id: conv.id, title: renameValue.trim() }); }}
-                        className="flex-shrink-0 p-1 rounded-lg text-green-400 hover:text-green-300"
+                        className="flex-shrink-0 p-1 rounded-lg text-blue-400 hover:text-blue-300"
                       >
                         <Check className="h-3.5 w-3.5" />
                       </button>
@@ -484,7 +484,7 @@ export default function MobileChatUI({
           {user?.isBetaTester && (
             <Link href="/beta-feedback">
               <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)} data-testid="link-beta-feedback-mobile">
-                <ClipboardCheck className="h-4 w-4 text-emerald-400" /> Beta Feedback
+                <ClipboardCheck className="h-4 w-4 text-blue-400" /> Beta Feedback
               </button>
             </Link>
           )}
@@ -595,7 +595,7 @@ export default function MobileChatUI({
                   )}
                   <div className="flex items-center gap-2 mt-1 px-1">
                     {isResearchOrAbove && msg.role === 'assistant' && verifiedMessages[msg.id] && verifiedMessages[msg.id] !== "unknown" && (
-                      <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[msg.id] === "verified" ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
+                      <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[msg.id] === "verified" ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
                         {verifiedMessages[msg.id] === "verified" ? (
                           <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="currentColor" opacity="0.15"/><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Verified</>
                         ) : (
@@ -625,7 +625,7 @@ export default function MobileChatUI({
                   )}
                   <div className="leading-relaxed break-words whitespace-pre-wrap" style={{ fontSize: msgFontSize, color: TEXT_MAIN, ...getAIBubbleStyle() }}>
                     {cleanMarkdown(streamingText)}
-                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-emerald-500 animate-pulse" />
+                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-blue-500 animate-pulse" />
                   </div>
                 </div>
               </div>
@@ -689,8 +689,8 @@ export default function MobileChatUI({
                   <span className="text-xs text-blue-400">support@turboanswer.it.com</span>
                 </a>
                 <a href="tel:8664677269" className="flex items-center gap-3 py-2">
-                  <Phone className="h-4 w-4 text-green-400" />
-                  <span className="text-xs text-green-400">866-467-7269</span>
+                  <Phone className="h-4 w-4 text-blue-400" />
+                  <span className="text-xs text-blue-400">866-467-7269</span>
                 </a>
                 <div className="flex items-center gap-3 py-2">
                   <Clock className="h-4 w-4" style={{ color: TEXT_MUTED }} />
@@ -762,7 +762,7 @@ export default function MobileChatUI({
               <p className="text-zinc-400 text-sm">Unlock Advanced AI</p>
             </div>
             <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
+              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
                 <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
               </div>
             </div>
@@ -774,8 +774,8 @@ export default function MobileChatUI({
             <ul className="space-y-3 mb-6">
               {["7 days free — cancel anytime", "Advanced AI model — deeper reasoning", "Priority response speed", "Everything in Free included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 flex-shrink-0 text-green-400" />
-                  <span className={`text-sm ${i === 0 ? "font-semibold text-green-400" : "text-zinc-200"}`}>{text}</span>
+                  <CheckCircle className="w-4 h-4 flex-shrink-0 text-blue-400" />
+                  <span className={`text-sm ${i === 0 ? "font-semibold text-blue-400" : "text-zinc-200"}`}>{text}</span>
                 </li>
               ))}
             </ul>
@@ -811,7 +811,7 @@ export default function MobileChatUI({
               {["#4285F4","#EA4335","#FBBC05","#34A853"].map((c,i) => <div key={i} className="flex-1" style={{background:c}} />)}
             </div>
             <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
+              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
                 <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
               </div>
             </div>
@@ -823,8 +823,8 @@ export default function MobileChatUI({
             <ul className="space-y-3 mb-6">
               {["7 days free — cancel anytime", "🧠 Matrix AI Deep Research — 20+ sources per question", "🎬 AI Video Studio (Google Veo 3.1)", "🖼️ Unlimited AI image generation", "📄 Unlimited document & PDF analysis", "⚡ Always-on maximum reasoning depth", "🔗 Live citations & confidence scores", "💾 Export answers to PDF / Word / Markdown", "Everything in Pro + Free included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                  <span className={`text-sm ${i === 0 ? "font-semibold text-green-400" : "text-zinc-200"}`}>{text}</span>
+                  <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span className={`text-sm ${i === 0 ? "font-semibold text-blue-400" : "text-zinc-200"}`}>{text}</span>
                 </li>
               ))}
             </ul>
@@ -857,7 +857,7 @@ export default function MobileChatUI({
               <p className="text-zinc-400 text-sm">Matrix AI Research · For up to 5 team members</p>
             </div>
             <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
+              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
                 <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
               </div>
             </div>
@@ -881,15 +881,15 @@ export default function MobileChatUI({
                   toast({ title: "Promo Applied!", description: "Enterprise discounted to $0.99/mo" });
                 } catch (err: any) { toast({ title: "Invalid Code", description: err.message || "This promo code is not valid.", variant: "destructive" }); setEntCouponApplied(false); }
               }} disabled={!entCoupon.trim() || entCouponApplied}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold ${entCouponApplied ? "bg-green-500 text-white" : "bg-amber-500 hover:bg-amber-600 text-white"} ${!entCoupon.trim() ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                className={`px-4 py-2 rounded-lg text-sm font-semibold ${entCouponApplied ? "bg-blue-500 text-white" : "bg-amber-500 hover:bg-amber-600 text-white"} ${!entCoupon.trim() ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
                 {entCouponApplied ? "✓" : "Apply"}
               </button>
             </div>
             <ul className="space-y-3 mb-6">
               {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-                  <span className={`text-sm ${i === 0 ? "font-semibold text-green-400" : "text-zinc-200"}`}>{text}</span>
+                  <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span className={`text-sm ${i === 0 ? "font-semibold text-blue-400" : "text-zinc-200"}`}>{text}</span>
                 </li>
               ))}
             </ul>
