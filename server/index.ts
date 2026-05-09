@@ -7,6 +7,7 @@ import path from "path";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { ensureSubscriptionPlans } from "./paypal";
+import { ensureStripeProducts, stripeEnabled } from "./services/stripe";
 import { pool } from "./db";
 import { stopProactiveDiagnostics } from "./services/proactive-diagnostics";
 import { trackError } from "./services/error-tracker";
@@ -32,6 +33,20 @@ async function initPayPal() {
     }
   } catch (error: any) {
     console.error('[PayPal] Init error:', error.message);
+  }
+}
+
+async function initStripe() {
+  if (!stripeEnabled) {
+    console.warn('[Stripe] STRIPE_SECRET_KEY not set, skipping init');
+    return;
+  }
+  try {
+    console.log('[Stripe] Ensuring products and prices...');
+    const ids = await ensureStripeProducts();
+    console.log('[Stripe] Ready:', ids);
+  } catch (error: any) {
+    console.error('[Stripe] Init error:', error.message);
   }
 }
 
@@ -75,13 +90,13 @@ app.use((_req, res, next) => {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://www.gstatic.com",
         "font-src 'self' https://fonts.gstatic.com https://www.gstatic.com",
         "img-src 'self' data: blob: https:",
-        "connect-src 'self' wss: https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://api.paypal.com https://api-m.paypal.com https://api.brevo.com https://resend.com https://wttr.in https://api.open-meteo.com https://translate.googleapis.com https://translate.google.com",
+        "connect-src 'self' wss: https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com https://api.paypal.com https://api-m.paypal.com https://api.stripe.com https://api.brevo.com https://resend.com https://wttr.in https://api.open-meteo.com https://translate.googleapis.com https://translate.google.com",
         "media-src 'self' blob:",
         "worker-src 'self' blob:",
         "frame-src 'self' https://translate.google.com https://www.google.com",
         "object-src 'none'",
         "base-uri 'self'",
-        "form-action 'self' https://www.paypal.com https://api-m.paypal.com",
+        "form-action 'self' https://www.paypal.com https://api-m.paypal.com https://checkout.stripe.com https://billing.stripe.com",
         "frame-ancestors 'none'",
         "upgrade-insecure-requests",
       ].join("; ")
@@ -159,6 +174,11 @@ app.use('/api/trial', sensitiveApiLimiter);
 app.use('/api/checkout', sensitiveApiLimiter);
 app.use('/api/admin', sensitiveApiLimiter);
 
+// Stripe webhook needs the RAW request body for signature verification, so
+// it must be mounted BEFORE the global express.json() parser. The handler in
+// routes.ts will receive `req.body` as a Buffer and call constructWebhookEvent.
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
+
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(cookieParser());
@@ -195,6 +215,7 @@ app.get('/api/csrf-token', (req: Request, res: Response) => {
 
 const CSRF_EXEMPT_PATHS = [
   '/api/paypal/webhook',
+  '/api/stripe/webhook',
   '/api/widget/',
 ];
 
@@ -316,6 +337,7 @@ process.on('unhandledRejection', (reason: any) => {
     console.log(`Server is running on port ${port}`);
     log(`serving on port ${port}`);
     initPayPal();
+    initStripe();
   });
 
   const gracefulShutdown = (signal: string) => {

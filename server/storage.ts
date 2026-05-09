@@ -28,6 +28,11 @@ export interface IStorage {
   updatePaypalSubscription(userId: string, paypalSubscriptionId: string, tier: string): Promise<User>;
   storePendingSubscription(userId: string, paypalSubscriptionId: string): Promise<User>;
   cancelUserSubscription(userId: string): Promise<User>;
+  setStripeCustomerId(userId: string, stripeCustomerId: string): Promise<User>;
+  updateStripeSubscription(opts: { userId: string; stripeCustomerId: string; stripeSubscriptionId: string; tier: string; status: string; currentPeriodEnd: Date | null; }): Promise<User>;
+  cancelStripeSubscription(stripeSubscriptionId: string): Promise<User | undefined>;
+  getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
+  getUserByStripeSubscriptionId(stripeSubscriptionId: string): Promise<User | undefined>;
   updateCodeStudioAddon(userId: string, addon: boolean, subId: string | null): Promise<User>;
   updateCodeStudioCredits(userId: string, credits: number, resetAt?: Date): Promise<User>;
   updateWeeklyDigest(userId: string, enabled: boolean): Promise<User>;
@@ -222,6 +227,88 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async setStripeCustomerId(userId: string, stripeCustomerId: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ stripeCustomerId })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async updateStripeSubscription(opts: {
+    userId: string;
+    stripeCustomerId: string;
+    stripeSubscriptionId: string;
+    tier: string;
+    status: string;
+    currentPeriodEnd: Date | null;
+  }): Promise<User> {
+    // Active in our system means: trialing, active, or past_due (still has access
+    // through Stripe Smart Retries — we don't downgrade until Stripe gives up
+    // and fires customer.subscription.deleted).
+    const isActive = ["trialing", "active", "past_due"].includes(opts.status);
+
+    // Preserve subscriptionStartDate across plan changes / status updates;
+    // only stamp it on the FIRST transition into an active state.
+    const existing = await db.select({
+      currentStatus: users.subscriptionStatus,
+      currentStart: users.subscriptionStartDate,
+    }).from(users).where(eq(users.id, opts.userId)).limit(1);
+    const wasActive = existing[0]?.currentStatus === "active";
+    const startDate = isActive
+      ? (wasActive && existing[0]?.currentStart ? existing[0].currentStart : new Date())
+      : null;
+
+    const updateSet: any = {
+      stripeCustomerId: opts.stripeCustomerId,
+      stripeSubscriptionId: opts.stripeSubscriptionId,
+      stripeSubscriptionStatus: opts.status,
+      stripeCurrentPeriodEnd: opts.currentPeriodEnd,
+      subscriptionStatus: isActive ? "active" : "cancelled",
+      subscriptionTier: isActive ? opts.tier : "free",
+      subscriptionStartDate: startDate,
+    };
+    // Reset retry counter on success; Stripe Smart Retries handles past_due.
+    if (opts.status === "active" || opts.status === "trialing") {
+      updateSet.paymentFailureCount = 0;
+    }
+
+    const [user] = await db
+      .update(users)
+      .set(updateSet)
+      .where(eq(users.id, opts.userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async cancelStripeSubscription(stripeSubscriptionId: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({
+        subscriptionStatus: "cancelled",
+        subscriptionTier: "free",
+        stripeSubscriptionStatus: "canceled",
+        stripeSubscriptionId: null,
+        subscriptionStartDate: null,
+      })
+      .where(eq(users.stripeSubscriptionId, stripeSubscriptionId))
+      .returning();
+    return user;
+  }
+
+  async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, stripeCustomerId));
+    return user;
+  }
+
+  async getUserByStripeSubscriptionId(stripeSubscriptionId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.stripeSubscriptionId, stripeSubscriptionId));
     return user;
   }
 

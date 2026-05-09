@@ -22,6 +22,7 @@ import {
 import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
 import { registerImageRoutes } from "./replit_integrations/image";
 import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription, createCreditPackOrder, captureCreditPackOrder, CREDIT_PACKS, verifyWebhookSignature } from "./paypal";
+import { stripe, stripeEnabled, createCheckoutSession, createPortalSession, constructWebhookEvent, tierForPriceId, type Tier as StripeTier } from "./services/stripe";
 
 import widgetRoutes from './routes/widget-routes';
 import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
@@ -256,6 +257,162 @@ interface ActivityEntry {
 
 const activityLog: ActivityEntry[] = [];
 const MAX_ACTIVITY_LOG = 300;
+
+// In-process dedupe of Stripe webhook event IDs. Stripe will retry on any
+// non-2xx response, so we acknowledge replays without re-applying them.
+const processedStripeEventIds = new Set<string>();
+
+async function handleStripeEvent(event: any): Promise<void> {
+  console.log('[Stripe Webhook] Event:', event.type, event.id);
+
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      const userId: string | undefined = session.client_reference_id || session.metadata?.userId;
+      const customerId: string | undefined = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+      const subscriptionId: string | undefined = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+      if (!userId || !customerId || !subscriptionId) {
+        console.warn('[Stripe Webhook] checkout.session.completed missing fields', { userId, customerId, subscriptionId });
+        return;
+      }
+      // Pull the subscription so we know the actual tier + status + period_end.
+      if (!stripe) return;
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      const priceId = sub.items.data[0]?.price?.id;
+      const tier = (priceId && (await tierForPriceId(priceId))) || (session.metadata?.tier as StripeTier | undefined) || 'pro';
+      await storage.updateStripeSubscription({
+        userId,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        tier,
+        status: sub.status,
+        currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
+      });
+      console.log(`[Stripe Webhook] User ${userId} subscribed to ${tier} (status=${sub.status})`);
+
+      // Fire welcome email + enterprise code if applicable. Best-effort.
+      try {
+        const u = await storage.getUser(userId);
+        if (u?.email) {
+          const name = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
+          sendSubscriptionEmail('signup', u.email, name, tier).catch(() => {});
+        }
+        if (tier === 'enterprise') {
+          const existing = await storage.getEnterpriseCodeByOwner(userId);
+          if (!existing) {
+            const { randomInt } = await import('crypto');
+            const code = String(randomInt(100000, 999999));
+            const u2 = await storage.getUser(userId);
+            await storage.createEnterpriseCode(code, userId, u2?.email || null);
+            console.log(`[Stripe Webhook] Enterprise code ${code} generated for ${userId}`);
+          } else if (!existing.isActive) {
+            await storage.reactivateEnterpriseCode(userId);
+          }
+        }
+      } catch (e: any) {
+        console.warn('[Stripe Webhook] Post-signup side-effects failed:', e.message);
+      }
+      return;
+    }
+
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated': {
+      const sub = event.data.object;
+      const customerId: string = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
+      const subscriptionId: string = sub.id;
+      const priceId = sub.items?.data?.[0]?.price?.id;
+      const tier = (priceId && (await tierForPriceId(priceId))) || (sub.metadata?.tier as StripeTier | undefined);
+      if (!tier) {
+        console.warn('[Stripe Webhook] Could not resolve tier for subscription', subscriptionId);
+        return;
+      }
+      // Find the user by either customer id (preferred) or subscription id.
+      let user = await storage.getUserByStripeCustomerId(customerId);
+      if (!user) user = await storage.getUserByStripeSubscriptionId(subscriptionId);
+      const userId = user?.id || sub.metadata?.userId;
+      if (!userId) {
+        console.warn('[Stripe Webhook] No matching user for subscription', subscriptionId);
+        return;
+      }
+      await storage.updateStripeSubscription({
+        userId,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        tier,
+        status: sub.status,
+        currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
+      });
+      console.log(`[Stripe Webhook] Subscription ${event.type} → user ${userId} status=${sub.status} tier=${tier}`);
+      return;
+    }
+
+    case 'customer.subscription.deleted': {
+      const sub = event.data.object;
+      const updated = await storage.cancelStripeSubscription(sub.id);
+      if (updated) {
+        console.log(`[Stripe Webhook] Subscription cancelled for user ${updated.id}`);
+        try {
+          if (updated.email) {
+            const name = `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email;
+            sendSubscriptionEmail('cancel', updated.email, name, 'free', updated.subscriptionTier || undefined).catch(() => {});
+          }
+        } catch {}
+      }
+      return;
+    }
+
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object;
+      const customerId: string = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+      const subscriptionId: string | undefined =
+        typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+
+      // Sync subscription state if we can find the user + subscription. Stripe
+      // typically transitions the sub to past_due — reflect that locally so
+      // user.stripeSubscriptionStatus is authoritative.
+      if (stripe && subscriptionId) {
+        try {
+          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          const priceId = sub.items?.data?.[0]?.price?.id;
+          const tier = (priceId && (await tierForPriceId(priceId))) || (sub.metadata?.tier as StripeTier | undefined);
+          let user = await storage.getUserByStripeCustomerId(customerId);
+          if (!user) user = await storage.getUserByStripeSubscriptionId(subscriptionId);
+          const userId = user?.id || sub.metadata?.userId;
+          if (userId && tier) {
+            await storage.updateStripeSubscription({
+              userId,
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: subscriptionId,
+              tier,
+              status: sub.status,
+              currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
+            });
+          }
+        } catch (e: any) {
+          console.warn('[Stripe Webhook] payment_failed sync failed:', e.message);
+        }
+      }
+
+      const user = await storage.getUserByStripeCustomerId(customerId);
+      if (user?.email) {
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+        // Stripe Smart Retries handles the dunning automatically; we just notify
+        // the user that we couldn't charge their card so they can update it.
+        sendSubscriptionEmail('payment_failed', user.email, name, user.subscriptionTier || 'pro').catch(() => {});
+        console.log(`[Stripe Webhook] payment_failed for user ${user.id} — Stripe will retry automatically`);
+      }
+      return;
+    }
+
+    case 'invoice.payment_succeeded':
+      // No-op: subscription.updated will fire alongside this with fresh state.
+      return;
+
+    default:
+      // Ignore the long tail of events we don't care about.
+      return;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
@@ -1701,7 +1858,7 @@ function downloadAAB(){
     }
   });
 
-  // PayPal checkout - create subscription and redirect to PayPal
+  // Stripe checkout - create subscription and redirect to hosted Checkout page
   app.post('/api/checkout', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1710,37 +1867,95 @@ function downloadAAB(){
         return res.status(401).json({ error: 'User not found' });
       }
 
-      const { plan, coupon } = req.body || {};
-      const tier = plan === 'enterprise' ? 'enterprise' : plan === 'research' ? 'research' : 'pro';
-      console.log('[PayPal Checkout] Starting for user:', userId, 'plan:', tier);
-
-      let priceOverride: string | undefined;
-      if (coupon && tier === 'enterprise') {
-        const couponData = VALID_COUPONS[coupon.toUpperCase()];
-        if (couponData && user.email?.toLowerCase() === couponData.allowedEmail.toLowerCase()) {
-          priceOverride = '0.99';
-          console.log('[PayPal Checkout] Coupon applied - price override to $0.99');
-        }
+      if (!stripeEnabled) {
+        return res.status(503).json({ error: 'Billing is temporarily unavailable. Please try again shortly.' });
       }
 
-      const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
-      const result = await createSubscription(
-        tier as 'pro' | 'research' | 'enterprise',
-        user.email,
-        userId,
-        `${baseUrl}/chat?subscription=${tier}`,
-        `${baseUrl}/chat`,
-        priceOverride,
-      );
+      const { plan } = req.body || {};
+      const tier: 'pro' | 'research' | 'enterprise' =
+        plan === 'enterprise' ? 'enterprise' : plan === 'research' ? 'research' : 'pro';
+      console.log('[Stripe Checkout] Starting for user:', userId, 'plan:', tier);
 
-      console.log('[PayPal Checkout] Subscription created:', result.subscriptionId);
-      await storage.storePendingSubscription(userId, result.subscriptionId);
-      console.log('[PayPal Checkout] Stored pending subscription ID for user:', userId, '(not yet active — awaiting PayPal approval)');
-      res.json({ url: result.approvalUrl });
+      const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
+      const { url } = await createCheckoutSession({
+        tier,
+        userId,
+        email: user.email,
+        existingCustomerId: user.stripeCustomerId,
+        successUrl: `${baseUrl}/chat?subscription=${tier}&session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${baseUrl}/subscribe?cancelled=1`,
+        trialDays: 7,
+      });
+
+      console.log('[Stripe Checkout] Session created, redirecting user:', userId);
+      res.json({ url });
     } catch (error: any) {
-      console.error('[PayPal Checkout] ERROR:', error.message);
+      console.error('[Stripe Checkout] ERROR:', error.message);
       res.status(500).json({ error: 'Checkout failed. Please try again.' });
     }
+  });
+
+  // Stripe customer portal — manage payment methods, view invoices, cancel.
+  app.post('/api/stripe/portal', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(401).json({ error: 'User not found' });
+      if (!user.stripeCustomerId) {
+        return res.status(400).json({ error: 'No active Stripe subscription found.' });
+      }
+      const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
+      const { url } = await createPortalSession(user.stripeCustomerId, `${baseUrl}/chat`);
+      res.json({ url });
+    } catch (error: any) {
+      console.error('[Stripe Portal] ERROR:', error.message);
+      res.status(500).json({ error: 'Could not open billing portal.' });
+    }
+  });
+
+  // Stripe webhook — keeps user subscription state in sync.
+  // NOTE: req.body is a Buffer here because express.raw is mounted upstream
+  // for this exact path (see server/index.ts).
+  app.post('/api/stripe/webhook', async (req: any, res) => {
+    const sig = req.get('stripe-signature');
+    if (!sig) {
+      console.warn('[Stripe Webhook] Missing stripe-signature header');
+      return res.status(400).send('Missing signature');
+    }
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      console.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET is not set — rejecting');
+      return res.status(503).send('Webhook secret not configured');
+    }
+
+    let event;
+    try {
+      event = constructWebhookEvent(req.body, sig);
+    } catch (err: any) {
+      console.warn('[Stripe Webhook] Signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Idempotency: ignore replays of events we've already processed successfully.
+    if (processedStripeEventIds.has(event.id)) {
+      return res.json({ received: true, duplicate: true });
+    }
+
+    try {
+      await handleStripeEvent(event);
+    } catch (err: any) {
+      console.error('[Stripe Webhook] Handler error for', event.type, ':', err.message);
+      // Don't mark as processed — let Stripe retry.
+      return res.status(500).send('Webhook handler failed');
+    }
+
+    // Only mark as processed AFTER successful handling so Stripe retries truly run.
+    processedStripeEventIds.add(event.id);
+    if (processedStripeEventIds.size > 1000) {
+      const first = processedStripeEventIds.values().next().value;
+      if (first !== undefined) processedStripeEventIds.delete(first);
+    }
+
+    res.json({ received: true });
   });
 
   // Sync subscription after PayPal redirect
@@ -2227,11 +2442,31 @@ function downloadAAB(){
         return res.status(401).json({ error: 'User not found' });
       }
 
-      if (!user.paypalSubscriptionId || user.subscriptionTier === 'free') {
+      if (user.subscriptionTier === 'free' || (!user.paypalSubscriptionId && !user.stripeSubscriptionId)) {
         return res.status(400).json({ error: 'No active subscription to cancel' });
       }
 
-      const subscriptionId = user.paypalSubscriptionId;
+      // Stripe subscribers: cancel via Stripe and bail out (no PayPal refund flow applies).
+      if (user.stripeSubscriptionId && stripe) {
+        try {
+          // cancel_at_period_end so the user keeps access until the period ends.
+          // The customer.subscription.updated/deleted webhook will sync our state.
+          await stripe.subscriptions.update(user.stripeSubscriptionId, { cancel_at_period_end: true });
+          console.log(`[Stripe Cancel] ${user.stripeSubscriptionId} scheduled to cancel at period end for user ${userId}`);
+
+          if (user.subscriptionTier === 'enterprise') {
+            const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
+            await storage.deactivateEnterpriseCode(userId);
+            console.log(`[Stripe Cancel] Revoked enterprise access for ${revokedUsers.length} team members`);
+          }
+          return res.json({ success: true, message: 'Subscription will end at period close.' });
+        } catch (e: any) {
+          console.error('[Stripe Cancel] Error:', e.message);
+          return res.status(500).json({ error: 'Could not cancel subscription. Please try again.' });
+        }
+      }
+
+      const subscriptionId = user.paypalSubscriptionId!;
       const subscriptionStartDate = user.subscriptionStartDate;
       let refunded = false;
       let refundAmount = '';

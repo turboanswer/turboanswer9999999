@@ -27,6 +27,8 @@ export const users = pgTable("users", {
   homeAddress: text("home_address"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeSubscriptionStatus: text("stripe_subscription_status"),
+  stripeCurrentPeriodEnd: timestamp("stripe_current_period_end"),
   paypalSubscriptionId: text("paypal_subscription_id"),
   paymentFailureCount: integer("payment_failure_count").default(0),
   subscriptionStatus: text("subscription_status").default("free"),
