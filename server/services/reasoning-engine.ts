@@ -391,10 +391,14 @@ CONSENSUS GATING (critical):
 Question: ${question}
 
 ${arithmetic ? `Verified arithmetic: ${arithmetic}\n\n` : ''}${sources.length ? `Reference snippets:\n${sources.map((s, i) => `[${i + 1}] ${s.title}: ${s.snippet}`).join('\n')}\n\n` : ''}${debateOut.agreements.length ? `AGREED FACTS (2/3+ consensus):\n${debateOut.agreements.map(a => '- ' + a).join('\n')}\n\n` : ''}${debateOut.disagreements.length ? `DISAGREEMENTS:\n${debateOut.disagreements.map(d => '- ' + d).join('\n')}\n\n` : ''}--- MODEL ANSWERS ---
-${panel.map(p => `## ${p.model}\n${p.answer}`).join('\n\n')}
+${panel.map(p => `=== ${p.model} ===\n${p.answer}`).join('\n\n')}
 --- END ---
 
-Output ONLY the final synthesized answer in markdown. Where you cite a source, use inline markers like [1] [2] matching the reference numbers. Keep [contested] tags around disputed claims.`;
+Formatting rules — follow STRICTLY:
+- Plain text only. NEVER use markdown: no **bold**, no *italic*, no # or ## headings, no \`backticks\`, no --- dividers.
+- Short paragraphs separated by blank lines. Use a simple "- " dash for lists only when there are 3+ items.
+- Lead with the answer. No filler, no recap of the question.
+- Keep inline source markers [1] [2] and [contested]…[/contested] tags exactly as instructed — those are NOT markdown.`;
 
   const out = await callOR(MODEL_JUDGE, prompt, { maxTokens: 1800, temperature: 0.2, timeoutMs: 45000 });
   return out || panel[0].answer;
@@ -426,10 +430,14 @@ CONSENSUS GATING (critical):
 Question: ${question}
 
 ${arithmetic ? `Verified arithmetic: ${arithmetic}\n\n` : ''}${sources.length ? `Reference snippets:\n${sources.map((s, i) => `[${i + 1}] ${s.title}: ${s.snippet}`).join('\n')}\n\n` : ''}${debateOut.agreements.length ? `AGREED FACTS (2/3+ consensus):\n${debateOut.agreements.map(a => '- ' + a).join('\n')}\n\n` : ''}${debateOut.disagreements.length ? `DISAGREEMENTS:\n${debateOut.disagreements.map(d => '- ' + d).join('\n')}\n\n` : ''}--- MODEL ANSWERS ---
-${panel.map(p => `## ${p.model}\n${p.answer}`).join('\n\n')}
+${panel.map(p => `=== ${p.model} ===\n${p.answer}`).join('\n\n')}
 --- END ---
 
-Output ONLY the final synthesized answer in markdown. Where you cite a source, use inline markers like [1] [2] matching the reference numbers. Keep [contested] tags around disputed claims.`;
+Formatting rules — follow STRICTLY:
+- Plain text only. NEVER use markdown: no **bold**, no *italic*, no # or ## headings, no \`backticks\`, no --- dividers.
+- Short paragraphs separated by blank lines. Use a simple "- " dash for lists only when there are 3+ items.
+- Lead with the answer. No filler, no recap of the question.
+- Keep inline source markers [1] [2] and [contested]…[/contested] tags exactly as instructed — those are NOT markdown.`;
 
   let acc = '';
   const streamed = await callORStream(
@@ -1051,8 +1059,8 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
 // so HN visitors can experience the verification engine on the free tier.
 // To revert: set free back to 0 and pro back to 0.
 export const DEEP_QUOTA: Record<string, number> = {
-  free: 5,   // LAUNCH NIGHT — was 0
-  pro: 10,   // LAUNCH NIGHT — was 0
+  free: 0,
+  pro: 0,
   research: 200,
   enterprise: -1,
   owner: -1,

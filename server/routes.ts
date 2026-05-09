@@ -1428,8 +1428,7 @@ function downloadAAB(){
       const senderTier = senderForVerify?.subscriptionTier || 'free';
 
       const verifyPromise = (async (): Promise<"verified" | "unverified" | "unknown"> => {
-        // LAUNCH NIGHT (HN demo): free tier now gets the verification pass.
-        // To revert: re-add `if (senderTier === 'free') return "unknown";`
+        if (senderTier === 'free') return "unknown";
         try {
           const { verifyAIResponse } = await import('./services/multi-ai.js');
           if (responseUsedGroundedSearch) return "verified";
@@ -1554,7 +1553,7 @@ function downloadAAB(){
       const today = tre.todayUTC();
       const deepUsed = userId ? await (await import('./storage')).getDeepThinkUsage(userId, today) : 0;
       const deepLimit = tre.DEEP_QUOTA[effectiveTier] ?? tre.DEEP_QUOTA.free;
-      const tierBlocksDeep = false; // LAUNCH NIGHT — gate disabled
+      const tierBlocksDeep = effectiveTier === 'free' || effectiveTier === 'pro';
       let allowDeep = !tierBlocksDeep;
       let quotaFellBack = false;
       if (allowDeep && deepLimit !== -1 && deepUsed >= deepLimit) {
