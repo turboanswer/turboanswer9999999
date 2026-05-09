@@ -68,8 +68,8 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   pro: {
     "gemini-pro": {
       name: "TurboAnswer Pro",
-      provider: "google",
-      description: "Advanced AI model for detailed responses and complex tasks",
+      provider: "anthropic",
+      description: "Powered by Claude Sonnet 4.5 — the smartest single-shot AI for deep reasoning, coding, and writing",
       maxTokens: 8000,
       temperature: 0.3,
     },
@@ -538,11 +538,22 @@ export async function generateAIResponse(
       const text = await callGemini(fullPrompt, 'gemini-2.5-pro', 2000, 0.3, geminiApiKey);
       return { text, usedGroundedSearch };
     } else if (selectedModel === 'gemini-pro') {
-      if (!geminiApiKey) return "API key not configured.";
-      const systemPrompt = `You are Turbo Answer — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
+      // Pro tier: Claude Sonnet 4.5 (smartest single-shot model available) with
+      // Gemini 2.5 Pro as automatic fallback if Anthropic is rate-limited or down.
+      const systemPrompt = `You are Turbo Answer Pro — a warm, friendly, and deeply knowledgeable AI assistant on the Pro plan. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Pro users expect substance — give thorough, accurate answers without filler. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
-      console.log(`[AI] Pro → Gemini 3.1 Pro`);
-      const text = await callGemini(fullPrompt, 'gemini-3.1-pro', 1200, 0.3, geminiApiKey);
+
+      // Try Claude Sonnet 4.5 first
+      console.log(`[AI] Pro → Claude Sonnet 4.5 (primary)`);
+      const claudeText = await callClaude(fullPrompt, 2000, 0.3);
+      if (claudeText) {
+        return { text: claudeText, usedGroundedSearch };
+      }
+
+      // Fallback: Gemini 2.5 Pro
+      if (!geminiApiKey) return { text: "API key not configured.", usedGroundedSearch };
+      console.log(`[AI] Pro → Claude unavailable, falling back to Gemini 2.5 Pro`);
+      const text = await callGemini(fullPrompt, 'gemini-2.5-pro', 2000, 0.3, geminiApiKey);
       return { text, usedGroundedSearch };
     } else {
       if (!geminiApiKey) return "API key not configured.";
