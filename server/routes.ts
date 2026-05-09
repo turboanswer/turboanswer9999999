@@ -96,7 +96,7 @@ const TIER_PERKS: Record<string, string[]> = {
 };
 
 async function sendSubscriptionEmail(
-  type: 'signup' | 'switch' | 'cancel' | 'payment_failed',
+  type: 'signup' | 'switch' | 'cancel' | 'payment_failed' | 'payment_cancelled_failures',
   recipientEmail: string,
   recipientName: string,
   newTier: string,
@@ -150,18 +150,32 @@ async function sendSubscriptionEmail(
       <p style="font-size:13px;color:#94a3b8;">If you have any questions, reply to this email or contact us at support@turboanswer.it.com.</p>`;
   } else if (type === 'payment_failed') {
     subject = `Action required: Payment failed for your TurboAnswer subscription`;
-    heading = `Payment Failed`;
+    heading = `Payment Failed — we'll retry once more`;
     bodyHtml = `
       <p>Hi ${recipientName},</p>
       <p>We were unable to process the payment for your <strong>${label}</strong> subscription. This can happen if your card has expired, has insufficient funds, or your billing information has changed.</p>
       <div style="background:#3b1318;border-left:4px solid #ef4444;border-radius:6px;padding:16px 20px;margin:20px 0;">
-        <p style="margin:0;font-weight:bold;color:#fca5a5;">What to do:</p>
-        <p style="margin:8px 0 0;color:#e2e8f0;">Please update your payment method by logging in to TurboAnswer and going to <strong>Settings → Subscription → Manage Payment</strong>. If payment continues to fail, your subscription may be suspended.</p>
+        <p style="margin:0;font-weight:bold;color:#fca5a5;">What happens next:</p>
+        <p style="margin:8px 0 0;color:#e2e8f0;">We'll automatically retry your card <strong>one more time</strong> in the next few days. If that retry also fails, your <strong>${label}</strong> subscription will be cancelled and your account will revert to the Free tier.</p>
       </div>
       <div style="text-align:center;margin:28px 0;">
         <a href="https://turbo-answer.replit.app/settings" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Update Payment Method</a>
       </div>
       <p style="font-size:13px;color:#94a3b8;">If you need help, contact us at support@turboanswer.it.com or call (866) 467-7269.</p>`;
+  } else if (type === 'payment_cancelled_failures') {
+    subject = `Your TurboAnswer ${label} subscription has been cancelled`;
+    heading = `Subscription cancelled after two failed payments`;
+    bodyHtml = `
+      <p>Hi ${recipientName},</p>
+      <p>We tried to charge your card for your <strong>${label}</strong> subscription <strong>twice</strong>, and both attempts failed. To avoid further failed-payment fees, we've cancelled the subscription and reverted your account to the Free tier.</p>
+      <div style="background:#1f2937;border-left:4px solid #f59e0b;border-radius:6px;padding:16px 20px;margin:20px 0;">
+        <p style="margin:0;font-weight:bold;color:#fcd34d;">Want to come back?</p>
+        <p style="margin:8px 0 0;color:#e2e8f0;">No problem — just resubscribe at any time with an updated card. All your conversations and settings are still here, exactly as you left them.</p>
+      </div>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="https://turbo-answer.replit.app/pricing" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Resubscribe</a>
+      </div>
+      <p style="font-size:13px;color:#94a3b8;">Questions? Reply to this email or contact support@turboanswer.it.com.</p>`;
   }
 
   const fullHtml = `<!DOCTYPE html>
@@ -2078,6 +2092,11 @@ function downloadAAB(){
     }
   });
 
+  // In-memory dedupe so a duplicate webhook delivery (PayPal retries failed
+  // 200s for hours) cannot double-count a single failed payment and cancel a
+  // user's subscription on what was actually one decline. ~10k recent IDs
+  // is plenty given typical webhook volume and an LRU-style trim.
+  const processedWebhookEventIds = new Set<string>();
   // Cancel subscription with auto-refund if within 3 days
   // PayPal webhook — handles payment failures and subscription events
   app.post('/api/paypal/webhook', async (req: any, res) => {
@@ -2091,21 +2110,96 @@ function downloadAAB(){
       if (!ALLOWED_EVENTS.includes(eventType)) {
         return res.status(200).json({ received: true, ignored: true });
       }
-      console.log(`[PayPal Webhook] Received event: ${eventType}`);
+      // Idempotency guard — short-circuit on duplicate deliveries of the
+      // same event id. PayPal will redeliver until it sees a 200, and we
+      // don't want strike 1 to escalate to strike 2 from a redelivery.
+      if (processedWebhookEventIds.has(event.id)) {
+        console.log(`[PayPal Webhook] Skipping duplicate event ${event.id} (${eventType})`);
+        return res.status(200).json({ received: true, duplicate: true });
+      }
+      processedWebhookEventIds.add(event.id);
+      if (processedWebhookEventIds.size > 10_000) {
+        // Trim oldest ~2k entries (Sets preserve insertion order).
+        const it = processedWebhookEventIds.values();
+        for (let i = 0; i < 2000; i++) {
+          const v = it.next().value;
+          if (v === undefined) break;
+          processedWebhookEventIds.delete(v);
+        }
+      }
+      console.log(`[PayPal Webhook] Received event: ${eventType} (${event.id})`);
 
       if (eventType === 'BILLING.SUBSCRIPTION.PAYMENT.FAILED') {
+        // Two-strikes-and-out: atomically increment a per-user failure
+        // counter and act on the *returned* post-increment value, so two
+        // concurrent webhook deliveries can never both observe count=0
+        // and both decide they are "strike 1".
+        // Strike 1 → warn the user we'll retry once more.
+        // Strike 2 → cancel the subscription via PayPal + downgrade to free
+        //            + send a "subscription cancelled" email.
         const subscriptionId: string = event?.resource?.id || event?.resource?.billing_agreement_id || '';
         if (subscriptionId) {
           try {
-            const users = await storage.getAllUsers ? await storage.getAllUsers() : [];
-            const affected = users.find((u: any) => u.paypalSubscriptionId === subscriptionId);
-            if (affected?.email) {
-              const name = `${affected.firstName || ''} ${affected.lastName || ''}`.trim() || affected.email;
-              await sendSubscriptionEmail('payment_failed', affected.email, name, affected.subscriptionTier || 'pro');
-              console.log(`[PayPal Webhook] Payment failed email sent to ${affected.email}`);
+            const [updated] = await db
+              .update(users)
+              .set({ paymentFailureCount: sql`COALESCE(${users.paymentFailureCount}, 0) + 1` })
+              .where(eq(users.paypalSubscriptionId, subscriptionId))
+              .returning({
+                id: users.id,
+                email: users.email,
+                firstName: users.firstName,
+                lastName: users.lastName,
+                tier: users.subscriptionTier,
+                count: users.paymentFailureCount,
+              });
+            if (updated) {
+              const tier = updated.tier || 'pro';
+              const name = `${updated.firstName || ''} ${updated.lastName || ''}`.trim() || updated.email || updated.id;
+              const nextFailures = updated.count || 1;
+
+              if (nextFailures >= 2) {
+                // Strike 2 — cancel the PayPal subscription and downgrade.
+                try {
+                  await cancelSubscription(subscriptionId, 'Two consecutive payment failures');
+                } catch (cancelErr: any) {
+                  console.error(`[PayPal Webhook] Cancel after 2 failures error: ${cancelErr.message}`);
+                }
+                await db.update(users).set({
+                  subscriptionTier: 'free',
+                  subscriptionStatus: 'cancelled',
+                  paypalSubscriptionId: null,
+                  paymentFailureCount: 0,
+                }).where(eq(users.id, updated.id));
+                if (updated.email) {
+                  await sendSubscriptionEmail('payment_cancelled_failures', updated.email, name, tier);
+                }
+                console.log(`[PayPal Webhook] Subscription ${subscriptionId} cancelled after 2 failed payments for ${updated.email || updated.id}`);
+              } else {
+                // Strike 1 — warn the user we'll retry once more.
+                if (updated.email) {
+                  await sendSubscriptionEmail('payment_failed', updated.email, name, tier);
+                }
+                console.log(`[PayPal Webhook] Payment failed (strike ${nextFailures}/2) for ${updated.email || updated.id}`);
+              }
             }
           } catch (lookupErr: any) {
             console.error('[PayPal Webhook] User lookup error:', lookupErr.message);
+          }
+        }
+      }
+
+      if (eventType === 'PAYMENT.SALE.COMPLETED' || eventType === 'BILLING.SUBSCRIPTION.ACTIVATED') {
+        // Successful charge — clear the failure counter so the user gets a
+        // fresh "two-strikes" window for any future failure.
+        const subscriptionId: string = event?.resource?.billing_agreement_id || event?.resource?.id || '';
+        if (subscriptionId) {
+          try {
+            await db
+              .update(users)
+              .set({ paymentFailureCount: 0 })
+              .where(and(eq(users.paypalSubscriptionId, subscriptionId), gt(users.paymentFailureCount, 0)));
+          } catch (resetErr: any) {
+            console.error('[PayPal Webhook] Failure counter reset error:', resetErr.message);
           }
         }
       }

@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   paypalSubscriptionId: text("paypal_subscription_id"),
+  paymentFailureCount: integer("payment_failure_count").default(0),
   subscriptionStatus: text("subscription_status").default("free"),
   subscriptionTier: text("subscription_tier").default("free"),
   subscriptionStartDate: timestamp("subscription_start_date"),

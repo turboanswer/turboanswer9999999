@@ -91,9 +91,19 @@ function AuthenticatedRouter() {
 function UnauthenticatedRouter() {
   const isMobileWeb = useIsMobile();
   const isRealMobileDevice = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Only show the 5-slide onboarding on a user's FIRST mobile launch.
+  // Returning visitors land on the login page so they don't see the carousel
+  // every single time they open the app.
+  const hasSeenOnboarding = typeof window !== "undefined" && (() => {
+    try { return localStorage.getItem("seen_onboarding") === "1"; } catch { return false; }
+  })();
+  const mobileRoot = (isNativeMobile || isRealMobileDevice)
+    ? (hasSeenOnboarding ? Login : MobileWelcome)
+    : LandingPage;
   return (
     <Switch>
-      <Route path="/" component={(isNativeMobile || isRealMobileDevice) ? MobileWelcome : LandingPage} />
+      <Route path="/" component={mobileRoot} />
+      <Route path="/welcome" component={MobileWelcome} />
       <Route path="/trial-chat" component={TrialChat} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />

@@ -367,6 +367,7 @@ export const supportTickets = pgTable("support_tickets", {
   category: text("category").default("general"),
   department: text("department").default("general"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
   resolvedAt: timestamp("resolved_at"),
 });
 
