@@ -493,7 +493,10 @@ const GEMINI_PRO_KEY = () => process.env.GEMINI_PRO_API_KEY || '';
 //          Flash errors/quotas — never used for normal traffic.
 //   Pro  → Gemini 3.1 Pro only.
 // No fall-through to older Gemini generations (2.x).
-const GEMINI_FREE_MODELS = ['gemini-3.1-flash', 'gemini-3.1-pro'];
+// Free tier fallback chain: try Gemini 3.1 first (newest, fastest), then fall
+// back to the rock-solid 2.5/2.0 models. Without these fallbacks, a single
+// transient 3.1 error makes the free chat appear broken.
+const GEMINI_FREE_MODELS = ['gemini-3.1-flash', 'gemini-3.1-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const GEMINI_PRO_MODELS = ['gemini-3.1-pro'];
 
 async function callGeminiDirect(
@@ -743,8 +746,10 @@ async function callGeminiStream(
     );
     if (!res.ok || !res.body) {
       clearTimeout(t);
-      const txt = res.body ? '' : await res.text().catch(() => '');
-      console.warn(`[Gemini-stream] ${model} HTTP ${res.status}${txt ? `: ${txt.slice(0, 200)}` : ''}`);
+      // Read the error body when present so we actually see WHY Gemini rejected
+      // the request (model not found, quota, safety, etc).
+      const txt = await res.text().catch(() => '');
+      console.warn(`[Gemini-stream] ${model} HTTP ${res.status}${txt ? `: ${txt.slice(0, 300)}` : ''}`);
       return null;
     }
     const reader = (res.body as any).getReader();
