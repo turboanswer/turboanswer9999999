@@ -1,3 +1,6 @@
+// Five distinct expert perspectives, each routed direct to its native provider
+// (no OpenRouter middleman). Visionary uses Gemini Flash for speed + creative
+// temp; Skeptic uses GPT-4o-mini for a different lens on the same data.
 const AGENT_PERSPECTIVES = [
   {
     id: 'architect',
@@ -24,14 +27,14 @@ const AGENT_PERSPECTIVES = [
     id: 'visionary',
     name: 'Innovation Lead',
     prompt: 'You are an innovation strategist. Analyze this from a future-thinking perspective — focus on emerging trends, disruptive potential, creative solutions, and what most people overlook.',
-    model: 'x-ai/grok-4',
+    model: 'google/gemini-2.5-flash',
     modelLabel: 'Matrix Visionary',
   },
   {
     id: 'skeptic',
     name: 'Devil\'s Advocate',
     prompt: 'You are a critical thinker and devil\'s advocate. Challenge the obvious answer. Find flaws in popular assumptions, present alternative viewpoints, and highlight what others might miss or get wrong.',
-    model: 'deepseek/deepseek-r1',
+    model: 'openai/gpt-4o-mini',
     modelLabel: 'Matrix Skeptic',
   },
 ];
@@ -90,53 +93,11 @@ function tryComputeArithmetic(question: string): string | null {
   return null;
 }
 
+// All 5 perspective models (Anthropic / OpenAI / Google / OpenAI-mini / Google-flash)
+// dispatch via the shared direct-router. OpenRouter has been removed.
 async function callOpenRouter(model: string, prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return null;
-
-  const { isModelDowned } = await import('./auto-remediation.js');
-  if (isModelDowned('openrouter')) {
-    console.log(`[OpenRouter] Skipped ${model} — provider marked downed by auto-remediation`);
-    return null;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://turbo-answer.replit.app',
-        'X-Title': 'TurboAnswer Research',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: maxTokens,
-        temperature,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.log(`[OpenRouter] ${model} HTTP ${response.status}: ${errText.slice(0, 200)}`);
-      const { trackError } = await import('./error-tracker.js');
-      trackError('aiError', `OpenRouter ${model} HTTP ${response.status}: ${errText.slice(0, 200)}`);
-      return null;
-    }
-
-    const data: any = await response.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch (err: any) {
-    console.log(`[OpenRouter] ${model} failed: ${err.message}`);
-    const { trackError } = await import('./error-tracker.js');
-    trackError('aiError', `OpenRouter ${model} failed: ${err.message}`);
-    return null;
-  }
+  const { callDirect } = await import('./direct-router.js');
+  return callDirect(model, [{ role: 'user', content: prompt }], { maxTokens, temperature, timeoutMs: 45000 });
 }
 
 async function callClaude(prompt: string, maxTokens: number, temperature: number): Promise<string | null> {

@@ -1,21 +1,27 @@
 /**
  * TurboAnswer Reasoning Engine (TRE)
  * Auto-routes between fast / retrieval-only / deep multi-model reasoning.
- * Streams progress via onEvent callback. Billing through OpenRouter.
+ * Streams progress via onEvent callback.
+ *
+ * As of May 2026, all model calls go DIRECT to provider APIs (Anthropic /
+ * OpenAI / Google / Groq) via direct-router.ts — OpenRouter has been removed
+ * to cut ~15% markup, remove a network hop (~150-300ms faster), and improve
+ * reliability. Model IDs keep their OR-style "provider/model" prefix for
+ * backwards compatibility with existing call sites.
  */
 import { retrieveSources as retrieveSourcesMulti } from './retrievers';
-
-const OR_KEY = () => process.env.OPENROUTER_API_KEY || '';
-const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
+import { callDirect, callDirectStream, type Message } from './direct-router';
 
 const MODEL_ROUTER = 'google/gemini-2.5-flash';
 const MODEL_PLANNER = 'google/gemini-2.5-flash';
+// Verification panel: 3 strongest brands, all routed direct. Dropped x-ai/grok-4
+// and deepseek/deepseek-r1 (no direct keys + DeepSeek R1 was the slow link).
+// Three independent models is enough for quorum-of-2 verification while halving
+// panel latency vs the old 5-model setup.
 const MODEL_PANEL = [
   { id: 'anthropic/claude-sonnet-4.5', name: 'Matrix Core α', costPer1k: 0.015 },
   { id: 'openai/gpt-4o', name: 'Matrix Core β', costPer1k: 0.015 },
   { id: 'google/gemini-2.5-pro', name: 'Matrix Core γ', costPer1k: 0.005 },
-  { id: 'x-ai/grok-4', name: 'Matrix Core δ', costPer1k: 0.015 },
-  { id: 'deepseek/deepseek-r1', name: 'Matrix Core ε', costPer1k: 0.008 },
 ];
 const MODEL_JUDGE = 'anthropic/claude-sonnet-4.5';
 const MODEL_VERIFIER = 'google/gemini-2.5-flash';
@@ -52,57 +58,29 @@ export type RouteDecision = {
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
+// Thin wrapper that builds the OpenAI-style messages array and dispatches via
+// the direct router (no more OpenRouter HTTP hop).
 async function callOR(
   model: string,
   prompt: string,
   opts: { maxTokens?: number; temperature?: number; jsonMode?: boolean; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
-  const key = OR_KEY();
-  if (!key) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
-  try {
-    const messages: any[] = [];
-    if (opts.system) messages.push({ role: 'system', content: opts.system });
-    if (opts.history && opts.history.length) {
-      for (const h of opts.history) {
-        if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
-          messages.push({ role: h.role, content: h.content });
-        }
+  const messages: Message[] = [];
+  if (opts.system) messages.push({ role: 'system', content: opts.system });
+  if (opts.history?.length) {
+    for (const h of opts.history) {
+      if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
+        messages.push({ role: h.role, content: h.content });
       }
     }
-    messages.push({ role: 'user', content: prompt });
-    const body: any = {
-      model,
-      messages,
-      max_tokens: opts.maxTokens ?? 1500,
-      temperature: opts.temperature ?? 0.3,
-    };
-    if (opts.jsonMode) body.response_format = { type: 'json_object' };
-    const res = await fetch(OR_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-        'HTTP-Referer': 'https://turbo-answer.replit.app',
-        'X-Title': 'TurboAnswer Reasoning Engine',
-      },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      console.warn(`[TRE] ${model} HTTP ${res.status}: ${txt.slice(0, 200)}`);
-      return null;
-    }
-    const data: any = await res.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[TRE] ${model} failed: ${err.message}`);
-    return null;
   }
+  messages.push({ role: 'user', content: prompt });
+  return callDirect(model, messages, {
+    maxTokens: opts.maxTokens,
+    temperature: opts.temperature,
+    jsonMode: opts.jsonMode,
+    timeoutMs: opts.timeoutMs ?? 45000,
+  });
 }
 
 function parseJSON<T>(s: string | null, fallback: T): T {
@@ -655,92 +633,29 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
 // Used by the SSE endpoint so the user sees the first words within ~1s instead
 // of waiting for the entire answer to be generated server-side.
 
+// Streaming variant — also dispatched via direct router (Anthropic / OpenAI /
+// Google / Groq all support native SSE).
 async function callORStream(
   model: string,
   prompt: string,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
   onChunk: (text: string) => void,
 ): Promise<string | null> {
-  const key = OR_KEY();
-  if (!key) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
-  try {
-    const messages: any[] = [];
-    if (opts.system) messages.push({ role: 'system', content: opts.system });
-    if (opts.history?.length) {
-      for (const h of opts.history) {
-        if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
-          messages.push({ role: h.role, content: h.content });
-        }
+  const messages: Message[] = [];
+  if (opts.system) messages.push({ role: 'system', content: opts.system });
+  if (opts.history?.length) {
+    for (const h of opts.history) {
+      if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
+        messages.push({ role: h.role, content: h.content });
       }
     }
-    messages.push({ role: 'user', content: prompt });
-    const body: any = {
-      model,
-      messages,
-      max_tokens: opts.maxTokens ?? 1500,
-      temperature: opts.temperature ?? 0.3,
-      stream: true,
-    };
-    const res = await fetch(OR_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-        'HTTP-Referer': 'https://turbo-answer.replit.app',
-        'X-Title': 'TurboAnswer Reasoning Engine',
-      },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-    if (!res.ok || !res.body) {
-      clearTimeout(t);
-      const txt = res.body ? '' : await res.text().catch(() => '');
-      console.warn(`[TRE-stream] ${model} HTTP ${res.status}${txt ? `: ${txt.slice(0, 200)}` : ''}`);
-      return null;
-    }
-    const reader = (res.body as any).getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let acc = '';
-    let doneFlag = false;
-    const handleLine = (raw: string) => {
-      const line = raw.trim();
-      if (!line.startsWith('data:')) return;
-      const data = line.slice(5).trim();
-      if (!data) return;
-      if (data === '[DONE]') { doneFlag = true; return; }
-      try {
-        const parsed = JSON.parse(data);
-        const delta = parsed?.choices?.[0]?.delta?.content;
-        if (typeof delta === 'string' && delta.length) {
-          acc += delta;
-          onChunk(delta);
-        }
-      } catch {}
-    };
-    while (!doneFlag) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        handleLine(line);
-        if (doneFlag) break;
-      }
-    }
-    // Flush trailing buffer (last event may not end with \n)
-    if (buffer.length) handleLine(buffer);
-    clearTimeout(t);
-    return acc || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[TRE-stream] ${model} failed: ${err.message}`);
-    return null;
   }
+  messages.push({ role: 'user', content: prompt });
+  return callDirectStream(model, messages, {
+    maxTokens: opts.maxTokens,
+    temperature: opts.temperature,
+    timeoutMs: opts.timeoutMs ?? 45000,
+  }, onChunk);
 }
 
 async function callGeminiStream(

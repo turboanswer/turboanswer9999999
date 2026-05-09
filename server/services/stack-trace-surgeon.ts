@@ -1,46 +1,18 @@
 import { fastAnswer } from "./reasoning-engine.js";
+import { callDirect } from "./direct-router.js";
 
-// Stack Trace Surgeon uses Claude Sonnet 4.5 directly via OpenRouter — Anthropic's
-// best coding model, ideal for diagnosing stack traces and producing valid diffs.
-// Falls back to Gemini Pro (via fastAnswer) if OpenRouter / Sonnet is unavailable.
+// Stack Trace Surgeon uses Claude Sonnet 4.5 via the direct Anthropic API
+// (no OpenRouter) — Anthropic's best coding model, ideal for diagnosing
+// stack traces and producing valid diffs. Falls back to tier-routed Gemini
+// Pro (via fastAnswer) if Anthropic is unavailable.
 const SURGEON_MODEL = 'anthropic/claude-sonnet-4.5';
-const OR_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 async function callSonnetForSurgeon(prompt: string): Promise<string | null> {
-  const key = process.env.OPENROUTER_API_KEY;
-  if (!key) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 50000);
-  try {
-    const res = await fetch(OR_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
-        'HTTP-Referer': 'https://turboanswer.it.com',
-        'X-Title': 'TurboAnswer Stack Trace Surgeon',
-      },
-      body: JSON.stringify({
-        model: SURGEON_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 3000,
-        temperature: 0.2,
-      }),
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      console.warn(`[StackTraceSurgeon] Sonnet 4.5 HTTP ${res.status}: ${txt.slice(0, 200)}`);
-      return null;
-    }
-    const data: any = await res.json();
-    return data.choices?.[0]?.message?.content || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[StackTraceSurgeon] Sonnet 4.5 failed: ${err?.message || err}`);
-    return null;
-  }
+  return callDirect(SURGEON_MODEL, [{ role: 'user', content: prompt }], {
+    maxTokens: 3000,
+    temperature: 0.2,
+    timeoutMs: 50000,
+  });
 }
 
 export type StackFrame = { file: string; line?: number; raw: string };

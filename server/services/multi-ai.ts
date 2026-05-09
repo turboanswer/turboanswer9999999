@@ -245,24 +245,19 @@ Formatting rules — follow STRICTLY:
     ? `${systemPrompt}\n\nRecent conversation:\n${recentHistory}\n\nUser's new question about the attached image: ${userText}`
     : `${systemPrompt}\n\nUser: ${userText}`;
 
-  // Try OpenRouter first — single key, 15+ vision models, automatic provider routing
-  const openrouterKey = process.env.OPENROUTER_API_KEY;
-  if (openrouterKey) {
-    const openrouterVisionModels = [
-      'google/gemini-2.0-flash-001',
-      'google/gemini-2.5-flash',
-      'openai/gpt-4o-mini',
-      'qwen/qwen-2-vl-72b-instruct',
-    ];
-    for (const model of openrouterVisionModels) {
+  // Direct OpenAI vision fallback (replaces OpenRouter). GPT-4o has best-in-class
+  // vision; gpt-4o-mini is the cheap fallback. Gemini vision is the primary path
+  // above this block — this only fires if Gemini is down or unavailable.
+  const openaiVisionKey = process.env.OPENAI_API_KEY;
+  if (openaiVisionKey) {
+    const openaiVisionModels = ['gpt-4o', 'gpt-4o-mini'];
+    for (const model of openaiVisionModels) {
       try {
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${openrouterKey}`,
-            "HTTP-Referer": "https://turboanswer.it.com",
-            "X-Title": "TurboAnswer",
+            Authorization: `Bearer ${openaiVisionKey}`,
           },
           body: JSON.stringify({
             model,
@@ -279,22 +274,22 @@ Formatting rules — follow STRICTLY:
         });
         if (!res.ok) {
           const errText = await res.text().catch(() => "");
-          console.error(`[Vision] OpenRouter ${model} error ${res.status}: ${errText.slice(0, 300)}`);
-          if (res.status === 401 || res.status === 403) break; // auth issue, no point retrying
-          continue; // try next model
+          console.error(`[Vision] OpenAI ${model} error ${res.status}: ${errText.slice(0, 300)}`);
+          if (res.status === 401 || res.status === 403) break;
+          continue;
         }
         const data = await res.json();
         const text = data?.choices?.[0]?.message?.content;
         if (text && (typeof text === 'string' ? text.trim() : true)) {
           const finalText = typeof text === 'string' ? text : (Array.isArray(text) ? text.map((c: any) => c.text || '').join('') : String(text));
           if (finalText.trim()) {
-            console.log(`[Vision] ✓ OpenRouter ${model} succeeded`);
+            console.log(`[Vision] ✓ OpenAI ${model} succeeded`);
             return finalText;
           }
         }
-        console.log(`[Vision] OpenRouter ${model} returned empty — trying next`);
+        console.log(`[Vision] OpenAI ${model} returned empty — trying next`);
       } catch (err: any) {
-        console.error(`[Vision] OpenRouter ${model} threw:`, err?.message || err);
+        console.error(`[Vision] OpenAI ${model} threw:`, err?.message || err);
       }
     }
   }
@@ -527,7 +522,7 @@ export async function generateAIResponse(
       const useDeepThink = deepThink || selectedModel === 'enterprise-research';
       const fullQuestion = additionalContext ? `${enhancedMessage}\n\n${additionalContext}` : enhancedMessage;
       if (useDeepThink) {
-        console.log(`[AI] ${selectedModel} → Deep Think ON → 10-Agent Multi-Agent System (OpenRouter)`);
+        console.log(`[AI] ${selectedModel} → Deep Think ON → 10-Agent Multi-Agent System (direct providers)`);
         const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
         return { text, usedGroundedSearch };
       }

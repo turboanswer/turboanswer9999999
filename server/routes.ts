@@ -7167,7 +7167,7 @@ Rules:
             anthropic: !!process.env.ANTHROPIC_API_KEY,
             gemini: !!process.env.GEMINI_API_KEY,
             geminiPro: !!process.env.GEMINI_PRO_API_KEY,
-            openrouter: !!process.env.OPENROUTER_API_KEY,
+            groq: !!process.env.GROQ_API_KEY,
             replicate: !!process.env.REPLICATE_API_TOKEN,
           },
           payments: {
