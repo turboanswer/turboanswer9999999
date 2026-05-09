@@ -12,6 +12,57 @@ import {
 } from "./weather-location";
 import { runMultiAgentResearch } from "./multi-agent";
 
+// ============= ADAPTIVE COMPLEXITY THROTTLE =============
+// Same logic as reasoning-engine.shapeForTier — kept inline here so the legacy
+// multi-ai entrypoint also throttles tokens/temperature based on what the user
+// actually asked. Greetings stay tiny + warm; complex questions unlock the full
+// budget plus a "think step-by-step" precision instruction.
+type _Complexity = 'trivial' | 'short' | 'normal' | 'complex';
+const _TRIVIAL_RE = /^(hi+|hey+|hello+|yo+|sup|howdy|good\s+(morning|afternoon|evening|night)|thanks+|thank\s+you|thx|ty|ok+|okay+|cool+|nice+|great+|awesome+|bye+|goodbye|cya|see\s+ya|lol+|lmao|haha+|👋|🙏|❤️?)[!.?\s]*$/i;
+const _COMPLEX_RE = /\b(explain|analyz[ei]|compare|contrast|why\s+(does|is|do)|how\s+(does|do|can|to)|breakdown|break\s+down|step[\s-]?by[\s-]?step|in\s+detail|deep\s+dive|walk\s+me\s+through|pros\s+and\s+cons|trade[\s-]?offs?|architecture|design|implement|debug|fix|refactor|optimi[sz]e|research|outline|essay|plan|strategy|comprehensive|thoroughly?|nuance|history\s+of|evolution\s+of|differences?\s+between)\b/i;
+const _PRECISION_PREFIX =
+  "This is a complex question. Think carefully and step-by-step before answering. " +
+  "Be precise: use specific numbers, names, and concrete examples instead of vague claims. " +
+  "Cover the key angles thoroughly but do not pad — every sentence must earn its place. " +
+  "When you are uncertain, say so explicitly rather than hedging vaguely.";
+
+function _classifyComplexity(question: string): _Complexity {
+  const q = (question || '').trim();
+  if (!q) return 'trivial';
+  if (_TRIVIAL_RE.test(q) || q.length <= 6) return 'trivial';
+  const len = q.length;
+  const hasComplexWord = _COMPLEX_RE.test(q);
+  const hasMultipleSentences = (q.match(/[.!?]\s+\S/g) || []).length >= 1;
+  const hasMultipleQuestions = (q.match(/\?/g) || []).length >= 2;
+  if (hasComplexWord || hasMultipleQuestions || len > 200) return 'complex';
+  if (hasMultipleSentences || len > 80) return 'normal';
+  return 'short';
+}
+
+export function adaptiveShape(question: string, tier: 'free' | 'pro' | 'research' | 'enterprise' | 'owner' = 'free'): {
+  complexity: _Complexity;
+  maxTokens: number;
+  temperature: number;
+  precisionPrefix: string | null;
+} {
+  const complexity = _classifyComplexity(question || '');
+  const budgets: Record<string, Record<_Complexity, number>> = {
+    free:       { trivial: 120, short: 350,  normal: 600,  complex: 1000 },
+    pro:        { trivial: 150, short: 800,  normal: 2200, complex: 4000 },
+    research:   { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
+    enterprise: { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
+    owner:      { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
+  };
+  const tempByComplexity: Record<_Complexity, number> = { trivial: 0.7, short: 0.5, normal: 0.4, complex: 0.25 };
+  const tierBudget = budgets[tier] || budgets.free;
+  return {
+    complexity,
+    maxTokens: tierBudget[complexity],
+    temperature: tempByComplexity[complexity],
+    precisionPrefix: complexity === 'complex' && tier !== 'free' ? _PRECISION_PREFIX : null,
+  };
+}
+
 function isCurrentEventsQuery(message: string): boolean {
   const msg = message.toLowerCase().trim();
   if (/\b(?:is|did|has|was)\s+\w+(?:\s+\w+)?\s+(?:dead|alive|died|die|pass(?:ed)?\s+away|kill(?:ed)?|assassinat(?:ed)?|murder(?:ed)?)\b/.test(msg)) return true;
@@ -117,7 +168,9 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    // Scale timeout with budget: ~50 tok/sec floor + 10s headroom, min 20s, max 120s.
+    const claudeTimeoutMs = Math.min(120_000, Math.max(20_000, maxTokens * 20 + 10_000));
+    const timeout = setTimeout(() => controller.abort(), claudeTimeoutMs);
     const response = await fetch(`${anthropicBase}/v1/messages`, {
       method: 'POST',
       headers: {
@@ -538,9 +591,17 @@ export async function generateAIResponse(
       const systemPrompt = `You are Turbo Answer Pro — a warm, friendly, and deeply knowledgeable AI assistant on the Pro plan. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Pro users expect substance — give thorough, accurate answers without filler. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
 
+      // Adaptive throttle: greeting → tiny + warm; complex question → max
+      // tokens + low temp + step-by-step instruction. Saves tokens on small
+      // talk and unleashes the full budget on real questions.
+      const proShape = adaptiveShape(userMessage, 'pro');
+      const proPrompt = proShape.precisionPrefix
+        ? `${proShape.precisionPrefix}\n\n${fullPrompt}`
+        : fullPrompt;
+
       // Try Claude Sonnet 4.5 first
-      console.log(`[AI] Pro → Claude Sonnet 4.5 (primary)`);
-      const claudeText = await callClaude(fullPrompt, 2000, 0.3);
+      console.log(`[AI] Pro → Claude Sonnet 4.5 (${proShape.complexity}, ${proShape.maxTokens} tok)`);
+      const claudeText = await callClaude(proPrompt, proShape.maxTokens, proShape.temperature);
       if (claudeText) {
         return { text: claudeText, usedGroundedSearch };
       }
@@ -548,15 +609,18 @@ export async function generateAIResponse(
       // Fallback: Gemini 2.5 Pro
       if (!geminiApiKey) return { text: "API key not configured.", usedGroundedSearch };
       console.log(`[AI] Pro → Claude unavailable, falling back to Gemini 2.5 Pro`);
-      const text = await callGemini(fullPrompt, 'gemini-2.5-pro', 2000, 0.3, geminiApiKey);
+      const text = await callGemini(proPrompt, 'gemini-2.5-pro', proShape.maxTokens, proShape.temperature, geminiApiKey);
       return { text, usedGroundedSearch };
     } else {
       if (!geminiApiKey) return "API key not configured.";
       const freeSearchContext = additionalContext || "";
       const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.\n\n${formattingRules}${languageInstruction ? '\n\n' + languageInstruction : ''}${freeSearchContext}`;
       const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}`;
-      console.log(`[AI] Free → Gemini 3.1 Flash (basic, no history)`);
-      return await callGeminiBasic(fullPrompt, 350, 0.7, geminiApiKey);
+      // Adaptive throttle for free tier too: greetings are 120 tok, complex
+      // questions get up to 1000 tok (still brief, but no longer truncated mid-thought).
+      const freeShape = adaptiveShape(userMessage, 'free');
+      console.log(`[AI] Free → Gemini 3.1 Flash (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
+      return await callGeminiBasic(fullPrompt, freeShape.maxTokens, freeShape.temperature, geminiApiKey);
     }
 
   } catch (error: any) {
@@ -632,10 +696,14 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
       try {
         const start = Date.now();
         const controller = new AbortController();
-        const timeoutMs = model === 'gemini-3.1-pro-preview' ? 30000
+        // Scale timeout with budget so 4000+ token Pro answers don't get cut off.
+        // Floor per model for cold-start safety, then add ~20ms/token headroom.
+        const baseTimeoutMs = model === 'gemini-3.1-pro-preview' ? 30000
+          : model === 'gemini-2.5-pro' ? 25000
           : model === 'gemini-2.0-flash-lite' ? 5000
           : model === 'gemini-2.0-flash' ? 8000
           : 8000;
+        const timeoutMs = Math.min(120_000, Math.max(baseTimeoutMs, maxTokens * 20 + 10_000));
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,

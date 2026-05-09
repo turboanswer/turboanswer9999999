@@ -611,21 +611,72 @@ const FREE_TIER_BREVITY_PREFIX =
   "Skip headings and avoid filler like 'Great question!'. Give the single most useful answer and stop. " +
   "If the user asks for depth, analysis, a full explanation, or research, tell them this requires Pro or Research and keep the free reply short.";
 
-function shapeForTier(tier: string | undefined, system?: string): { system?: string; maxTokens: number } {
+// Adaptive complexity classifier — used to throttle answer length + temperature
+// based on what the user actually asked. Saves tokens on greetings / quick
+// factuals, unleashes the full budget on real questions.
+type Complexity = 'trivial' | 'short' | 'normal' | 'complex';
+const COMPLEX_RE = /\b(explain|analyz[ei]|compare|contrast|why\s+(does|is|do)|how\s+(does|do|can|to)|breakdown|break\s+down|step[\s-]?by[\s-]?step|in\s+detail|deep\s+dive|walk\s+me\s+through|pros\s+and\s+cons|trade[\s-]?offs?|architecture|design|implement|debug|fix|refactor|optimi[sz]e|research|outline|essay|plan|strategy|comprehensive|thoroughly?|nuance|history\s+of|evolution\s+of|differences?\s+between)\b/i;
+function classifyComplexity(question: string): Complexity {
+  const q = (question || '').trim();
+  if (!q) return 'trivial';
+  if (isTrivial(q)) return 'trivial';
+  const len = q.length;
+  const hasComplexWord = COMPLEX_RE.test(q);
+  const hasMultipleSentences = (q.match(/[.!?]\s+\S/g) || []).length >= 1;
+  const hasMultipleQuestions = (q.match(/\?/g) || []).length >= 2;
+  if (hasComplexWord || hasMultipleQuestions || len > 200) return 'complex';
+  if (hasMultipleSentences || len > 80) return 'normal';
+  return 'short';
+}
+
+// Returns the token budget AND temperature AND a precision-instruction for the
+// system prompt based on tier × complexity. The matrix:
+//   trivial  → tiny, warm  (greetings: ~120 tok, temp 0.7)
+//   short    → small, neutral (~400-1500 tok)
+//   normal   → tier default
+//   complex  → MAX tier budget + low temp + "think step by step" instruction
+const PRECISION_PREFIX =
+  "This is a complex question. Think carefully and step-by-step before answering. " +
+  "Be precise: use specific numbers, names, and concrete examples instead of vague claims. " +
+  "Cover the key angles thoroughly but do not pad — every sentence must earn its place. " +
+  "When you are uncertain, say so explicitly rather than hedging vaguely.";
+
+function shapeForTier(tier: string | undefined, system?: string, question?: string): { system?: string; maxTokens: number; temperature: number } {
   const t = (tier || 'free').toLowerCase();
+  const complexity = classifyComplexity(question || '');
+
+  // Per-tier token caps for each complexity bucket. Free stays brief on
+  // purpose; Pro and above scale up significantly on complex questions.
+  const budgets: Record<string, Record<Complexity, number>> = {
+    free:       { trivial: 120, short: 350,  normal: 600,  complex: 1000 },
+    pro:        { trivial: 150, short: 800,  normal: 2200, complex: 4000 },
+    research:   { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
+    enterprise: { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
+    owner:      { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
+  };
+  const tempByComplexity: Record<Complexity, number> = { trivial: 0.7, short: 0.5, normal: 0.4, complex: 0.25 };
+  const tierBudget = budgets[t] || budgets.free;
+  const maxTokens = tierBudget[complexity];
+  const temperature = tempByComplexity[complexity];
+
+  // Build system prompt: free always gets brevity prefix; complex questions
+  // (Pro+) get the precision/step-by-step prefix prepended.
+  let combinedSystem = system;
   if (t === 'free') {
-    const combined = system ? `${FREE_TIER_BREVITY_PREFIX}\n\n${system}` : FREE_TIER_BREVITY_PREFIX;
-    return { system: combined, maxTokens: 450 };
+    combinedSystem = combinedSystem ? `${FREE_TIER_BREVITY_PREFIX}\n\n${combinedSystem}` : FREE_TIER_BREVITY_PREFIX;
+  } else if (complexity === 'complex') {
+    combinedSystem = combinedSystem ? `${PRECISION_PREFIX}\n\n${combinedSystem}` : PRECISION_PREFIX;
   }
-  if (t === 'pro') return { system, maxTokens: 1800 };
-  // research / enterprise / owner → full length
-  return { system, maxTokens: 3000 };
+
+  return { system: combinedSystem, maxTokens, temperature };
 }
 
 // ============= FAST PATH =============
 export async function fastAnswer(question: string, system?: string, tier?: string, history?: ChatTurn[]): Promise<string> {
-  const shaped = shapeForTier(tier, system);
-  const out = await answerForTier(question, tier, { maxTokens: shaped.maxTokens, temperature: 0.4, system: shaped.system, timeoutMs: 25000, history });
+  const shaped = shapeForTier(tier, system, question);
+  // Scale timeout with budget: ~50 tok/sec floor + 10s headroom, min 25s, max 120s.
+  const timeoutMs = Math.min(120_000, Math.max(25_000, shaped.maxTokens * 20 + 10_000));
+  const out = await answerForTier(question, tier, { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history });
   return out || 'I could not generate an answer right now. Please try again.';
 }
 
@@ -769,11 +820,13 @@ export async function fastAnswerStream(
   history: ChatTurn[] | undefined,
   onChunk: (text: string) => void,
 ): Promise<string> {
-  const shaped = shapeForTier(tier, system);
+  const shaped = shapeForTier(tier, system, question);
+  // Streaming gets a longer ceiling because complex answers can be 4000-6000 tokens.
+  const timeoutMs = Math.min(150_000, Math.max(45_000, shaped.maxTokens * 25 + 15_000));
   const out = await answerForTierStream(
     question,
     tier,
-    { maxTokens: shaped.maxTokens, temperature: 0.4, system: shaped.system, timeoutMs: 45000, history },
+    { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history },
     onChunk,
   );
   return out || 'I could not generate an answer right now. Please try again.';
@@ -784,8 +837,8 @@ export async function retrievalAnswer(question: string, sources: Source[], syste
   const ctx = sources.length
     ? `Use these sources (cite as [1], [2], ...):\n${sources.map((s, i) => `[${i + 1}] ${s.title}${s.publishedAt ? ` (${s.publishedAt})` : ''}: ${s.snippet}`).join('\n')}\n\n`
     : '';
-  const shaped = shapeForTier(tier, system);
-  const retrievalMax = Math.min(shaped.maxTokens, (tier || 'free').toLowerCase() === 'free' ? 400 : 1400);
+  const shaped = shapeForTier(tier, system, question);
+  const retrievalMax = Math.min(shaped.maxTokens, (tier || 'free').toLowerCase() === 'free' ? 600 : 2200);
   const out = await answerForTier(`${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, tier, { maxTokens: retrievalMax, temperature: 0.2, system: shaped.system, timeoutMs: 25000, history });
   return out || 'I could not retrieve enough information to answer reliably.';
 }
