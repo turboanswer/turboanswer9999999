@@ -458,6 +458,67 @@ export function getPayPalClientId(): string {
   return PAYPAL_CLIENT_ID;
 }
 
+/**
+ * Verify a PayPal webhook delivery against PayPal's
+ * /v1/notifications/verify-webhook-signature endpoint.
+ *
+ * Returns true only when PayPal confirms `verification_status === "SUCCESS"`.
+ * Returns false on any failure (missing headers, bad signature, network
+ * error, missing PAYPAL_WEBHOOK_ID env var, etc) — the caller MUST treat
+ * `false` as "reject this event".
+ */
+export async function verifyWebhookSignature(
+  headers: Record<string, any>,
+  rawEvent: any,
+): Promise<boolean> {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) {
+    console.error("[PayPal Verify] PAYPAL_WEBHOOK_ID is not set — refusing to trust webhook");
+    return false;
+  }
+  const h = (k: string) => {
+    const v = headers[k] ?? headers[k.toLowerCase()] ?? headers[k.toUpperCase()];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  const transmissionId   = h("paypal-transmission-id");
+  const transmissionTime = h("paypal-transmission-time");
+  const transmissionSig  = h("paypal-transmission-sig");
+  const certUrl          = h("paypal-cert-url");
+  const authAlgo         = h("paypal-auth-algo");
+  if (!transmissionId || !transmissionTime || !transmissionSig || !certUrl || !authAlgo) {
+    console.error("[PayPal Verify] Missing one or more PayPal signature headers");
+    return false;
+  }
+  try {
+    const token = await getAccessToken();
+    const res = await fetch(`${PAYPAL_BASE_URL}/v1/notifications/verify-webhook-signature`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        auth_algo: authAlgo,
+        cert_url: certUrl,
+        transmission_id: transmissionId,
+        transmission_sig: transmissionSig,
+        transmission_time: transmissionTime,
+        webhook_id: webhookId,
+        webhook_event: rawEvent,
+      }),
+    });
+    if (!res.ok) {
+      console.error(`[PayPal Verify] Verification API ${res.status}: ${await res.text()}`);
+      return false;
+    }
+    const data = await res.json();
+    return data?.verification_status === "SUCCESS";
+  } catch (err: any) {
+    console.error(`[PayPal Verify] Verification call threw: ${err?.message || err}`);
+    return false;
+  }
+}
+
 // Credit packs: one-time PayPal Orders v2 payment
 // Credit packs: key = cents to add, value = USD price
 // Pricing: $0.02 per line of code (10 lines = $0.20)

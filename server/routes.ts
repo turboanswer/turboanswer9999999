@@ -21,7 +21,7 @@ import {
 } from "./services/document-analysis";
 import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
 import { registerImageRoutes } from "./replit_integrations/image";
-import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription, createCreditPackOrder, captureCreditPackOrder, CREDIT_PACKS } from "./paypal";
+import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription, createCreditPackOrder, captureCreditPackOrder, CREDIT_PACKS, verifyWebhookSignature } from "./paypal";
 
 import widgetRoutes from './routes/widget-routes';
 import { startProactiveDiagnostics, runProactiveDiagnostics, getDiagnosticsHistory, getLatestReport } from './services/proactive-diagnostics';
@@ -2104,6 +2104,14 @@ function downloadAAB(){
       const event = req.body;
       if (!event || typeof event !== 'object' || !event.event_type || !event.id) {
         return res.status(400).json({ error: 'Invalid webhook payload' });
+      }
+      // Verify PayPal's signature before trusting the event. Without this
+      // anyone who knew the URL could forge a "PAYMENT.FAILED" and force
+      // a paying user's subscription into the cancel branch below.
+      const verified = await verifyWebhookSignature(req.headers, event);
+      if (!verified) {
+        console.warn(`[PayPal Webhook] Rejecting unverified event ${event.id} (${event.event_type})`);
+        return res.status(401).json({ error: 'Webhook signature verification failed' });
       }
       const ALLOWED_EVENTS = ['BILLING.SUBSCRIPTION.PAYMENT.FAILED', 'BILLING.SUBSCRIPTION.ACTIVATED', 'BILLING.SUBSCRIPTION.CANCELLED', 'BILLING.SUBSCRIPTION.SUSPENDED', 'PAYMENT.SALE.COMPLETED'];
       const eventType: string = event.event_type;
