@@ -798,11 +798,18 @@ function shapeForTier(tier: string | undefined, system?: string, question?: stri
 }
 
 // ============= FAST PATH =============
+// COST GUARD: trivial questions ("hi", "what can you do", "thanks") get
+// short-circuited to the cheap Replit gpt-4o-mini path regardless of the
+// user's tier. No reason to burn Claude / multi-agent dollars on greetings.
+function routingTier(tier: string | undefined, question: string): string | undefined {
+  return classifyComplexity(question || '') === 'trivial' ? 'free' : tier;
+}
+
 export async function fastAnswer(question: string, system?: string, tier?: string, history?: ChatTurn[]): Promise<string> {
   const shaped = shapeForTier(tier, system, question);
   // Scale timeout with budget: ~50 tok/sec floor + 10s headroom, min 25s, max 120s.
   const timeoutMs = Math.min(120_000, Math.max(25_000, shaped.maxTokens * 20 + 10_000));
-  const out = await answerForTier(question, tier, { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history });
+  const out = await answerForTier(question, routingTier(tier, question), { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history });
   return out || 'I could not generate an answer right now. Please try again.';
 }
 
@@ -958,7 +965,7 @@ export async function fastAnswerStream(
   const timeoutMs = Math.min(150_000, Math.max(45_000, shaped.maxTokens * 25 + 15_000));
   const out = await answerForTierStream(
     question,
-    tier,
+    routingTier(tier, question),
     { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history },
     onChunk,
   );
