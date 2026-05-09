@@ -79,7 +79,7 @@ export default function Home() {
         <div className="relative z-10 max-w-5xl mx-auto px-6 pt-24 pb-16 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-blue-500/20 mb-8" style={{ background: "rgba(59,130,246,0.08)" }}>
             <Sparkles size={14} className="text-blue-400" />
-            <span className="text-sm text-blue-300 font-medium">Next-Gen AI Intelligence</span>
+            <span className="text-sm text-blue-300 font-medium">Now powered by OpenAI GPT-4o mini — free for everyone</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-6">
@@ -93,8 +93,8 @@ export default function Home() {
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Chat naturally. Analyze documents. Generate images. 100+ languages.<br />
-            All in one powerful AI assistant that works on any device.
+            Free tier runs on <span className="text-white font-semibold">OpenAI GPT-4o mini</span>. Upgrade to Pro for <span className="text-white font-semibold">Claude Sonnet 4.5</span>, image generation, and 4× longer answers.<br />
+            Chat naturally. Analyze documents. 100+ languages. Any device.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">

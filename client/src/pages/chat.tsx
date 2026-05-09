@@ -1509,8 +1509,12 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Typing indicator + live reasoning panel */}
-          {isTyping && reasoningStages.length > 0 && (
+          {/* Typing indicator + live reasoning panel.
+              The verbose stage list ("Analyzing question → Mode: Fast → …")
+              is only shown for Research+ users in actual deep-think mode.
+              Free / Pro users on the fast path just see clean typing dots —
+              the running commentary was annoying for normal chat. */}
+          {isTyping && reasoningStages.length > 0 && isResearchOrAbove && reasoningMode === 'deep' && (
             <div className="flex items-start gap-2 sm:gap-3 mb-4 sm:mb-5" data-testid="reasoning-panel">
               <div className="relative flex-shrink-0">
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
@@ -1579,7 +1583,7 @@ export default function Chat() {
               </div>
             </div>
           )}
-          {isTyping && reasoningStages.length === 0 && (
+          {isTyping && (reasoningStages.length === 0 || !(isResearchOrAbove && reasoningMode === 'deep')) && (
             <div className="flex items-end gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="relative flex-shrink-0">
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
