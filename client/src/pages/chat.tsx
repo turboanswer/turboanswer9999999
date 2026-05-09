@@ -1748,7 +1748,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "Advanced AI (Gemini Flash vs basic Lite)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation (DALL-E 3)", "Unlimited questions (vs 15/day free)"].map((text, i) => (
+              {["7 days free — cancel anytime", "Advanced AI (Claude Sonnet 4.5 vs basic GPT-4o mini)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation (DALL-E 3)", "Unlimited questions (vs 15/day free)"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className={`w-4 h-4 flex-shrink-0 ${i === 0 ? 'text-blue-400' : 'text-blue-400'}`} />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>

@@ -482,6 +482,123 @@ Output STRICT JSON:
   return { verdict, claims, markedAnswer, confidence };
 }
 
+// ============= REPLIT-MANAGED OPENAI (free tier primary) =============
+// The free Lite plan answers via Replit's hosted OpenAI proxy (gpt-4o-mini).
+// Replit covers the API cost out of the integration's free credits, so the
+// app does NOT burn the founder's personal OPENAI_API_KEY for free traffic.
+// Falls through to direct Gemini if the proxy is unavailable.
+const REPLIT_OPENAI_KEY = () => process.env.AI_INTEGRATIONS_OPENAI_API_KEY || '';
+const REPLIT_OPENAI_BASE = () => process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || '';
+const REPLIT_FREE_MODEL = 'gpt-4o-mini';
+
+function buildOpenAIMessages(prompt: string, system?: string, history?: ChatTurn[]): any[] {
+  const msgs: any[] = [];
+  if (system) msgs.push({ role: 'system', content: system });
+  if (history?.length) {
+    for (const h of history) {
+      if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
+        msgs.push({ role: h.role, content: h.content });
+      }
+    }
+  }
+  msgs.push({ role: 'user', content: prompt });
+  return msgs;
+}
+
+async function callReplitOpenAI(
+  prompt: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {},
+): Promise<string | null> {
+  const key = REPLIT_OPENAI_KEY(); const base = REPLIT_OPENAI_BASE();
+  if (!key || !base) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 25000);
+  try {
+    const res = await fetch(`${base.replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: REPLIT_FREE_MODEL,
+        messages: buildOpenAIMessages(prompt, opts.system, opts.history),
+        max_tokens: opts.maxTokens ?? 800,
+        temperature: opts.temperature ?? 0.4,
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn(`[ReplitOpenAI] HTTP ${res.status}: ${txt.slice(0, 200)}`);
+      return null;
+    }
+    const data: any = await res.json();
+    return data?.choices?.[0]?.message?.content || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[ReplitOpenAI] failed: ${err?.message || err}`);
+    return null;
+  }
+}
+
+async function callReplitOpenAIStream(
+  prompt: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
+  onChunk: (text: string) => void,
+): Promise<string | null> {
+  const key = REPLIT_OPENAI_KEY(); const base = REPLIT_OPENAI_BASE();
+  if (!key || !base) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
+  try {
+    const res = await fetch(`${base.replace(/\/+$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: REPLIT_FREE_MODEL,
+        messages: buildOpenAIMessages(prompt, opts.system, opts.history),
+        max_tokens: opts.maxTokens ?? 800,
+        temperature: opts.temperature ?? 0.4,
+        stream: true,
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok || !res.body) {
+      clearTimeout(t);
+      const txt = res.body ? '' : await res.text().catch(() => '');
+      // (body case will already have been parsed if !res.ok with a body — best effort log)
+      const errBody = !res.ok ? await res.text().catch(() => '') : '';
+      console.warn(`[ReplitOpenAI-stream] HTTP ${res.status}: ${(errBody || txt).slice(0, 200)}`);
+      return null;
+    }
+    const reader = (res.body as any).getReader();
+    const dec = new TextDecoder();
+    let buf = '', acc = '', done = false;
+    while (!done) {
+      const { done: rd, value } = await reader.read();
+      if (rd) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) !== -1) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim(); if (!data) continue;
+        if (data === '[DONE]') { done = true; break; }
+        try {
+          const p = JSON.parse(data);
+          const delta = p?.choices?.[0]?.delta?.content;
+          if (delta) { acc += delta; onChunk(delta); }
+        } catch {}
+      }
+    }
+    clearTimeout(t);
+    return acc || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[ReplitOpenAI-stream] failed: ${err?.message || err}`);
+    return null;
+  }
+}
+
 // ============= DIRECT GEMINI (Google AI Studio) =============
 // Free tier uses GEMINI_API_KEY (gemini-3.1-flash chain).
 // Pro tier uses GEMINI_PRO_API_KEY (gemini-3.1-pro chain).
@@ -592,10 +709,16 @@ async function answerForTier(
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
   const t = (tier || 'free').toLowerCase();
-  if (t === 'free' && GEMINI_FREE_KEY()) {
-    const out = await callGeminiWithFallback(prompt, GEMINI_FREE_MODELS, GEMINI_FREE_KEY(), opts);
-    if (out) return out;
-    // Fall through to OpenRouter so we never go silent if quota hits.
+  if (t === 'free') {
+    // Free tier primary: Replit-managed OpenAI gpt-4o-mini (Replit pays the
+    // bill). Falls back to direct Gemini if the proxy hiccups, then to
+    // OpenRouter as a final safety net so free chat never goes silent.
+    const replit = await callReplitOpenAI(prompt, opts);
+    if (replit) return replit;
+    if (GEMINI_FREE_KEY()) {
+      const out = await callGeminiWithFallback(prompt, GEMINI_FREE_MODELS, GEMINI_FREE_KEY(), opts);
+      if (out) return out;
+    }
   }
   if (t === 'pro' && GEMINI_PRO_KEY()) {
     const out = await callGeminiWithFallback(prompt, GEMINI_PRO_MODELS, GEMINI_PRO_KEY(), opts);
@@ -799,10 +922,15 @@ async function answerForTierStream(
   onChunk: (text: string) => void,
 ): Promise<string | null> {
   const t = (tier || 'free').toLowerCase();
-  if (t === 'free' && GEMINI_FREE_KEY()) {
-    for (const m of GEMINI_FREE_MODELS) {
-      const out = await callGeminiStream(m, prompt, GEMINI_FREE_KEY(), opts, onChunk);
-      if (out) return out;
+  if (t === 'free') {
+    // Free tier primary: Replit-managed OpenAI gpt-4o-mini stream.
+    const replit = await callReplitOpenAIStream(prompt, opts, onChunk);
+    if (replit) return replit;
+    if (GEMINI_FREE_KEY()) {
+      for (const m of GEMINI_FREE_MODELS) {
+        const out = await callGeminiStream(m, prompt, GEMINI_FREE_KEY(), opts, onChunk);
+        if (out) return out;
+      }
     }
   }
   if (t === 'pro' && GEMINI_PRO_KEY()) {

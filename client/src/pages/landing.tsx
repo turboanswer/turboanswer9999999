@@ -366,7 +366,7 @@ export default function LandingPage() {
                 <span className={`text-sm ${D ? "text-gray-500" : "text-gray-400"}`}>/month</span>
               </div>
               <ul className="space-y-3 mb-7 flex-1">
-                {["Matrix AI Pro (Gemini Flash)", "Unlimited questions", "Live web search", "Verified answer badges", "AI image generation"].map((item, i) => (
+                {["Matrix AI Pro (Claude Sonnet 4.5)", "Unlimited questions", "Live web search", "Verified answer badges", "AI image generation"].map((item, i) => (
                   <li key={i} className={`flex items-center gap-2.5 text-sm ${D ? "text-gray-300" : "text-gray-600"}`}>
                     <Check size={14} className="text-purple-500 flex-shrink-0" /> {item}
                   </li>

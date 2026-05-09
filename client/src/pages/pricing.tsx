@@ -22,9 +22,9 @@ const plans: PricingPlan[] = [
     name: 'Free',
     price: '$0',
     period: 'forever',
-    description: 'Powered by Google Gemini 3.1 Flash',
+    description: 'Powered by OpenAI GPT-4o mini',
     features: [
-      '⚡ Google Gemini 3.1 Flash — sub-300ms answers',
+      '⚡ OpenAI GPT-4o mini — fast, friendly answers',
       'Voice commands',
       'Unlimited conversations',
       'Community support',

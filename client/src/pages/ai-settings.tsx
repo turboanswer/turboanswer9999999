@@ -41,7 +41,7 @@ const TABS = [
 const AI_MODELS = {
   "gemini-flash": {
     name: "TurboAnswer AI",
-    description: "Powered by Google Gemini 3.1 Flash — sub-300ms answers, lightning speed.",
+    description: "Powered by OpenAI GPT-4o mini — fast, friendly answers for everyday questions.",
     tier: "Free", icon: Zap,
     color: "from-green-500 to-emerald-600", borderColor: "border-green-500",
     badgeColor: "bg-green-500/10 text-green-400 border-green-500/20",

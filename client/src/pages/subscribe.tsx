@@ -19,7 +19,7 @@ const PLANS = [
     border: 'border-zinc-700',
     icon: <Bot className="h-5 w-5 text-zinc-400" />,
     features: [
-      '⚡ Google Gemini 3.1 Flash',
+      '⚡ OpenAI GPT-4o mini',
       'Sub-300ms answers',
       'Voice commands',
       'Unlimited conversations',
