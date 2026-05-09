@@ -144,7 +144,7 @@ export default function Home() {
             {
               icon: <MessageSquare className="w-8 h-8" />,
               title: "AI Chat",
-              desc: "Conversations powered by Matrix AI — cited, verified, and graded by confidence in real time.",
+              desc: "Free runs on Google Gemini 3.1 Flash. Pro upgrades to Claude Sonnet 4.5. Research runs Claude + GPT-4o + Gemini Pro in parallel and judges the best answer.",
               href: "/chat",
               gradient: "linear-gradient(135deg, #1a1a2e, #16213e)",
               iconBg: "rgba(59,130,246,0.12)",

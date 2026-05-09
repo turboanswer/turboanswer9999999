@@ -41,21 +41,21 @@ const TABS = [
 const AI_MODELS = {
   "gemini-flash": {
     name: "TurboAnswer AI",
-    description: "Ultra-fast responses for everyday questions. Lightning speed with great quality.",
+    description: "Powered by Google Gemini 3.1 Flash — sub-300ms answers, lightning speed.",
     tier: "Free", icon: Zap,
     color: "from-green-500 to-emerald-600", borderColor: "border-green-500",
     badgeColor: "bg-green-500/10 text-green-400 border-green-500/20",
   },
   "gemini-pro": {
     name: "TurboAnswer Pro",
-    description: "Premium quality responses with detailed, thorough answers for complex topics.",
+    description: "Powered by Anthropic Claude Sonnet 4.5 — the smartest single-shot AI on the market. Auto-fallback to Google Gemini 2.5 Pro.",
     tier: "Pro · $6.99/mo", icon: Star,
     color: "from-purple-500 to-pink-600", borderColor: "border-purple-500",
     badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   },
   "claude-research": {
     name: "Matrix AI Research",
-    description: "Our flagship reasoning engine — searches live sources, weighs evidence, and grades its own confidence on every claim.",
+    description: "Three brains in parallel: Claude Sonnet 4.5 + GPT-4o + Gemini 2.5 Pro. Judged and synthesized by Claude with live citations and confidence scores.",
     tier: "Research · $30/mo", icon: FlaskConical,
     color: "from-blue-500 to-cyan-600", borderColor: "border-blue-500",
     badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
