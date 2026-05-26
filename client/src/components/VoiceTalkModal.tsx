@@ -35,6 +35,12 @@ export function VoiceTalkModal({ conversationId, isDark, onClose }: Props) {
     try { playCtxRef.current?.close(); } catch {}
     try { streamRef.current?.getTracks().forEach((t) => t.stop()); } catch {}
     try { wsRef.current?.close(); } catch {}
+    processorRef.current = null;
+    sourceRef.current = null;
+    audioCtxRef.current = null;
+    playCtxRef.current = null;
+    streamRef.current = null;
+    wsRef.current = null;
   };
 
   useEffect(() => {
@@ -246,8 +252,11 @@ export function VoiceTalkModal({ conversationId, isDark, onClose }: Props) {
 
 function base64FromArrayBuffer(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
+  const CHUNK = 0x8000;
   let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
+  }
   return btoa(bin);
 }
 function base64ToArrayBuffer(b64: string): ArrayBuffer {

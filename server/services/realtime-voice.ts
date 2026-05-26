@@ -191,7 +191,10 @@ export function attachRealtimeWSS(httpServer: HttpServer, sessionMiddleware: any
         }
       });
 
+      let closed = false;
       const onClose = async () => {
+        if (closed) return;
+        closed = true;
         clearTimeout(capTimer);
         try { upstream.close(); } catch {}
         try { client.close(); } catch {}
