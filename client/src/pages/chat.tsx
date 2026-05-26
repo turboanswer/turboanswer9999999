@@ -4,7 +4,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic } from "lucide-react";
+import { VoiceTalkModal } from "@/components/VoiceTalkModal";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,6 +27,7 @@ export default function Chat() {
   const [messageContent, setMessageContent] = useState("");
   const [pendingImagePrompt, setPendingImagePrompt] = useState<string | null>(null);
   const [pendingPronounce, setPendingPronounce] = useState<string | null>(null);
+  const [showVoiceTalk, setShowVoiceTalk] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showImageGenerator, setShowImageGenerator] = useState(false);
@@ -1308,6 +1310,17 @@ export default function Chat() {
         </div>
       )}
 
+      {showVoiceTalk && currentConversationId && (
+        <VoiceTalkModal
+          conversationId={currentConversationId}
+          isDark={isDark}
+          onClose={() => {
+            setShowVoiceTalk(false);
+            queryClient.invalidateQueries({ queryKey: ["/api/conversations", currentConversationId, "messages"] });
+          }}
+        />
+      )}
+
       {showImageGenerator && (
         <div className={`${isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-gray-200'} border-b px-3 sm:px-6 py-3 sm:py-4 relative z-30 shrink-0`}>
           <ImageGenerator
@@ -1827,6 +1840,21 @@ export default function Chat() {
                 type="button"
               >
                 <ImageIcon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={async () => {
+                  const convId = await getOrCreateConversationId();
+                  if (convId) setShowVoiceTalk(true);
+                }}
+                disabled={sendMessageMutation.isPending}
+                className={`absolute left-[5.5rem] bottom-2.5 h-9 w-9 p-0 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 ${
+                  isDark ? 'hover:bg-purple-500/20 text-purple-300' : 'hover:bg-purple-100 text-purple-600'
+                }`}
+                title="Talk to Turbo — live voice call"
+                data-testid="button-voice-talk"
+                type="button"
+              >
+                <Mic className="h-5 w-5" />
               </button>
               <Button
                 onClick={handleSendWithPromo}

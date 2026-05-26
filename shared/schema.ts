@@ -534,6 +534,16 @@ export const deepThinkUsage = pgTable("deep_think_usage", {
 
 export type DeepThinkUsage = typeof deepThinkUsage.$inferSelect;
 
+export const voiceMinutesUsage = pgTable("voice_minutes_usage", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  date: text("date").notNull(),
+  seconds: integer("seconds").notNull().default(0),
+}, (t) => ({
+  uniqUserDate: uniqueIndex("voice_minutes_usage_user_date_unique").on(t.userId, t.date),
+}));
+export type VoiceMinutesUsage = typeof voiceMinutesUsage.$inferSelect;
+
 export const stackTraceDiagnoses = pgTable("stack_trace_diagnoses", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),

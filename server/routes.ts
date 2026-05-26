@@ -20,6 +20,8 @@ import {
   SUPPORTED_FILE_TYPES 
 } from "./services/document-analysis";
 import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
+import { getSession } from "./replit_integrations/auth";
+import { attachRealtimeWSS } from "./services/realtime-voice";
 import { registerImageRoutes } from "./replit_integrations/image";
 import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription, createCreditPackOrder, captureCreditPackOrder, CREDIT_PACKS, verifyWebhookSignature } from "./paypal";
 import { stripe, stripeEnabled, createCheckoutSession, createPortalSession, constructWebhookEvent, tierForPriceId, type Tier as StripeTier } from "./services/stripe";
@@ -7866,6 +7868,14 @@ Rules:
   });
 
   // ============ END OF ROUTES ============
+
+  // Attach realtime voice WebSocket proxy (/api/realtime).
+  // Uses the same express-session as HTTP routes so the user is auth'd.
+  try {
+    attachRealtimeWSS(httpServer, getSession());
+  } catch (e: any) {
+    console.warn("[Realtime] attach failed:", e?.message);
+  }
 
   return httpServer;
 }
