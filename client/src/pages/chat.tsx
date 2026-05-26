@@ -1310,6 +1310,20 @@ export default function Chat() {
         </div>
       )}
 
+      {/* Floating Talk-to-Turbo button — bottom-left, out of input bar */}
+      <button
+        onClick={async () => {
+          const convId = await getOrCreateConversationId();
+          if (convId) setShowVoiceTalk(true);
+        }}
+        className="fixed bottom-24 left-4 z-40 h-12 w-12 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:scale-110 transition-transform"
+        title="Talk to Turbo — live voice call"
+        data-testid="button-voice-talk"
+        type="button"
+      >
+        <Mic className="h-5 w-5" />
+      </button>
+
       {showVoiceTalk && currentConversationId && (
         <VoiceTalkModal
           conversationId={currentConversationId}
@@ -1840,21 +1854,6 @@ export default function Chat() {
                 type="button"
               >
                 <ImageIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={async () => {
-                  const convId = await getOrCreateConversationId();
-                  if (convId) setShowVoiceTalk(true);
-                }}
-                disabled={sendMessageMutation.isPending}
-                className={`absolute left-[5.5rem] bottom-2.5 h-9 w-9 p-0 rounded-full flex items-center justify-center transition-colors disabled:opacity-30 ${
-                  isDark ? 'hover:bg-purple-500/20 text-purple-300' : 'hover:bg-purple-100 text-purple-600'
-                }`}
-                title="Talk to Turbo — live voice call"
-                data-testid="button-voice-talk"
-                type="button"
-              >
-                <Mic className="h-5 w-5" />
               </button>
               <Button
                 onClick={handleSendWithPromo}
