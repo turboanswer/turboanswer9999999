@@ -1,7 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { callDirect } from './direct-router';
 import { emotionalAI } from './emotional-ai';
-
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 interface ConversationPersonality {
   style: 'friendly' | 'professional' | 'casual' | 'enthusiastic' | 'supportive';
@@ -73,23 +71,21 @@ export class ConversationalAI {
     const contextHistory = this.buildConversationContext(conversationHistory, userProfile);
 
     try {
-      const model = ai.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        systemInstruction: conversationalPrompt,
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1000,
-        }
-      });
-
       const contextString = [
         ...contextHistory.slice(-2),
         `User message: "${userMessage}"`,
         `Keep response under 50 words and conversational`
       ].join("\n\n");
 
-      const response = await model.generateContent(contextString);
-      const aiResponse = response.response.text() || this.getFallbackResponse(userProfile, emotionalContext);
+      const text = await callDirect(
+        'azure/gpt-4o-mini',
+        [
+          { role: 'system', content: conversationalPrompt },
+          { role: 'user', content: contextString },
+        ],
+        { maxTokens: 400, temperature: 0.3, timeoutMs: 15000 }
+      );
+      const aiResponse = text || this.getFallbackResponse(userProfile, emotionalContext);
       
       // Update conversation history
       userProfile.conversationHistory.push({

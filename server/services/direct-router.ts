@@ -9,7 +9,7 @@
 // Function signatures intentionally mirror the old callOR / callORStream so
 // callers stay unchanged.
 
-export type Message = { role: 'system' | 'user' | 'assistant'; content: string };
+export type Message = { role: 'system' | 'user' | 'assistant'; content: any };
 
 export type CallOpts = {
   maxTokens?: number;
@@ -18,9 +18,32 @@ export type CallOpts = {
   timeoutMs?: number;
 };
 
-type Resolved = { provider: 'anthropic' | 'openai' | 'google' | 'groq'; modelName: string };
+type Resolved = { provider: 'anthropic' | 'openai' | 'google' | 'groq' | 'azure'; modelName: string };
+
+// Azure OpenAI defaults. Deployment names default to the model name; override via env if you named your Azure deployments differently.
+const AZURE_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-10-21';
+function azureDeployment(modelName: string): string {
+  const lower = modelName.toLowerCase();
+  if (lower.includes('mini')) return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O_MINI || 'gpt-4o-mini';
+  if (lower.includes('turbo')) return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4_TURBO || 'gpt-4-turbo';
+  return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O || 'gpt-4o';
+}
+function azureUrl(deployment: string, path: 'chat/completions'): string {
+  const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+  // Newer Azure AI Foundry endpoints (services.ai.azure.com) use the v1 path
+  // with model in the body. Older Azure OpenAI endpoints (openai.azure.com)
+  // use deployment-in-URL with api-version. We detect which to use by host.
+  if (ep.includes('services.ai.azure.com')) {
+    return `${ep}/openai/v1/${path}`;
+  }
+  return `${ep}/openai/deployments/${encodeURIComponent(deployment)}/${path}?api-version=${AZURE_API_VERSION}`;
+}
+function isAzureFoundry(): boolean {
+  return (process.env.AZURE_OPENAI_ENDPOINT || '').includes('services.ai.azure.com');
+}
 
 function resolveModel(orId: string): Resolved | null {
+  if (orId.startsWith('azure/')) return { provider: 'azure', modelName: orId.slice(6) };
   if (orId.startsWith('anthropic/')) {
     const lower = orId.toLowerCase();
     const name =
@@ -41,6 +64,25 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
+    if (r.provider === 'azure') {
+      const key = process.env.AZURE_OPENAI_API_KEY;
+      const ep = process.env.AZURE_OPENAI_ENDPOINT;
+      if (!key || !ep) { console.warn('[Router/Azure] missing AZURE_OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT'); return null; }
+      const deployment = azureDeployment(r.modelName);
+      const body: any = { messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3 };
+      if (isAzureFoundry()) body.model = deployment;
+      if (opts.jsonMode) body.response_format = { type: 'json_object' };
+      const res = await fetch(azureUrl(deployment, 'chat/completions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': key },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      if (!res.ok) { const txt = await res.text().catch(() => ''); console.warn(`[Router/Azure] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`); return null; }
+      const data: any = await res.json();
+      return data.choices?.[0]?.message?.content || null;
+    }
     if (r.provider === 'anthropic') {
       const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
@@ -105,6 +147,43 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
   try {
+    if (r.provider === 'azure') {
+      const key = process.env.AZURE_OPENAI_API_KEY;
+      const ep = process.env.AZURE_OPENAI_ENDPOINT;
+      if (!key || !ep) return null;
+      const deployment = azureDeployment(r.modelName);
+      const body: any = { messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, stream: true };
+      if (isAzureFoundry()) body.model = deployment;
+      const res = await fetch(azureUrl(deployment, 'chat/completions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': key },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      if (!res.ok || !res.body) { clearTimeout(t); return null; }
+      const reader = (res.body as any).getReader();
+      const dec = new TextDecoder();
+      let buf = '', acc = '', done = false;
+      while (!done) {
+        const { done: rd, value } = await reader.read();
+        if (rd) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) !== -1) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith('data:')) continue;
+          const data = line.slice(5).trim(); if (!data) continue;
+          if (data === '[DONE]') { done = true; break; }
+          try {
+            const p = JSON.parse(data);
+            const delta = p?.choices?.[0]?.delta?.content;
+            if (delta) { acc += delta; onChunk(delta); }
+          } catch {}
+        }
+      }
+      clearTimeout(t);
+      return acc || null;
+    }
     if (r.provider === 'anthropic') {
       const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';

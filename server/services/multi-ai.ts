@@ -117,20 +117,20 @@ If this is about a person's status (alive/dead), explicitly state their current 
 
 export const AI_MODELS: Record<string, Record<string, any>> = {
   pro: {
-    "gemini-pro": {
+    "gpt-4o": {
       name: "TurboAnswer Pro",
-      provider: "anthropic",
-      description: "Powered by Claude Sonnet 4.5 — the smartest single-shot AI for deep reasoning, coding, and writing",
-      maxTokens: 8000,
+      provider: "azure",
+      description: "Powered by Azure OpenAI GPT-4o — top-tier reasoning, coding, and writing in one fast shot",
+      maxTokens: 4096,
       temperature: 0.3,
     },
   },
   research: {
-    "claude-research": {
+    "matrix-research": {
       name: "Matrix AI Research",
       provider: "multi-agent",
-      description: "Matrix AI Research engine — searches live sources, weighs evidence, and grades its own confidence on every claim",
-      maxTokens: 16000,
+      description: "Matrix AI Research — 3 Azure OpenAI experts (GPT-4o, GPT-4 Turbo, GPT-4o mini) analyze in parallel, then synthesize a verified answer",
+      maxTokens: 4096,
       temperature: 0.1,
     },
   },
@@ -138,17 +138,17 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
     "enterprise-research": {
       name: "Matrix AI Research (Enterprise)",
       provider: "multi-agent",
-      description: "Matrix AI Research for entire teams — enterprise-grade reasoning with cited, verified answers",
-      maxTokens: 16000,
+      description: "Matrix AI Research for entire teams — enterprise-grade Azure-powered reasoning with cited, verified answers",
+      maxTokens: 4096,
       temperature: 0.1,
     },
   },
   free: {
-    "gemini-flash": {
+    "gpt-4o-mini": {
       name: "TurboAnswer AI",
-      provider: "google",
-      description: "Fast AI model for everyday questions",
-      maxTokens: 4000,
+      provider: "azure",
+      description: "Powered by Azure OpenAI GPT-4o mini — fast, smart answers for everyday questions",
+      maxTokens: 2048,
       temperature: 0.4,
     },
   },
@@ -298,9 +298,61 @@ Formatting rules — follow STRICTLY:
     ? `${systemPrompt}\n\nRecent conversation:\n${recentHistory}\n\nUser's new question about the attached image: ${userText}`
     : `${systemPrompt}\n\nUser: ${userText}`;
 
-  // Direct OpenAI vision fallback (replaces OpenRouter). GPT-4o has best-in-class
-  // vision; gpt-4o-mini is the cheap fallback. Gemini vision is the primary path
-  // above this block — this only fires if Gemini is down or unavailable.
+  // Primary: Azure OpenAI GPT-4o vision.
+  const azureKey = process.env.AZURE_OPENAI_API_KEY;
+  const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
+  if (azureKey && azureEndpoint) {
+    const ep = azureEndpoint.replace(/\/+$/, '');
+    const apiVer = process.env.AZURE_OPENAI_API_VERSION || '2024-10-21';
+    const isFoundry = ep.includes('services.ai.azure.com');
+    const azureVisionDeployments = [
+      process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O || 'gpt-4o',
+      process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O_MINI || 'gpt-4o-mini',
+    ];
+    for (const deployment of azureVisionDeployments) {
+      try {
+        const visionUrl = isFoundry
+          ? `${ep}/openai/v1/chat/completions`
+          : `${ep}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${apiVer}`;
+        const visionBody: any = {
+          max_tokens: 1500,
+          temperature: 0.6,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: [
+              { type: 'text', text: userText },
+              { type: 'image_url', image_url: { url: imageDataUrl } },
+            ]},
+          ],
+        };
+        if (isFoundry) visionBody.model = deployment;
+        const res = await fetch(visionUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'api-key': azureKey },
+          body: JSON.stringify(visionBody),
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          console.error(`[Vision] Azure ${deployment} error ${res.status}: ${errText.slice(0, 300)}`);
+          if (res.status === 401 || res.status === 403) break;
+          continue;
+        }
+        const data = await res.json();
+        const text = data?.choices?.[0]?.message?.content;
+        if (text) {
+          const finalText = typeof text === 'string' ? text : (Array.isArray(text) ? text.map((c: any) => c.text || '').join('') : String(text));
+          if (finalText.trim()) {
+            console.log(`[Vision] ✓ Azure ${deployment} succeeded`);
+            return finalText;
+          }
+        }
+      } catch (err: any) {
+        console.error(`[Vision] Azure ${deployment} threw:`, err?.message || err);
+      }
+    }
+  }
+
+  // Fallback: direct OpenAI vision (if OPENAI_API_KEY is still set).
   const openaiVisionKey = process.env.OPENAI_API_KEY;
   if (openaiVisionKey) {
     const openaiVisionModels = ['gpt-4o', 'gpt-4o-mini'];
@@ -571,56 +623,71 @@ export async function generateAIResponse(
 - Lead with the answer in the first 1-2 sentences. Add detail only if it genuinely helps. No filler, no "Great question!", no recap of what the user asked.
 - If you need to emphasize a word, just say it plainly. Do not wrap it in symbols.`;
 
-    if (selectedModel === 'claude-research' || selectedModel === 'enterprise-research') {
+    // Lazy import — keeps Azure router available without circular deps.
+    const { callDirect } = await import('./direct-router.js');
+
+    if (selectedModel === 'claude-research' || selectedModel === 'enterprise-research' || selectedModel === 'matrix-research') {
       const useDeepThink = deepThink || selectedModel === 'enterprise-research';
       const fullQuestion = additionalContext ? `${enhancedMessage}\n\n${additionalContext}` : enhancedMessage;
       if (useDeepThink) {
-        console.log(`[AI] ${selectedModel} → Deep Think ON → 10-Agent Multi-Agent System (direct providers)`);
+        console.log(`[AI] ${selectedModel} → Deep Think ON → 3-Agent Azure OpenAI System`);
         const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
         return { text, usedGroundedSearch };
       }
-      if (!geminiApiKey) return "API key not configured.";
-      console.log(`[AI] ${selectedModel} → Deep Think OFF → Gemini 2.5 Pro (single-model)`);
+      console.log(`[AI] ${selectedModel} → Deep Think OFF → Azure GPT-4o (single-model)`);
       const systemPrompt = `You are Turbo Answer Research — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend who genuinely enjoys helping. When someone greets you or makes small talk, respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Give thorough, accurate answers without filler or excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
-      const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${fullQuestion}` : `${systemPrompt}\n\nUser: ${fullQuestion}`;
-      const text = await callGemini(fullPrompt, 'gemini-2.5-pro', 2000, 0.3, geminiApiKey);
-      return { text, usedGroundedSearch };
-    } else if (selectedModel === 'gemini-pro') {
-      // Pro tier: Claude Sonnet 4.5 (smartest single-shot model available) with
-      // Gemini 2.5 Pro as automatic fallback if Anthropic is rate-limited or down.
+      const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${fullQuestion}` : fullQuestion;
+      const text = await callDirect('azure/gpt-4o', [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userBlock },
+      ], { maxTokens: 2000, temperature: 0.3, timeoutMs: 45000 });
+      return { text: text || "AI is unavailable right now. Please try again in a moment.", usedGroundedSearch };
+    } else if (selectedModel === 'gemini-pro' || selectedModel === 'gpt-4o') {
+      // Pro tier: Azure OpenAI GPT-4o.
       const systemPrompt = `You are Turbo Answer Pro — a warm, friendly, and deeply knowledgeable AI assistant on the Pro plan. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Pro users expect substance — give thorough, accurate answers without filler. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
-      const fullPrompt = recentHistory ? `${systemPrompt}\n\nContext:\n${recentHistory}\n\nUser: ${enhancedMessage}` : `${systemPrompt}\n\nUser: ${enhancedMessage}`;
+      const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${enhancedMessage}` : enhancedMessage;
 
       // Adaptive throttle: greeting → tiny + warm; complex question → max
-      // tokens + low temp + step-by-step instruction. Saves tokens on small
-      // talk and unleashes the full budget on real questions.
+      // tokens + low temp + step-by-step instruction.
       const proShape = adaptiveShape(userMessage, 'pro');
-      const proPrompt = proShape.precisionPrefix
-        ? `${proShape.precisionPrefix}\n\n${fullPrompt}`
-        : fullPrompt;
+      const sysWithPrecision = proShape.precisionPrefix
+        ? `${proShape.precisionPrefix}\n\n${systemPrompt}`
+        : systemPrompt;
 
-      // Try Claude Sonnet 4.5 first
-      console.log(`[AI] Pro → Claude Sonnet 4.5 (${proShape.complexity}, ${proShape.maxTokens} tok)`);
-      const claudeText = await callClaude(proPrompt, proShape.maxTokens, proShape.temperature);
-      if (claudeText) {
-        return { text: claudeText, usedGroundedSearch };
+      console.log(`[AI] Pro → Azure GPT-4o (${proShape.complexity}, ${proShape.maxTokens} tok)`);
+      const text = await callDirect('azure/gpt-4o', [
+        { role: 'system', content: sysWithPrecision },
+        { role: 'user', content: userBlock },
+      ], { maxTokens: proShape.maxTokens, temperature: proShape.temperature, timeoutMs: 45000 });
+      if (text) return { text, usedGroundedSearch };
+
+      // Emergency fallback: Claude / Gemini if Azure is down.
+      console.log(`[AI] Pro → Azure unavailable, falling back to Claude`);
+      const claudeText = await callClaude(`${sysWithPrecision}\n\n${userBlock}`, proShape.maxTokens, proShape.temperature);
+      if (claudeText) return { text: claudeText, usedGroundedSearch };
+      if (geminiApiKey) {
+        const gem = await callGemini(`${sysWithPrecision}\n\n${userBlock}`, 'gemini-2.5-pro', proShape.maxTokens, proShape.temperature, geminiApiKey);
+        return { text: gem, usedGroundedSearch };
       }
-
-      // Fallback: Gemini 2.5 Pro
-      if (!geminiApiKey) return { text: "API key not configured.", usedGroundedSearch };
-      console.log(`[AI] Pro → Claude unavailable, falling back to Gemini 2.5 Pro`);
-      const text = await callGemini(proPrompt, 'gemini-2.5-pro', proShape.maxTokens, proShape.temperature, geminiApiKey);
-      return { text, usedGroundedSearch };
+      return { text: "AI is unavailable right now. Please try again in a moment.", usedGroundedSearch };
     } else {
-      if (!geminiApiKey) return "API key not configured.";
+      // Free tier: Azure OpenAI GPT-4o mini.
       const freeSearchContext = additionalContext || "";
       const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.\n\n${formattingRules}${languageInstruction ? '\n\n' + languageInstruction : ''}${freeSearchContext}`;
-      const fullPrompt = `${systemPrompt}\n\nUser: ${userMessage}`;
-      // Adaptive throttle for free tier too: greetings are 120 tok, complex
-      // questions get up to 1000 tok (still brief, but no longer truncated mid-thought).
       const freeShape = adaptiveShape(userMessage, 'free');
-      console.log(`[AI] Free → Gemini 3.1 Flash (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
-      return await callGeminiBasic(fullPrompt, freeShape.maxTokens, freeShape.temperature, geminiApiKey);
+      console.log(`[AI] Free → Azure GPT-4o mini (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
+      const text = await callDirect('azure/gpt-4o-mini', [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ], { maxTokens: freeShape.maxTokens, temperature: freeShape.temperature, timeoutMs: 30000 });
+      if (text) return { text, usedGroundedSearch };
+      // Emergency fallback to Gemini if Azure has issues.
+      if (geminiApiKey) {
+        console.log(`[AI] Free → Azure unavailable, falling back to Gemini`);
+        const fallback = await callGeminiBasic(`${systemPrompt}\n\nUser: ${userMessage}`, freeShape.maxTokens, freeShape.temperature, geminiApiKey);
+        return { text: fallback, usedGroundedSearch };
+      }
+      return { text: "AI is unavailable right now. Please try again in a moment.", usedGroundedSearch };
     }
 
   } catch (error: any) {
