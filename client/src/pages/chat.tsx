@@ -1066,6 +1066,19 @@ export default function Chat() {
               </button>
             )}
 
+            <button
+              onClick={async () => {
+                const convId = await getOrCreateConversationId();
+                if (convId) setShowVoiceTalk(true);
+              }}
+              className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:scale-105 transition-transform`}
+              title="Talk to Turbo — live voice call"
+              data-testid="button-voice-talk"
+              type="button"
+            >
+              <Mic className="h-4 w-4" />
+            </button>
+
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -1309,20 +1322,6 @@ export default function Chat() {
           <DocumentUpload conversationId={currentConversationId ?? undefined} onAnalysisComplete={(a) => { setDroppedDocFile(null); handleDocumentAnalysis(a); }} initialFile={droppedDocFile} />
         </div>
       )}
-
-      {/* Floating Talk-to-Turbo button — bottom-left, out of input bar */}
-      <button
-        onClick={async () => {
-          const convId = await getOrCreateConversationId();
-          if (convId) setShowVoiceTalk(true);
-        }}
-        className="fixed bottom-24 left-4 z-40 h-12 w-12 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:scale-110 transition-transform"
-        title="Talk to Turbo — live voice call"
-        data-testid="button-voice-talk"
-        type="button"
-      >
-        <Mic className="h-5 w-5" />
-      </button>
 
       {showVoiceTalk && currentConversationId && (
         <VoiceTalkModal
