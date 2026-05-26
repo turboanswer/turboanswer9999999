@@ -681,10 +681,10 @@ export async function generateAIResponse(
         const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
         return { text, usedGroundedSearch };
       }
-      console.log(`[AI] ${selectedModel} → Deep Think OFF → Claude Sonnet 4.5 (single-model)`);
+      console.log(`[AI] ${selectedModel} → Deep Think OFF → Azure GPT-5.4-pro (single-model)`);
       const systemPrompt = `You are Turbo Answer Research — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend who genuinely enjoys helping. When someone greets you or makes small talk, respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Give thorough, accurate answers without filler or excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${fullQuestion}` : fullQuestion;
-      const text = await callDirect('anthropic/claude-sonnet-4-5', [
+      const text = await callDirect('azure/gpt-5-4-pro', [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userBlock },
       ], { maxTokens: 2000, temperature: 0.3, timeoutMs: 45000 });
@@ -701,16 +701,16 @@ export async function generateAIResponse(
         ? `${proShape.precisionPrefix}\n\n${systemPrompt}`
         : systemPrompt;
 
-      console.log(`[AI] Pro → Claude Sonnet 4 (${proShape.complexity}, ${proShape.maxTokens} tok)`);
-      const text = await callDirect('anthropic/claude-sonnet-4', [
+      console.log(`[AI] Pro → Azure GPT-5.4-mini (${proShape.complexity}, ${proShape.maxTokens} tok)`);
+      const text = await callDirect('azure/gpt-5-4-mini', [
         { role: 'system', content: sysWithPrecision },
         { role: 'user', content: userBlock },
       ], { maxTokens: proShape.maxTokens, temperature: proShape.temperature, timeoutMs: 45000 });
       if (text) return { text, usedGroundedSearch };
 
-      // Emergency fallback: Sonnet 3.7 / Gemini if Sonnet 4 is down.
-      console.log(`[AI] Pro → Sonnet 4 unavailable, falling back to Sonnet 3.7`);
-      const fallbackText = await callDirect('anthropic/claude-sonnet-3-7', [
+      // Emergency fallback: nano / Gemini if mini is down.
+      console.log(`[AI] Pro → GPT-5.4-mini unavailable, falling back to nano`);
+      const fallbackText = await callDirect('azure/gpt-5-4-nano', [
         { role: 'system', content: sysWithPrecision },
         { role: 'user', content: userBlock },
       ], { maxTokens: proShape.maxTokens, temperature: proShape.temperature, timeoutMs: 45000 });
@@ -725,15 +725,15 @@ export async function generateAIResponse(
       const freeSearchContext = additionalContext || "";
       const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.\n\n${formattingRules}${languageInstruction ? '\n\n' + languageInstruction : ''}${freeSearchContext}`;
       const freeShape = adaptiveShape(userMessage, 'free');
-      console.log(`[AI] Free → Claude Sonnet 3.7 (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
-      const text = await callDirect('anthropic/claude-sonnet-3-7', [
+      console.log(`[AI] Free → Azure GPT-5.4-nano (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
+      const text = await callDirect('azure/gpt-5-4-nano', [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ], { maxTokens: freeShape.maxTokens, temperature: freeShape.temperature, timeoutMs: 30000 });
       if (text) return { text, usedGroundedSearch };
-      // Emergency fallback to Gemini if Claude has issues.
+      // Emergency fallback to Gemini if Azure has issues.
       if (geminiApiKey) {
-        console.log(`[AI] Free → Claude unavailable, falling back to Gemini`);
+        console.log(`[AI] Free → GPT-5.4-nano unavailable, falling back to Gemini`);
         const fallback = await callGeminiBasic(`${systemPrompt}\n\nUser: ${userMessage}`, freeShape.maxTokens, freeShape.temperature, geminiApiKey);
         return { text: fallback, usedGroundedSearch };
       }

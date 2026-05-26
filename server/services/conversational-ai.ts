@@ -78,7 +78,7 @@ export class ConversationalAI {
       ].join("\n\n");
 
       const text = await callDirect(
-        'anthropic/claude-sonnet-3-7',
+        'azure/gpt-5-4-nano',
         [
           { role: 'system', content: conversationalPrompt },
           { role: 'user', content: contextString },
