@@ -24,6 +24,18 @@ type Resolved = { provider: 'anthropic' | 'openai' | 'google' | 'groq' | 'azure'
 const AZURE_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-10-21';
 function azureDeployment(modelName: string): string {
   const lower = modelName.toLowerCase();
+  // GPT-5.4 family (current tier ladder). Code refers to models with dashes
+  // (gpt-5-4-nano) but Azure deployments are named with dots (gpt-5.4-nano).
+  if (lower.includes('5-4-nano') || lower.includes('5.4-nano')) {
+    return process.env.AZURE_DEPLOYMENT_GPT54_NANO || 'gpt-5.4-nano';
+  }
+  if (lower.includes('5-4-mini') || lower.includes('5.4-mini')) {
+    return process.env.AZURE_DEPLOYMENT_GPT54_MINI || 'gpt-5.4-mini';
+  }
+  if (lower.includes('5-4-pro') || lower.includes('5.4-pro')) {
+    return process.env.AZURE_DEPLOYMENT_GPT54_PRO || 'gpt-5.4-pro';
+  }
+  // Legacy GPT-4 family fallbacks.
   if (lower.includes('mini')) return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O_MINI || 'gpt-4o-mini';
   if (lower.includes('turbo')) return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4_TURBO || 'gpt-4-turbo';
   return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O || 'gpt-4o';
