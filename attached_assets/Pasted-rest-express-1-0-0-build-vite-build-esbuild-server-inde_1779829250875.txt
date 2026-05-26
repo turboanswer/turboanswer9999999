@@ -1,0 +1,79 @@
+rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+vite v5.4.21 building for production...
+transforming (1) index.htmlBrowserslist: browsers data (caniuse-lite) is 19 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ 1775 modules transformed.
+../dist/public/index.html                                                                   2.13 kB │ gzip:   1.03 kB
+../dist/public/assets/04_login-DRAIOyFQ.jpg                                                17.57 kB
+../dist/public/assets/03_trial_chat-Cqushg_D.jpg                                           37.75 kB
+../dist/public/assets/02_pricing-UTK_yvHo.jpg                                              49.05 kB
+../dist/public/assets/01_landing_hero-Bd2BVlwj.jpg                                         75.67 kB
+../dist/public/assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509-DGHA8j7B.png    571.25 kB
+../dist/public/assets/turboanswer-logo-DDoWXSgG.png                                     1,326.20 kB
+../dist/public/assets/index-BW4z4lfN.css                                                  158.93 kB │ gzip:  23.47 kB
+../dist/public/assets/index-DzNoKBXE.js                                                 1,211.06 kB │ gzip: 317.31 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.97s
+▲ [WARNING] Duplicate key "CY" in object literal [duplicate-object-key]
+
+    server/services/weather-location.ts:185:4:
+      185 │     'CY': { currency: 'EUR', languages: ['Greek', 'Turkish'] },
+          ╵     ~~~~
+
+  The original key "CY" is here:
+
+    server/services/weather-location.ts:71:4:
+      71 │     'CY': { currency: 'EUR', languages: ['Greek', 'Turkish'] },
+         ╵     ~~~~
+
+▲ [WARNING] Duplicate key "GE" in object literal [duplicate-object-key]
+
+    server/services/weather-location.ts:186:4:
+      186 │     'GE': { currency: 'GEL', languages: ['Georgian'] },
+          ╵     ~~~~
+
+  The original key "GE" is here:
+
+    server/services/weather-location.ts:154:4:
+      154 │     'GE': { currency: 'GEL', languages: ['Georgian'] },
+          ╵     ~~~~
+
+▲ [WARNING] Duplicate key "AU" in object literal [duplicate-object-key]
+
+    server/services/weather-location.ts:188:4:
+      188 │     'AU': { currency: 'AUD', languages: ['English'] },
+          ╵     ~~~~
+
+  The original key "AU" is here:
+
+    server/services/weather-location.ts:34:4:
+      34 │     'AU': { currency: 'AUD', languages: ['English'] },
+         ╵     ~~~~
+
+3 warnings
+
+  dist/index.js  775.3kb
+
+⚡ Done in 34ms
+~/workspace$ npx cap sync android
+✔ Copying web assets from public to android/app/src/main/assets/public in 9.23ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 1.03ms
+✔ copy android in 58.25ms
+✔ Updating Android plugins in 16.95ms
+✔ update android in 72.15ms
+[info] Sync finished in 0.192s
+
+Thank you for helping improve Capacitor by sharing anonymous usage data! 💖
+Information about the data we collect is available on our website: https://capacitorjs.com/docs/next/cli/telemetry
+~/workspace$ npx cap open android
+[error] Unable to launch Android Studio. Is it installed?
+        Attempted to open Android Studio at: /usr/local/android-studio/bin/studio.sh
+        You can configure this with the CAPACITOR_ANDROID_STUDIO_PATH environment variable.
+~/workspace$ 
