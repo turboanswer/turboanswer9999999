@@ -16,15 +16,22 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('../turbo-answer-upload.keystore')
-            storePassword 'TurboAnswer2026!'
-            keyAlias 'turbo-answer-upload'
-            keyPassword 'TurboAnswer2026!'
+            def ksFile = System.getenv("ANDROID_KEYSTORE_FILE") ?: "../turbo-answer-upload.keystore"
+            def ksPath = file(ksFile)
+            if (ksPath.exists()) {
+                storeFile ksPath
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: ""
+                keyAlias System.getenv("ANDROID_KEY_ALIAS") ?: "turbo-answer-upload"
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD") ?: ""
+            }
         }
     }
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            def ksFile = System.getenv("ANDROID_KEYSTORE_FILE") ?: "../turbo-answer-upload.keystore"
+            if (file(ksFile).exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             shrinkResources true
