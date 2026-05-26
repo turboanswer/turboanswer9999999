@@ -46,10 +46,16 @@ function resolveModel(orId: string): Resolved | null {
   if (orId.startsWith('azure/')) return { provider: 'azure', modelName: orId.slice(6) };
   if (orId.startsWith('anthropic/')) {
     const lower = orId.toLowerCase();
+    // Specific model IDs win first, then family tags.
     const name =
+      /\d{8}/.test(lower) ? orId.slice('anthropic/'.length) : // already a dated ID
+      lower.includes('opus-4-1') || (lower.includes('opus') && lower.includes('4.1')) ? 'claude-opus-4-1-20250805' :
+      lower.includes('opus') ? 'claude-opus-4-1-20250805' :
+      lower.includes('sonnet-4-5') || lower.includes('sonnet-4.5') ? 'claude-sonnet-4-5-20250929' :
+      lower.includes('sonnet-4') || lower.includes('sonnet4') ? 'claude-sonnet-4-20250514' :
+      lower.includes('sonnet-3-7') || lower.includes('sonnet-3.7') || lower.includes('3-7-sonnet') ? 'claude-3-7-sonnet-20250219' :
       lower.includes('haiku') ? 'claude-3-5-haiku-20241022' :
-      lower.includes('opus') ? 'claude-opus-4-20250514' :
-      'claude-sonnet-4-20250514';
+      'claude-sonnet-4-5-20250929';
     return { provider: 'anthropic', modelName: name };
   }
   if (orId.startsWith('openai/')) return { provider: 'openai', modelName: orId.slice(7) };

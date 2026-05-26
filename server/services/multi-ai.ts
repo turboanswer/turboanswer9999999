@@ -117,10 +117,10 @@ If this is about a person's status (alive/dead), explicitly state their current 
 
 export const AI_MODELS: Record<string, Record<string, any>> = {
   pro: {
-    "gpt-4o": {
+    "claude-sonnet-4": {
       name: "TurboAnswer Pro",
-      provider: "azure",
-      description: "Powered by Azure OpenAI GPT-4o — top-tier reasoning, coding, and writing in one fast shot",
+      provider: "anthropic",
+      description: "Powered by Claude Sonnet 4 — top-tier reasoning, coding, and writing in one fast shot",
       maxTokens: 4096,
       temperature: 0.3,
     },
@@ -129,7 +129,7 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
     "matrix-research": {
       name: "Matrix AI Research",
       provider: "multi-agent",
-      description: "Matrix AI Research — 3 Azure OpenAI experts (GPT-4o, GPT-4 Turbo, GPT-4o mini) analyze in parallel, then synthesize a verified answer",
+      description: "Matrix AI Research — 3 Claude experts (Sonnet 4.5, Sonnet 4, Sonnet 3.7) analyze in parallel, then Opus 4.1 synthesizes a verified answer",
       maxTokens: 4096,
       temperature: 0.1,
     },
@@ -138,16 +138,16 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
     "enterprise-research": {
       name: "Matrix AI Research (Enterprise)",
       provider: "multi-agent",
-      description: "Matrix AI Research for entire teams — enterprise-grade Azure-powered reasoning with cited, verified answers",
+      description: "Matrix AI Research for entire teams — enterprise-grade Claude-powered reasoning with cited, verified answers",
       maxTokens: 4096,
       temperature: 0.1,
     },
   },
   free: {
-    "gpt-4o-mini": {
+    "claude-sonnet-3-7": {
       name: "TurboAnswer AI",
-      provider: "azure",
-      description: "Powered by Azure OpenAI GPT-4o mini — fast, smart answers for everyday questions",
+      provider: "anthropic",
+      description: "Powered by Claude Sonnet 3.7 — fast, smart answers for everyday questions",
       maxTokens: 2048,
       temperature: 0.4,
     },
@@ -179,7 +179,7 @@ async function callClaude(prompt: string, maxTokens: number, temperature: number
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5-20250929',
         max_tokens: maxTokens,
         temperature,
         messages: [{ role: 'user', content: prompt }],
@@ -298,7 +298,54 @@ Formatting rules — follow STRICTLY:
     ? `${systemPrompt}\n\nRecent conversation:\n${recentHistory}\n\nUser's new question about the attached image: ${userText}`
     : `${systemPrompt}\n\nUser: ${userText}`;
 
-  // Primary: Azure OpenAI GPT-4o vision.
+  // Primary: Claude Sonnet 4.5 vision (matches the rest of the stack).
+  const anthropicKeyVision = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  const anthropicBaseVision = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+  if (anthropicKeyVision) {
+    const claudeVisionModels = ['claude-sonnet-4-5-20250929', 'claude-sonnet-4-20250514'];
+    for (const model of claudeVisionModels) {
+      try {
+        const dataUrl = imageDataUrl;
+        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) break;
+        const mediaType = m[1];
+        const b64 = m[2];
+        const res = await fetch(`${anthropicBaseVision}/v1/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKeyVision, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1500,
+            temperature: 0.6,
+            system: systemPrompt,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+                { type: 'text', text: userText },
+              ],
+            }],
+          }),
+        });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          console.error(`[Vision] Claude ${model} error ${res.status}: ${errText.slice(0, 200)}`);
+          if (res.status === 401 || res.status === 403) break;
+          continue;
+        }
+        const data: any = await res.json();
+        const text = data?.content?.[0]?.text;
+        if (text && String(text).trim()) {
+          console.log(`[Vision] Claude ${model} succeeded`);
+          return String(text);
+        }
+      } catch (e: any) {
+        console.error(`[Vision] Claude ${model} threw: ${e?.message || e}`);
+      }
+    }
+  }
+
+  // Secondary: Azure OpenAI GPT-4o vision (fallback if Claude vision fails).
   const azureKey = process.env.AZURE_OPENAI_API_KEY;
   const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
   if (azureKey && azureEndpoint) {
@@ -634,15 +681,15 @@ export async function generateAIResponse(
         const text = await runMultiAgentResearch(fullQuestion, languageInstruction, behaviorInstruction);
         return { text, usedGroundedSearch };
       }
-      console.log(`[AI] ${selectedModel} → Deep Think OFF → Azure GPT-4o (single-model)`);
+      console.log(`[AI] ${selectedModel} → Deep Think OFF → Claude Sonnet 4.5 (single-model)`);
       const systemPrompt = `You are Turbo Answer Research — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend who genuinely enjoys helping. When someone greets you or makes small talk, respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Give thorough, accurate answers without filler or excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${fullQuestion}` : fullQuestion;
-      const text = await callDirect('azure/gpt-4o', [
+      const text = await callDirect('anthropic/claude-sonnet-4-5', [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userBlock },
       ], { maxTokens: 2000, temperature: 0.3, timeoutMs: 45000 });
       return { text: text || "AI is unavailable right now. Please try again in a moment.", usedGroundedSearch };
-    } else if (selectedModel === 'gemini-pro' || selectedModel === 'gpt-4o') {
+    } else if (selectedModel === 'gemini-pro' || selectedModel === 'gpt-4o' || selectedModel === 'claude-sonnet-4') {
       // Pro tier: Azure OpenAI GPT-4o.
       const systemPrompt = `You are Turbo Answer Pro — a warm, friendly, and deeply knowledgeable AI assistant on the Pro plan. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Pro users expect substance — give thorough, accurate answers without filler. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${enhancedMessage}` : enhancedMessage;
@@ -654,36 +701,39 @@ export async function generateAIResponse(
         ? `${proShape.precisionPrefix}\n\n${systemPrompt}`
         : systemPrompt;
 
-      console.log(`[AI] Pro → Azure GPT-4o (${proShape.complexity}, ${proShape.maxTokens} tok)`);
-      const text = await callDirect('azure/gpt-4o', [
+      console.log(`[AI] Pro → Claude Sonnet 4 (${proShape.complexity}, ${proShape.maxTokens} tok)`);
+      const text = await callDirect('anthropic/claude-sonnet-4', [
         { role: 'system', content: sysWithPrecision },
         { role: 'user', content: userBlock },
       ], { maxTokens: proShape.maxTokens, temperature: proShape.temperature, timeoutMs: 45000 });
       if (text) return { text, usedGroundedSearch };
 
-      // Emergency fallback: Claude / Gemini if Azure is down.
-      console.log(`[AI] Pro → Azure unavailable, falling back to Claude`);
-      const claudeText = await callClaude(`${sysWithPrecision}\n\n${userBlock}`, proShape.maxTokens, proShape.temperature);
-      if (claudeText) return { text: claudeText, usedGroundedSearch };
+      // Emergency fallback: Sonnet 3.7 / Gemini if Sonnet 4 is down.
+      console.log(`[AI] Pro → Sonnet 4 unavailable, falling back to Sonnet 3.7`);
+      const fallbackText = await callDirect('anthropic/claude-sonnet-3-7', [
+        { role: 'system', content: sysWithPrecision },
+        { role: 'user', content: userBlock },
+      ], { maxTokens: proShape.maxTokens, temperature: proShape.temperature, timeoutMs: 45000 });
+      if (fallbackText) return { text: fallbackText, usedGroundedSearch };
       if (geminiApiKey) {
         const gem = await callGemini(`${sysWithPrecision}\n\n${userBlock}`, 'gemini-2.5-pro', proShape.maxTokens, proShape.temperature, geminiApiKey);
         return { text: gem, usedGroundedSearch };
       }
       return { text: "AI is unavailable right now. Please try again in a moment.", usedGroundedSearch };
     } else {
-      // Free tier: Azure OpenAI GPT-4o mini.
+      // Free tier: Claude Sonnet 3.7.
       const freeSearchContext = additionalContext || "";
       const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.\n\n${formattingRules}${languageInstruction ? '\n\n' + languageInstruction : ''}${freeSearchContext}`;
       const freeShape = adaptiveShape(userMessage, 'free');
-      console.log(`[AI] Free → Azure GPT-4o mini (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
-      const text = await callDirect('azure/gpt-4o-mini', [
+      console.log(`[AI] Free → Claude Sonnet 3.7 (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
+      const text = await callDirect('anthropic/claude-sonnet-3-7', [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ], { maxTokens: freeShape.maxTokens, temperature: freeShape.temperature, timeoutMs: 30000 });
       if (text) return { text, usedGroundedSearch };
-      // Emergency fallback to Gemini if Azure has issues.
+      // Emergency fallback to Gemini if Claude has issues.
       if (geminiApiKey) {
-        console.log(`[AI] Free → Azure unavailable, falling back to Gemini`);
+        console.log(`[AI] Free → Claude unavailable, falling back to Gemini`);
         const fallback = await callGeminiBasic(`${systemPrompt}\n\nUser: ${userMessage}`, freeShape.maxTokens, freeShape.temperature, geminiApiKey);
         return { text: fallback, usedGroundedSearch };
       }

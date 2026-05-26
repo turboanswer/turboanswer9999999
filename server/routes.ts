@@ -6733,7 +6733,7 @@ Rules:
 - Security concerns → department: "engineering", category: "security", priority: "high"
 - If unclear, use department: "general", category: "general"`;
 
-      const rawResult = await generateAIResponse(prompt, [], 'gpt-4o-mini');
+      const rawResult = await generateAIResponse(prompt, [], 'claude-sonnet-3-7');
       const result = typeof rawResult === 'object' ? rawResult.text : rawResult;
       const cleaned = result.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleaned);
