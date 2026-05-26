@@ -41,6 +41,37 @@ function azureUrl(deployment: string, path: 'chat/completions'): string {
 function isAzureFoundry(): boolean {
   return (process.env.AZURE_OPENAI_ENDPOINT || '').includes('services.ai.azure.com');
 }
+// When set, Claude calls are billed to Azure (routed through Foundry MaaS)
+// instead of api.anthropic.com.
+function useAzureForAnthropic(): boolean {
+  return process.env.AZURE_HOSTED_ANTHROPIC === '1' || process.env.AZURE_HOSTED_ANTHROPIC === 'true';
+}
+// Map a dated Claude model ID back to its Azure deployment name.
+// Override per-model with AZURE_DEPLOYMENT_CLAUDE_* env vars if your
+// deployment names differ.
+function claudeAzureDeployment(modelName: string): string {
+  const m = modelName.toLowerCase();
+  if (m.includes('opus-4-1') || m.includes('opus')) {
+    return process.env.AZURE_DEPLOYMENT_CLAUDE_OPUS_4_1 || 'claude-opus-4-1';
+  }
+  if (m.includes('sonnet-4-5')) {
+    return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_4_5 || 'claude-sonnet-4-5';
+  }
+  if (m.includes('sonnet-4')) {
+    return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_4 || 'claude-sonnet-4';
+  }
+  if (m.includes('3-7-sonnet') || m.includes('sonnet-3-7')) {
+    return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_3_7 || 'claude-sonnet-3-7';
+  }
+  return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_4_5 || 'claude-sonnet-4-5';
+}
+// Azure Foundry MaaS endpoint for non-OpenAI models (Anthropic, Mistral, etc.)
+function azureModelsUrl(): string {
+  const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+  const apiVer = process.env.AZURE_MAAS_API_VERSION || '2024-05-01-preview';
+  // Foundry hosts: use /models/ path. Legacy hosts don't support MaaS.
+  return `${ep}/models/chat/completions?api-version=${apiVer}`;
+}
 
 function resolveModel(orId: string): Resolved | null {
   if (orId.startsWith('azure/')) return { provider: 'azure', modelName: orId.slice(6) };
@@ -90,6 +121,28 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
       return data.choices?.[0]?.message?.content || null;
     }
     if (r.provider === 'anthropic') {
+      // Path 1: Azure-hosted Claude (billed to Azure via Foundry MaaS).
+      if (useAzureForAnthropic()) {
+        const key = process.env.AZURE_OPENAI_API_KEY;
+        const ep = process.env.AZURE_OPENAI_ENDPOINT;
+        if (key && ep) {
+          const deployment = claudeAzureDeployment(r.modelName);
+          const body: any = { model: deployment, messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3 };
+          if (opts.jsonMode) body.response_format = { type: 'json_object' };
+          const res = await fetch(azureModelsUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'api-key': key, 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify(body),
+            signal: ctrl.signal,
+          });
+          clearTimeout(t);
+          if (res.ok) { const data: any = await res.json(); return data.choices?.[0]?.message?.content || null; }
+          const txt = await res.text().catch(() => '');
+          console.warn(`[Router/Azure-Claude] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`);
+          // Fall through to direct Anthropic if Azure deployment fails.
+        }
+      }
+      // Path 2: Direct Anthropic API (billed to Anthropic).
       const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
       if (!key) return null;
@@ -191,6 +244,45 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
       return acc || null;
     }
     if (r.provider === 'anthropic') {
+      // Azure-hosted Claude streaming: use OpenAI-compatible SSE format.
+      if (useAzureForAnthropic()) {
+        const akey = process.env.AZURE_OPENAI_API_KEY;
+        const aep = process.env.AZURE_OPENAI_ENDPOINT;
+        if (akey && aep) {
+          const deployment = claudeAzureDeployment(r.modelName);
+          const res = await fetch(azureModelsUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'api-key': akey, 'Authorization': `Bearer ${akey}` },
+            body: JSON.stringify({ model: deployment, messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, stream: true }),
+            signal: ctrl.signal,
+          });
+          if (res.ok && res.body) {
+            const reader = (res.body as any).getReader();
+            const dec = new TextDecoder();
+            let buf = '', acc = '', done = false;
+            while (!done) {
+              const { done: rd, value } = await reader.read();
+              if (rd) break;
+              buf += dec.decode(value, { stream: true });
+              let i;
+              while ((i = buf.indexOf('\n')) !== -1) {
+                const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+                if (!line.startsWith('data:')) continue;
+                const data = line.slice(5).trim(); if (!data) continue;
+                if (data === '[DONE]') { done = true; break; }
+                try {
+                  const p = JSON.parse(data);
+                  const delta = p?.choices?.[0]?.delta?.content;
+                  if (delta) { acc += delta; onChunk(delta); }
+                } catch {}
+              }
+            }
+            clearTimeout(t);
+            return acc || null;
+          }
+          // Fall through to direct Anthropic on Azure failure.
+        }
+      }
       const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
       if (!key) return null;
