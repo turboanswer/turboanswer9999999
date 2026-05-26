@@ -12,7 +12,7 @@ const AGENT_PERSPECTIVES = [
     id: 'strategist',
     name: 'Business Strategist',
     prompt: 'You are a business strategist. Analyze this from a business perspective — focus on ROI, market positioning, competitive advantage, cost-benefit analysis, and business impact. Think like a CEO.',
-    model: 'azure/gpt-5-5',
+    model: 'azure/gpt-5-4-mini',
     modelLabel: 'Matrix Strategist',
   },
   {

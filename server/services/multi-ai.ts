@@ -701,15 +701,15 @@ export async function generateAIResponse(
         ? `${proShape.precisionPrefix}\n\n${systemPrompt}`
         : systemPrompt;
 
-      console.log(`[AI] Pro → Azure GPT-5.5 (${proShape.complexity}, ${proShape.maxTokens} tok)`);
-      const text = await callDirect('azure/gpt-5-5', [
+      console.log(`[AI] Pro → Azure GPT-5.4-mini (${proShape.complexity}, ${proShape.maxTokens} tok)`);
+      const text = await callDirect('azure/gpt-5-4-mini', [
         { role: 'system', content: sysWithPrecision },
         { role: 'user', content: userBlock },
       ], { maxTokens: proShape.maxTokens, temperature: proShape.temperature, timeoutMs: 45000 });
       if (text) return { text, usedGroundedSearch };
 
-      // Emergency fallback: nano / Gemini if gpt-5.5 is down.
-      console.log(`[AI] Pro → GPT-5.5 unavailable, falling back to nano`);
+      // Emergency fallback: nano / Gemini if mini is down.
+      console.log(`[AI] Pro → GPT-5.4-mini unavailable, falling back to nano`);
       const fallbackText = await callDirect('azure/gpt-5-4-nano', [
         { role: 'system', content: sysWithPrecision },
         { role: 'user', content: userBlock },
