@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { openai } from "./client";
+import { azureGenerateImage, azureSpeak } from "../../services/azure-media";
 
 async function generateWithPollinations(prompt: string, width: number, height: number, seed: number): Promise<string | null> {
   try {
@@ -37,19 +38,34 @@ export function registerImageRoutes(app: Express): void {
       const { width, height } = parseSize(size);
       const startTime = Date.now();
 
-      // Primary: Pollinations.ai (free, no key, Flux model)
-      const baseSeed = Math.floor(Math.random() * 1_000_000);
-      const pollResults = await Promise.all(
-        Array.from({ length: imageCount }, (_, i) =>
-          generateWithPollinations(prompt, width, height, baseSeed + i)
-        )
+      // Primary: Azure Foundry gpt-image-2 (Azure-billed).
+      const azureSize = (size === "1024x1536" || size === "1536x1024") ? size : "1024x1024";
+      let images: { b64_json: string; url: string }[] = [];
+      const azureResults = await Promise.all(
+        Array.from({ length: imageCount }, () => azureGenerateImage(prompt, azureSize as any))
       );
-
-      let images = pollResults
+      images = azureResults
         .filter((r): r is string => r !== null)
-        .map(b64 => ({ b64_json: b64.replace(/^data:image\/[^;]+;base64,/, ""), url: b64 }));
+        .map((dataUrl) => ({
+          b64_json: dataUrl.replace(/^data:image\/[^;]+;base64,/, ""),
+          url: dataUrl,
+        }));
 
-      // Fallback: OpenAI gpt-image-1 (only if Pollinations entirely failed and OpenAI has credits)
+      // Fallback: Pollinations.ai (free, no key) if Azure failed.
+      if (images.length === 0) {
+        console.log("[Image] Azure gpt-image-2 unavailable, falling back to Pollinations");
+        const baseSeed = Math.floor(Math.random() * 1_000_000);
+        const pollResults = await Promise.all(
+          Array.from({ length: imageCount }, (_, i) =>
+            generateWithPollinations(prompt, width, height, baseSeed + i)
+          )
+        );
+        images = pollResults
+          .filter((r): r is string => r !== null)
+          .map(b64 => ({ b64_json: b64.replace(/^data:image\/[^;]+;base64,/, ""), url: b64 }));
+      }
+
+      // Last-resort fallback: OpenAI gpt-image-1 (direct, billed to OpenAI key)
       if (images.length === 0) {
         console.log("[Image] Pollinations failed, falling back to OpenAI");
         try {
@@ -90,6 +106,23 @@ export function registerImageRoutes(app: Express): void {
     } catch (error: any) {
       console.error("Error generating image:", error);
       res.status(500).json({ error: error?.message || "Failed to generate image" });
+    }
+  });
+
+  // Text-to-speech via Azure gpt-audio (used for pronunciation + speech mode).
+  app.post("/api/tts", async (req: Request, res: Response) => {
+    try {
+      const { text, voice = "nova" } = req.body || {};
+      if (!text || typeof text !== "string") {
+        return res.status(400).json({ error: "text is required" });
+      }
+      const trimmed = text.slice(0, 4000);
+      const dataUrl = await azureSpeak(trimmed, voice);
+      if (!dataUrl) return res.status(503).json({ error: "TTS unavailable" });
+      res.json({ audioDataUrl: dataUrl });
+    } catch (err: any) {
+      console.error("TTS error:", err);
+      res.status(500).json({ error: err?.message || "TTS failed" });
     }
   });
 }

@@ -1244,6 +1244,35 @@ function downloadAAB(){
     }
   });
 
+  // Append a single message (user OR assistant) without invoking the AI.
+  // Used by client-side magic-word flows (image generation, pronunciation TTS)
+  // so the chat history persists the user prompt + the media result, without
+  // triggering another LLM call on top.
+  app.post("/api/conversations/:id/append", isAuthenticated, async (req: any, res) => {
+    try {
+      const conversationId = parseInt(req.params.id);
+      const { content, role } = req.body || {};
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ message: "content required" });
+      }
+      if (role !== "user" && role !== "assistant") {
+        return res.status(400).json({ message: "role must be user or assistant" });
+      }
+      const userId = req.user?.claims?.sub;
+      if (userId) {
+        const convo = await storage.getConversation(conversationId).catch(() => null);
+        if (convo && convo.userId && convo.userId !== userId) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+      }
+      const msg = await storage.createMessage({ conversationId, content: content.slice(0, 200000), role });
+      res.json({ message: msg });
+    } catch (err: any) {
+      console.error("append message error:", err);
+      res.status(500).json({ message: err?.message || "Failed to append message" });
+    }
+  });
+
   app.post("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
     try {
       const conversationId = parseInt(req.params.id);

@@ -24,6 +24,8 @@ export default function Chat() {
   const [, setLocation] = useLocation();
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [messageContent, setMessageContent] = useState("");
+  const [pendingImagePrompt, setPendingImagePrompt] = useState<string | null>(null);
+  const [pendingPronounce, setPendingPronounce] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showImageGenerator, setShowImageGenerator] = useState(false);
@@ -681,13 +683,14 @@ export default function Chat() {
   const renderMessageContent = (content: string, role: string) => {
     // Only clean assistant output — user messages are shown verbatim.
     const cleaned = role === 'assistant' ? cleanMarkdown(content) : content;
-    const imageRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)/g;
-    const parts: Array<{ type: 'text' | 'image'; value: string; alt?: string }> = [];
+    const mediaRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)|\[AUDIO:(data:audio\/[^\]]+)\]/g;
+    const parts: Array<{ type: 'text' | 'image' | 'audio'; value: string; alt?: string }> = [];
     let lastIndex = 0;
     let match;
-    while ((match = imageRegex.exec(cleaned)) !== null) {
+    while ((match = mediaRegex.exec(cleaned)) !== null) {
       if (match.index > lastIndex) parts.push({ type: 'text', value: cleaned.slice(lastIndex, match.index) });
-      parts.push({ type: 'image', value: match[2], alt: match[1] });
+      if (match[2]) parts.push({ type: 'image', value: match[2], alt: match[1] });
+      else if (match[3]) parts.push({ type: 'audio', value: match[3] });
       lastIndex = match.index + match[0].length;
     }
     if (lastIndex < cleaned.length) parts.push({ type: 'text', value: cleaned.slice(lastIndex) });
@@ -728,6 +731,13 @@ export default function Chat() {
                 <div className={`flex gap-2 p-2 ${isDark ? 'bg-zinc-900/50' : 'bg-gray-100'}`}>
                   <a href={part.value} download={`turbo-image-${Date.now()}.png`} className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1">Download</a>
                 </div>
+              </div>
+            );
+          }
+          if (part.type === 'audio') {
+            return (
+              <div key={i} className={`rounded-lg p-3 border ${isDark ? 'border-zinc-600 bg-zinc-900/50' : 'border-gray-300 bg-gray-50'}`}>
+                <audio controls autoPlay src={part.value} className="w-full max-w-md" />
               </div>
             );
           }
@@ -786,14 +796,102 @@ export default function Chat() {
     setLastPromoDismissedAt(Date.now());
   };
 
+  // Magic-word intent detection: image creation + pronunciation.
+  // Returns the extracted subject/word, or null if no match.
+  const detectImageIntent = (text: string): string | null => {
+    const t = text.trim();
+    // "create/generate/draw/make/paint an image/picture/photo/art/drawing of X"
+    let m = t.match(/^(?:please\s+)?(?:can\s+you\s+)?(?:create|generate|draw|make|paint|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|photograph|art(?:work)?|drawing|illustration|render)\s+of\s+(.+)$/i);
+    if (m && m[1]) return m[1].trim().replace(/[.!?]+$/, '');
+    // "draw X" / "paint X"
+    m = t.match(/^(?:draw|paint|sketch)\s+(.+)$/i);
+    if (m && m[1] && m[1].trim().length > 2) return m[1].trim().replace(/[.!?]+$/, '');
+    // slash command
+    m = t.match(/^\/(?:image|img|draw)\s+(.+)$/i);
+    if (m && m[1]) return m[1].trim();
+    return null;
+  };
+  const detectPronounceIntent = (text: string): string | null => {
+    const t = text.trim();
+    let m = t.match(/^(?:how\s+do\s+(?:you|i|we)\s+(?:pronounce|say)|how\s+is\s+(?:it|this)\s+pronounced|pronounce|say)\s+["']?(.+?)["']?\s*\??$/i);
+    if (m && m[1] && m[1].trim().length > 0) return m[1].trim();
+    return null;
+  };
+
+  const runImageMagic = async (prompt: string, originalUserText: string, convId: number) => {
+    setPendingImagePrompt(prompt);
+    setMessageContent("");
+    try {
+      await fetch(`/api/conversations/${convId}/append`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ role: "user", content: originalUserText }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+      const r = await fetch("/api/generate-image", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ prompt, count: 1, size: "1024x1024" }),
+      });
+      const data = await r.json();
+      const dataUrl = data?.images?.[0]?.url || (data?.images?.[0]?.b64_json ? `data:image/png;base64,${data.images[0].b64_json}` : null);
+      if (!dataUrl) throw new Error(data?.error || "Image generation failed");
+      const aiContent = `Here's your image of ${prompt}:\n\n![${prompt}](${dataUrl})`;
+      await fetch(`/api/conversations/${convId}/append`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ role: "assistant", content: aiContent }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+    } catch (err: any) {
+      toast({ title: "Image generation failed", description: err?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setPendingImagePrompt(null);
+    }
+  };
+
+  const runPronounceMagic = async (word: string, originalUserText: string, convId: number) => {
+    setPendingPronounce(word);
+    setMessageContent("");
+    try {
+      await fetch(`/api/conversations/${convId}/append`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ role: "user", content: originalUserText }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+      const r = await fetch("/api/tts", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ text: word, voice: "nova" }),
+      });
+      const data = await r.json();
+      const audioUrl = data?.audioDataUrl;
+      if (!audioUrl) throw new Error(data?.error || "TTS failed");
+      const aiContent = `Here's how to pronounce "${word}":\n\n[AUDIO:${audioUrl}]`;
+      await fetch(`/api/conversations/${convId}/append`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ role: "assistant", content: aiContent }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+    } catch (err: any) {
+      toast({ title: "Pronunciation failed", description: err?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setPendingPronounce(null);
+    }
+  };
+
   const handleSendWithPromo = async () => {
     if ((!messageContent.trim() && !attachedImage) || sendMessageMutation.isPending) return;
     const convId = await getOrCreateConversationId();
     if (!convId) return;
+    const raw = messageContent.trim();
+    // Magic-word intents take precedence over normal AI routing.
+    if (!attachedImage) {
+      const imgPrompt = detectImageIntent(raw);
+      if (imgPrompt) { runImageMagic(imgPrompt, raw, convId); return; }
+      const pronWord = detectPronounceIntent(raw);
+      if (pronWord) { runPronounceMagic(pronWord, raw, convId); return; }
+    }
     setIsTyping(true);
     const imgToSend = attachedImage;
     setAttachedImage(null);
-    sendMessageMutation.mutate({ content: messageContent.trim() || (imgToSend ? "What's in this image?" : ""), convId, imageDataUrl: imgToSend });
+    sendMessageMutation.mutate({ content: raw || (imgToSend ? "What's in this image?" : ""), convId, imageDataUrl: imgToSend });
   };
 
   const getQuestionForResponse = (messageIndex: number): string => {
@@ -1583,6 +1681,29 @@ export default function Chat() {
               </div>
             </div>
           )}
+          {(pendingImagePrompt || pendingPronounce) && (
+            <div className="flex items-end gap-2 sm:gap-3 mb-4 sm:mb-5">
+              <div className="relative flex-shrink-0">
+                <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
+              </div>
+              <div className={`px-4 py-4 rounded-2xl rounded-bl-md relative overflow-hidden ${isDark ? 'bg-zinc-800/80 border border-zinc-700/50' : 'bg-white border border-gray-200 shadow-sm'}`} style={{ minWidth: pendingImagePrompt ? 320 : 220 }}>
+                <style>{`
+                  @keyframes img-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+                `}</style>
+                {pendingImagePrompt && (
+                  <div className="w-72 h-72 sm:w-80 sm:h-80 rounded-lg mb-3" style={{ background: isDark ? 'linear-gradient(110deg, #27272a 8%, #3f3f46 18%, #27272a 33%)' : 'linear-gradient(110deg, #f3f4f6 8%, #e5e7eb 18%, #f3f4f6 33%)', backgroundSize: '200% 100%', animation: 'img-shimmer 1.5s linear infinite' }} />
+                )}
+                <div className="flex items-center gap-2">
+                  <Loader2 className={`w-4 h-4 animate-spin ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
+                  <span className={`text-sm font-medium`} style={{ background: 'linear-gradient(90deg, #818cf8, #c084fc, #f0abfc, #c084fc, #818cf8)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'turbo-gradient-text 2s linear infinite' }}>
+                    {pendingImagePrompt ? `Creating image of ${pendingImagePrompt}...` : `Generating pronunciation for "${pendingPronounce}"...`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {isTyping && (reasoningStages.length === 0 || !(isResearchOrAbove && reasoningMode === 'deep')) && (
             <div className="flex items-end gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="relative flex-shrink-0">
