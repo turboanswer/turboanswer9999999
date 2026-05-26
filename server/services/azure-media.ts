@@ -16,7 +16,7 @@ function isFoundry(ep: string): boolean {
 const IMAGE_DEPLOYMENT =
   process.env.AZURE_DEPLOYMENT_IMAGE || "gpt-image-2";
 const TTS_DEPLOYMENT =
-  process.env.AZURE_DEPLOYMENT_TTS || "gpt-audio-1-5";
+  process.env.AZURE_DEPLOYMENT_TTS || "gpt-audio-2";
 
 /**
  * Generate an image via Azure Foundry's gpt-image-2 deployment.
