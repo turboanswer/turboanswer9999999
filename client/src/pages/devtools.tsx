@@ -3,18 +3,20 @@ import { Link } from "wouter";
 import yaml from "js-yaml";
 import { useAuth } from "@/hooks/use-auth";
 
-const NEON = "#00ff9c";
-const NEON_DIM = "#00b572";
-const PINK = "#ff2bd6";
-const BG = "#05070a";
-const PANEL = "#0a0f14";
-const PANEL_HI = "#0f1620";
-const BORDER = "#11331f";
-const MUTED = "#6b7a85";
-const WARN = "#ffb020";
-const RED = "#ff3b6b";
+const NEON = "#0078d4";
+const NEON_DIM = "#106ebe";
+const PINK = "#5c2d91";
+const BG = "#faf9f8";
+const PANEL = "#ffffff";
+const PANEL_HI = "#f3f2f1";
+const BORDER = "#e1dfdd";
+const MUTED = "#605e5c";
+const WARN = "#ca5010";
+const RED = "#a4262c";
 
 const MONO = `"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace`;
+const CODE_BG = "#f8f8f8";
+const CODE_FG = "#24292f";
 
 type ToolId =
   | "jwt" | "base64" | "json-yaml" | "hash" | "uuid" | "timestamp"
@@ -213,9 +215,9 @@ function TA({ value, onChange, placeholder, rows = 8, mono = true, readOnly = fa
     <textarea value={value} onChange={e => onChange?.(e.target.value)} placeholder={placeholder} rows={rows} readOnly={readOnly} spellCheck={false}
       className="w-full px-3 py-2 text-sm resize-y outline-none"
       style={{
-        background: "#000a05", border: `1px solid ${BORDER}`, color: NEON,
+        background: CODE_BG, border: `1px solid ${BORDER}`, color: CODE_FG,
         fontFamily: mono ? MONO : undefined, borderRadius: 2,
-        caretColor: NEON, boxShadow: `inset 0 0 12px ${NEON}11`,
+        caretColor: NEON,
       }}
     />
   );
@@ -226,7 +228,7 @@ function In({ value, onChange, placeholder, type = "text" }: any) {
     <input value={value} onChange={e => onChange?.(e.target.value)} placeholder={placeholder} type={type} spellCheck={false}
       className="w-full px-3 py-2 text-sm outline-none"
       style={{
-        background: "#000a05", border: `1px solid ${BORDER}`, color: NEON,
+        background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON,
         fontFamily: MONO, borderRadius: 2,
         caretColor: NEON,
       }}
@@ -269,15 +271,15 @@ function JwtTool({ toast }: { toast: (s: string) => void }) {
           <div className="space-y-3 text-xs" style={{ fontFamily: MONO }}>
             <div>
               <div className="mb-1" style={{ color: PINK }}>HEADER</div>
-              <pre style={{ color: NEON, background: "#000a05", padding: 8, border: `1px solid ${BORDER}`, whiteSpace: "pre-wrap" }}>{JSON.stringify(decoded.header, null, 2)}</pre>
+              <pre style={{ color: NEON, background: CODE_BG, padding: 8, border: `1px solid ${BORDER}`, whiteSpace: "pre-wrap" }}>{JSON.stringify(decoded.header, null, 2)}</pre>
             </div>
             <div>
               <div className="mb-1" style={{ color: PINK }}>PAYLOAD</div>
-              <pre style={{ color: NEON, background: "#000a05", padding: 8, border: `1px solid ${BORDER}`, whiteSpace: "pre-wrap" }}>{JSON.stringify(decoded.payload, null, 2)}</pre>
+              <pre style={{ color: NEON, background: CODE_BG, padding: 8, border: `1px solid ${BORDER}`, whiteSpace: "pre-wrap" }}>{JSON.stringify(decoded.payload, null, 2)}</pre>
             </div>
             <div>
               <div className="mb-1" style={{ color: PINK }}>SIGNATURE</div>
-              <pre style={{ color: NEON_DIM, background: "#000a05", padding: 8, border: `1px solid ${BORDER}`, wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{decoded.signature}</pre>
+              <pre style={{ color: NEON_DIM, background: CODE_BG, padding: 8, border: `1px solid ${BORDER}`, wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{decoded.signature}</pre>
             </div>
             {decoded.expiresIn !== null && (
               <div style={{ color: decoded.expired ? RED : NEON, padding: 8, border: `1px solid ${decoded.expired ? RED : NEON}`, background: decoded.expired ? `${RED}11` : `${NEON}11` }}>
@@ -555,7 +557,7 @@ function RegexTool({ toast }: { toast: (s: string) => void }) {
               {highlighted.split("\u0001").map((chunk, i) => {
                 if (i === 0) return <span key={i}>{chunk}</span>;
                 const [hit, rest] = chunk.split("\u0002");
-                return <span key={i}><span style={{ background: `${NEON}33`, color: NEON, padding: "0 2px", boxShadow: `0 0 6px ${NEON}66` }}>{hit}</span>{rest}</span>;
+                return <span key={i}><span style={{ background: `${NEON}22`, color: NEON, padding: "0 2px" }}>{hit}</span>{rest}</span>;
               })}
             </div>
             <div className="space-y-1 text-xs" style={{ fontFamily: MONO }}>
@@ -602,7 +604,7 @@ function HttpTool({ toast }: { toast: (s: string) => void }) {
       <div className="flex gap-2 items-center">
         <div style={{ width: 110 }}>
           <select value={method} onChange={e => setMethod(e.target.value)} className="w-full px-2 py-2 text-xs outline-none"
-            style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, borderRadius: 2 }}>
+            style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, borderRadius: 2 }}>
             {["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"].map(m => <option key={m}>{m}</option>)}
           </select>
         </div>
@@ -627,11 +629,11 @@ function HttpTool({ toast }: { toast: (s: string) => void }) {
               </div>
               <div>
                 <Label>HEADERS</Label>
-                <pre className="text-[11px] p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{JSON.stringify(resp.headers, null, 2)}</pre>
+                <pre className="text-[11px] p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{JSON.stringify(resp.headers, null, 2)}</pre>
               </div>
               <div>
                 <Label>BODY</Label>
-                <pre className="text-[11px] p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto" }}>{resp.body}</pre>
+                <pre className="text-[11px] p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto" }}>{resp.body}</pre>
               </div>
             </div>
           )}
@@ -1214,7 +1216,7 @@ function AadTokenTool({ toast }: { toast: (s: string) => void }) {
             </div>
           </Pane>
           <Pane title="HEADER" actions={<Btn onClick={() => copy(JSON.stringify(decoded.header, null, 2), toast)}>COPY</Btn>}>
-            <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{JSON.stringify(decoded.header, null, 2)}</pre>
+            <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{JSON.stringify(decoded.header, null, 2)}</pre>
           </Pane>
         </>
       )}
@@ -1428,14 +1430,14 @@ function AzSasTool({ toast }: { toast: (s: string) => void }) {
         <>
           <Pane title="SAS PARAMETERS">
             <div className="grid grid-cols-2 gap-3 text-xs" style={{ fontFamily: MONO }}>
-              <label style={{ color: NEON_DIM }}>account.name<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={account} onChange={e => setAccount(e.target.value)} /></label>
-              <label style={{ color: NEON_DIM }}>account.key (base64)<input type="password" className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={key} onChange={e => setKey(e.target.value)} placeholder="abc...==" /></label>
-              <label style={{ color: NEON_DIM }}>container<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={container} onChange={e => setContainer(e.target.value)} /></label>
-              <label style={{ color: NEON_DIM }}>blob<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={blob} onChange={e => setBlob(e.target.value)} /></label>
-              <label style={{ color: NEON_DIM }}>permissions [racwdl]<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={perms} onChange={e => setPerms(e.target.value)} /></label>
-              <label style={{ color: NEON_DIM }}>expiry (hours)<input type="number" className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={expiryHours} onChange={e => setExpiryHours(Number(e.target.value) || 1)} /></label>
+              <label style={{ color: NEON_DIM }}>account.name<input className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={account} onChange={e => setAccount(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>account.key (base64)<input type="password" className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={key} onChange={e => setKey(e.target.value)} placeholder="abc...==" /></label>
+              <label style={{ color: NEON_DIM }}>container<input className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={container} onChange={e => setContainer(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>blob<input className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={blob} onChange={e => setBlob(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>permissions [racwdl]<input className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={perms} onChange={e => setPerms(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>expiry (hours)<input type="number" className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={expiryHours} onChange={e => setExpiryHours(Number(e.target.value) || 1)} /></label>
               <label style={{ color: NEON_DIM }}>protocol
-                <select className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={protocol} onChange={e => setProtocol(e.target.value as any)}>
+                <select className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={protocol} onChange={e => setProtocol(e.target.value as any)}>
                   <option value="https">https</option>
                   <option value="https,http">https,http</option>
                 </select>
@@ -1447,10 +1449,10 @@ function AzSasTool({ toast }: { toast: (s: string) => void }) {
           {result && (
             <>
               <Pane title="SIGNED URL" actions={<Btn onClick={() => copy(result.url, toast)}>COPY</Btn>}>
-                <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{result.url}</pre>
+                <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{result.url}</pre>
               </Pane>
               <Pane title="STRING-TO-SIGN (debug)">
-                <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{result.sts.replace(/\n/g, "\\n\n")}</pre>
+                <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{result.sts.replace(/\n/g, "\\n\n")}</pre>
               </Pane>
             </>
           )}
@@ -1559,7 +1561,7 @@ function IacTransmuteTool({ toast }: { toast: (s: string) => void }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1">
         <Pane title={dir === "a2b" ? "ARM (JSON) INPUT" : "BICEP INPUT"}><TA value={src} onChange={setSrc} rows={22} /></Pane>
         <Pane title={dir === "a2b" ? "BICEP OUTPUT" : "ARM (JSON) OUTPUT"} actions={out && <Btn onClick={() => copy(out, toast)}>COPY</Btn>}>
-          {err ? <div className="text-xs" style={{ color: RED, fontFamily: MONO }}>⨯ {err}</div> : <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{out}</pre>}
+          {err ? <div className="text-xs" style={{ color: RED, fontFamily: MONO }}>⨯ {err}</div> : <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{out}</pre>}
         </Pane>
       </div>
     </div>
@@ -1647,14 +1649,14 @@ function CliSynthTool({ toast }: { toast: (s: string) => void }) {
             {recipe.flags.map(f => (
               <label key={f.name} style={{ color: NEON_DIM }}>
                 --{f.name}{f.required && <span style={{ color: PINK }}> *</span>}
-                <input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }}
+                <input className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }}
                   value={values[f.name] ?? ""} onChange={e => setValues(v => ({ ...v, [f.name]: e.target.value }))} placeholder={f.placeholder} />
               </label>
             ))}
           </div>
         </Pane>
         <Pane title="SYNTHESIZED COMMAND" actions={<Btn onClick={() => copy(cmd, toast)}>COPY</Btn>}>
-          <pre className="text-xs p-3" style={{ background: "#000a05", border: `1px solid ${NEON}55`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{cmd}</pre>
+          <pre className="text-xs p-3" style={{ background: CODE_BG, border: `1px solid ${NEON}55`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{cmd}</pre>
         </Pane>
       </div>
     </div>
@@ -1684,27 +1686,27 @@ function IrmSpTool({ toast }: { toast: (s: string) => void }) {
     <div className="space-y-3 h-full flex flex-col">
       <Pane title="PRINCIPAL PARAMETERS">
         <div className="grid grid-cols-2 gap-3 text-xs" style={{ fontFamily: MONO }}>
-          <label style={{ color: NEON_DIM }}>display name<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={name} onChange={e => setName(e.target.value)} /></label>
+          <label style={{ color: NEON_DIM }}>display name<input className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={name} onChange={e => setName(e.target.value)} /></label>
           <label style={{ color: NEON_DIM }}>RBAC role
-            <select className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={role} onChange={e => setRole(e.target.value)}>
+            <select className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={role} onChange={e => setRole(e.target.value)}>
               {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </label>
-          <label className="col-span-2" style={{ color: NEON_DIM }}>scope<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={scope} onChange={e => setScope(e.target.value)} /></label>
-          <label style={{ color: NEON_DIM }}>credential lifetime (years)<input type="number" className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={years} onChange={e => setYears(Number(e.target.value) || 1)} /></label>
+          <label className="col-span-2" style={{ color: NEON_DIM }}>scope<input className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={scope} onChange={e => setScope(e.target.value)} /></label>
+          <label style={{ color: NEON_DIM }}>credential lifetime (years)<input type="number" className="w-full mt-1 px-2 py-1.5" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={years} onChange={e => setYears(Number(e.target.value) || 1)} /></label>
         </div>
       </Pane>
       <Pane title="◆ CLIENT SECRET (least secure — rotate frequently)" actions={<Btn onClick={() => copy(cmds.secret, toast)}>COPY</Btn>}>
-        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.secret}</pre>
+        <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.secret}</pre>
       </Pane>
       <Pane title="◆ CLIENT CERTIFICATE (preferred for non-human workloads)" actions={<Btn onClick={() => copy(cmds.cert, toast)}>COPY</Btn>}>
-        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.cert}</pre>
+        <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.cert}</pre>
       </Pane>
       <Pane title="◆ FEDERATED CREDENTIAL (GitHub/GitLab OIDC — no secrets)" actions={<Btn onClick={() => copy(cmds.federated, toast)}>COPY</Btn>}>
-        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.federated}</pre>
+        <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.federated}</pre>
       </Pane>
       <Pane title="◆ MANAGED IDENTITY (Azure-native workloads — zero credentials)" actions={<Btn onClick={() => copy(cmds.mi, toast)}>COPY</Btn>}>
-        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.mi}</pre>
+        <pre className="text-xs p-2" style={{ background: CODE_BG, border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.mi}</pre>
       </Pane>
     </div>
   );
@@ -1744,7 +1746,7 @@ function AiTool({ kind, placeholder, label, sample, toast }: { kind: string; pla
           {loading && !out ? (
             <div className="text-xs" style={{ color: NEON_DIM, fontFamily: MONO }}>[ analyzing input... awaiting model response ]</div>
           ) : (
-            <pre className="text-xs p-3" style={{ background: "#000a05", border: `1px solid ${NEON}33`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{out}</pre>
+            <pre className="text-xs p-3" style={{ background: CODE_BG, border: `1px solid ${NEON}33`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{out}</pre>
           )}
         </Pane>
       )}
@@ -1754,29 +1756,15 @@ function AiTool({ kind, placeholder, label, sample, toast }: { kind: string; pla
 
 // ───────────── Matrix background ─────────────
 function MatrixBg() {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current; if (!c) return;
-    const ctx = c.getContext("2d")!;
-    let w = c.width = window.innerWidth, h = c.height = window.innerHeight;
-    const fs = 14, cols = Math.floor(w/fs); const drops = Array(cols).fill(1);
-    const chars = "01アイウエオカキクケコサシスセソタチツテトナニヌネノ";
-    const draw = () => {
-      ctx.fillStyle = "rgba(5,7,10,0.08)"; ctx.fillRect(0,0,w,h);
-      ctx.fillStyle = `${NEON}55`; ctx.font = `${fs}px ${MONO}`;
-      for (let i = 0; i < drops.length; i++) {
-        const ch = chars[Math.floor(Math.random()*chars.length)];
-        ctx.fillText(ch, i*fs, drops[i]*fs);
-        if (drops[i]*fs > h && Math.random() > 0.975) drops[i] = 0;
-        drops[i]++;
-      }
-    };
-    const id = setInterval(draw, 80);
-    const onResize = () => { w = c.width = window.innerWidth; h = c.height = window.innerHeight; };
-    window.addEventListener("resize", onResize);
-    return () => { clearInterval(id); window.removeEventListener("resize", onResize); };
-  }, []);
-  return <canvas ref={ref} className="fixed inset-0 pointer-events-none" style={{ opacity: 0.18, zIndex: 0 }} />;
+  // Subtle Fluent-style dot grid — quiet enterprise backdrop
+  return (
+    <div className="fixed inset-0 pointer-events-none" style={{
+      backgroundImage: `radial-gradient(circle, ${BORDER} 1px, transparent 1px)`,
+      backgroundSize: "22px 22px",
+      opacity: 0.6,
+      zIndex: 0,
+    }} />
+  );
 }
 
 // ───────────── status bar + command palette ─────────────
@@ -1807,7 +1795,7 @@ function CmdPalette({ open, onClose, onPick }: { open: boolean; onClose: () => v
   if (!open) return null;
   return (
     <div className="fixed inset-0 flex items-start justify-center pt-32" style={{ background: "rgba(0,0,0,0.7)", zIndex: 100 }} onClick={onClose}>
-      <div className="w-full max-w-xl" style={{ ...cardStyle, boxShadow: `0 0 40px ${NEON}66` }} onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-xl" style={{ ...cardStyle, boxShadow: `0 8px 24px rgba(0,0,0,0.15)` }} onClick={e => e.stopPropagation()}>
         <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="// search tools..." className="w-full px-4 py-3 outline-none text-sm"
           style={{ background: "transparent", color: NEON, fontFamily: MONO, borderBottom: `1px solid ${BORDER}` }} />
         <div className="max-h-96 overflow-auto">
@@ -1834,7 +1822,7 @@ function LockedPanel({ tool, userTier }: { tool: Tool; userTier: string }) {
     <div className="h-full flex items-center justify-center">
       <div style={{ background: PANEL, border: `1px solid ${BORDER}`, padding: 32, maxWidth: 520, borderRadius: 4, boxShadow: `0 0 32px ${PINK}22` }}>
         <div className="text-[10px] uppercase tracking-[0.32em] mb-3" style={{ color: PINK }}>// ACCESS.DENIED · 0x{required === "research" ? "R7" : "P3"}</div>
-        <div className="text-3xl font-black mb-2" style={{ color: NEON, textShadow: `0 0 12px ${NEON}88` }}>{tool.label}</div>
+        <div className="text-3xl font-semibold mb-2" style={{ color: NEON }}>{tool.label}</div>
         <div className="text-xs mb-5" style={{ color: MUTED }}>// {tool.desc}</div>
         <div className="text-sm mb-2" style={{ color: NEON_DIM }}>
           This module is gated to <span style={{ color: PINK, fontWeight: 700 }}>{reqLabel}</span> tier and above.
@@ -1844,7 +1832,7 @@ function LockedPanel({ tool, userTier }: { tool: Tool; userTier: string }) {
         </div>
         <div className="flex gap-3">
           <Link href="/pricing" className="px-4 py-2 text-[11px] uppercase tracking-[0.18em] font-bold"
-            style={{ fontFamily: MONO, background: NEON, color: BG, textDecoration: "none", borderRadius: 2, boxShadow: `0 0 16px ${NEON}` }}>
+            style={{ fontFamily: MONO, background: NEON, color: "#ffffff", textDecoration: "none", borderRadius: 2, boxShadow: `0 1px 2px rgba(0,0,0,0.1)` }}>
             ▶ UPGRADE.exec
           </Link>
           <Link href="/subscribe" className="px-4 py-2 text-[11px] uppercase tracking-[0.18em]"
@@ -1891,16 +1879,20 @@ export default function DevTools() {
 
       {/* TOP BAR */}
       <div className="relative z-10 flex items-center justify-between px-4 py-2.5"
-        style={{ background: PANEL, borderBottom: `1px solid ${BORDER}` }}>
+        style={{ background: PANEL, borderBottom: `1px solid ${BORDER}`, boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
         <div className="flex items-center gap-4">
-          <Link href="/" className="text-sm font-bold cursor-pointer" style={{ color: NEON, textShadow: `0 0 8px ${NEON}` }}>◤ TURBO</Link>
-          <span style={{ color: MUTED }} className="text-[10px] uppercase tracking-[0.28em]">// DEVOPS_TOOLKIT v2.4.0</span>
-          <span style={{ color: PINK }} className="text-[10px] uppercase tracking-[0.28em]">[matrix.engineer]</span>
+          <Link href="/" className="text-sm font-semibold cursor-pointer" style={{ color: NEON }}>
+            <span style={{ display: "inline-block", width: 10, height: 10, background: NEON, marginRight: 8, verticalAlign: "middle" }} />
+            Turbo Cloud Toolkit
+          </Link>
+          <span style={{ color: MUTED }} className="text-[11px] tracking-wide">Azure Engineer Workbench · v2.4.0</span>
+          <span style={{ color: MUTED, border: `1px solid ${BORDER}`, padding: "1px 6px", borderRadius: 2 }}
+            className="text-[10px] uppercase tracking-[0.18em]">build a7f3c1</span>
         </div>
         <div className="flex items-center gap-3">
-          <Btn onClick={() => setPaletteOpen(true)}>⌘K SEARCH</Btn>
+          <Btn onClick={() => setPaletteOpen(true)}>⌘K Search</Btn>
           <Link href="/chat" className="px-3 py-1.5 text-[11px] uppercase tracking-[0.18em]"
-            style={{ fontFamily: MONO, border: `1px solid ${BORDER}`, color: NEON_DIM, textDecoration: "none", borderRadius: 2 }}>↩ CHAT</Link>
+            style={{ border: `1px solid ${BORDER}`, color: NEON_DIM, textDecoration: "none", borderRadius: 2, background: PANEL }}>↩ Chat</Link>
         </div>
       </div>
 
@@ -1949,7 +1941,7 @@ export default function DevTools() {
         {/* MAIN */}
         <main className="flex-1 p-4" style={{ background: BG, minWidth: 0 }}>
           <div className="mb-3 flex items-baseline gap-3">
-            <h1 className="text-2xl font-black" style={{ color: NEON, textShadow: `0 0 12px ${NEON}88` }}>{activeTool.label}</h1>
+            <h1 className="text-2xl font-semibold" style={{ color: NEON }}>{activeTool.label}</h1>
             <span style={{ color: MUTED }} className="text-xs">// {activeTool.desc}</span>
           </div>
           <div style={{ height: "calc(100vh - 200px)" }}>
