@@ -37,6 +37,7 @@ import BetaFeedback from "@/pages/beta-feedback";
 import Workgroups from "@/pages/workgroups";
 import CollabRooms from "@/pages/collab-rooms";
 import StackTraceSurgeon from "@/pages/stack-trace-surgeon";
+import DevTools from "@/pages/devtools";
 
 import NotificationPopup from "@/components/NotificationPopup";
 import AutoTranslate from "@/components/AutoTranslate";
@@ -79,6 +80,7 @@ function AuthenticatedRouter() {
       <Route path="/workgroups" component={Workgroups} />
       <Route path="/collab" component={CollabRooms} />
       <Route path="/stack-trace-surgeon" component={StackTraceSurgeon} />
+      <Route path="/devtools" component={DevTools} />
 
       <Route path="/beta" component={BetaApply} />
       <Route path="/beta-feedback" component={BetaFeedback} />
@@ -118,6 +120,7 @@ function UnauthenticatedRouter() {
       <Route path="/crisis-info" component={CrisisInfo} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/image-studio" component={ImageStudio} />
+      <Route path="/devtools" component={DevTools} />
       <Route path="/workgroups">{() => {
         const inviteParam = new URLSearchParams(window.location.search).get('invite');
         if (inviteParam) {
