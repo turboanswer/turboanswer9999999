@@ -5,24 +5,30 @@ const config: CapacitorConfig = {
   appName: 'Turbo Answer',
   webDir: 'dist/public',
   server: {
+    url: 'https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net',
     androidScheme: 'https',
     iosScheme: 'https',
-    cleartext: true,
+    cleartext: false,
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 2800,
       launchAutoHide: true,
-      backgroundColor: "#000000",
+      launchFadeOutDuration: 600,
+      backgroundColor: "#0a0a1a",
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",
-      showSpinner: false,
+      showSpinner: true,
+      androidSpinnerStyle: "large",
+      spinnerColor: "#00d4ff",
       splashFullScreen: true,
-      splashImmersive: true
+      splashImmersive: true,
+      useDialog: false
     },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#000000'
+      backgroundColor: '#0a0a1a',
+      overlaysWebView: false
     }
   }
 };

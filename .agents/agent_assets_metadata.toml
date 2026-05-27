@@ -36,6 +36,12 @@ uri = "file://artifacts/mockup-sandbox/public/images/steel-texture.png"
 type = "image"
 title = "machined metal steel texture macro"
 
+[[generated]]
+id = "DwBwwBvikka-lZ-pKQGW0"
+uri = "file://attached_assets/generated_images/turbo_splash.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "xQO9WI8CP45Xz4LOhZIMh"
 uri = "file://turboanswer.tar.gz"
@@ -203,3 +209,15 @@ id = "XuYcr4PIvS_sVTXW6ICjF"
 uri = "file://exports/press/HN_LAUNCH_KIT.md"
 type = "text"
 title = "TurboAnswer — Hacker News Launch Kit"
+
+[[outputs]]
+id = "N9spGnC8aNy3Tw5tvY4Jc"
+uri = "file://attached_assets/turboanswer-android-keystore.tar.gz"
+type = "unspecified"
+title = "Keystore + Base64 (download, extract, BACK UP)"
+
+[[outputs]]
+id = "3giJoqxOSgh_mHefFnUHf"
+uri = "file://attached_assets/generated_images/turbo_splash.png"
+type = "image"
+title = "New TurboAnswer splash screen preview"

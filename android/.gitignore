@@ -6,6 +6,10 @@
 *.ap_
 *.aab
 
+# Release keystore — NEVER commit. Base64 it and put in GitHub Secret ANDROID_KEYSTORE_BASE64.
+*.keystore
+*.jks
+
 # Files for the ART/Dalvik VM
 *.dex
 
