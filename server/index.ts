@@ -67,6 +67,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// CORS for native Capacitor app (Android https://localhost, iOS capacitor://localhost)
+const NATIVE_ORIGINS = new Set([
+  'https://localhost',
+  'capacitor://localhost',
+  'http://localhost',
+  'ionic://localhost',
+]);
+app.use((req, res, next) => {
+  const origin = req.headers.origin as string | undefined;
+  if (origin && NATIVE_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-csrf-token, Authorization, x-requested-with');
+    res.setHeader('Access-Control-Expose-Headers', 'x-csrf-token');
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Max-Age', '86400');
+      return res.status(204).end();
+    }
+  }
+  next();
+});
+
 app.use((_req, res, next) => {
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -188,10 +212,11 @@ applyIntrusionMiddleware(app);
 
 const CSRF_COOKIE = '_csrf_token';
 const CSRF_HEADER = 'x-csrf-token';
+const isProd = process.env.NODE_ENV === 'production' || !!process.env.REPL_SLUG;
 const csrfCookieOptions = {
   httpOnly: false,
-  secure: process.env.NODE_ENV === 'production' || !!process.env.REPL_SLUG,
-  sameSite: 'strict' as const,
+  secure: isProd,
+  sameSite: isProd ? ('none' as const) : ('lax' as const),
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/',
 };

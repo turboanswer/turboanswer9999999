@@ -186,7 +186,7 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: process.env.REPL_SLUG ? true : process.env.NODE_ENV === "production",
-      sameSite: "lax" as const,
+      sameSite: (process.env.REPL_SLUG || process.env.NODE_ENV === "production") ? ("none" as const) : ("lax" as const),
       maxAge: sessionTtl,
     },
   });
