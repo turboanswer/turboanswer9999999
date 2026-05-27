@@ -52,52 +52,18 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Decode signing keystore from secret
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/turbo-answer-upload.keystore
-          echo "ANDROID_KEYSTORE_FILE=$GITHUB_WORKSPACE/android/turbo-answer-upload.keystore" >> $GITHUB_ENV
-
-      - name: Build signed release APK
+      - name: Build debug APK (auto-signed, installable on any phone)
         working-directory: android
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-
-      - name: Build signed release AAB (for Play Store)
-        working-directory: android
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease --no-daemon --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Rename artifacts with commit SHA
         run: |
           mkdir -p dist-mobile
           SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          APK_SIGNED=android/app/build/outputs/apk/release/app-release.apk
-          APK_UNSIGNED=android/app/build/outputs/apk/release/app-release-unsigned.apk
-          AAB_SIGNED=android/app/build/outputs/bundle/release/app-release.aab
-          AAB_UNSIGNED=android/app/build/outputs/bundle/release/app-release-unsigned.aab
-          echo "--- Listing release outputs ---"
-          ls -la android/app/build/outputs/apk/release/ || true
-          ls -la android/app/build/outputs/bundle/release/ || true
-          if [ -f "$APK_SIGNED" ]; then
-            cp "$APK_SIGNED" "dist-mobile/turbo-answer-${SHA}.apk"
-          elif [ -f "$APK_UNSIGNED" ]; then
-            echo "⚠️ No signing keystore — producing UNSIGNED debug-installable APK"
-            cp "$APK_UNSIGNED" "dist-mobile/turbo-answer-${SHA}-unsigned.apk"
-          else
-            echo "❌ No APK output found"; exit 1
-          fi
-          if [ -f "$AAB_SIGNED" ]; then
-            cp "$AAB_SIGNED" "dist-mobile/turbo-answer-${SHA}.aab"
-          elif [ -f "$AAB_UNSIGNED" ]; then
-            cp "$AAB_UNSIGNED" "dist-mobile/turbo-answer-${SHA}-unsigned.aab"
-          fi
+          echo "--- Listing debug outputs ---"
+          ls -la android/app/build/outputs/apk/debug/ || true
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             "dist-mobile/turbo-answer-${SHA}.apk"
           ls -la dist-mobile/
 
       - name: Upload APK + AAB as workflow artifact
