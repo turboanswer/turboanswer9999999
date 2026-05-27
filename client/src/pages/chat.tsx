@@ -1076,21 +1076,27 @@ export default function Chat() {
               <Mic className="h-4 w-4" />
             </button>
 
-            <button
-              onClick={() => {
-                if (isPaidPro) {
-                  setShowLiveVision(true);
-                } else {
-                  setShowProPopup(true);
-                }
-              }}
-              className={`h-8 w-8 flex items-center justify-center rounded-full ${isPaidPro ? 'bg-gradient-to-br from-cyan-500 to-blue-500' : 'bg-gradient-to-br from-gray-500 to-gray-600'} text-white hover:scale-105 transition-transform`}
-              title={isPaidPro ? 'Live Vision — AI watches through your camera' : 'Live Vision (Pro / Research)'}
-              data-testid="button-live-vision"
-              type="button"
-            >
-              <Eye className="h-4 w-4" />
-            </button>
+            {(() => {
+              const liveVisionUnlocked = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise';
+              return (
+                <button
+                  onClick={() => {
+                    if (liveVisionUnlocked) {
+                      setShowLiveVision(true);
+                    } else {
+                      setShowProPopup(true);
+                    }
+                  }}
+                  className={`h-8 w-8 flex items-center justify-center rounded-full ${liveVisionUnlocked ? 'bg-gradient-to-br from-cyan-500 to-blue-500' : 'bg-gray-600/60 hover:bg-gray-600'} text-white hover:scale-105 transition-transform relative`}
+                  title={liveVisionUnlocked ? 'Live Vision — AI watches through your camera' : 'Live Vision — upgrade to Pro or Research'}
+                  data-testid="button-live-vision"
+                  type="button"
+                >
+                  <Eye className="h-4 w-4" />
+                  {!liveVisionUnlocked && <span className="absolute -top-0.5 -right-0.5 text-[8px] bg-yellow-500 text-black rounded-full px-1 leading-none py-0.5 font-bold">PRO</span>}
+                </button>
+              );
+            })()}
 
             <button
               onClick={() => setShowCodeAnalyzer(true)}
