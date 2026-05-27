@@ -1,21 +1,16 @@
 // ── PROFANITY ────────────────────────────────────────────────────────────────
+// Casual cussing is intentionally allowed — banning words like "fuck" / "shit"
+// made the chat feel preachy and corporate. Real safety (violence, threats,
+// slurs aimed at real people) is still caught by THREAT_PATTERNS below.
+//
+// Only the most toxic slurs are kept here, because letting those through would
+// expose other users + violate Azure content policy if they appear in prompts.
 const PROFANITY_LIST = [
-  "fuck", "shit", "ass", "bitch", "bastard", "damn", "dick", "cock",
-  "pussy", "cunt", "whore", "slut", "fag", "faggot", "nigger", "nigga",
-  "retard", "retarded", "motherfucker", "asshole", "bullshit", "piss",
-  "wtf", "stfu", "gtfo", "lmfao", "dumbass", "dipshit", "shithead",
-  "jackass", "wanker", "twat", "prick", "screw you", "f u", "fuk",
-  "fuq", "fck", "sht", "btch", "b1tch", "f*ck", "sh*t", "a$$",
-  "d1ck", "c0ck", "p*ssy", "cnt", "h0e", "hoe",
+  "nigger", "nigga", "faggot", "fag", "retard", "retarded",
 ];
 
 const INAPPROPRIATE_PATTERNS = [
-  /\bf+[\s*._-]*u+[\s*._-]*c+[\s*._-]*k/i,
-  /\bs+[\s*._-]*h+[\s*._-]*[i1]+[\s*._-]*t/i,
-  /\bb+[\s*._-]*[i1]+[\s*._-]*t+[\s*._-]*c+[\s*._-]*h/i,
-  /\ba+[\s*._-]*s+[\s*._-]*s+[\s*._-]*h+[\s*._-]*[o0]+[\s*._-]*l+[\s*._-]*e/i,
   /\bn+[\s*._-]*[i1]+[\s*._-]*g+[\s*._-]*g/i,
-  /\bc+[\s*._-]*u+[\s*._-]*n+[\s*._-]*t/i,
   /\bf+[\s*._-]*a+[\s*._-]*g+[\s*._-]*g/i,
 ];
 
