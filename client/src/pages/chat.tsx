@@ -4,8 +4,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic, Eye } from "lucide-react";
 import { VoiceTalkModal } from "@/components/VoiceTalkModal";
+import LiveVisionModal from "@/components/LiveVisionModal";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -28,6 +29,7 @@ export default function Chat() {
   const [pendingImagePrompt, setPendingImagePrompt] = useState<string | null>(null);
   const [pendingPronounce, setPendingPronounce] = useState<string | null>(null);
   const [showVoiceTalk, setShowVoiceTalk] = useState(false);
+  const [showLiveVision, setShowLiveVision] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showImageGenerator, setShowImageGenerator] = useState(false);
@@ -1079,6 +1081,16 @@ export default function Chat() {
               <Mic className="h-4 w-4" />
             </button>
 
+            <button
+              onClick={() => setShowLiveVision(true)}
+              className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white hover:scale-105 transition-transform`}
+              title="Live Vision — AI watches through your camera"
+              data-testid="button-live-vision"
+              type="button"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -1321,6 +1333,10 @@ export default function Chat() {
           </div>
           <DocumentUpload conversationId={currentConversationId ?? undefined} onAnalysisComplete={(a) => { setDroppedDocFile(null); handleDocumentAnalysis(a); }} initialFile={droppedDocFile} />
         </div>
+      )}
+
+      {showLiveVision && (
+        <LiveVisionModal isDark={isDark} onClose={() => setShowLiveVision(false)} />
       )}
 
       {showVoiceTalk && currentConversationId && (
