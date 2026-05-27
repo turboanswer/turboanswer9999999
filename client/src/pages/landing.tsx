@@ -498,7 +498,7 @@ export default function LandingPage() {
             <h2 className="text-4xl sm:text-5xl font-black" style={{ color: "#fff", textShadow: `0 0 14px ${NEON}88` }}>
               PICK YOUR <GlitchText className="text-4xl sm:text-5xl">CLEARANCE.</GlitchText>
             </h2>
-            <p className="mt-3 text-sm" style={{ color: NEON_DIM }}>// All tiers run on Azure-hosted GPT-5.4. No throttle. No bullshit.</p>
+            <p className="mt-3 text-sm" style={{ color: NEON_DIM }}>// All tiers run on Azure-hosted GPT-5.4. No throttle. No BS.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
