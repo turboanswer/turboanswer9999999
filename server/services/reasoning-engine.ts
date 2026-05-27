@@ -810,7 +810,11 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
   // Scale timeout with budget: ~50 tok/sec floor + 10s headroom, min 25s, max 120s.
   const timeoutMs = Math.min(120_000, Math.max(25_000, shaped.maxTokens * 20 + 10_000));
   const out = await answerForTier(question, routingTier(tier, question), { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history });
-  return out || 'I could not generate an answer right now. Please try again.';
+  if (out) return out;
+  // No silent fallback — surface the failure so the route returns a real HTTP
+  // error and the UI can offer a retry instead of persisting a fake assistant
+  // message in chat history.
+  throw new Error('AI_PROVIDERS_UNAVAILABLE: All upstream AI providers failed or returned empty. Check provider keys (Replit OpenAI proxy, GEMINI_API_KEY, OPENROUTER_API_KEY).');
 }
 
 // ============= STREAMING (token-by-token) FAST PATH =============
@@ -969,7 +973,8 @@ export async function fastAnswerStream(
     { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history },
     onChunk,
   );
-  return out || 'I could not generate an answer right now. Please try again.';
+  if (out) return out;
+  throw new Error('AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.');
 }
 
 // ============= RETRIEVAL-ONLY PATH =============
@@ -1054,7 +1059,10 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
       acc = out;
       onEvent({ type: 'chunk', text: out });
     }
-    if (!acc) acc = 'I could not generate an answer right now. Please try again.';
+    if (!acc) {
+      stage('answer', 'Provider failed', 'error');
+      throw new Error('AI_PROVIDERS_UNAVAILABLE: fast-path stream returned no content.');
+    }
     stage('answer', 'Answer ready', 'done');
     // Fast path has no verification pass — emit null confidence so the UI does
     // not render a misleading "70% confidence" chip on greetings/chit-chat.
