@@ -1148,6 +1148,80 @@ function downloadAAB(){
     }
   });
 
+  // Code Surgeon — GPT-5.1 Codex Max deep code analysis (Research+ only)
+  app.post("/api/code-analyze", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed =
+        tier === 'research' ||
+        tier === 'enterprise' ||
+        isOwnerAccount(user) ||
+        (user as any)?.isEmployee === true;
+      if (!allowed) {
+        return res.status(403).json({
+          message: "Code Surgeon is a Research-tier feature. Upgrade to Research to unlock GPT-5.1 Codex Max deep code analysis.",
+          code: "RESEARCH_TIER_REQUIRED",
+        });
+      }
+
+      const { code, question, language } = req.body || {};
+      if (!code || typeof code !== 'string' || !code.trim()) {
+        return res.status(400).json({ message: "Code is required." });
+      }
+      if (code.length > 60000) {
+        return res.status(400).json({ message: "Code is too long (max 60,000 characters)." });
+      }
+      const q = (typeof question === 'string' && question.trim()) ? question.trim() : "Analyze this code deeply.";
+      const lang = (typeof language === 'string' && language.trim()) ? language.trim() : "auto-detect";
+
+      const { callDirect } = await import('./services/direct-router.js');
+
+      const system = `You are Code Surgeon — an elite code analyst powered by GPT-5.1 Codex Max. You read code line-by-line with surgical precision. You find bugs other tools miss: race conditions, off-by-ones, silent fallbacks, security holes, performance traps, leaked secrets, dead code, type lies.
+
+Formatting rules:
+- Plain text only. No **bold**, no *italics*, no # headings, no backticks for inline code.
+- Use short paragraphs separated by blank lines.
+- For lists, use "- " dash prefix.
+- For code suggestions, use simple indented blocks (4 spaces) — no triple-backtick fences.
+- Be specific: cite line numbers or exact identifiers. Never vague.
+- Lead with the most important findings first. No filler intro.`;
+
+      const userMsg = `Language: ${lang}\n\nTask: ${q}\n\nCode:\n\n${code}`;
+
+      const candidates = [
+        'openai/gpt-5.1-codex-max',
+        'openai/gpt-5.1-codex',
+        'openai/gpt-5-codex',
+        'openai/gpt-4.1',
+        'openai/gpt-4o',
+      ];
+
+      let analysis: string | null = null;
+      let modelUsed = '';
+      for (const m of candidates) {
+        analysis = await callDirect(m, [
+          { role: 'system', content: system },
+          { role: 'user', content: userMsg },
+        ], { maxTokens: 4000, temperature: 0.2, timeoutMs: 90000 });
+        if (analysis && analysis.trim()) {
+          modelUsed = m;
+          break;
+        }
+      }
+
+      if (!analysis) {
+        return res.status(502).json({ message: "Code Surgeon could not generate an analysis right now. Please retry." });
+      }
+
+      res.json({ analysis, model: modelUsed });
+    } catch (err: any) {
+      console.error('[Code Surgeon] error:', err);
+      res.status(500).json({ message: err?.message || "Code analysis failed." });
+    }
+  });
+
   // Live camera analysis endpoint
   app.post("/api/analyze-live-camera", isAuthenticated, async (req: any, res) => {
     try {

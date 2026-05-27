@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic, Eye } from "lucide-react";
 import { VoiceTalkModal } from "@/components/VoiceTalkModal";
 import LiveVisionModal from "@/components/LiveVisionModal";
+import CodeAnalyzerModal from "@/components/CodeAnalyzerModal";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -30,6 +31,7 @@ export default function Chat() {
   const [pendingPronounce, setPendingPronounce] = useState<string | null>(null);
   const [showVoiceTalk, setShowVoiceTalk] = useState(false);
   const [showLiveVision, setShowLiveVision] = useState(false);
+  const [showCodeAnalyzer, setShowCodeAnalyzer] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showImageGenerator, setShowImageGenerator] = useState(false);
@@ -1091,6 +1093,18 @@ export default function Chat() {
               <Eye className="h-4 w-4" />
             </button>
 
+            {isResearchOrAbove && (
+              <button
+                onClick={() => setShowCodeAnalyzer(true)}
+                className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white hover:scale-105 transition-transform`}
+                title="Code Surgeon — GPT-5.1 Codex Max deep code analysis (Research+)"
+                data-testid="button-code-analyzer"
+                type="button"
+              >
+                <Code2 className="h-4 w-4" />
+              </button>
+            )}
+
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -1337,6 +1351,10 @@ export default function Chat() {
 
       {showLiveVision && (
         <LiveVisionModal isDark={isDark} onClose={() => setShowLiveVision(false)} />
+      )}
+
+      {showCodeAnalyzer && (
+        <CodeAnalyzerModal isDark={isDark} onClose={() => setShowCodeAnalyzer(false)} />
       )}
 
       {showVoiceTalk && currentConversationId && (
