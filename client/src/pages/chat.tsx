@@ -594,30 +594,42 @@ export default function Chat() {
     if (last.role !== 'assistant') return;
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(last.content.replace(/[#*`_~]/g, '').slice(0, 2000));
-    utterance.rate = voiceSpeedPref === 'slow' ? 0.9 : voiceSpeedPref === 'fast' ? 1.25 : 1.05;
-    utterance.pitch = voicePitchPref === 'low' ? 0.95 : voicePitchPref === 'high' ? 1.15 : 1.0;
-    utterance.volume = 1;
+    const cleanText = last.content.replace(/[#*`_~]/g, '').slice(0, 2000);
+
+    const speakWithVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.rate = voiceSpeedPref === 'slow' ? 0.95 : voiceSpeedPref === 'fast' ? 1.2 : 1.0;
+      utterance.pitch = voicePitchPref === 'low' ? 0.95 : voicePitchPref === 'high' ? 1.1 : 1.0;
+      utterance.volume = 1;
+
+      // Pick a known-good natural voice — skip Microsoft Mark / Microsoft David (whispery defaults)
+      const banned = /mark|david|fred|albert|whisper|cellos|organ|bahh|bubbles|deranged|trinoids|zarvox|hysterical|bad news|good news|junior|kathy|princess|ralph/i;
+      const goodNames = /google.*english|aria|jenny|samantha|karen|victoria|moira|fiona|tessa|nicky|allison|ava|susan|serena|heather/i;
+
+      let chosen = voices.find(v => goodNames.test(v.name) && v.lang.startsWith('en'));
+      if (!chosen) chosen = voices.find(v => v.lang === 'en-US' && !banned.test(v.name));
+      if (!chosen) chosen = voices.find(v => v.lang.startsWith('en') && !banned.test(v.name));
+
+      if (voiceGenderPref !== 'default') {
+        const femaleNames = /female|woman|girl|zira|samantha|karen|victoria|fiona|moira|tessa|veena|nicky|kate|susan|serena|heather|eva|joanna|kendra|kimberly|salli|ivy|jacki|aria|jenny|allison|ava/i;
+        const maleNames = /male|man|james|richard|daniel|thomas|alex|guy|tom/i;
+        const match = voiceGenderPref === 'female'
+          ? voices.find(v => femaleNames.test(v.name) && !banned.test(v.name))
+          : voices.find(v => maleNames.test(v.name) && !femaleNames.test(v.name) && !banned.test(v.name));
+        if (match) chosen = match;
+      }
+      if (chosen) utterance.voice = chosen;
+      window.speechSynthesis.speak(utterance);
+    };
+
     const voices = window.speechSynthesis.getVoices();
-    const preferredNames = [
-      'Google US English',
-      'Microsoft Aria Online (Natural) - English (United States)',
-      'Microsoft Jenny Online (Natural) - English (United States)',
-      'Samantha',
-      'Karen',
-      'Victoria',
-    ];
-    let chosen = voices.find(v => preferredNames.includes(v.name));
-    if (voiceGenderPref !== 'default') {
-      const femaleNames = /female|woman|girl|zira|samantha|karen|victoria|fiona|moira|tessa|veena|nicky|kate|susan|serena|heather|eva|joanna|kendra|kimberly|salli|ivy|jacki|aria|jenny/i;
-      const maleNames = /male|man|david|mark|james|richard|daniel|fred|thomas|alex|guy/i;
-      const match = voiceGenderPref === 'female'
-        ? voices.find(v => femaleNames.test(v.name))
-        : voices.find(v => maleNames.test(v.name) && !femaleNames.test(v.name));
-      if (match) chosen = match;
+    if (voices.length === 0) {
+      // Voices not loaded yet — wait for them
+      window.speechSynthesis.onvoiceschanged = () => { speakWithVoices(); window.speechSynthesis.onvoiceschanged = null; };
+    } else {
+      speakWithVoices();
     }
-    if (chosen) utterance.voice = chosen;
-    window.speechSynthesis.speak(utterance);
   }, [messages]);
 
   useEffect(() => {
@@ -778,7 +790,9 @@ export default function Chat() {
   const { data: userWorkgroups = [] } = useQuery<any[]>({ queryKey: ['/api/workgroups'] });
   // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
   // Gate all paid UI off the live subscription data (not the stale user object).
-  const userTier = (subscriptionData?.tier || (user as any)?.tier || 'free') as string;
+  // FOUNDER TEST OVERRIDE: append ?tier=free (or ?tier=pro, etc.) to URL to preview gates
+  const _tierOverride = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tier') : null;
+  const userTier = (_tierOverride || subscriptionData?.tier || (user as any)?.tier || 'free') as string;
   const isPaidPro = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
   // LAUNCH NIGHT (HN demo): show verification badges, confidence scores,
   // and the "see reasoning" toggle to ALL tiers so HN visitors see them on

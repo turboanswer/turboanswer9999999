@@ -875,8 +875,11 @@ export default function CodeStudio() {
   }
 
   // ── Tier Gate: Research+ only ─────────────────────────────────────────────
-  const _tier = ((user as any)?.subscriptionTier || 'free').toLowerCase();
-  const _hasResearchAccess = _tier === 'research' || _tier === 'enterprise' || isOwner;
+  // FOUNDER TEST OVERRIDE: append ?tier=free to URL to preview the locked view.
+  const _tierOverride = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tier') : null;
+  const _tier = (_tierOverride || (user as any)?.subscriptionTier || 'free').toLowerCase();
+  const _bypassOwner = _tierOverride ? false : isOwner;
+  const _hasResearchAccess = _tier === 'research' || _tier === 'enterprise' || _bypassOwner;
   if (!authLoading && !_hasResearchAccess) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, padding: 24 }}>
