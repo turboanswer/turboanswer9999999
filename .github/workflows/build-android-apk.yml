@@ -52,18 +52,43 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Build debug APK (auto-signed, installable on any phone)
+      - name: Decode signing keystore from secret
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "❌ ANDROID_KEYSTORE_BASE64 secret is not set"; exit 1
+          fi
+          echo "$KS_B64" | base64 -d > android/turbo-answer-upload.keystore
+          echo "ANDROID_KEYSTORE_FILE=$GITHUB_WORKSPACE/android/turbo-answer-upload.keystore" >> $GITHUB_ENV
+
+      - name: Build signed release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Build signed release AAB (for Play Store)
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon --stacktrace
 
       - name: Rename artifacts with commit SHA
         run: |
           mkdir -p dist-mobile
           SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "--- Listing debug outputs ---"
-          ls -la android/app/build/outputs/apk/debug/ || true
-          cp android/app/build/outputs/apk/debug/app-debug.apk \
+          echo "--- Listing release outputs ---"
+          ls -la android/app/build/outputs/apk/release/ || true
+          ls -la android/app/build/outputs/bundle/release/ || true
+          cp android/app/build/outputs/apk/release/app-release.apk \
              "dist-mobile/turbo-answer-${SHA}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab \
+             "dist-mobile/turbo-answer-${SHA}.aab"
           ls -la dist-mobile/
 
       - name: Upload APK + AAB as workflow artifact
