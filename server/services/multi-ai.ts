@@ -752,7 +752,7 @@ export async function generateAIResponse(
 async function callGeminiBasic(prompt: string, maxTokens: number, temperature: number, apiKey: string): Promise<string> {
   // LOCKED per product spec: Free tier is Gemini 3.1 Flash, with Gemini 3.1 Pro
   // as an emergency fallback ONLY when Flash errors/quotas (not for normal traffic).
-  const models = ['gemini-3.1-flash', 'gemini-3.1-pro'];
+  const models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'];
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature, maxOutputTokens: maxTokens }
@@ -799,9 +799,7 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
     return "Please try again in a moment.";
   }
   const fallbacks = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash'];
-  const allModels = preferredModel === 'gemini-3.1-pro-preview'
-    ? ['gemini-3.1-pro-preview', ...fallbacks.filter(m => m !== 'gemini-3.1-pro-preview')]
-    : [preferredModel, ...fallbacks.filter(m => m !== preferredModel)];
+  const allModels = [preferredModel, ...fallbacks.filter(m => m !== preferredModel)];
 
   const requestBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
@@ -815,8 +813,7 @@ async function callGemini(prompt: string, preferredModel: string, maxTokens: num
         const controller = new AbortController();
         // Scale timeout with budget so 4000+ token Pro answers don't get cut off.
         // Floor per model for cold-start safety, then add ~20ms/token headroom.
-        const baseTimeoutMs = model === 'gemini-3.1-pro-preview' ? 30000
-          : model === 'gemini-2.5-pro' ? 25000
+        const baseTimeoutMs = model === 'gemini-2.5-pro' ? 25000
           : model === 'gemini-2.0-flash-lite' ? 5000
           : model === 'gemini-2.0-flash' ? 8000
           : 8000;

@@ -4716,7 +4716,7 @@ The Matrix AI Team`
   });
 
   // ── Deep Research (Gemini 3.1 Pro — direct synchronous call) ─────────────
-  const GEMINI_PRO_RESEARCH_MODEL = 'gemini-3.1-pro-preview';
+  const GEMINI_PRO_RESEARCH_MODEL = 'gemini-2.5-pro';
   const GEMINI_GENERATE_BASE      = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   app.post('/api/deep-research/start', isAuthenticated, async (req: any, res) => {
@@ -5243,7 +5243,7 @@ RULES:
       // Claude first (prefill technique forces correct output), then Gemini fallbacks
       const initialTimeout = 120000;
       let rawText = await callClaude(10000, initialTimeout)
-        ?? await callGemini('gemini-3.1-pro-preview', 8192, 95000)
+        ?? await callGemini('gemini-2.5-pro', 8192, 95000)
         ?? await callGemini('gemini-2.0-flash', 8192, 45000)
         ?? await callGemini('gemini-2.0-flash-lite', 4096, 30000)
         ?? '';
@@ -5923,7 +5923,7 @@ Rules:
 User: ${message}`;
 
       let reply = await callModel('gemini-2.0-flash', chatPrompt, 4096, 20000)
-        ?? await callModel('gemini-3.1-pro-preview', chatPrompt, 8192, 45000)
+        ?? await callModel('gemini-2.5-pro', chatPrompt, 8192, 45000)
         ?? await callModel('gemini-2.0-flash-lite', chatPrompt, 4096, 12000);
 
       if (!reply) {

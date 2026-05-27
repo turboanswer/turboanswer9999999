@@ -613,8 +613,8 @@ const GEMINI_PRO_KEY = () => process.env.GEMINI_PRO_API_KEY || '';
 // Free tier fallback chain: try Gemini 3.1 first (newest, fastest), then fall
 // back to the rock-solid 2.5/2.0 models. Without these fallbacks, a single
 // transient 3.1 error makes the free chat appear broken.
-const GEMINI_FREE_MODELS = ['gemini-3.1-flash', 'gemini-3.1-pro', 'gemini-2.5-flash', 'gemini-2.0-flash'];
-const GEMINI_PRO_MODELS = ['gemini-3.1-pro'];
+const GEMINI_FREE_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+const GEMINI_PRO_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash'];
 
 async function callGeminiDirect(
   model: string,
@@ -686,8 +686,8 @@ function modelsForTier(tier?: string): string[] {
   // LOCKED per product spec:
   //   Pro  → Gemini 3.1 Pro only.
   //   Free → Gemini 3.1 Flash, with Gemini 3.1 Pro as emergency fallback only.
-  if (t === 'pro') return ['google/gemini-3.1-pro'];
-  return ['google/gemini-3.1-flash', 'google/gemini-3.1-pro'];
+  if (t === 'pro') return ['google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
+  return ['google/gemini-2.0-flash-001', 'google/gemini-2.5-flash', 'google/gemini-2.5-pro'];
 }
 
 async function callORWithFallback(
