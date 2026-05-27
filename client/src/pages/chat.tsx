@@ -595,17 +595,28 @@ export default function Chat() {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(last.content.replace(/[#*`_~]/g, '').slice(0, 2000));
-    utterance.rate = voiceSpeedPref === 'slow' ? 0.75 : voiceSpeedPref === 'fast' ? 1.5 : 1;
-    utterance.pitch = voicePitchPref === 'low' ? 0.6 : voicePitchPref === 'high' ? 1.5 : 1;
+    utterance.rate = voiceSpeedPref === 'slow' ? 0.9 : voiceSpeedPref === 'fast' ? 1.25 : 1.05;
+    utterance.pitch = voicePitchPref === 'low' ? 0.95 : voicePitchPref === 'high' ? 1.15 : 1.0;
+    utterance.volume = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const preferredNames = [
+      'Google US English',
+      'Microsoft Aria Online (Natural) - English (United States)',
+      'Microsoft Jenny Online (Natural) - English (United States)',
+      'Samantha',
+      'Karen',
+      'Victoria',
+    ];
+    let chosen = voices.find(v => preferredNames.includes(v.name));
     if (voiceGenderPref !== 'default') {
-      const voices = window.speechSynthesis.getVoices();
-      const femaleNames = /female|woman|girl|zira|samantha|karen|victoria|fiona|moira|tessa|veena|nicky|kate|susan|serena|heather|eva|joanna|kendra|kimberly|salli|ivy|jacki/i;
-      const maleNames = /male|man|david|mark|james|richard|daniel|fred|thomas|alex/i;
+      const femaleNames = /female|woman|girl|zira|samantha|karen|victoria|fiona|moira|tessa|veena|nicky|kate|susan|serena|heather|eva|joanna|kendra|kimberly|salli|ivy|jacki|aria|jenny/i;
+      const maleNames = /male|man|david|mark|james|richard|daniel|fred|thomas|alex|guy/i;
       const match = voiceGenderPref === 'female'
         ? voices.find(v => femaleNames.test(v.name))
         : voices.find(v => maleNames.test(v.name) && !femaleNames.test(v.name));
-      if (match) utterance.voice = match;
+      if (match) chosen = match;
     }
+    if (chosen) utterance.voice = chosen;
     window.speechSynthesis.speak(utterance);
   }, [messages]);
 
@@ -1062,19 +1073,6 @@ export default function Chat() {
                 )}
               </button>
             )}
-
-            <button
-              onClick={async () => {
-                const convId = await getOrCreateConversationId();
-                if (convId) setShowVoiceTalk(true);
-              }}
-              className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white hover:scale-105 transition-transform`}
-              title="Talk to Turbo — live voice call"
-              data-testid="button-voice-talk"
-              type="button"
-            >
-              <Mic className="h-4 w-4" />
-            </button>
 
             {(() => {
               const liveVisionUnlocked = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise';

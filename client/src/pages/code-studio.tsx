@@ -874,6 +874,33 @@ export default function CodeStudio() {
     );
   }
 
+  // ── Tier Gate: Research+ only ─────────────────────────────────────────────
+  const _tier = ((user as any)?.subscriptionTier || 'free').toLowerCase();
+  const _hasResearchAccess = _tier === 'research' || _tier === 'enterprise' || isOwner;
+  if (!authLoading && !_hasResearchAccess) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, padding: 24 }}>
+        <div style={{ maxWidth: 480, textAlign: "center", background: C.panel, padding: 32, borderRadius: 16, border: `1px solid ${C.border}` }}>
+          <Code2 style={{ width: 56, height: 56, color: C.accent, margin: "0 auto 16px" }} />
+          <h2 style={{ color: C.text, fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Code Studio is a Research feature</h2>
+          <p style={{ color: C.muted, fontSize: 15, marginBottom: 24, lineHeight: 1.5 }}>
+            In-browser IDE with Monaco editor, Long Build Mode, multi-agent code generation, and the Secrets Manager. Available on Research and Enterprise plans.
+          </p>
+          <button
+            onClick={() => navigate("/pricing")}
+            style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", border: "none", padding: "14px 28px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 700, marginRight: 8 }}>
+            Upgrade to Research
+          </button>
+          <button
+            onClick={() => navigate("/chat")}
+            style={{ background: "transparent", color: C.text, border: `1px solid ${C.border}`, padding: "14px 28px", borderRadius: 10, cursor: "pointer", fontSize: 15, fontWeight: 600 }}>
+            Back to Chat
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!authLoading && !user?.codeStudioAddon) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, padding: 24 }}>
