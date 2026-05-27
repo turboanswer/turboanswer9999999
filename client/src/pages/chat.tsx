@@ -797,7 +797,7 @@ export default function Chat() {
   // LAUNCH NIGHT (HN demo): show verification badges, confidence scores,
   // and the "see reasoning" toggle to ALL tiers so HN visitors see them on
   // the free tier. To revert: restore the original tier check.
-  const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
+  const isResearchOrAbove = true; // LAUNCH NIGHT (HN demo): verification UI for every tier. To revert: `userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true`
   const isEnterpriseTier = userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const isFreeTier = !subscriptionData?.tier || subscriptionData?.tier === 'free';
   const isAnyPopupOpen = showProPopup || showResearchPopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;

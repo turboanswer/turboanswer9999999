@@ -1790,7 +1790,7 @@ Formatting rules:
       const senderTier = senderForVerify?.subscriptionTier || 'free';
 
       const verifyPromise = (async (): Promise<"verified" | "unverified" | "unknown"> => {
-        if (senderTier === 'free') return "unknown";
+        // LAUNCH NIGHT (HN demo): free tier gets verification too. To revert: restore `if (senderTier === 'free') return "unknown";`
         try {
           const { verifyAIResponse } = await import('./services/multi-ai.js');
           if (responseUsedGroundedSearch) return "verified";
@@ -1915,7 +1915,7 @@ Formatting rules:
       const today = tre.todayUTC();
       const deepUsed = userId ? await (await import('./storage')).getDeepThinkUsage(userId, today) : 0;
       const deepLimit = tre.DEEP_QUOTA[effectiveTier] ?? tre.DEEP_QUOTA.free;
-      const tierBlocksDeep = effectiveTier === 'free' || effectiveTier === 'pro';
+      const tierBlocksDeep = false; // LAUNCH NIGHT (HN demo). To revert: `effectiveTier === 'free' || effectiveTier === 'pro'`
       let allowDeep = !tierBlocksDeep;
       let quotaFellBack = false;
       if (allowDeep && deepLimit !== -1 && deepUsed >= deepLimit) {

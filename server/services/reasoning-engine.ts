@@ -1288,8 +1288,8 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
 // so HN visitors can experience the verification engine on the free tier.
 // To revert: set free back to 0 and pro back to 0.
 export const DEEP_QUOTA: Record<string, number> = {
-  free: 0,
-  pro: 0,
+  free: 5,    // LAUNCH NIGHT (HN demo). To revert: 0
+  pro: 10,   // LAUNCH NIGHT (HN demo). To revert: 0
   research: 200,
   enterprise: -1,
   owner: -1,
