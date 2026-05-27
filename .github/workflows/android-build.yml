@@ -54,8 +54,19 @@ jobs:
             echo "To set up: base64 -w0 android/app/turboanswer-release.keystore | pbcopy, then add as repo secret."
             exit 0
           fi
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/turboanswer-release.keystore
-          echo "Keystore decoded ($(wc -c < android/app/turboanswer-release.keystore) bytes)"
+          # Strip any whitespace/newlines that paste introduces, then decode
+          echo "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > android/app/turboanswer-release.keystore 2> /tmp/b64err.log || {
+            echo "::error::base64 decode failed. You likely pasted the BINARY .keystore file instead of the .txt base64 file."
+            echo "::error::Open turboanswer-keystore-base64.txt from the tar.gz and paste THAT into the ANDROID_KEYSTORE_BASE64 secret."
+            cat /tmp/b64err.log
+            exit 1
+          }
+          SIZE=$(wc -c < android/app/turboanswer-release.keystore)
+          echo "Keystore decoded: $SIZE bytes (expected ~2770)"
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::Keystore too small — secret value appears truncated/corrupted."
+            exit 1
+          fi
 
       - name: Build signed AAB + APK
         env:
