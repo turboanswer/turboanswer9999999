@@ -18,11 +18,21 @@ const MONO = `"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, m
 type ToolId =
   | "jwt" | "base64" | "json-yaml" | "hash" | "uuid" | "timestamp"
   | "regex" | "http" | "connstr" | "cron" | "color" | "curl"
-  | "json-fmt" | "diff" | "lorem" | "markdown" | "url-parse" | "case";
+  | "json-fmt" | "diff" | "lorem" | "markdown" | "url-parse" | "case"
+  | "az-resid" | "aad-token" | "kql" | "arm-lint";
 
 type Category = { name: string; tools: { id: ToolId; label: string; icon: string; desc: string }[] };
 
 const CATEGORIES: Category[] = [
+  {
+    name: "// AZURE // MICROSOFT",
+    tools: [
+      { id: "az-resid", label: "az.resourceId", icon: "☁", desc: "Parse Azure resource IDs into parts" },
+      { id: "aad-token", label: "entra.token", icon: "▲", desc: "AAD/Entra token w/ claim explanations" },
+      { id: "kql", label: "kql.playground", icon: "λ", desc: "Kusto snippets for Log Analytics" },
+      { id: "arm-lint", label: "arm.lint", icon: "✦", desc: "ARM/Bicep security + cost linter" },
+    ],
+  },
   {
     name: "// AUTH & TOKENS",
     tools: [
@@ -1037,6 +1047,250 @@ function genLorem(n: number, type: string): string {
   return out.join("\n\n");
 }
 
+// ───────────── Azure / Microsoft tools ─────────────
+
+function AzResourceIdTool({ toast }: { toast: (s: string) => void }) {
+  const [input, setInput] = useState("/subscriptions/3f9b8e2a-1234-4567-89ab-cdef01234567/resourceGroups/turbo-prod-rg/providers/Microsoft.Web/sites/turboanswergroup");
+  const parsed = useMemo(() => {
+    const s = input.trim().replace(/^\/+|\/+$/g, "");
+    if (!s) return null;
+    const segs = s.split("/");
+    if (segs.length < 2 || segs[0].toLowerCase() !== "subscriptions") {
+      return { error: "Resource ID must start with /subscriptions/{guid}/..." };
+    }
+    const out: Record<string,string> = {};
+    out.subscription = segs[1] || "";
+    if (segs[2]?.toLowerCase() === "resourcegroups") out.resourceGroup = segs[3] || "";
+    const provIdx = segs.findIndex(s => s.toLowerCase() === "providers");
+    if (provIdx >= 0) {
+      out.provider = segs[provIdx + 1] || "";
+      const after = segs.slice(provIdx + 2);
+      if (after.length >= 2) {
+        out.resourceType = `${out.provider}/${after[0]}`;
+        out.resourceName = after[1];
+        if (after.length > 2) out.subResource = after.slice(2).join("/");
+      }
+    }
+    out.portalUrl = `https://portal.azure.com/#@/resource${input.startsWith("/") ? input : "/"+input}/overview`;
+    out.cliShow = out.resourceGroup && out.resourceName
+      ? `az resource show --ids ${input.startsWith("/") ? input : "/"+input}`
+      : "(insufficient info for CLI)";
+    return out;
+  }, [input]);
+  return (
+    <div className="space-y-3 h-full flex flex-col">
+      <Pane title="AZURE RESOURCE ID">
+        <TA value={input} onChange={setInput} rows={4} placeholder="/subscriptions/{sub}/resourceGroups/{rg}/providers/{ns}/{type}/{name}" />
+      </Pane>
+      {parsed?.error && <Pane title="⨯ INVALID"><div className="text-xs" style={{ color: RED, fontFamily: MONO }}>{parsed.error}</div></Pane>}
+      {parsed && !parsed.error && (
+        <Pane title="PARSED">
+          <div className="text-xs" style={{ fontFamily: MONO }}>
+            {Object.entries(parsed).map(([k,v]) => v && (
+              <div key={k} className="flex gap-3 py-1.5 px-2 cursor-pointer hover:bg-white/5" onClick={() => copy(String(v), toast)}>
+                <div style={{ color: PINK, width: 130 }}>{k.toUpperCase()}</div>
+                <div style={{ color: NEON, flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{String(v)}</div>
+              </div>
+            ))}
+          </div>
+        </Pane>
+      )}
+    </div>
+  );
+}
+
+const AAD_CLAIMS: Record<string,string> = {
+  aud: "Audience — the app this token was issued for (your client_id)",
+  iss: "Issuer — should be https://login.microsoftonline.com/{tenantId}/v2.0",
+  iat: "Issued At (epoch sec)",
+  nbf: "Not Before — token invalid before this time",
+  exp: "Expires At (epoch sec)",
+  aio: "Internal AAD telemetry token (ignore in client logic)",
+  appid: "Application (client) ID that requested the token",
+  appidacr: "How the app was authenticated: 0=public, 1=client_secret, 2=client_cert",
+  idp: "Identity provider (e.g. live.com, AAD tenant)",
+  ipaddr: "IP address the user signed in from",
+  name: "Display name of the user",
+  oid: "Object ID — IMMUTABLE user identifier across all apps in tenant",
+  scp: "Scopes (delegated permissions) granted to the app",
+  roles: "App roles assigned to the user/app (use this for authorization!)",
+  sub: "Subject — unique per (user, app) pair, NOT a real user ID",
+  tid: "Tenant ID — which Entra tenant the user belongs to",
+  unique_name: "Legacy: user's UPN (use preferred_username instead)",
+  preferred_username: "User's UPN / email — display only, not a stable ID",
+  uti: "Token unique identifier (anti-replay)",
+  ver: "Token version (1.0 or 2.0)",
+  acr: "Authentication context class (MFA strength)",
+  amr: "Authentication methods (pwd, mfa, otp, etc.)",
+  groups: "Group object IDs the user belongs to",
+  wids: "Tenant-wide directory role IDs (e.g. global admin)",
+  hasgroups: "True if groups were too many to embed (call MS Graph)",
+  family_name: "User's last name",
+  given_name: "User's first name",
+  email: "User's email (not always present, prefer preferred_username)",
+  azp: "Authorized party — same as appid",
+  azpacr: "Same as appidacr",
+  rh: "Refresh hint (AAD internal)",
+};
+
+function AadTokenTool({ toast }: { toast: (s: string) => void }) {
+  const [tok, setTok] = useState("");
+  const decoded = useMemo(() => {
+    if (!tok.trim()) return null;
+    const parts = tok.trim().split(".");
+    if (parts.length !== 3) return { error: "Not a JWT — expected 3 dot-separated segments" };
+    try {
+      const header = JSON.parse(b64urlDecode(parts[0]));
+      const payload = JSON.parse(b64urlDecode(parts[1]));
+      const now = Math.floor(Date.now() / 1000);
+      const isMS = String(payload.iss || "").includes("login.microsoftonline") || !!payload.tid;
+      return { header, payload, isMS, now, expired: payload.exp ? payload.exp < now : null };
+    } catch (e: any) { return { error: e.message }; }
+  }, [tok]);
+
+  return (
+    <div className="space-y-3 h-full flex flex-col">
+      <Pane title="ENTRA / AAD TOKEN">
+        <TA value={tok} onChange={setTok} placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs..." rows={6} />
+      </Pane>
+      {decoded?.error && <Pane title="⨯ ERROR"><div className="text-xs" style={{ color: RED, fontFamily: MONO }}>{decoded.error}</div></Pane>}
+      {decoded && !decoded.error && (
+        <>
+          <Pane title={`CLAIMS · ${decoded.isMS ? "✓ ENTRA TOKEN DETECTED" : "non-MS JWT"}`}>
+            {decoded.expired !== null && (
+              <div className="mb-3 px-3 py-2 text-xs" style={{ color: decoded.expired ? RED : NEON, border: `1px solid ${decoded.expired ? RED : NEON}`, background: `${decoded.expired ? RED : NEON}11`, fontFamily: MONO }}>
+                {decoded.expired ? `⨯ EXPIRED ${decoded.now - decoded.payload.exp}s ago` : `✓ VALID · expires in ${Math.round((decoded.payload.exp - decoded.now)/60)}m`}
+              </div>
+            )}
+            <div className="text-xs" style={{ fontFamily: MONO }}>
+              {Object.entries(decoded.payload).map(([k, v]) => {
+                const explain = AAD_CLAIMS[k];
+                const val = typeof v === "string" ? v : JSON.stringify(v);
+                const isTime = ["iat","nbf","exp"].includes(k);
+                const display = isTime && typeof v === "number" ? `${v} (${new Date(v * 1000).toISOString()})` : val;
+                return (
+                  <div key={k} className="py-2 px-2 cursor-pointer hover:bg-white/5 border-b" style={{ borderColor: `${BORDER}55` }} onClick={() => copy(val, toast)}>
+                    <div className="flex gap-3 items-baseline">
+                      <span style={{ color: PINK, width: 140, fontWeight: 700 }}>{k}</span>
+                      <span style={{ color: NEON, flex: 1, wordBreak: "break-all" }}>{display}</span>
+                    </div>
+                    {explain && <div className="mt-1" style={{ color: MUTED, marginLeft: 152 }}>// {explain}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </Pane>
+          <Pane title="HEADER" actions={<Btn onClick={() => copy(JSON.stringify(decoded.header, null, 2), toast)}>COPY</Btn>}>
+            <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{JSON.stringify(decoded.header, null, 2)}</pre>
+          </Pane>
+        </>
+      )}
+    </div>
+  );
+}
+
+const KQL_SNIPPETS = [
+  { name: "Errors in last 1h", category: "App Insights", q: `traces\n| where timestamp > ago(1h)\n| where severityLevel >= 3\n| project timestamp, message, cloud_RoleName, operation_Id\n| order by timestamp desc\n| take 100` },
+  { name: "Slowest API endpoints (p95)", category: "App Insights", q: `requests\n| where timestamp > ago(24h)\n| summarize p95 = percentile(duration, 95), count() by name\n| order by p95 desc\n| take 20` },
+  { name: "Failed sign-ins by user", category: "AAD Logs", q: `SigninLogs\n| where ResultType != 0\n| where TimeGenerated > ago(7d)\n| summarize Attempts = count() by UserPrincipalName, ResultType, ResultDescription\n| order by Attempts desc` },
+  { name: "Resource modifications", category: "Activity Log", q: `AzureActivity\n| where TimeGenerated > ago(24h)\n| where OperationNameValue endswith "/write" or OperationNameValue endswith "/delete"\n| project TimeGenerated, Caller, OperationNameValue, ResourceGroup, Resource\n| order by TimeGenerated desc` },
+  { name: "App Service CPU spikes", category: "Metrics", q: `AzureMetrics\n| where ResourceProvider == "MICROSOFT.WEB"\n| where MetricName == "CpuPercentage"\n| where TimeGenerated > ago(6h)\n| summarize avg(Average), max(Maximum) by bin(TimeGenerated, 5m), Resource\n| order by TimeGenerated desc` },
+  { name: "Function App invocation rate", category: "Functions", q: `FunctionAppLogs\n| where TimeGenerated > ago(1h)\n| where Category == "Function.Started"\n| summarize Invocations = count() by bin(TimeGenerated, 1m), FunctionName\n| render timechart` },
+  { name: "Storage account egress", category: "Storage", q: `StorageBlobLogs\n| where TimeGenerated > ago(24h)\n| where OperationName == "GetBlob"\n| summarize TotalEgressMB = sum(ResponseBodySize)/1024/1024 by AccountName\n| order by TotalEgressMB desc` },
+  { name: "Exceptions by type", category: "App Insights", q: `exceptions\n| where timestamp > ago(24h)\n| summarize Count = count() by type, outerMessage\n| order by Count desc\n| take 25` },
+  { name: "Cosmos DB RU consumption", category: "Cosmos", q: `AzureDiagnostics\n| where ResourceProvider == "MICROSOFT.DOCUMENTDB"\n| where Category == "DataPlaneRequests"\n| summarize TotalRU = sum(todouble(requestCharge_s)) by databaseName_s, collectionName_s\n| order by TotalRU desc` },
+  { name: "Network Security Group denies", category: "Network", q: `AzureNetworkAnalytics_CL\n| where SubType_s == "FlowLog" and FlowStatus_s == "D"\n| summarize Denies = count() by NSGName_s, SrcIP_s\n| order by Denies desc\n| take 50` },
+];
+
+function KqlTool({ toast }: { toast: (s: string) => void }) {
+  const [active, setActive] = useState(0);
+  const [q, setQ] = useState(KQL_SNIPPETS[0].q);
+  const pick = (i: number) => { setActive(i); setQ(KQL_SNIPPETS[i].q); };
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3 h-full">
+      <Pane title="SNIPPETS LIBRARY">
+        <div className="space-y-0.5 text-xs" style={{ fontFamily: MONO }}>
+          {KQL_SNIPPETS.map((s, i) => (
+            <div key={i} onClick={() => pick(i)} className="px-2 py-1.5 cursor-pointer"
+              style={{
+                background: active === i ? `${NEON}18` : "transparent",
+                color: active === i ? NEON : NEON_DIM,
+                borderLeft: `2px solid ${active === i ? NEON : "transparent"}`,
+              }}>
+              <div>{s.name}</div>
+              <div style={{ color: MUTED, fontSize: 9 }}>// {s.category}</div>
+            </div>
+          ))}
+        </div>
+      </Pane>
+      <Pane title={`KQL // ${KQL_SNIPPETS[active].category} // ${KQL_SNIPPETS[active].name}`} actions={<Btn onClick={() => copy(q, toast)}>COPY</Btn>}>
+        <TA value={q} onChange={setQ} rows={20} />
+        <div className="mt-3 text-[10px]" style={{ color: MUTED, fontFamily: MONO }}>
+          // {q.split("\n").length} lines · {q.length} chars · paste into Log Analytics / App Insights / Sentinel
+        </div>
+      </Pane>
+    </div>
+  );
+}
+
+function ArmLintTool() {
+  const [src, setSrc] = useState(`{\n  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",\n  "resources": [\n    {\n      "type": "Microsoft.Storage/storageAccounts",\n      "name": "mystorage",\n      "location": "eastus",\n      "properties": {\n        "allowBlobPublicAccess": true,\n        "minimumTlsVersion": "TLS1_0",\n        "supportsHttpsTrafficOnly": false\n      }\n    },\n    {\n      "type": "Microsoft.Web/sites",\n      "name": "mywebapp",\n      "properties": {\n        "siteConfig": {\n          "appSettings": [\n            { "name": "DB_PASSWORD", "value": "P@ssw0rd123!" }\n          ]\n        }\n      }\n    }\n  ]\n}`);
+  const findings = useMemo(() => lintArm(src), [src]);
+  const counts = { high: findings.filter(f => f.sev === "HIGH").length, med: findings.filter(f => f.sev === "MED").length, low: findings.filter(f => f.sev === "LOW").length };
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
+      <Pane title="ARM / BICEP TEMPLATE (JSON)">
+        <TA value={src} onChange={setSrc} rows={26} />
+      </Pane>
+      <Pane title={`FINDINGS · ${counts.high}H ${counts.med}M ${counts.low}L`}>
+        {findings.length === 0 && <div className="text-xs" style={{ color: NEON, fontFamily: MONO }}>✓ no issues detected</div>}
+        <div className="space-y-2 text-xs" style={{ fontFamily: MONO }}>
+          {findings.map((f, i) => {
+            const col = f.sev === "HIGH" ? RED : f.sev === "MED" ? WARN : NEON_DIM;
+            return (
+              <div key={i} className="p-2" style={{ background: `${col}11`, border: `1px solid ${col}55` }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span style={{ color: col, fontWeight: 700 }}>[{f.sev}]</span>
+                  <span style={{ color: NEON }}>{f.rule}</span>
+                </div>
+                <div style={{ color: NEON_DIM }}>{f.detail}</div>
+                {f.fix && <div className="mt-1" style={{ color: PINK }}>→ {f.fix}</div>}
+              </div>
+            );
+          })}
+        </div>
+      </Pane>
+    </div>
+  );
+}
+
+function lintArm(src: string): { sev: "HIGH"|"MED"|"LOW"; rule: string; detail: string; fix?: string }[] {
+  const out: { sev: "HIGH"|"MED"|"LOW"; rule: string; detail: string; fix?: string }[] = [];
+  if (!src.trim()) return out;
+  try { JSON.parse(src); } catch (e: any) { return [{ sev: "HIGH", rule: "PARSE_ERROR", detail: e.message }]; }
+  const s = src;
+  const secretRe = /"(password|pwd|secret|apikey|api_key|connectionstring|sas|token)"\s*:\s*"[^"$\[][^"]{4,}"/gi;
+  const secretMatches = s.match(secretRe);
+  if (secretMatches) out.push({ sev: "HIGH", rule: "HARDCODED_SECRET", detail: `${secretMatches.length} potential secret(s) hardcoded in template.`, fix: "Move to Key Vault: @Microsoft.KeyVault(VaultName=...;SecretName=...)" });
+  if (/"value"\s*:\s*"[^"$\[][^"]*p[a@]ss[w0]rd/gi.test(s)) out.push({ sev: "HIGH", rule: "PASSWORD_VALUE", detail: "appSetting value looks like a hardcoded password.", fix: "Use Key Vault reference or parameter with secureString." });
+  if (/"allowBlobPublicAccess"\s*:\s*true/i.test(s)) out.push({ sev: "HIGH", rule: "STORAGE_PUBLIC_BLOB", detail: "Storage account allows public blob access — anyone on the internet can read blobs.", fix: 'Set "allowBlobPublicAccess": false unless explicitly intended.' });
+  if (/"supportsHttpsTrafficOnly"\s*:\s*false/i.test(s)) out.push({ sev: "HIGH", rule: "STORAGE_HTTP_ALLOWED", detail: "Storage account allows HTTP traffic.", fix: 'Set "supportsHttpsTrafficOnly": true.' });
+  if (/"minimumTlsVersion"\s*:\s*"TLS1_[01]"/i.test(s)) out.push({ sev: "HIGH", rule: "WEAK_TLS", detail: "minimumTlsVersion is TLS 1.0 or 1.1 — deprecated and insecure.", fix: 'Use "TLS1_2" (or "TLS1_3" where supported).' });
+  if (/"publicNetworkAccess"\s*:\s*"Enabled"/i.test(s)) out.push({ sev: "MED", rule: "PUBLIC_NETWORK_ACCESS", detail: "Resource reachable from the public internet.", fix: "Set to Disabled and use Private Endpoints + VNet integration." });
+  if (/"sku"\s*:\s*\{[^}]*"name"\s*:\s*"F1"/i.test(s)) out.push({ sev: "LOW", rule: "FREE_TIER_PROD", detail: "App Service Plan F1 (Free) — no SLA, no scaling, no custom domains.", fix: 'Use at least "B1" for prod or "P1v3" for production-grade workloads.' });
+  if (/"location"\s*:\s*"[a-zA-Z]+"/.test(s) && !/"location"\s*:\s*"\[resourceGroup\(\)\.location\]"/.test(s) && !/"location"\s*:\s*"\[parameters/.test(s)) {
+    out.push({ sev: "LOW", rule: "HARDCODED_LOCATION", detail: "Location is hardcoded rather than parameterised.", fix: `Use "[parameters('location')]" or "[resourceGroup().location]".` });
+  }
+  const resources = (s.match(/"type"\s*:\s*"Microsoft\./g) || []).length;
+  const tagged = (s.match(/"tags"\s*:\s*\{/g) || []).length;
+  if (resources > 0 && tagged < resources) out.push({ sev: "LOW", rule: "MISSING_TAGS", detail: `${resources - tagged} of ${resources} resources have no tags.`, fix: 'Add "tags": { "env": "...", "owner": "..." } for cost tracking.' });
+  if (!/diagnosticSettings/i.test(s) && resources > 0) out.push({ sev: "MED", rule: "NO_DIAGNOSTICS", detail: "No diagnosticSettings found — logs won't reach Log Analytics.", fix: "Add Microsoft.Insights/diagnosticSettings pointing at a Log Analytics workspace." });
+  if (/Microsoft\.Web\/sites/.test(s) && !/"identity"\s*:\s*\{[^}]*"type"\s*:\s*"SystemAssigned"/.test(s)) {
+    out.push({ sev: "MED", rule: "NO_MANAGED_IDENTITY", detail: "Web app has no managed identity — auth to other Azure services will rely on connection strings.", fix: 'Add "identity": { "type": "SystemAssigned" } and use Key Vault references.' });
+  }
+  return out;
+}
+
 // ───────────── Matrix background ─────────────
 function MatrixBg() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -1190,6 +1444,10 @@ export default function DevTools() {
             <span style={{ color: MUTED }} className="text-xs">// {activeTool.desc}</span>
           </div>
           <div style={{ height: "calc(100vh - 200px)" }}>
+            {active === "az-resid" && <AzResourceIdTool toast={showToast} />}
+            {active === "aad-token" && <AadTokenTool toast={showToast} />}
+            {active === "kql" && <KqlTool toast={showToast} />}
+            {active === "arm-lint" && <ArmLintTool />}
             {active === "jwt" && <JwtTool toast={showToast} />}
             {active === "base64" && <Base64Tool toast={showToast} />}
             {active === "json-yaml" && <JsonYamlTool toast={showToast} />}
