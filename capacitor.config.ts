@@ -4,11 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.turboanswer.app',
   appName: 'Turbo Answer',
   webDir: 'dist/public',
-  bundledWebRuntime: false,
   server: {
     androidScheme: 'https',
     iosScheme: 'https',
-    cleartext: false,
+    cleartext: true,
   },
   plugins: {
     SplashScreen: {
