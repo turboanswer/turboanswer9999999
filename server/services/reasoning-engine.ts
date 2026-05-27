@@ -686,8 +686,10 @@ function modelsForTier(tier?: string): string[] {
   // LOCKED per product spec:
   //   Pro  → Gemini 3.1 Pro only.
   //   Free → Gemini 3.1 Flash, with Gemini 3.1 Pro as emergency fallback only.
-  if (t === 'pro') return ['google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
-  return ['google/gemini-2.0-flash-001', 'google/gemini-2.5-flash', 'google/gemini-2.5-pro'];
+  if (t === 'pro') return ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'openai/gpt-4.1-mini'];
+  // Free tier: GPT-4.1 nano (cheapest + fastest OpenAI model, ~$0.000005/msg)
+  // with Gemini Flash as fallback so chat never goes silent.
+  return ['openai/gpt-4.1-nano', 'google/gemini-2.0-flash-001', 'google/gemini-2.5-flash'];
 }
 
 async function callORWithFallback(
