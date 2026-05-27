@@ -4,3 +4,8 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+# Android signing — NEVER commit
+*.keystore
+*.jks
+KEYSTORE_SECRETS.txt
+keystore.b64
