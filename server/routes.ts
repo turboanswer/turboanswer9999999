@@ -644,6 +644,74 @@ function downloadAAB(){
     }
   });
 
+  // ============= DEVTOOLS AI EXPLAINER (public, rate-limited) =============
+  const devtoolsAiUsage = new Map<string, { count: number; resetAt: number }>();
+  const DEVTOOLS_AI_LIMIT = 25;
+  const DEVTOOLS_AI_WINDOW_MS = 24 * 60 * 60 * 1000;
+  app.post("/api/devtools/ai", async (req: any, res) => {
+    try {
+      const { kind, input } = req.body || {};
+      if (!kind || typeof input !== "string" || !input.trim()) {
+        return res.status(400).json({ error: "kind and input required" });
+      }
+      if (input.length > 12000) {
+        return res.status(413).json({ error: "input too large (max 12KB)" });
+      }
+      const ip = req.ip || "anon";
+      const now = Date.now();
+      const rec = devtoolsAiUsage.get(ip);
+      const current = !rec || rec.resetAt < now ? { count: 0, resetAt: now + DEVTOOLS_AI_WINDOW_MS } : rec;
+      if (current.count >= DEVTOOLS_AI_LIMIT) {
+        return res.status(429).json({ error: `Rate limit reached (${DEVTOOLS_AI_LIMIT}/day). Try again tomorrow.` });
+      }
+
+      const PROMPTS: Record<string, string> = {
+        "kql-explain": `You are a senior Azure Log Analytics / Kusto Query Language expert. Explain the following KQL query in plain language, line by line. Then list 2-3 concrete optimization suggestions (perf, cost, readability). Be concise.\n\nKQL:\n${input}`,
+        "arm-review": `You are a principal Azure infrastructure security reviewer. Review the following ARM or Bicep template for: (1) security misconfigurations beyond simple lint rules, (2) cost inefficiencies, (3) reliability/availability gaps, (4) compliance concerns (CIS, NIST). For each finding give severity (HIGH/MED/LOW), the issue, and the fix. Be concrete, no fluff.\n\nTemplate:\n${input}`,
+        "az-explain": `You are an Azure CLI expert. Break down the following 'az' command. For each flag explain what it does and call out any gotchas, defaults, or common mistakes. End with 1-2 example variations the user might want.\n\nCommand:\n${input}`,
+        "error-decode": `You are an Azure support engineer. The user pasted this Azure error. Explain in plain language: (1) the most likely root cause, (2) 3-5 step fix in order of likelihood, (3) the relevant 'az' commands or portal navigation to investigate. Be specific, no boilerplate.\n\nError:\n${input}`,
+      };
+      const prompt = PROMPTS[kind];
+      if (!prompt) return res.status(400).json({ error: "unknown kind" });
+
+      let text = "";
+      const geminiKeys = [process.env.GEMINI_PRO_API_KEY, process.env.GEMINI_API_KEY].filter(Boolean) as string[];
+      let lastErr: any = null;
+      for (const k of geminiKeys) {
+        try {
+          const { GoogleGenerativeAI } = await import("@google/generative-ai");
+          const ai = new GoogleGenerativeAI(k);
+          const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+          const result = await model.generateContent(prompt);
+          text = result.response.text();
+          if (text) break;
+        } catch (e: any) { lastErr = e; }
+      }
+      if (!text && process.env.OPENAI_API_KEY) {
+        try {
+          const OpenAI = (await import("openai")).default;
+          const oai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          const r = await oai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 1200,
+          });
+          text = r.choices[0]?.message?.content || "";
+        } catch (e: any) { lastErr = e; }
+      }
+      if (!text) {
+        console.error("[DevTools AI] all providers failed:", lastErr?.message);
+        return res.status(503).json({ error: "AI providers unavailable. Try again later." });
+      }
+      current.count += 1;
+      devtoolsAiUsage.set(ip, current);
+      res.json({ answer: text, used: current.count, limit: DEVTOOLS_AI_LIMIT });
+    } catch (e: any) {
+      console.error("[DevTools AI]", e.message);
+      res.status(500).json({ error: "AI request failed. Try again." });
+    }
+  });
+
   // ============= STACK TRACE SURGEON =============
   // Paste an error/stack trace + GitHub repo URL → we extract the file paths
   // mentioned in the trace, fetch JUST those files from the repo, and feed

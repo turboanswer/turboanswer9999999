@@ -19,18 +19,43 @@ type ToolId =
   | "jwt" | "base64" | "json-yaml" | "hash" | "uuid" | "timestamp"
   | "regex" | "http" | "connstr" | "cron" | "color" | "curl"
   | "json-fmt" | "diff" | "lorem" | "markdown" | "url-parse" | "case"
-  | "az-resid" | "aad-token" | "kql" | "arm-lint";
+  | "az-resid" | "aad-token" | "kql" | "arm-lint"
+  | "az-sas" | "iac-transmute" | "cli-synth" | "irm-sp"
+  | "kql-ai" | "arm-ai" | "cli-ai" | "err-ai";
 
 type Category = { name: string; tools: { id: ToolId; label: string; icon: string; desc: string }[] };
 
 const CATEGORIES: Category[] = [
   {
-    name: "// AZURE // MICROSOFT",
+    name: "// AZURE.IDENTITY",
     tools: [
-      { id: "az-resid", label: "az.resourceId", icon: "☁", desc: "Parse Azure resource IDs into parts" },
-      { id: "aad-token", label: "entra.token", icon: "▲", desc: "AAD/Entra token w/ claim explanations" },
-      { id: "kql", label: "kql.playground", icon: "λ", desc: "Kusto snippets for Log Analytics" },
-      { id: "arm-lint", label: "arm.lint", icon: "✦", desc: "ARM/Bicep security + cost linter" },
+      { id: "aad-token", label: "entra.token", icon: "▲", desc: "AAD/Entra JWT claim demultiplexer" },
+      { id: "irm-sp", label: "irm.principal", icon: "◈", desc: "Service principal forge + RBAC binder" },
+      { id: "az-sas", label: "az.sas.codec", icon: "⊕", desc: "Storage SAS HMAC-SHA256 codec" },
+    ],
+  },
+  {
+    name: "// AZURE.IAC",
+    tools: [
+      { id: "az-resid", label: "az.resourceId", icon: "☁", desc: "ARM resource URI deconstructor" },
+      { id: "arm-lint", label: "arm.lint", icon: "✦", desc: "ARM/Bicep policy compliance scanner" },
+      { id: "iac-transmute", label: "iac.transmute", icon: "⇄", desc: "ARM ↔ Bicep declarative transmutation" },
+      { id: "arm-ai", label: "arm.sentinel", icon: "★", desc: "AI-augmented IaC security audit" },
+    ],
+  },
+  {
+    name: "// AZURE.OBSERVABILITY",
+    tools: [
+      { id: "kql", label: "kql.playground", icon: "λ", desc: "Kusto telemetry query corpus (30+)" },
+      { id: "kql-ai", label: "kql.cogniscan", icon: "✧", desc: "AI Kusto explainer + optimizer" },
+      { id: "err-ai", label: "error.decryptor", icon: "⚠", desc: "AI Azure fault root-cause engine" },
+    ],
+  },
+  {
+    name: "// AZURE.CONTROL_PLANE",
+    tools: [
+      { id: "cli-synth", label: "cli.synthesizer", icon: "▷", desc: "az command lattice generator" },
+      { id: "cli-ai", label: "cli.exegete", icon: "✺", desc: "AI az command flag exegesis" },
     ],
   },
   {
@@ -1200,6 +1225,26 @@ const KQL_SNIPPETS = [
   { name: "Exceptions by type", category: "App Insights", q: `exceptions\n| where timestamp > ago(24h)\n| summarize Count = count() by type, outerMessage\n| order by Count desc\n| take 25` },
   { name: "Cosmos DB RU consumption", category: "Cosmos", q: `AzureDiagnostics\n| where ResourceProvider == "MICROSOFT.DOCUMENTDB"\n| where Category == "DataPlaneRequests"\n| summarize TotalRU = sum(todouble(requestCharge_s)) by databaseName_s, collectionName_s\n| order by TotalRU desc` },
   { name: "Network Security Group denies", category: "Network", q: `AzureNetworkAnalytics_CL\n| where SubType_s == "FlowLog" and FlowStatus_s == "D"\n| summarize Denies = count() by NSGName_s, SrcIP_s\n| order by Denies desc\n| take 50` },
+  { name: "Dependency call failures", category: "App Insights", q: `dependencies\n| where timestamp > ago(6h)\n| where success == false\n| summarize Failures = count() by target, type, resultCode\n| order by Failures desc` },
+  { name: "Page load p95 by browser", category: "App Insights", q: `pageViews\n| where timestamp > ago(24h)\n| summarize p95 = percentile(duration, 95) by client_Browser\n| order by p95 desc` },
+  { name: "Conditional Access blocks", category: "AAD Logs", q: `SigninLogs\n| where TimeGenerated > ago(7d)\n| where ConditionalAccessStatus == "failure"\n| project TimeGenerated, UserPrincipalName, AppDisplayName, ConditionalAccessPolicies\n| take 100` },
+  { name: "Privileged role activations", category: "AAD Logs", q: `AuditLogs\n| where TimeGenerated > ago(7d)\n| where OperationName has "Add member to role"\n| project TimeGenerated, InitiatedBy, TargetResources` },
+  { name: "Key Vault access denied", category: "Security", q: `AzureDiagnostics\n| where ResourceProvider == "MICROSOFT.KEYVAULT"\n| where ResultType != "Success"\n| project TimeGenerated, OperationName, identity_claim_upn_s, ResultType` },
+  { name: "AKS pod restarts", category: "AKS", q: `KubePodInventory\n| where TimeGenerated > ago(6h)\n| where PodRestartCount > 0\n| project TimeGenerated, Namespace, Name, PodRestartCount\n| order by PodRestartCount desc` },
+  { name: "Container CPU > 80%", category: "AKS", q: `Perf\n| where ObjectName == "K8SContainer" and CounterName == "cpuUsageNanoCores"\n| summarize avg(CounterValue) by InstanceName, bin(TimeGenerated, 5m)\n| where avg_CounterValue > 800000000` },
+  { name: "Event Hub throttling", category: "Event Hub", q: `AzureMetrics\n| where ResourceProvider == "MICROSOFT.EVENTHUB"\n| where MetricName == "ThrottledRequests"\n| summarize sum(Total) by bin(TimeGenerated, 5m), Resource` },
+  { name: "Service Bus dead-letters", category: "Service Bus", q: `AzureMetrics\n| where ResourceProvider == "MICROSOFT.SERVICEBUS"\n| where MetricName == "DeadletteredMessages"\n| summarize max(Maximum) by Resource\n| order by max_Maximum desc` },
+  { name: "SQL DB long-running queries", category: "SQL", q: `AzureDiagnostics\n| where ResourceProvider == "MICROSOFT.SQL"\n| where Category == "QueryStoreRuntimeStatistics"\n| where duration_d > 10000\n| project TimeGenerated, statement_s, duration_d` },
+  { name: "App Service 5xx", category: "App Service", q: `AppServiceHTTPLogs\n| where TimeGenerated > ago(1h)\n| where ScStatus >= 500\n| summarize Count = count() by CsHost, ScStatus, CsUriStem\n| order by Count desc` },
+  { name: "Front Door / WAF blocks", category: "Security", q: `AzureDiagnostics\n| where ResourceType == "FRONTDOORS" and action_s == "Block"\n| summarize Blocks = count() by clientIP_s, ruleName_s\n| order by Blocks desc\n| take 50` },
+  { name: "Defender for Cloud alerts", category: "Security", q: `SecurityAlert\n| where TimeGenerated > ago(7d)\n| project TimeGenerated, AlertSeverity, AlertName, ResourceId, Description\n| order by TimeGenerated desc` },
+  { name: "Unused resources (cost)", category: "Cost", q: `AzureMetrics\n| where TimeGenerated > ago(30d)\n| where MetricName == "Percentage CPU"\n| summarize maxCpu = max(Maximum) by Resource\n| where maxCpu < 5\n| order by maxCpu asc` },
+  { name: "Cosmos throttled (429)", category: "Cosmos", q: `AzureDiagnostics\n| where ResourceProvider == "MICROSOFT.DOCUMENTDB"\n| where statusCode_s == "429"\n| summarize Throttles = count() by databaseName_s, collectionName_s, bin(TimeGenerated, 5m)` },
+  { name: "Storage 403 forbidden", category: "Storage", q: `StorageBlobLogs\n| where TimeGenerated > ago(24h)\n| where StatusCode == 403\n| summarize Count = count() by CallerIpAddress, AuthenticationType\n| order by Count desc` },
+  { name: "API Management latency", category: "APIM", q: `ApiManagementGatewayLogs\n| where TimeGenerated > ago(1h)\n| summarize p95 = percentile(TotalTime, 95), p50 = percentile(TotalTime, 50) by OperationName\n| order by p95 desc` },
+  { name: "Log volume by table", category: "Cost", q: `Usage\n| where TimeGenerated > ago(7d)\n| where IsBillable == true\n| summarize GB = sum(Quantity)/1024 by DataType\n| order by GB desc` },
+  { name: "Pipeline run failures (DevOps)", category: "DevOps", q: `AzureDevOpsAuditing\n| where TimeGenerated > ago(7d)\n| where ActionId == "Pipelines.RunFailed"\n| project TimeGenerated, ActorDisplayName, Data` },
+  { name: "Custom metric anomaly", category: "App Insights", q: `customMetrics\n| where timestamp > ago(24h)\n| summarize avg(value), stdev(value) by name, bin(timestamp, 5m)\n| where avg_value > stdev_value * 3` },
 ];
 
 function KqlTool({ toast }: { toast: (s: string) => void }) {
@@ -1289,6 +1334,414 @@ function lintArm(src: string): { sev: "HIGH"|"MED"|"LOW"; rule: string; detail: 
     out.push({ sev: "MED", rule: "NO_MANAGED_IDENTITY", detail: "Web app has no managed identity — auth to other Azure services will rely on connection strings.", fix: 'Add "identity": { "type": "SystemAssigned" } and use Key Vault references.' });
   }
   return out;
+}
+
+// ───────────── Storage SAS codec (HMAC-SHA256) ─────────────
+
+async function hmacSha256B64(keyB64: string, message: string): Promise<string> {
+  const keyBytes = Uint8Array.from(atob(keyB64), c => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
+function AzSasTool({ toast }: { toast: (s: string) => void }) {
+  const [mode, setMode] = useState<"gen"|"decode">("gen");
+  // Generator state
+  const [account, setAccount] = useState("mystorageacct");
+  const [key, setKey] = useState("");
+  const [container, setContainer] = useState("uploads");
+  const [blob, setBlob] = useState("file.txt");
+  const [perms, setPerms] = useState("r");
+  const [expiryHours, setExpiryHours] = useState(1);
+  const [protocol, setProtocol] = useState<"https"|"https,http">("https");
+  const [result, setResult] = useState<{ url: string; sig: string; sts: string } | null>(null);
+  const [err, setErr] = useState("");
+
+  const generate = async () => {
+    setErr(""); setResult(null);
+    try {
+      if (!account.trim() || !key.trim()) throw new Error("account + key required");
+      const now = new Date();
+      const start = new Date(now.getTime() - 5 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+      const expiry = new Date(now.getTime() + expiryHours * 60 * 60 * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
+      const canonicalizedResource = `/blob/${account}/${container}/${blob}`;
+      const signedVersion = "2021-12-02";
+      const stringToSign = [
+        perms, start, expiry, canonicalizedResource,
+        "", "", "", protocol, signedVersion,
+        "b", "", "", "", "", "", "",
+      ].join("\n");
+      const sig = await hmacSha256B64(key, stringToSign);
+      const qp = new URLSearchParams({
+        sv: signedVersion, st: start, se: expiry, sr: "b", sp: perms, spr: protocol, sig,
+      });
+      const url = `https://${account}.blob.core.windows.net/${container}/${blob}?${qp.toString()}`;
+      setResult({ url, sig, sts: stringToSign });
+    } catch (e: any) {
+      setErr(e.message);
+    }
+  };
+
+  // Decoder state
+  const [sasIn, setSasIn] = useState("");
+  const decoded = useMemo(() => {
+    if (!sasIn.trim()) return null;
+    try {
+      const u = new URL(sasIn.trim());
+      const out: Record<string,string> = { host: u.host, path: u.pathname };
+      const labels: Record<string,string> = {
+        sv: "signedVersion", st: "signedStart", se: "signedExpiry", sr: "signedResource",
+        sp: "signedPermissions", sig: "signature", spr: "signedProtocol", sip: "signedIp",
+        ss: "signedServices", srt: "signedResourceTypes", sktid: "signedKeyTenantId",
+        si: "signedIdentifier", skoid: "signedKeyObjectId", sks: "signedKeyService",
+        skv: "signedKeyVersion", saoid: "signedAuthObjectId", suoid: "signedUserObjectId",
+      };
+      const PERM_MAP: Record<string,string> = { r: "Read", w: "Write", d: "Delete", l: "List", a: "Add", c: "Create", u: "Update", p: "Process", t: "Tag", f: "Filter", i: "SetImmutabilityPolicy", x: "DeleteVersion", y: "PermanentDelete" };
+      u.searchParams.forEach((v, k) => { out[labels[k] || k] = v; });
+      if (out.signedPermissions) out["permissions (expanded)"] = out.signedPermissions.split("").map(p => PERM_MAP[p] || p).join(", ");
+      if (out.signedExpiry) {
+        const exp = new Date(out.signedExpiry);
+        out["status"] = exp < new Date() ? `⨯ EXPIRED (${Math.round((Date.now() - exp.getTime())/3600000)}h ago)` : `✓ VALID (${Math.round((exp.getTime() - Date.now())/3600000)}h remaining)`;
+      }
+      return out;
+    } catch (e: any) { return { error: e.message }; }
+  }, [sasIn]);
+
+  return (
+    <div className="space-y-3 h-full flex flex-col">
+      <Pane title="MODE">
+        <div className="flex gap-2">
+          <Btn onClick={() => setMode("gen")} kind={mode === "gen" ? "primary" : "ghost"}>⊕ GENERATE</Btn>
+          <Btn onClick={() => setMode("decode")} kind={mode === "decode" ? "primary" : "ghost"}>⊖ DECODE</Btn>
+        </div>
+      </Pane>
+      {mode === "gen" ? (
+        <>
+          <Pane title="SAS PARAMETERS">
+            <div className="grid grid-cols-2 gap-3 text-xs" style={{ fontFamily: MONO }}>
+              <label style={{ color: NEON_DIM }}>account.name<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={account} onChange={e => setAccount(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>account.key (base64)<input type="password" className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={key} onChange={e => setKey(e.target.value)} placeholder="abc...==" /></label>
+              <label style={{ color: NEON_DIM }}>container<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={container} onChange={e => setContainer(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>blob<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={blob} onChange={e => setBlob(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>permissions [racwdl]<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={perms} onChange={e => setPerms(e.target.value)} /></label>
+              <label style={{ color: NEON_DIM }}>expiry (hours)<input type="number" className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={expiryHours} onChange={e => setExpiryHours(Number(e.target.value) || 1)} /></label>
+              <label style={{ color: NEON_DIM }}>protocol
+                <select className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={protocol} onChange={e => setProtocol(e.target.value as any)}>
+                  <option value="https">https</option>
+                  <option value="https,http">https,http</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-3"><Btn onClick={generate} kind="primary">⚡ FORGE SAS TOKEN</Btn></div>
+          </Pane>
+          {err && <Pane title="⨯ ERROR"><div className="text-xs" style={{ color: RED, fontFamily: MONO }}>{err}</div></Pane>}
+          {result && (
+            <>
+              <Pane title="SIGNED URL" actions={<Btn onClick={() => copy(result.url, toast)}>COPY</Btn>}>
+                <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{result.url}</pre>
+              </Pane>
+              <Pane title="STRING-TO-SIGN (debug)">
+                <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON_DIM, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{result.sts.replace(/\n/g, "\\n\n")}</pre>
+              </Pane>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <Pane title="SAS URL"><TA value={sasIn} onChange={setSasIn} rows={4} placeholder="https://account.blob.core.windows.net/c/b?sv=...&sig=..." /></Pane>
+          {decoded && (
+            <Pane title={decoded.error ? "⨯ INVALID" : "DECODED PARAMETERS"}>
+              {decoded.error ? <div className="text-xs" style={{ color: RED, fontFamily: MONO }}>{decoded.error}</div> : (
+                <div className="text-xs" style={{ fontFamily: MONO }}>
+                  {Object.entries(decoded).map(([k, v]) => (
+                    <div key={k} className="flex gap-3 py-1.5 px-2 hover:bg-white/5 cursor-pointer" onClick={() => copy(String(v), toast)}>
+                      <div style={{ color: PINK, width: 200 }}>{k}</div>
+                      <div style={{ color: NEON, flex: 1, wordBreak: "break-all" }}>{String(v)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Pane>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ───────────── IAC transmute (ARM ⇄ Bicep, structural) ─────────────
+
+function armToBicep(armJson: string): string {
+  const t = JSON.parse(armJson);
+  const lines: string[] = [];
+  const params = t.parameters || {};
+  for (const [k, v] of Object.entries<any>(params)) {
+    const type = v.type || "string";
+    const def = v.defaultValue !== undefined ? ` = ${JSON.stringify(v.defaultValue)}` : "";
+    lines.push(`param ${k} ${type}${def}`);
+  }
+  if (lines.length) lines.push("");
+  for (const r of (t.resources || [])) {
+    const symbolic = (r.name || "res").replace(/[^a-zA-Z0-9]/g, "_");
+    const apiVersion = r.apiVersion || "2023-01-01";
+    lines.push(`resource ${symbolic} '${r.type}@${apiVersion}' = {`);
+    lines.push(`  name: ${JSON.stringify(r.name)}`);
+    if (r.location) lines.push(`  location: ${JSON.stringify(r.location)}`);
+    if (r.sku) lines.push(`  sku: ${JSON.stringify(r.sku, null, 2).split("\n").map((l,i) => i === 0 ? l : "  " + l).join("\n")}`);
+    if (r.properties) lines.push(`  properties: ${JSON.stringify(r.properties, null, 2).split("\n").map((l,i) => i === 0 ? l : "  " + l).join("\n")}`);
+    if (r.tags) lines.push(`  tags: ${JSON.stringify(r.tags, null, 2).split("\n").map((l,i) => i === 0 ? l : "  " + l).join("\n")}`);
+    lines.push(`}`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+function bicepToArm(bicep: string): string {
+  const resources: any[] = [];
+  const params: Record<string, any> = {};
+  const paramRe = /^param\s+(\w+)\s+(\w+)(?:\s*=\s*(.+))?$/gm;
+  let pm; while ((pm = paramRe.exec(bicep)) !== null) {
+    params[pm[1]] = { type: pm[2], ...(pm[3] ? { defaultValue: JSON.parse(pm[3]) } : {}) };
+  }
+  const resRe = /resource\s+\w+\s+'([^']+)@([^']+)'\s*=\s*\{([\s\S]*?)\n\}/gm;
+  let rm; while ((rm = resRe.exec(bicep)) !== null) {
+    const type = rm[1]; const apiVersion = rm[2]; const body = rm[3];
+    const grab = (key: string) => {
+      const re = new RegExp(`\\n\\s*${key}\\s*:\\s*([\\s\\S]*?)(?=\\n  \\w+\\s*:|$)`);
+      const m = body.match(re);
+      if (!m) return undefined;
+      const raw = m[1].trim();
+      try { return JSON.parse(raw); } catch { return raw.replace(/^['"]|['"]$/g, ""); }
+    };
+    const res: any = { type, apiVersion, name: grab("name") };
+    const loc = grab("location"); if (loc) res.location = loc;
+    const sku = grab("sku"); if (sku) res.sku = sku;
+    const props = grab("properties"); if (props) res.properties = props;
+    const tags = grab("tags"); if (tags) res.tags = tags;
+    resources.push(res);
+  }
+  return JSON.stringify({
+    $schema: "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    contentVersion: "1.0.0.0",
+    parameters: params,
+    resources,
+  }, null, 2);
+}
+
+function IacTransmuteTool({ toast }: { toast: (s: string) => void }) {
+  const [dir, setDir] = useState<"a2b"|"b2a">("a2b");
+  const [src, setSrc] = useState<string>(`{\n  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",\n  "parameters": { "location": { "type": "string", "defaultValue": "eastus" } },\n  "resources": [\n    {\n      "type": "Microsoft.Storage/storageAccounts",\n      "apiVersion": "2023-01-01",\n      "name": "mystg",\n      "location": "[parameters('location')]",\n      "sku": { "name": "Standard_LRS" },\n      "kind": "StorageV2",\n      "properties": { "allowBlobPublicAccess": false, "minimumTlsVersion": "TLS1_2" }\n    }\n  ]\n}`);
+  const [out, setOut] = useState(""); const [err, setErr] = useState("");
+  const run = () => {
+    setErr("");
+    try { setOut(dir === "a2b" ? armToBicep(src) : bicepToArm(src)); }
+    catch (e: any) { setErr(e.message); setOut(""); }
+  };
+  useEffect(() => { run(); /* eslint-disable-next-line */ }, [src, dir]);
+  return (
+    <div className="space-y-3 h-full flex flex-col">
+      <Pane title="DIRECTION">
+        <div className="flex gap-2">
+          <Btn onClick={() => setDir("a2b")} kind={dir === "a2b" ? "primary" : "ghost"}>ARM → BICEP</Btn>
+          <Btn onClick={() => setDir("b2a")} kind={dir === "b2a" ? "primary" : "ghost"}>BICEP → ARM</Btn>
+        </div>
+        <div className="mt-2 text-[10px]" style={{ color: WARN, fontFamily: MONO }}>// structural conversion — complex expressions, modules, loops may need manual touch-up.</div>
+      </Pane>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 flex-1">
+        <Pane title={dir === "a2b" ? "ARM (JSON) INPUT" : "BICEP INPUT"}><TA value={src} onChange={setSrc} rows={22} /></Pane>
+        <Pane title={dir === "a2b" ? "BICEP OUTPUT" : "ARM (JSON) OUTPUT"} actions={out && <Btn onClick={() => copy(out, toast)}>COPY</Btn>}>
+          {err ? <div className="text-xs" style={{ color: RED, fontFamily: MONO }}>⨯ {err}</div> : <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{out}</pre>}
+        </Pane>
+      </div>
+    </div>
+  );
+}
+
+// ───────────── az CLI synthesizer ─────────────
+
+function shq(s: string): string { return s.replace(/(["`$\\])/g, "\\$1"); }
+
+type CliRecipe = { id: string; label: string; flags: { name: string; placeholder: string; default?: string; required?: boolean }[]; render: (v: Record<string,string>) => string };
+
+const CLI_RECIPES: CliRecipe[] = [
+  { id: "rg-create", label: "Create resource group", flags: [
+    { name: "name", placeholder: "myRg", required: true },
+    { name: "location", placeholder: "eastus", default: "eastus", required: true },
+    { name: "tags", placeholder: "env=prod owner=team", default: "" },
+  ], render: v => `az group create --name ${v.name} --location ${v.location}${v.tags ? ` --tags ${v.tags}` : ""}` },
+  { id: "storage-create", label: "Create storage account", flags: [
+    { name: "name", placeholder: "mystorage123", required: true },
+    { name: "resource-group", placeholder: "myRg", required: true },
+    { name: "location", placeholder: "eastus", default: "eastus" },
+    { name: "sku", placeholder: "Standard_LRS", default: "Standard_LRS" },
+    { name: "min-tls-version", placeholder: "TLS1_2", default: "TLS1_2" },
+  ], render: v => `az storage account create --name ${v.name} --resource-group ${v["resource-group"]} --location ${v.location} --sku ${v.sku} --min-tls-version ${v["min-tls-version"]} --allow-blob-public-access false --https-only true` },
+  { id: "webapp-create", label: "Create App Service (Linux)", flags: [
+    { name: "name", placeholder: "myapp", required: true },
+    { name: "resource-group", placeholder: "myRg", required: true },
+    { name: "plan", placeholder: "myPlan", required: true },
+    { name: "runtime", placeholder: "NODE:20-lts", default: "NODE:20-lts" },
+  ], render: v => `az webapp create --name ${v.name} --resource-group ${v["resource-group"]} --plan ${v.plan} --runtime "${v.runtime}"` },
+  { id: "sp-create", label: "Service principal w/ role", flags: [
+    { name: "name", placeholder: "my-sp", required: true },
+    { name: "role", placeholder: "Contributor", default: "Contributor" },
+    { name: "scope", placeholder: "/subscriptions/{subId}/resourceGroups/myRg", required: true },
+  ], render: v => `az ad sp create-for-rbac --name "${shq(v.name)}" --role "${shq(v.role)}" --scopes "${shq(v.scope)}"` },
+  { id: "role-assign", label: "Assign RBAC role", flags: [
+    { name: "assignee", placeholder: "user@contoso.com or objectId", required: true },
+    { name: "role", placeholder: "Reader", default: "Reader" },
+    { name: "scope", placeholder: "/subscriptions/{subId}", required: true },
+  ], render: v => `az role assignment create --assignee "${shq(v.assignee)}" --role "${shq(v.role)}" --scope "${shq(v.scope)}"` },
+  { id: "kv-create", label: "Create Key Vault + secret", flags: [
+    { name: "name", placeholder: "myKv", required: true },
+    { name: "resource-group", placeholder: "myRg", required: true },
+    { name: "location", placeholder: "eastus", default: "eastus" },
+    { name: "secret-name", placeholder: "dbPassword" },
+    { name: "secret-value", placeholder: "********" },
+  ], render: v => `az keyvault create --name ${v.name} --resource-group ${v["resource-group"]} --location ${v.location} --enable-rbac-authorization true${v["secret-name"] ? `\naz keyvault secret set --vault-name ${v.name} --name ${v["secret-name"]} --value "${v["secret-value"]}"` : ""}` },
+  { id: "aks-create", label: "Create AKS cluster", flags: [
+    { name: "name", placeholder: "myAks", required: true },
+    { name: "resource-group", placeholder: "myRg", required: true },
+    { name: "node-count", placeholder: "3", default: "3" },
+    { name: "node-vm-size", placeholder: "Standard_DS2_v2", default: "Standard_DS2_v2" },
+  ], render: v => `az aks create --name ${v.name} --resource-group ${v["resource-group"]} --node-count ${v["node-count"]} --node-vm-size ${v["node-vm-size"]} --enable-managed-identity --generate-ssh-keys` },
+  { id: "login", label: "Login flows", flags: [
+    { name: "tenant", placeholder: "{tenantId}", default: "" },
+  ], render: v => `# Interactive\naz login${v.tenant ? ` --tenant ${v.tenant}` : ""}\n# Device code (headless / SSH)\naz login --use-device-code${v.tenant ? ` --tenant ${v.tenant}` : ""}\n# Service principal\naz login --service-principal -u {appId} -p {password-or-cert} --tenant ${v.tenant || "{tenantId}"}` },
+];
+
+function CliSynthTool({ toast }: { toast: (s: string) => void }) {
+  const [activeId, setActiveId] = useState(CLI_RECIPES[0].id);
+  const recipe = CLI_RECIPES.find(r => r.id === activeId)!;
+  const [values, setValues] = useState<Record<string,string>>({});
+  useEffect(() => {
+    const init: Record<string,string> = {};
+    recipe.flags.forEach(f => { init[f.name] = f.default ?? ""; });
+    setValues(init);
+  }, [activeId]);
+  const cmd = recipe.render(values);
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-3 h-full">
+      <Pane title="OPERATION">
+        <div className="space-y-0.5 text-xs" style={{ fontFamily: MONO }}>
+          {CLI_RECIPES.map(r => (
+            <div key={r.id} onClick={() => setActiveId(r.id)} className="px-2 py-1.5 cursor-pointer"
+              style={{ background: activeId === r.id ? `${NEON}18` : "transparent", color: activeId === r.id ? NEON : NEON_DIM, borderLeft: `2px solid ${activeId === r.id ? NEON : "transparent"}` }}>
+              {r.label}
+            </div>
+          ))}
+        </div>
+      </Pane>
+      <div className="space-y-3">
+        <Pane title={`PARAMETERS · ${recipe.label.toUpperCase()}`}>
+          <div className="grid grid-cols-2 gap-3 text-xs" style={{ fontFamily: MONO }}>
+            {recipe.flags.map(f => (
+              <label key={f.name} style={{ color: NEON_DIM }}>
+                --{f.name}{f.required && <span style={{ color: PINK }}> *</span>}
+                <input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }}
+                  value={values[f.name] ?? ""} onChange={e => setValues(v => ({ ...v, [f.name]: e.target.value }))} placeholder={f.placeholder} />
+              </label>
+            ))}
+          </div>
+        </Pane>
+        <Pane title="SYNTHESIZED COMMAND" actions={<Btn onClick={() => copy(cmd, toast)}>COPY</Btn>}>
+          <pre className="text-xs p-3" style={{ background: "#000a05", border: `1px solid ${NEON}55`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{cmd}</pre>
+        </Pane>
+      </div>
+    </div>
+  );
+}
+
+// ───────────── Service Principal forge ─────────────
+
+function IrmSpTool({ toast }: { toast: (s: string) => void }) {
+  const [name, setName] = useState("my-app-sp");
+  const [role, setRole] = useState("Contributor");
+  const [scope, setScope] = useState("/subscriptions/{subscriptionId}/resourceGroups/{rg}");
+  const [years, setYears] = useState(1);
+  const cmds = useMemo(() => {
+    const n = shq(name), r = shq(role), s = shq(scope);
+    return {
+      secret: `az ad sp create-for-rbac \\\n  --name "${n}" \\\n  --role "${r}" \\\n  --scopes "${s}" \\\n  --years ${years}`,
+      cert: `az ad sp create-for-rbac \\\n  --name "${n}" \\\n  --role "${r}" \\\n  --scopes "${s}" \\\n  --create-cert \\\n  --years ${years}`,
+      federated: `# 1. Create the app + SP\nappId=$(az ad app create --display-name "${n}" --query appId -o tsv)\naz ad sp create --id $appId\n# 2. Bind a federated credential (e.g. GitHub Actions)\naz ad app federated-credential create --id $appId --parameters '{\n  "name": "github-main",\n  "issuer": "https://token.actions.githubusercontent.com",\n  "subject": "repo:OWNER/REPO:ref:refs/heads/main",\n  "audiences": ["api://AzureADTokenExchange"]\n}'\n# 3. Grant role\naz role assignment create --assignee $appId --role "${r}" --scope "${s}"`,
+      mi: `# System-assigned managed identity (preferred over SP for Azure workloads)\naz webapp identity assign --name MYAPP --resource-group MYRG\nprincipalId=$(az webapp identity show --name MYAPP --resource-group MYRG --query principalId -o tsv)\naz role assignment create --assignee-object-id $principalId --assignee-principal-type ServicePrincipal --role "${r}" --scope "${s}"`,
+    };
+  }, [name, role, scope, years]);
+
+  const ROLES = ["Owner","Contributor","Reader","User Access Administrator","Storage Blob Data Contributor","Storage Blob Data Reader","Key Vault Secrets User","Key Vault Secrets Officer","Cosmos DB Built-in Data Contributor","AcrPush","AcrPull","Monitoring Reader","Log Analytics Contributor","Network Contributor"];
+
+  return (
+    <div className="space-y-3 h-full flex flex-col">
+      <Pane title="PRINCIPAL PARAMETERS">
+        <div className="grid grid-cols-2 gap-3 text-xs" style={{ fontFamily: MONO }}>
+          <label style={{ color: NEON_DIM }}>display name<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={name} onChange={e => setName(e.target.value)} /></label>
+          <label style={{ color: NEON_DIM }}>RBAC role
+            <select className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={role} onChange={e => setRole(e.target.value)}>
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </label>
+          <label className="col-span-2" style={{ color: NEON_DIM }}>scope<input className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={scope} onChange={e => setScope(e.target.value)} /></label>
+          <label style={{ color: NEON_DIM }}>credential lifetime (years)<input type="number" className="w-full mt-1 px-2 py-1.5" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO }} value={years} onChange={e => setYears(Number(e.target.value) || 1)} /></label>
+        </div>
+      </Pane>
+      <Pane title="◆ CLIENT SECRET (least secure — rotate frequently)" actions={<Btn onClick={() => copy(cmds.secret, toast)}>COPY</Btn>}>
+        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.secret}</pre>
+      </Pane>
+      <Pane title="◆ CLIENT CERTIFICATE (preferred for non-human workloads)" actions={<Btn onClick={() => copy(cmds.cert, toast)}>COPY</Btn>}>
+        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.cert}</pre>
+      </Pane>
+      <Pane title="◆ FEDERATED CREDENTIAL (GitHub/GitLab OIDC — no secrets)" actions={<Btn onClick={() => copy(cmds.federated, toast)}>COPY</Btn>}>
+        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.federated}</pre>
+      </Pane>
+      <Pane title="◆ MANAGED IDENTITY (Azure-native workloads — zero credentials)" actions={<Btn onClick={() => copy(cmds.mi, toast)}>COPY</Btn>}>
+        <pre className="text-xs p-2" style={{ background: "#000a05", border: `1px solid ${BORDER}`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap" }}>{cmds.mi}</pre>
+      </Pane>
+    </div>
+  );
+}
+
+// ───────────── Shared AI-powered tool ─────────────
+
+function AiTool({ kind, placeholder, label, sample, toast }: { kind: string; placeholder: string; label: string; sample: string; toast: (s: string) => void }) {
+  const [input, setInput] = useState(sample);
+  const [out, setOut] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  const run = async () => {
+    setErr(""); setOut(""); setLoading(true);
+    try {
+      const r = await fetch("/api/devtools/ai", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, input }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      setOut(j.answer); setUsage({ used: j.used, limit: j.limit });
+    } catch (e: any) { setErr(e.message); }
+    finally { setLoading(false); }
+  };
+  return (
+    <div className="space-y-3 h-full flex flex-col">
+      <Pane title={`INPUT // ${label.toUpperCase()}`} actions={
+        <div className="flex gap-2 items-center">
+          {usage && <span className="text-[10px]" style={{ color: MUTED, fontFamily: MONO }}>// {usage.used}/{usage.limit} queries today</span>}
+          <Btn onClick={run} kind="primary">{loading ? "◐ ANALYZING..." : "⚡ INVOKE TURBO"}</Btn>
+        </div>
+      }>
+        <TA value={input} onChange={setInput} placeholder={placeholder} rows={10} />
+      </Pane>
+      {err && <Pane title="⨯ ERROR"><div className="text-xs" style={{ color: RED, fontFamily: MONO }}>{err}</div></Pane>}
+      {(out || loading) && (
+        <Pane title="◆ TURBO ANALYSIS" actions={out && <Btn onClick={() => copy(out, toast)}>COPY</Btn>}>
+          {loading && !out ? (
+            <div className="text-xs" style={{ color: NEON_DIM, fontFamily: MONO }}>[ analyzing input... awaiting model response ]</div>
+          ) : (
+            <pre className="text-xs p-3" style={{ background: "#000a05", border: `1px solid ${NEON}33`, color: NEON, fontFamily: MONO, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{out}</pre>
+          )}
+        </Pane>
+      )}
+    </div>
+  );
 }
 
 // ───────────── Matrix background ─────────────
@@ -1448,6 +1901,14 @@ export default function DevTools() {
             {active === "aad-token" && <AadTokenTool toast={showToast} />}
             {active === "kql" && <KqlTool toast={showToast} />}
             {active === "arm-lint" && <ArmLintTool />}
+            {active === "az-sas" && <AzSasTool toast={showToast} />}
+            {active === "iac-transmute" && <IacTransmuteTool toast={showToast} />}
+            {active === "cli-synth" && <CliSynthTool toast={showToast} />}
+            {active === "irm-sp" && <IrmSpTool toast={showToast} />}
+            {active === "kql-ai" && <AiTool kind="kql-explain" label="KQL.cogniscan" placeholder="paste any KQL query..." sample={`requests\n| where timestamp > ago(24h)\n| summarize p95 = percentile(duration, 95), count() by name\n| order by p95 desc\n| take 20`} toast={showToast} />}
+            {active === "arm-ai" && <AiTool kind="arm-review" label="ARM.sentinel" placeholder="paste ARM or Bicep template..." sample={`{\n  "resources": [{\n    "type": "Microsoft.Web/sites",\n    "name": "myapp",\n    "properties": {\n      "siteConfig": {\n        "appSettings": [{ "name": "DB_PASSWORD", "value": "P@ssw0rd123" }],\n        "minTlsVersion": "1.0"\n      }\n    }\n  }]\n}`} toast={showToast} />}
+            {active === "cli-ai" && <AiTool kind="az-explain" label="CLI.exegete" placeholder="paste any az command..." sample={`az aks create --name prodCluster --resource-group prod-rg --node-count 3 --node-vm-size Standard_DS3_v2 --enable-managed-identity --network-plugin azure --load-balancer-sku standard --enable-cluster-autoscaler --min-count 1 --max-count 10`} toast={showToast} />}
+            {active === "err-ai" && <AiTool kind="error-decode" label="ERROR.decryptor" placeholder="paste an Azure error message..." sample={`{\n  "error": {\n    "code": "AuthorizationFailed",\n    "message": "The client 'a1b2...' with object id 'a1b2...' does not have authorization to perform action 'Microsoft.Storage/storageAccounts/listKeys/action' over scope '/subscriptions/.../resourceGroups/prod-rg/providers/Microsoft.Storage/storageAccounts/prodstg' or the scope is invalid."\n  }\n}`} toast={showToast} />}
             {active === "jwt" && <JwtTool toast={showToast} />}
             {active === "base64" && <Base64Tool toast={showToast} />}
             {active === "json-yaml" && <JsonYamlTool toast={showToast} />}

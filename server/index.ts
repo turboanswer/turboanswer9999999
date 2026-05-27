@@ -242,6 +242,7 @@ const CSRF_EXEMPT_PATHS = [
   '/api/paypal/webhook',
   '/api/stripe/webhook',
   '/api/widget/',
+  '/api/devtools/',
 ];
 
 app.use((req: Request, res: Response, next: NextFunction) => {
