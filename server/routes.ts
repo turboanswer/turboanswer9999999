@@ -674,6 +674,24 @@ function downloadAAB(){
       const prompt = PROMPTS[kind];
       if (!prompt) return res.status(400).json({ error: "unknown kind" });
 
+      // Tier gate — AI explainers are Research+ only (with owner/employee bypass)
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || "free").toLowerCase();
+      const allowed =
+        tier === "research" ||
+        tier === "enterprise" ||
+        isOwnerAccount(user) ||
+        (user as any)?.isEmployee === true;
+      if (!allowed) {
+        return res.status(402).json({
+          error: "AI devtools require Research tier or above.",
+          tier,
+          requiredTier: "research",
+          upgradeUrl: "/pricing",
+        });
+      }
+
       let text = "";
       const geminiKeys = [process.env.GEMINI_PRO_API_KEY, process.env.GEMINI_API_KEY].filter(Boolean) as string[];
       let lastErr: any = null;

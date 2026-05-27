@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import yaml from "js-yaml";
+import { useAuth } from "@/hooks/use-auth";
 
 const NEON = "#00ff9c";
 const NEON_DIM = "#00b572";
@@ -23,39 +24,46 @@ type ToolId =
   | "az-sas" | "iac-transmute" | "cli-synth" | "irm-sp"
   | "kql-ai" | "arm-ai" | "cli-ai" | "err-ai";
 
-type Category = { name: string; tools: { id: ToolId; label: string; icon: string; desc: string }[] };
+type Tier = "free" | "pro" | "research";
+type Tool = { id: ToolId; label: string; icon: string; desc: string; tier?: Tier };
+type Category = { name: string; tools: Tool[] };
+
+const TIER_RANK: Record<string, number> = { free: 0, pro: 1, research: 2, enterprise: 2, owner: 3, employee: 3 };
+function canAccess(userTier: string, required: Tier = "free") {
+  return (TIER_RANK[userTier.toLowerCase()] ?? 0) >= TIER_RANK[required];
+}
 
 const CATEGORIES: Category[] = [
   {
     name: "// AZURE.IDENTITY",
     tools: [
-      { id: "aad-token", label: "entra.token", icon: "▲", desc: "AAD/Entra JWT claim demultiplexer" },
-      { id: "irm-sp", label: "irm.principal", icon: "◈", desc: "Service principal forge + RBAC binder" },
-      { id: "az-sas", label: "az.sas.codec", icon: "⊕", desc: "Storage SAS HMAC-SHA256 codec" },
+      { id: "aad-token", label: "entra.token", icon: "▲", desc: "AAD/Entra JWT claim demultiplexer", tier: "pro" },
+      { id: "irm-sp", label: "irm.principal", icon: "◈", desc: "Service principal forge + RBAC binder", tier: "pro" },
+      { id: "az-sas", label: "az.sas.codec", icon: "⊕", desc: "Storage SAS HMAC-SHA256 codec", tier: "pro" },
     ],
   },
   {
     name: "// AZURE.IAC",
     tools: [
-      { id: "az-resid", label: "az.resourceId", icon: "☁", desc: "ARM resource URI deconstructor" },
-      { id: "arm-lint", label: "arm.lint", icon: "✦", desc: "ARM/Bicep policy compliance scanner" },
-      { id: "iac-transmute", label: "iac.transmute", icon: "⇄", desc: "ARM ↔ Bicep declarative transmutation" },
-      { id: "arm-ai", label: "arm.sentinel", icon: "★", desc: "AI-augmented IaC security audit" },
+      { id: "az-resid", label: "az.resourceId", icon: "☁", desc: "ARM resource URI deconstructor", tier: "pro" },
+      { id: "arm-lint", label: "arm.lint", icon: "✦", desc: "ARM/Bicep policy compliance scanner", tier: "pro" },
+      { id: "iac-transmute", label: "iac.transmute", icon: "⇄", desc: "ARM ↔ Bicep declarative transmutation", tier: "pro" },
+      { id: "arm-ai", label: "arm.sentinel", icon: "★", desc: "AI-augmented IaC security audit", tier: "research" },
     ],
   },
   {
     name: "// AZURE.OBSERVABILITY",
     tools: [
-      { id: "kql", label: "kql.playground", icon: "λ", desc: "Kusto telemetry query corpus (30+)" },
-      { id: "kql-ai", label: "kql.cogniscan", icon: "✧", desc: "AI Kusto explainer + optimizer" },
-      { id: "err-ai", label: "error.decryptor", icon: "⚠", desc: "AI Azure fault root-cause engine" },
+      { id: "kql", label: "kql.playground", icon: "λ", desc: "Kusto telemetry query corpus (30+)", tier: "pro" },
+      { id: "kql-ai", label: "kql.cogniscan", icon: "✧", desc: "AI Kusto explainer + optimizer", tier: "research" },
+      { id: "err-ai", label: "error.decryptor", icon: "⚠", desc: "AI Azure fault root-cause engine", tier: "research" },
     ],
   },
   {
     name: "// AZURE.CONTROL_PLANE",
     tools: [
-      { id: "cli-synth", label: "cli.synthesizer", icon: "▷", desc: "az command lattice generator" },
-      { id: "cli-ai", label: "cli.exegete", icon: "✺", desc: "AI az command flag exegesis" },
+      { id: "cli-synth", label: "cli.synthesizer", icon: "▷", desc: "az command lattice generator", tier: "pro" },
+      { id: "cli-ai", label: "cli.exegete", icon: "✺", desc: "AI az command flag exegesis", tier: "research" },
     ],
   },
   {
@@ -1819,7 +1827,44 @@ function CmdPalette({ open, onClose, onPick }: { open: boolean; onClose: () => v
 }
 
 // ───────────── main ─────────────
+function LockedPanel({ tool, userTier }: { tool: Tool; userTier: string }) {
+  const required = tool.tier || "free";
+  const reqLabel = required.toUpperCase();
+  return (
+    <div className="h-full flex items-center justify-center">
+      <div style={{ background: PANEL, border: `1px solid ${BORDER}`, padding: 32, maxWidth: 520, borderRadius: 4, boxShadow: `0 0 32px ${PINK}22` }}>
+        <div className="text-[10px] uppercase tracking-[0.32em] mb-3" style={{ color: PINK }}>// ACCESS.DENIED · 0x{required === "research" ? "R7" : "P3"}</div>
+        <div className="text-3xl font-black mb-2" style={{ color: NEON, textShadow: `0 0 12px ${NEON}88` }}>{tool.label}</div>
+        <div className="text-xs mb-5" style={{ color: MUTED }}>// {tool.desc}</div>
+        <div className="text-sm mb-2" style={{ color: NEON_DIM }}>
+          This module is gated to <span style={{ color: PINK, fontWeight: 700 }}>{reqLabel}</span> tier and above.
+        </div>
+        <div className="text-xs mb-6" style={{ color: MUTED }}>
+          Current tier: <span style={{ color: WARN }}>{userTier.toUpperCase() || "FREE"}</span>
+        </div>
+        <div className="flex gap-3">
+          <Link href="/pricing" className="px-4 py-2 text-[11px] uppercase tracking-[0.18em] font-bold"
+            style={{ fontFamily: MONO, background: NEON, color: BG, textDecoration: "none", borderRadius: 2, boxShadow: `0 0 16px ${NEON}` }}>
+            ▶ UPGRADE.exec
+          </Link>
+          <Link href="/subscribe" className="px-4 py-2 text-[11px] uppercase tracking-[0.18em]"
+            style={{ fontFamily: MONO, border: `1px solid ${BORDER}`, color: NEON_DIM, textDecoration: "none", borderRadius: 2 }}>
+            view.plans
+          </Link>
+        </div>
+        <div className="mt-6 text-[10px]" style={{ color: MUTED }}>
+          {required === "research"
+            ? "// Research tier unlocks AI-augmented analyzers (kql.cogniscan, arm.sentinel, cli.exegete, error.decryptor)"
+            : "// Pro tier unlocks the Azure subsystem (identity, IaC, observability, control-plane)"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DevTools() {
+  const { user } = useAuth();
+  const userTier = (user?.subscriptionTier || "free").toLowerCase();
   const [active, setActive] = useState<ToolId>("jwt");
   const [toast, setToastMsg] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -1865,22 +1910,33 @@ export default function DevTools() {
           {CATEGORIES.map(cat => (
             <div key={cat.name} className="py-2">
               <div className="px-3 py-1.5 text-[9px] uppercase tracking-[0.32em]" style={{ color: MUTED }}>{cat.name}</div>
-              {cat.tools.map(t => (
-                <div key={t.id} onClick={() => setActive(t.id)}
-                  className="flex items-center gap-3 px-3 py-1.5 cursor-pointer text-xs"
-                  style={{
-                    background: active===t.id ? `${NEON}18` : "transparent",
-                    color: active===t.id ? NEON : NEON_DIM,
-                    borderLeft: `2px solid ${active===t.id ? NEON : "transparent"}`,
-                    boxShadow: active===t.id ? `inset 0 0 16px ${NEON}22` : "none",
-                  }}
-                  onMouseEnter={e => { if (active!==t.id) (e.currentTarget as HTMLElement).style.background = `${NEON}08`; }}
-                  onMouseLeave={e => { if (active!==t.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                >
-                  <span style={{ width: 16, color: active===t.id ? PINK : MUTED }}>{t.icon}</span>
-                  <span>{t.label}</span>
-                </div>
-              ))}
+              {cat.tools.map(t => {
+                const locked = !canAccess(userTier, t.tier || "free");
+                return (
+                  <div key={t.id} onClick={() => setActive(t.id)}
+                    className="flex items-center gap-3 px-3 py-1.5 cursor-pointer text-xs"
+                    style={{
+                      background: active===t.id ? `${NEON}18` : "transparent",
+                      color: active===t.id ? NEON : (locked ? MUTED : NEON_DIM),
+                      borderLeft: `2px solid ${active===t.id ? NEON : "transparent"}`,
+                      boxShadow: active===t.id ? `inset 0 0 16px ${NEON}22` : "none",
+                      opacity: locked ? 0.55 : 1,
+                    }}
+                    onMouseEnter={e => { if (active!==t.id) (e.currentTarget as HTMLElement).style.background = `${NEON}08`; }}
+                    onMouseLeave={e => { if (active!==t.id) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
+                    <span style={{ width: 16, color: active===t.id ? PINK : MUTED }}>{t.icon}</span>
+                    <span style={{ flex: 1 }}>{t.label}</span>
+                    {locked && (
+                      <span className="text-[8px] uppercase tracking-[0.18em] px-1" style={{
+                        color: t.tier === "research" ? PINK : WARN,
+                        border: `1px solid ${t.tier === "research" ? PINK : WARN}44`,
+                        borderRadius: 2,
+                      }}>{t.tier === "research" ? "R7" : "P3"}</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
           <div className="px-3 py-3 text-[9px]" style={{ color: MUTED, borderTop: `1px solid ${BORDER}` }}>
@@ -1897,6 +1953,9 @@ export default function DevTools() {
             <span style={{ color: MUTED }} className="text-xs">// {activeTool.desc}</span>
           </div>
           <div style={{ height: "calc(100vh - 200px)" }}>
+            {!canAccess(userTier, activeTool.tier || "free") ? (
+              <LockedPanel tool={activeTool} userTier={userTier} />
+            ) : <>
             {active === "az-resid" && <AzResourceIdTool toast={showToast} />}
             {active === "aad-token" && <AadTokenTool toast={showToast} />}
             {active === "kql" && <KqlTool toast={showToast} />}
@@ -1927,6 +1986,7 @@ export default function DevTools() {
             {active === "diff" && <DiffTool />}
             {active === "markdown" && <MarkdownTool />}
             {active === "lorem" && <LoremTool toast={showToast} />}
+            </>}
           </div>
         </main>
       </div>
