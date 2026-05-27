@@ -28,5 +28,11 @@ export function cleanMarkdown(text: string): string {
   out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)');
   // Bullet markers: convert "* item" / "+ item" → "- item" for consistency
   out = out.replace(/^([ \t]*)[*+][ \t]+/gm, '$1- ');
+  // Belt-and-suspenders nuke pass: if any literal `**` or `__` survived
+  // (mismatched pairs, weird unicode boundaries, etc), strip them outright.
+  // Only safe runs of 2+ asterisks/underscores — single ones may be arithmetic
+  // (5*8) or identifiers (snake_case), so we leave those alone.
+  if (out.includes('**')) out = out.replace(/\*\*+/g, '');
+  if (/\b_{2,}\b/.test(out)) out = out.replace(/_{2,}/g, '');
   return out;
 }
