@@ -1,11 +1,11 @@
-name: Build Android APK (disabled)
+name: "[deprecated] Build Android APK — use android-build.yml instead"
 
 on:
-  workflow_dispatch:
+  workflow_call: {}
 
 jobs:
-  noop:
+  deprecated:
     runs-on: ubuntu-latest
+    if: false
     steps:
-      - name: Disabled
-        run: echo "APK build is disabled. Re-enable later when ready."
+      - run: echo "This stub is intentionally never triggered. The real signed AAB+APK build lives in .github/workflows/android-build.yml ('Build Android AAB + APK'). Run that one from the Actions tab."
