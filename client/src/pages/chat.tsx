@@ -939,16 +939,9 @@ export default function Chat() {
   };
 
   const handleModelChange = (value: string) => {
-    const tier = subscriptionData?.tier;
-    if (value === 'gemini-pro' && tier !== 'pro' && tier !== 'research' && tier !== 'enterprise') {
-      setShowProPopup(true);
-    } else if (value === 'claude-research' && tier !== 'research' && tier !== 'enterprise') {
-      setShowResearchPopup(true);
-    } else if (value === 'enterprise-research' && tier !== 'enterprise') {
-      setShowEnterprisePopup(true);
-    } else {
-      setSelectedAIModel(value === 'enterprise-research' ? 'claude-research' : value);
-    }
+    // LAUNCH NIGHT: all models unlocked for every tier so free users can try the full stack.
+    // Original code paywalled gemini-pro/claude-research/enterprise-research; restore those checks to re-gate.
+    setSelectedAIModel(value === 'enterprise-research' ? 'claude-research' : value);
   };
 
   if (isNativeMobile) {
@@ -1084,26 +1077,30 @@ export default function Chat() {
             </button>
 
             <button
-              onClick={() => setShowLiveVision(true)}
-              className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white hover:scale-105 transition-transform`}
-              title="Live Vision — AI watches through your camera"
+              onClick={() => {
+                if (isPaidPro) {
+                  setShowLiveVision(true);
+                } else {
+                  setShowProPopup(true);
+                }
+              }}
+              className={`h-8 w-8 flex items-center justify-center rounded-full ${isPaidPro ? 'bg-gradient-to-br from-cyan-500 to-blue-500' : 'bg-gradient-to-br from-gray-500 to-gray-600'} text-white hover:scale-105 transition-transform`}
+              title={isPaidPro ? 'Live Vision — AI watches through your camera' : 'Live Vision (Pro / Research)'}
               data-testid="button-live-vision"
               type="button"
             >
               <Eye className="h-4 w-4" />
             </button>
 
-            {isResearchOrAbove && (
-              <button
-                onClick={() => setShowCodeAnalyzer(true)}
-                className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white hover:scale-105 transition-transform`}
-                title="Code Surgeon — GPT-5.1 Codex Max deep code analysis (Research+)"
-                data-testid="button-code-analyzer"
-                type="button"
-              >
-                <Code2 className="h-4 w-4" />
-              </button>
-            )}
+            <button
+              onClick={() => setShowCodeAnalyzer(true)}
+              className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white hover:scale-105 transition-transform`}
+              title="Code Surgeon — GPT-5.1 Codex Max deep code analysis"
+              data-testid="button-code-analyzer"
+              type="button"
+            >
+              <Code2 className="h-4 w-4" />
+            </button>
 
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -1129,8 +1126,8 @@ export default function Chat() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`h-8 w-8 p-0 rounded-full relative ${isResearchOrAbove ? (isDark ? 'text-purple-300 hover:text-purple-200 hover:bg-[#1e1f20]' : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50') : (isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100')}`}
-                  title={isResearchOrAbove ? 'Stack Trace Surgeon — diagnose errors from your repo' : 'Stack Trace Surgeon (Research tier)'}
+                  className={`h-8 w-8 p-0 rounded-full relative ${isDark ? 'text-purple-300 hover:text-purple-200 hover:bg-[#1e1f20]' : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'}`}
+                  title="Stack Trace Surgeon — diagnose errors from your repo"
                   data-testid="button-stack-trace-surgeon"
                 >
                   <Stethoscope className="h-4 w-4" />
