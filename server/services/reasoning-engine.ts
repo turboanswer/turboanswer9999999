@@ -704,29 +704,153 @@ async function callORWithFallback(
   return null;
 }
 
-// Free + Pro → direct Gemini API (separate keys). Research/Enterprise → OpenRouter (panel).
+// ============= AZURE AI FOUNDRY (Microsoft) — SOLE PROVIDER =============
+// All chat tiers route through deployments on the user's Azure AI Foundry
+// resource. No OpenRouter, no Google Gemini, no direct OpenAI. The deployment
+// names are read from env, with sensible defaults matching the current
+// Foundry inventory (gpt-5.4-nano / -mini / -pro).
+const AZURE_API_VERSION = '2024-08-01-preview';
+const AZURE_ENDPOINT_BASE = () => {
+  const raw = process.env.AZURE_OPENAI_ENDPOINT || '';
+  // Strip the /api/projects/<project> suffix — chat completions live at the
+  // resource root under /openai/deployments/<name>/chat/completions.
+  return raw.replace(/\/+$/, '').replace(/\/api\/projects\/[^/]+$/, '');
+};
+const AZURE_KEY = () => process.env.AZURE_OPENAI_API_KEY || '';
+const AZURE_DEPLOY = {
+  nano: () => process.env.AZURE_OPENAI_DEPLOYMENT_NANO || 'gpt-5.4-nano',
+  mini: () => process.env.AZURE_OPENAI_DEPLOYMENT_MINI || 'gpt-5.4-mini',
+  pro:  () => process.env.AZURE_OPENAI_DEPLOYMENT_PRO  || 'gpt-5.4-pro',
+};
+function deploymentForTier(tier?: string): string {
+  const t = (tier || 'free').toLowerCase();
+  if (t === 'research' || t === 'enterprise' || t === 'owner') return AZURE_DEPLOY.pro();
+  if (t === 'pro') return AZURE_DEPLOY.mini();
+  return AZURE_DEPLOY.nano();
+}
+
+async function callAzureFoundry(
+  deployment: string,
+  prompt: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {},
+): Promise<string | null> {
+  const base = AZURE_ENDPOINT_BASE(); const key = AZURE_KEY();
+  if (!base || !key) { console.warn('[AzureFoundry] Missing AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY'); return null; }
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
+  try {
+    const res = await fetch(
+      `${base}/openai/deployments/${deployment}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': key },
+        body: JSON.stringify({
+          messages: buildOpenAIMessages(prompt, opts.system, opts.history),
+          // gpt-5.x deployments use max_completion_tokens (not max_tokens) and
+          // ignore custom temperature (only the default value is supported).
+          max_completion_tokens: opts.maxTokens ?? 800,
+        }),
+        signal: ctrl.signal,
+      }
+    );
+    clearTimeout(t);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn(`[AzureFoundry] ${deployment} HTTP ${res.status}: ${txt.slice(0, 240)}`);
+      return null;
+    }
+    const data: any = await res.json();
+    return data?.choices?.[0]?.message?.content || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[AzureFoundry] ${deployment} failed: ${err?.message || err}`);
+    return null;
+  }
+}
+
+async function callAzureFoundryStream(
+  deployment: string,
+  prompt: string,
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
+  onChunk: (text: string) => void,
+): Promise<string | null> {
+  const base = AZURE_ENDPOINT_BASE(); const key = AZURE_KEY();
+  if (!base || !key) return null;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 60000);
+  try {
+    const res = await fetch(
+      `${base}/openai/deployments/${deployment}/chat/completions?api-version=${AZURE_API_VERSION}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': key, 'Accept': 'text/event-stream' },
+        body: JSON.stringify({
+          messages: buildOpenAIMessages(prompt, opts.system, opts.history),
+          max_completion_tokens: opts.maxTokens ?? 800,
+          stream: true,
+        }),
+        signal: ctrl.signal,
+      }
+    );
+    if (!res.ok || !res.body) {
+      clearTimeout(t);
+      const txt = await res.text().catch(() => '');
+      console.warn(`[AzureFoundry-stream] ${deployment} HTTP ${res.status}${txt ? `: ${txt.slice(0, 240)}` : ''}`);
+      return null;
+    }
+    const reader = (res.body as any).getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let acc = '';
+    const handleLine = (raw: string) => {
+      const line = raw.trim();
+      if (!line.startsWith('data:')) return;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed?.choices?.[0]?.delta?.content || '';
+        if (delta) { acc += delta; onChunk(delta); }
+      } catch {}
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
+        handleLine(line);
+      }
+    }
+    if (buffer.length) handleLine(buffer);
+    clearTimeout(t);
+    return acc || null;
+  } catch (err: any) {
+    clearTimeout(t);
+    console.warn(`[AzureFoundry-stream] ${deployment} failed: ${err?.message || err}`);
+    return null;
+  }
+}
+
+// All tiers go through Azure AI Foundry. Deployment chosen by tier (nano / mini / pro).
 async function answerForTier(
   prompt: string,
   tier: string | undefined,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
-  const t = (tier || 'free').toLowerCase();
-  if (t === 'free') {
-    // Free tier primary: Replit-managed OpenAI gpt-4o-mini (Replit pays the
-    // bill). Falls back to direct Gemini if the proxy hiccups, then to
-    // OpenRouter as a final safety net so free chat never goes silent.
-    const replit = await callReplitOpenAI(prompt, opts);
-    if (replit) return replit;
-    if (GEMINI_FREE_KEY()) {
-      const out = await callGeminiWithFallback(prompt, GEMINI_FREE_MODELS, GEMINI_FREE_KEY(), opts);
-      if (out) return out;
-    }
+  const primary = deploymentForTier(tier);
+  const out = await callAzureFoundry(primary, prompt, opts);
+  if (out) return out;
+  // Single in-family fallback so a transient hiccup on (say) the pro deployment
+  // still gets answered by mini → nano before we give up.
+  const cascade = [AZURE_DEPLOY.mini(), AZURE_DEPLOY.nano()].filter(d => d !== primary);
+  for (const d of cascade) {
+    const fb = await callAzureFoundry(d, prompt, opts);
+    if (fb) return fb;
   }
-  if (t === 'pro' && GEMINI_PRO_KEY()) {
-    const out = await callGeminiWithFallback(prompt, GEMINI_PRO_MODELS, GEMINI_PRO_KEY(), opts);
-    if (out) return out;
-  }
-  return callORWithFallback(modelsForTier(t), prompt, opts);
+  return null;
 }
 
 // ============= TIER-BASED RESPONSE SHAPING =============
@@ -934,27 +1058,14 @@ async function answerForTierStream(
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
   onChunk: (text: string) => void,
 ): Promise<string | null> {
-  const t = (tier || 'free').toLowerCase();
-  if (t === 'free') {
-    // Free tier primary: Replit-managed OpenAI gpt-4o-mini stream.
-    const replit = await callReplitOpenAIStream(prompt, opts, onChunk);
-    if (replit) return replit;
-    if (GEMINI_FREE_KEY()) {
-      for (const m of GEMINI_FREE_MODELS) {
-        const out = await callGeminiStream(m, prompt, GEMINI_FREE_KEY(), opts, onChunk);
-        if (out) return out;
-      }
-    }
-  }
-  if (t === 'pro' && GEMINI_PRO_KEY()) {
-    for (const m of GEMINI_PRO_MODELS) {
-      const out = await callGeminiStream(m, prompt, GEMINI_PRO_KEY(), opts, onChunk);
-      if (out) return out;
-    }
-  }
-  for (const m of modelsForTier(t)) {
-    const out = await callORStream(m, prompt, opts, onChunk);
-    if (out) return out;
+  // Azure AI Foundry only. Same nano/mini/pro mapping as the non-streaming path.
+  const primary = deploymentForTier(tier);
+  const out = await callAzureFoundryStream(primary, prompt, opts, onChunk);
+  if (out) return out;
+  const cascade = [AZURE_DEPLOY.mini(), AZURE_DEPLOY.nano()].filter(d => d !== primary);
+  for (const d of cascade) {
+    const fb = await callAzureFoundryStream(d, prompt, opts, onChunk);
+    if (fb) return fb;
   }
   return null;
 }
