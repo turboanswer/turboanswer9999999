@@ -31,16 +31,58 @@ export default function LiveVisionModal({ isDark, onClose }: LiveVisionModalProp
   const [framesUsed, setFramesUsed] = useState(0);
   const [usingFrontCamera, setUsingFrontCamera] = useState(false);
 
+  const pickCalmVoice = (): SpeechSynthesisVoice | null => {
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices?.length) return null;
+      const preferredNames = [
+        "Google UK English Female",
+        "Microsoft Aria Online (Natural) - English (United States)",
+        "Microsoft Jenny Online (Natural) - English (United States)",
+        "Samantha",
+        "Karen",
+        "Victoria",
+        "Serena",
+        "Allison",
+        "Ava",
+        "Google US English",
+      ];
+      for (const name of preferredNames) {
+        const v = voices.find((x) => x.name === name);
+        if (v) return v;
+      }
+      const enFemale = voices.find(
+        (v) => v.lang.startsWith("en") && /female|samantha|karen|victoria|aria|jenny|ava|serena|allison/i.test(v.name)
+      );
+      if (enFemale) return enFemale;
+      return voices.find((v) => v.lang.startsWith("en")) || voices[0];
+    } catch {
+      return null;
+    }
+  };
+
   const speak = (text: string) => {
     if (!ttsEnabledRef.current) return;
     try {
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.rate = 1.05;
-      u.pitch = 1.0;
+      const v = pickCalmVoice();
+      if (v) u.voice = v;
+      u.rate = 0.92;
+      u.pitch = 1.05;
+      u.volume = 0.9;
       window.speechSynthesis.speak(u);
     } catch {}
   };
+
+  useEffect(() => {
+    try {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    } catch {}
+  }, []);
 
   const captureFrame = (): string | null => {
     const video = videoRef.current;
