@@ -1,13 +1,12 @@
 import { fastAnswer } from "./reasoning-engine.js";
 import { callDirect } from "./direct-router.js";
 
-// Stack Trace Surgeon uses Claude Sonnet 4.5 via the direct Anthropic API
-// (no OpenRouter) — Anthropic's best coding model, ideal for diagnosing
-// stack traces and producing valid diffs. Falls back to tier-routed Gemini
-// Pro (via fastAnswer) if Anthropic is unavailable.
-const SURGEON_MODEL = 'anthropic/claude-sonnet-4.5';
+// Stack Trace Surgeon uses GPT-4o via the direct OpenAI API (no OpenRouter).
+// Falls back to the tier-routed answer chain via fastAnswer if OpenAI is
+// unavailable, so the feature never goes silent.
+const SURGEON_MODEL = 'openai/gpt-4o';
 
-async function callSonnetForSurgeon(prompt: string): Promise<string | null> {
+async function callSurgeonModel(prompt: string): Promise<string | null> {
   return callDirect(SURGEON_MODEL, [{ role: 'user', content: prompt }], {
     maxTokens: 3000,
     temperature: 0.2,
@@ -269,11 +268,10 @@ export async function diagnoseStackTrace(
   if (frames.length > 0 && files.length === 0) warnings.push('no_files_fetched');
 
   const prompt = buildPrompt(stackTrace, files);
-  // Primary: Claude Sonnet 4.5 (Anthropic's best coding model — produces cleaner
-  // diffs and more accurate root-cause analysis than Gemini Pro on code tasks).
-  // Fallback: tier-routed Gemini Pro chain via fastAnswer (so we never go silent
-  // if OpenRouter / Sonnet is unavailable).
-  let raw = await callSonnetForSurgeon(prompt);
+  // Primary: GPT-4o via direct OpenAI API.
+  // Fallback: tier-routed answer chain via fastAnswer (so we never go silent
+  // if OpenAI is unavailable or rate-limited).
+  let raw = await callSurgeonModel(prompt);
   if (!raw || raw.trim().length < 20) {
     raw = await fastAnswer(prompt, undefined, tier);
   }
