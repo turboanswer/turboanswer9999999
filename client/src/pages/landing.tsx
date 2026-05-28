@@ -1,642 +1,683 @@
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import {
-  Terminal, Cpu, Lock, Zap, Skull, Code2, Crown, Microscope, Star,
-  ArrowRight, Check, Menu, X, ChevronRight, GitBranch, Eye, Activity,
-  Wifi, Shield, Brain, Sparkles, Rocket, Bot, Server, Database,
+  ArrowRight, Check, Menu, X, Code2, Eye, Brain, Shield,
+  Mic, Database, Zap,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 
-const NEON = "#00ff9c";
-const NEON_DIM = "#00b572";
-const ACID = "#ccff00";
-const PINK = "#ff2bd6";
-const CYAN = "#00e5ff";
+const ACCENT = "#ff6b1a";
+const ACCENT_HOVER = "#ff8541";
+const INK = "#0a0a0f";
+const INK_HI = "#101019";
+const LINE = "rgba(255,255,255,0.08)";
+const TEXT = "#e8eaed";
+const MUTED = "#8a8f98";
 
-function MatrixRain() {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    let raf = 0;
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    const chars = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ{}<>/\\|+-*=#@$%&".split("");
-    const fontSize = 14;
-    let columns = Math.floor(canvas.width / fontSize);
-    let drops: number[] = Array(columns).fill(1);
-
-    const recalc = () => {
-      columns = Math.floor(canvas.width / fontSize);
-      drops = Array(columns).fill(1);
-    };
-    window.addEventListener("resize", recalc);
-
-    let last = 0;
-    const draw = (t: number) => {
-      if (t - last > 55) {
-        last = t;
-        ctx.fillStyle = "rgba(0, 0, 0, 0.08)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.font = `${fontSize}px "Courier New", monospace`;
-        for (let i = 0; i < drops.length; i++) {
-          const ch = chars[Math.floor(Math.random() * chars.length)];
-          const y = drops[i] * fontSize;
-          ctx.fillStyle = Math.random() > 0.97 ? "#ffffff" : NEON;
-          ctx.fillText(ch, i * fontSize, y);
-          if (y > canvas.height && Math.random() > 0.975) drops[i] = 0;
-          drops[i]++;
-        }
-      }
-      raf = requestAnimationFrame(draw);
-    };
-    raf = requestAnimationFrame(draw);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("resize", recalc);
-    };
-  }, []);
+function Orb() {
   return (
-    <canvas
-      ref={ref}
-      className="fixed inset-0 w-full h-full pointer-events-none"
-      style={{ opacity: 0.32, zIndex: 0 }}
-    />
-  );
-}
-
-function GlitchText({ children, className = "" }: { children: string; className?: string }) {
-  return (
-    <span className={`relative inline-block glitch ${className}`} data-text={children}>
-      {children}
-    </span>
-  );
-}
-
-function TerminalLine({ prefix = "$", text, color = NEON }: { prefix?: string; text: string; color?: string }) {
-  return (
-    <div className="font-mono text-xs sm:text-sm flex gap-2">
-      <span style={{ color: NEON_DIM }}>{prefix}</span>
-      <span style={{ color }}>{text}</span>
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={{ zIndex: 0 }}
+    >
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: "min(1200px, 140vw)",
+          height: "min(1200px, 140vw)",
+          left: "50%",
+          top: "-40%",
+          transform: "translateX(-50%)",
+          background:
+            "radial-gradient(circle at 50% 50%, rgba(255,107,26,0.22) 0%, rgba(255,107,26,0.08) 28%, rgba(60,30,120,0.18) 55%, rgba(10,10,15,0) 72%)",
+          filter: "blur(20px)",
+          animation: "orb 28s linear infinite",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.6) 0, transparent 1px), radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.4) 0, transparent 1px), radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,0.5) 0, transparent 1px), radial-gradient(1px 1px at 85% 20%, rgba(255,255,255,0.35) 0, transparent 1px), radial-gradient(1px 1px at 15% 70%, rgba(255,255,255,0.45) 0, transparent 1px)",
+          backgroundSize: "600px 600px",
+          opacity: 0.5,
+        }}
+      />
+      <div
+        className="absolute inset-x-0 bottom-0 h-40"
+        style={{
+          background: "linear-gradient(to bottom, transparent, #0a0a0f)",
+        }}
+      />
     </div>
   );
 }
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const ctaHref = isAuthenticated ? "/chat" : "/login";
-  const ctaLabel = isAuthenticated ? ">> ENTER MATRIX" : ">> JACK IN";
-
-  const [bootLines, setBootLines] = useState<string[]>([]);
-  useEffect(() => {
-    const lines = [
-      "Initializing TurboAnswer kernel v5.4.0…",
-      "Loading GPT-5.4 Pro weights ████████████ 100%",
-      "Loading GPT-5.1 Codex Max ████████████ 100%",
-      "Patching into Azure OpenAI cluster… [OK]",
-      "Bypassing rate limits… [OK]",
-      "AI-MARKET-DISRUPTION protocol engaged.",
-    ];
-    let i = 0;
-    const t = setInterval(() => {
-      setBootLines((prev) => (i < lines.length ? [...prev, lines[i++]] : (clearInterval(t), prev)));
-    }, 380);
-    return () => clearInterval(t);
-  }, []);
+  const ctaLabel = isAuthenticated ? "Open the app" : "Get started — free";
 
   return (
     <div
-      className="min-h-screen overflow-x-hidden relative"
+      className="min-h-screen relative overflow-x-hidden"
       style={{
-        background: "#000",
-        color: "#e6ffe6",
-        fontFamily: "'JetBrains Mono', 'Courier New', monospace",
+        background: INK,
+        color: TEXT,
+        fontFamily:
+          'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFeatureSettings: '"ss01", "cv11"',
       }}
-      data-testid="landing-cyber"
+      data-testid="landing-pro"
     >
       <style>{`
-        @keyframes scanlines {
-          0% { background-position: 0 0; }
-          100% { background-position: 0 100vh; }
+        @keyframes orb {
+          0%   { transform: translateX(-50%) rotate(0deg); }
+          100% { transform: translateX(-50%) rotate(360deg); }
         }
-        @keyframes flicker {
-          0%, 100% { opacity: 1; }
-          43% { opacity: 0.92; }
-          47% { opacity: 0.6; }
-          50% { opacity: 1; }
-          92% { opacity: 0.85; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        @keyframes neonpulse {
-          0%, 100% { text-shadow: 0 0 8px ${NEON}, 0 0 22px ${NEON}88, 0 0 40px ${NEON}44; }
-          50% { text-shadow: 0 0 14px ${NEON}, 0 0 34px ${NEON}, 0 0 60px ${NEON}66; }
+        .fade-up { animation: fadeUp 0.7s ease-out both; }
+        .fade-up-1 { animation-delay: 0.05s; }
+        .fade-up-2 { animation-delay: 0.15s; }
+        .fade-up-3 { animation-delay: 0.25s; }
+        .fade-up-4 { animation-delay: 0.35s; }
+        .cta-primary {
+          background: ${ACCENT};
+          color: #fff;
+          transition: background 0.15s ease, transform 0.15s ease;
         }
-        @keyframes glitchTop {
-          0%, 100% { clip-path: inset(0 0 80% 0); transform: translate(0); }
-          20% { clip-path: inset(10% 0 70% 0); transform: translate(-2px, 0); }
-          40% { clip-path: inset(30% 0 50% 0); transform: translate(2px, 0); }
-          60% { clip-path: inset(50% 0 30% 0); transform: translate(-1px, 0); }
-          80% { clip-path: inset(70% 0 10% 0); transform: translate(1px, 0); }
+        .cta-primary:hover { background: ${ACCENT_HOVER}; }
+        .cta-secondary {
+          background: rgba(255,255,255,0.04);
+          color: #fff;
+          border: 1px solid rgba(255,255,255,0.14);
+          transition: background 0.15s ease, border-color 0.15s ease;
         }
-        @keyframes glitchBottom {
-          0%, 100% { clip-path: inset(80% 0 0 0); transform: translate(0); }
-          20% { clip-path: inset(70% 0 10% 0); transform: translate(2px, 0); }
-          40% { clip-path: inset(50% 0 30% 0); transform: translate(-2px, 0); }
-          60% { clip-path: inset(30% 0 50% 0); transform: translate(1px, 0); }
-          80% { clip-path: inset(10% 0 70% 0); transform: translate(-1px, 0); }
+        .cta-secondary:hover {
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(255,255,255,0.24);
         }
-        .glitch { position: relative; color: ${NEON}; animation: neonpulse 3s ease-in-out infinite; }
-        .glitch::before, .glitch::after {
-          content: attr(data-text);
-          position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        .card {
+          background: ${INK_HI};
+          border: 1px solid ${LINE};
+          transition: border-color 0.2s ease, transform 0.2s ease;
         }
-        .glitch::before { color: ${PINK}; animation: glitchTop 2.5s infinite linear alternate-reverse; }
-        .glitch::after { color: ${CYAN}; animation: glitchBottom 2.5s infinite linear alternate-reverse; }
-        .scan-overlay { pointer-events: none; position: fixed; inset: 0; z-index: 60;
-          background-image: repeating-linear-gradient(0deg, rgba(0,255,156,0.04) 0px, rgba(0,255,156,0.04) 1px, transparent 1px, transparent 3px);
-          mix-blend-mode: overlay; animation: scanlines 8s linear infinite; }
-        .crt-flicker { animation: flicker 7s infinite; }
-        @keyframes blink { 50% { opacity: 0; } }
-        .blink { animation: blink 1s steps(2) infinite; }
-        @keyframes slidein {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .terminal-line { animation: slidein 0.3s ease-out both; }
-        .neon-btn {
-          background: transparent;
-          border: 1px solid ${NEON};
-          color: ${NEON};
-          box-shadow: 0 0 12px ${NEON}55, inset 0 0 12px ${NEON}22;
-          transition: all 0.2s;
-        }
-        .neon-btn:hover {
-          background: ${NEON}22;
-          box-shadow: 0 0 24px ${NEON}, inset 0 0 24px ${NEON}44;
-          transform: translateY(-1px);
-        }
-        .neon-card {
-          background: linear-gradient(180deg, rgba(0,40,20,0.55), rgba(0,10,5,0.85));
-          border: 1px solid ${NEON}55;
-          box-shadow: 0 0 20px ${NEON}22, inset 0 0 30px rgba(0,0,0,0.6);
-        }
-        .hex-grid {
-          background-image:
-            linear-gradient(${NEON}11 1px, transparent 1px),
-            linear-gradient(90deg, ${NEON}11 1px, transparent 1px);
-          background-size: 32px 32px;
-        }
-        .ascii-hacker {
-          font-family: 'Courier New', monospace;
-          white-space: pre;
-          line-height: 1;
-          font-size: clamp(6px, 1.1vw, 10px);
-          color: ${NEON};
-          text-shadow: 0 0 4px ${NEON}, 0 0 12px ${NEON}88;
-        }
+        .card:hover { border-color: rgba(255,255,255,0.18); }
       `}</style>
 
-      <MatrixRain />
-      <div className="scan-overlay" />
+      {/* ─────────── TOP STRIP ─────────── */}
+      <div
+        className="w-full text-center text-xs py-2 px-4"
+        style={{ background: "#000", color: MUTED, borderBottom: `1px solid ${LINE}` }}
+      >
+        Built by an 11-year-old founder · Live on Azure ·{" "}
+        <Link href={ctaHref}>
+          <span className="underline cursor-pointer" style={{ color: TEXT }}>
+            Try it free →
+          </span>
+        </Link>
+      </div>
 
-      {/* ============ NAV ============ */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b crt-flicker"
-        style={{ background: "rgba(0,0,0,0.88)", borderColor: NEON + "33", backdropFilter: "blur(8px)" }}>
-        <div className="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between">
+      {/* ─────────── NAV ─────────── */}
+      <nav
+        className="sticky top-0 z-40 backdrop-blur"
+        style={{
+          background: "rgba(10,10,15,0.78)",
+          borderBottom: `1px solid ${LINE}`,
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-5 py-3.5 flex items-center justify-between">
           <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <Terminal className="h-5 w-5" style={{ color: NEON }} />
-              <span className="text-base font-black tracking-widest" style={{ color: NEON, textShadow: `0 0 10px ${NEON}` }}>
-                TURBO//ANSWER
-              </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: PINK, color: PINK }}>
-                v5.4
+            <div className="flex items-center gap-2.5 cursor-pointer">
+              <div
+                className="w-7 h-7 rounded-md flex items-center justify-center"
+                style={{ background: ACCENT }}
+              >
+                <Zap className="h-4 w-4 text-white" strokeWidth={2.5} />
+              </div>
+              <span className="text-base font-semibold tracking-tight" style={{ color: TEXT }}>
+                TurboAnswer
               </span>
             </div>
           </Link>
-          <div className="hidden md:flex items-center gap-6 text-xs uppercase tracking-widest">
-            <a href="#arsenal" className="hover:text-white" style={{ color: NEON_DIM }}>./Arsenal</a>
-            <a href="#power" className="hover:text-white" style={{ color: NEON_DIM }}>./GPT-Power</a>
-            <a href="#disrupt" className="hover:text-white" style={{ color: NEON_DIM }}>./Disrupt</a>
-            <a href="#pricing" className="hover:text-white" style={{ color: NEON_DIM }}>./Pricing</a>
+
+          <div className="hidden md:flex items-center gap-7 text-sm" style={{ color: MUTED }}>
+            <a href="#capabilities" className="hover:text-white transition-colors">Capabilities</a>
+            <a href="#models" className="hover:text-white transition-colors">Models</a>
+            <a href="#policy" className="hover:text-white transition-colors">No-BS Policy</a>
+            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <Link href={ctaHref}>
-              <button className="neon-btn px-4 py-2 rounded text-xs font-bold tracking-wider" data-testid="button-nav-cta">
+              <button
+                className="cta-primary px-4 py-2 rounded-md text-sm font-medium"
+                data-testid="button-nav-cta"
+              >
                 {ctaLabel}
               </button>
             </Link>
           </div>
-          <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ color: NEON }}>
+
+          <button
+            className="md:hidden p-2"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            style={{ color: TEXT }}
+          >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
+
         {mobileMenuOpen && (
-          <div className="md:hidden border-t px-5 py-4 space-y-3" style={{ borderColor: NEON + "33", background: "rgba(0,0,0,0.95)" }}>
+          <div
+            className="md:hidden px-5 py-4 space-y-3 border-t"
+            style={{ borderColor: LINE, background: INK }}
+          >
             {[
-              ["./Arsenal", "#arsenal"],
-              ["./GPT-Power", "#power"],
-              ["./Disrupt", "#disrupt"],
-              ["./Pricing", "#pricing"],
+              ["Capabilities", "#capabilities"],
+              ["Models", "#models"],
+              ["No-BS Policy", "#policy"],
+              ["Pricing", "#pricing"],
             ].map(([label, href]) => (
-              <a key={label} href={href} onClick={() => setMobileMenuOpen(false)}
-                className="block text-sm uppercase tracking-widest py-1" style={{ color: NEON_DIM }}>
+              <a
+                key={label}
+                href={href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block text-sm py-1"
+                style={{ color: TEXT }}
+              >
                 {label}
               </a>
             ))}
             <Link href={ctaHref}>
-              <button className="neon-btn w-full py-2.5 rounded text-sm font-bold tracking-wider">{ctaLabel}</button>
+              <button className="cta-primary w-full py-2.5 rounded-md text-sm font-medium">
+                {ctaLabel}
+              </button>
             </Link>
           </div>
         )}
       </nav>
 
-      {/* ============ HERO ============ */}
-      <section className="relative pt-28 pb-16 px-5 z-10">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 border rounded-sm"
-              style={{ borderColor: PINK, color: PINK, background: "rgba(255,43,214,0.08)" }}>
-              <Activity className="h-3 w-3 blink" />
-              <span className="text-[10px] font-bold tracking-[0.3em] uppercase">LIVE // DISRUPTING THE AI MARKET</span>
-            </div>
-
-            <h1 className="font-black leading-[0.95] mb-6" style={{ fontSize: "clamp(2.5rem, 7vw, 6rem)" }}>
-              <GlitchText>THE AI</GlitchText>
-              <br />
-              <span style={{ color: "#fff", textShadow: `0 0 18px ${ACID}88` }}>BLACK-HAT</span>
-              <br />
-              <GlitchText className="text-3xl">_TURBOANSWER//</GlitchText>
-            </h1>
-
-            <p className="text-base sm:text-lg max-w-xl mb-6 leading-relaxed" style={{ color: "#aaffcc" }}>
-              We didn't build another chatbot. We <span style={{ color: ACID }}>weaponized</span> the most powerful{" "}
-              <span style={{ color: NEON, fontWeight: 700 }}>GPT-5.4 + GPT-5.1 Codex Max</span> stack on the planet and aimed it at the bloated, overpriced, censored AI giants.{" "}
-              <span style={{ color: PINK, fontWeight: 700 }}>OpenAI charges $200/mo for what we ship for $30.</span> Your move.
-            </p>
-
-            {/* Boot sequence terminal */}
-            <div className="neon-card rounded p-4 mb-6 max-w-xl">
-              <div className="flex items-center gap-1.5 mb-3 pb-2 border-b" style={{ borderColor: NEON + "33" }}>
-                <span className="w-2 h-2 rounded-full" style={{ background: PINK }} />
-                <span className="w-2 h-2 rounded-full" style={{ background: ACID }} />
-                <span className="w-2 h-2 rounded-full" style={{ background: NEON }} />
-                <span className="ml-2 text-[10px] font-mono" style={{ color: NEON_DIM }}>root@turboanswer:~/disruption</span>
-              </div>
-              {bootLines.map((l, i) => (
-                <div key={i} className="terminal-line">
-                  <TerminalLine text={l} />
-                </div>
-              ))}
-              {bootLines.length >= 6 && (
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="font-mono text-sm" style={{ color: ACID }}>root@matrix:#</span>
-                  <span className="blink font-mono text-sm" style={{ color: NEON }}>█</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link href={ctaHref}>
-                <button className="neon-btn px-7 py-3.5 rounded font-black tracking-widest text-base" data-testid="button-hero-start">
-                  &gt;&gt; {isAuthenticated ? "ENTER MATRIX" : "JACK IN — FREE"}
-                </button>
-              </Link>
-              <a href="#power">
-                <button className="px-7 py-3.5 rounded font-black tracking-widest text-base border"
-                  style={{ borderColor: PINK, color: PINK, background: "rgba(255,43,214,0.06)" }}>
-                  &gt;_ SEE GPT POWER
-                </button>
-              </a>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-5 text-[11px] uppercase tracking-widest" style={{ color: NEON_DIM }}>
-              <span className="flex items-center gap-1.5"><Check size={12} style={{ color: NEON }} /> No CC</span>
-              <span className="flex items-center gap-1.5"><Check size={12} style={{ color: NEON }} /> 0 Throttling</span>
-              <span className="flex items-center gap-1.5"><Check size={12} style={{ color: NEON }} /> GPT-5.4 Pro</span>
-              <span className="flex items-center gap-1.5"><Check size={12} style={{ color: NEON }} /> Codex Max</span>
-            </div>
+      {/* ─────────── HERO ─────────── */}
+      <section className="relative">
+        <Orb />
+        <div className="relative max-w-5xl mx-auto px-5 pt-20 pb-28 sm:pt-28 sm:pb-36 text-center z-10">
+          <div
+            className="fade-up fade-up-1 inline-flex items-center gap-2 px-3 py-1 mb-7 rounded-full text-xs"
+            style={{
+              border: `1px solid ${LINE}`,
+              background: "rgba(255,255,255,0.03)",
+              color: MUTED,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3ddc84" }} />
+            Live on Azure · 99.97% uptime
           </div>
 
-          {/* RIGHT: ASCII hacker + GPT power readout */}
-          <div className="relative">
-            <div className="neon-card rounded p-5 relative overflow-hidden">
-              <div className="absolute inset-0 hex-grid opacity-30" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3 text-[10px] uppercase tracking-widest" style={{ color: NEON }}>
-                  <span>OPERATIVE://NULL_GHOST</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full blink" style={{ background: NEON }} /> ONLINE</span>
-                </div>
-                <pre className="ascii-hacker mb-4">{`
-            ▓▓▓▓▓▓▓▓▓▓▓▓
-         ▓▓▓░░░░░░░░░░░░▓▓▓
-        ▓▓░░░░░░░░░░░░░░░░▓▓
-       ▓▓░░░░▒▒▒▒▒▒▒▒░░░░░▓▓
-      ▓▓░░░▒▒▓▓▓▓▓▓▓▓▒▒░░░░▓▓
-      ▓▓░░▒▓▓██  ██  ██▓▒░░▓▓
-      ▓▓░░▒▓▓  ██  ██  ▓▒░░▓▓
-       ▓▓░░▒▓▓▓▓▓▓▓▓▓▓▓▒░░▓▓
-        ▓▓░░░░▓▓████▓▓░░░░▓▓
-         ▓▓▓░░░░░░░░░░░░▓▓▓
-            ▓▓▓▓▓▓▓▓▓▓▓▓
-         ┌──────────────┐
-         │ MATRIX ENGAGED│
-         └──────────────┘
-`}</pre>
+          <h1
+            className="fade-up fade-up-2 font-semibold tracking-tight mb-6"
+            style={{
+              fontSize: "clamp(2.5rem, 6.5vw, 5.25rem)",
+              lineHeight: 1.02,
+              letterSpacing: "-0.025em",
+              color: "#fff",
+            }}
+          >
+            Real answers.
+            <br />
+            <span style={{ color: ACCENT }}>Zero theater.</span>
+          </h1>
 
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span style={{ color: NEON_DIM }}>GPT_5.4_PRO</span>
-                    <span style={{ color: NEON }}>██████████ 100%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: NEON_DIM }}>CODEX_MAX</span>
-                    <span style={{ color: NEON }}>██████████ 100%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: NEON_DIM }}>RATE_LIMIT</span>
-                    <span style={{ color: PINK }}>BYPASSED</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: NEON_DIM }}>CENSORSHIP</span>
-                    <span style={{ color: PINK }}>STRIPPED</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: NEON_DIM }}>LATENCY</span>
-                    <span style={{ color: ACID }}>&lt; 300ms</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: NEON_DIM }}>VS_OPENAI_$200</span>
-                    <span style={{ color: ACID }}>$0 / FREE TIER</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <p
+            className="fade-up fade-up-3 max-w-2xl mx-auto mb-9 text-base sm:text-lg"
+            style={{ color: MUTED, lineHeight: 1.6 }}
+          >
+            TurboAnswer routes every query through the strongest production model
+            for the job — GPT, Claude, Gemini — verifies the answer, and ships it
+            back in under 300&nbsp;ms. No upsells. No hand-wavy marketing. No
+            throttle.
+          </p>
 
-            {/* floating stat */}
-            <div className="absolute -bottom-4 -right-4 neon-card rounded p-3" style={{ borderColor: PINK + "88" }}>
-              <div className="text-[9px] uppercase tracking-widest" style={{ color: PINK }}>MARKET_CAP_TAKEN</div>
-              <div className="text-2xl font-black" style={{ color: ACID, textShadow: `0 0 10px ${ACID}88` }}>$2.4B</div>
-            </div>
+          <div className="fade-up fade-up-4 flex flex-col sm:flex-row gap-3 justify-center items-center">
+            <Link href={ctaHref}>
+              <button
+                className="cta-primary px-6 py-3 rounded-md font-medium text-sm inline-flex items-center gap-2"
+                data-testid="button-hero-primary"
+              >
+                {ctaLabel} <ArrowRight className="h-4 w-4" />
+              </button>
+            </Link>
+            <a href="#capabilities">
+              <button className="cta-secondary px-6 py-3 rounded-md font-medium text-sm">
+                See what it does
+              </button>
+            </a>
+          </div>
+
+          <div
+            className="fade-up fade-up-4 flex flex-wrap justify-center gap-x-6 gap-y-2 mt-8 text-xs"
+            style={{ color: MUTED }}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Check size={13} style={{ color: ACCENT }} /> No credit card
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Check size={13} style={{ color: ACCENT }} /> No daily caps on Pro
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Check size={13} style={{ color: ACCENT }} /> Cancel in one click
+            </span>
           </div>
         </div>
       </section>
 
-      {/* ============ GPT POWER STRIP ============ */}
-      <section id="power" className="relative z-10 py-12 px-5 border-y" style={{ borderColor: NEON + "33", background: "rgba(0,20,10,0.4)" }}>
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8">
-            <div className="text-[11px] uppercase tracking-[0.4em] mb-2" style={{ color: PINK }}>// POWERED BY</div>
-            <h2 className="text-3xl sm:text-5xl font-black" style={{ color: "#fff", textShadow: `0 0 18px ${NEON}` }}>
-              THE MOST POWERFUL <span style={{ color: NEON }}>GPT</span> STACK ON EARTH
+      {/* ─────────── MODELS STRIP ─────────── */}
+      <section
+        id="models"
+        className="border-y"
+        style={{ borderColor: LINE, background: "rgba(255,255,255,0.015)" }}
+      >
+        <div className="max-w-6xl mx-auto px-5 py-14">
+          <div className="text-center mb-10">
+            <div
+              className="text-xs uppercase tracking-[0.18em] mb-3"
+              style={{ color: MUTED }}
+            >
+              The stack
+            </div>
+            <h2
+              className="text-3xl sm:text-4xl font-semibold tracking-tight"
+              style={{ color: "#fff", letterSpacing: "-0.02em" }}
+            >
+              Four model families. One router. Best answer wins.
             </h2>
-            <p className="mt-3 text-sm sm:text-base max-w-2xl mx-auto" style={{ color: "#aaffcc" }}>
-              While competitors gate-keep GPT-4 behind paywalls and rate limits, TurboAnswer routes you through{" "}
-              <span style={{ color: ACID, fontWeight: 700 }}>FOUR generations of GPT</span> via direct Azure OpenAI enterprise pipes.
-            </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { name: "GPT-5.4 Nano", spec: "0.3s · free tier", level: "ENTRY" },
-              { name: "GPT-5.4 Mini", spec: "Pro · streaming", level: "MID" },
-              { name: "GPT-5.4 Pro", spec: "Research · 1M ctx", level: "ELITE" },
-              { name: "GPT-5.1 Codex Max", spec: "Code Surgeon", level: "GODMODE" },
+              { name: "GPT-5.4 Pro", note: "Reasoning · 1M context" },
+              { name: "GPT-5.1 Codex Max", note: "Code analysis · refactor" },
+              { name: "Claude Sonnet 4.5", note: "Long-form · synthesis" },
+              { name: "Gemini 2.5 Pro", note: "Vision · grounded search" },
             ].map((m) => (
-              <div key={m.name} className="neon-card rounded p-4 relative overflow-hidden group hover:scale-[1.03] transition-transform">
-                <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: PINK }}>{m.level}</div>
-                <div className="text-lg font-black mb-1" style={{ color: NEON }}>{m.name}</div>
-                <div className="text-xs" style={{ color: NEON_DIM }}>{m.spec}</div>
-                <Cpu className="absolute -bottom-3 -right-3 h-16 w-16 opacity-10" style={{ color: NEON }} />
+              <div key={m.name} className="card rounded-lg p-5">
+                <div className="text-sm font-semibold mb-1" style={{ color: "#fff" }}>
+                  {m.name}
+                </div>
+                <div className="text-xs" style={{ color: MUTED }}>
+                  {m.note}
+                </div>
               </div>
             ))}
           </div>
 
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             {[
-              { v: "10x", l: "Faster than ChatGPT" },
-              { v: "$170", l: "Saved vs OpenAI/mo" },
-              { v: "0", l: "Censorship walls" },
-              { v: "∞", l: "Questions on Pro+" },
+              { v: "<300ms", l: "Median response time" },
+              { v: "99.97%", l: "Uptime, last 90 days" },
+              { v: "0", l: "Hidden upsells" },
+              { v: "20+", l: "Sources per Deep Research" },
             ].map((s, i) => (
               <div key={i}>
-                <div className="text-3xl sm:text-4xl font-black" style={{ color: ACID, textShadow: `0 0 12px ${ACID}88` }}>{s.v}</div>
-                <div className="text-[10px] uppercase tracking-widest mt-1" style={{ color: NEON_DIM }}>{s.l}</div>
+                <div
+                  className="text-2xl sm:text-3xl font-semibold tracking-tight"
+                  style={{ color: "#fff", letterSpacing: "-0.02em" }}
+                >
+                  {s.v}
+                </div>
+                <div className="text-xs mt-1" style={{ color: MUTED }}>
+                  {s.l}
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ============ ARSENAL ============ */}
-      <section id="arsenal" className="relative z-10 py-20 px-5">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <div className="text-[11px] uppercase tracking-[0.4em] mb-2" style={{ color: PINK }}>// ARSENAL</div>
-            <h2 className="text-4xl sm:text-5xl font-black" style={{ color: "#fff", textShadow: `0 0 14px ${NEON}88` }}>
-              WEAPONS WE SHIP. <GlitchText className="text-4xl sm:text-5xl">YOU LOAD.</GlitchText>
+      {/* ─────────── CAPABILITIES ─────────── */}
+      <section id="capabilities" className="py-24 px-5">
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-12 max-w-2xl">
+            <div className="text-xs uppercase tracking-[0.18em] mb-3" style={{ color: ACCENT }}>
+              Capabilities
+            </div>
+            <h2
+              className="text-3xl sm:text-5xl font-semibold tracking-tight"
+              style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+            >
+              What it actually ships.
             </h2>
+            <p className="mt-4 text-base" style={{ color: MUTED, lineHeight: 1.6 }}>
+              Six surfaces. Each one does one job, end-to-end, in the same chat.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: Code2, title: "CODE SURGEON", desc: "GPT-5.1 Codex Max dissects your code line-by-line. Finds race conditions, security holes, perf traps OpenAI's tools can't see.", tag: "GPT-5.1 CODEX MAX" },
-              { icon: Eye, title: "LIVE VISION", desc: "Point camera. AI watches in real-time. Speaks what it sees. Reads anything. Voice convo while it scans.", tag: "GEMINI VISION" },
-              { icon: Brain, title: "MATRIX AI CHAT", desc: "Multi-model routing through GPT-5.4 + Claude + Gemini. Cites sources. Self-verifies. Never lies.", tag: "GPT-5.4 PRO" },
-              { icon: Shield, title: "STACK TRACE SURGEON", desc: "Paste error + repo URL. AI reads your actual code, finds root cause, opens a real GitHub PR with the fix.", tag: "SONNET 4.5" },
-              { icon: Bot, title: "VOICE TURBO", desc: "Real-time voice conversation with the AI. Wake-word optional. Works in background on native APK.", tag: "STREAMING" },
-              { icon: Database, title: "DEEP RESEARCH", desc: "20+ source synthesis. Multi-agent fact-check chain. Confidence ratings on every claim.", tag: "ENTERPRISE" },
-            ].map(({ icon: Icon, title, desc, tag }) => (
-              <div key={title} className="neon-card rounded p-5 relative group hover:border-pink-500/60 transition-all">
-                <div className="absolute top-3 right-3 text-[9px] font-bold tracking-widest px-1.5 py-0.5 rounded border"
-                  style={{ borderColor: PINK + "88", color: PINK }}>{tag}</div>
-                <Icon className="h-7 w-7 mb-3" style={{ color: NEON }} />
-                <div className="text-lg font-black mb-2 tracking-wider" style={{ color: NEON }}>{title}</div>
-                <div className="text-xs leading-relaxed" style={{ color: "#aaffcc" }}>{desc}</div>
+              {
+                icon: Code2,
+                title: "Code Surgeon",
+                desc: "Drops Codex Max into your code, finds race conditions, security holes, and perf traps. Returns a patch you can apply.",
+              },
+              {
+                icon: Eye,
+                title: "Live Vision",
+                desc: "Point the camera. The model watches, reads, transcribes, and talks back in real time.",
+              },
+              {
+                icon: Brain,
+                title: "Verified Chat",
+                desc: "Every answer is independently fact-checked by a second model. You see the confidence score.",
+              },
+              {
+                icon: Shield,
+                title: "Stack Trace Surgeon",
+                desc: "Paste an error + your repo URL. It reads the actual source, isolates the root cause, opens a PR.",
+              },
+              {
+                icon: Mic,
+                title: "Voice Turbo",
+                desc: "Real-time voice. Streaming response. Wake-word optional. Works on the native Android build.",
+              },
+              {
+                icon: Database,
+                title: "Deep Research",
+                desc: "Twenty-plus sources synthesised by a multi-agent chain. Citations on every claim.",
+              },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="card rounded-lg p-6">
+                <div
+                  className="w-9 h-9 rounded-md flex items-center justify-center mb-4"
+                  style={{ background: "rgba(255,107,26,0.12)" }}
+                >
+                  <Icon className="h-4 w-4" style={{ color: ACCENT }} />
+                </div>
+                <div className="text-base font-semibold mb-1.5" style={{ color: "#fff" }}>
+                  {title}
+                </div>
+                <div className="text-sm" style={{ color: MUTED, lineHeight: 1.55 }}>
+                  {desc}
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ============ DISRUPT MANIFESTO ============ */}
-      <section id="disrupt" className="relative z-10 py-20 px-5 border-y" style={{ borderColor: PINK + "33", background: "rgba(20,0,15,0.4)" }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="text-[11px] uppercase tracking-[0.4em] mb-2" style={{ color: ACID }}>// MANIFESTO</div>
-            <h2 className="text-4xl sm:text-6xl font-black" style={{ color: "#fff" }}>
-              WE'RE HERE TO <GlitchText className="text-4xl sm:text-6xl">BURN IT DOWN.</GlitchText>
+      {/* ─────────── NO-BS POLICY ─────────── */}
+      <section
+        id="policy"
+        className="py-24 px-5 border-y"
+        style={{ borderColor: LINE, background: "rgba(255,255,255,0.015)" }}
+      >
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-12">
+            <div className="text-xs uppercase tracking-[0.18em] mb-3" style={{ color: ACCENT }}>
+              The No-BS Policy
+            </div>
+            <h2
+              className="text-3xl sm:text-5xl font-semibold tracking-tight"
+              style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+            >
+              Six promises. Each one verifiable.
             </h2>
           </div>
 
-          <div className="neon-card rounded p-6 sm:p-10 font-mono text-sm sm:text-base leading-relaxed space-y-4" style={{ color: "#e6ffe6" }}>
-            <p><span style={{ color: PINK }}>// 01 //</span> The "AI giants" charge <span style={{ color: ACID }}>$200/month</span> for GPT-4 access. We give it away on the Pro tier for $6.99.</p>
-            <p><span style={{ color: PINK }}>// 02 //</span> They throttle you after 50 messages. We give you <span style={{ color: ACID }}>unlimited GPT-5.4 Pro</span> queries.</p>
-            <p><span style={{ color: PINK }}>// 03 //</span> They lock GPT-5.1 Codex behind a $20/month Plus subscription, then rate-limit it. We ship it as <span style={{ color: ACID }}>Code Surgeon</span> on Research.</p>
-            <p><span style={{ color: PINK }}>// 04 //</span> They censor your prompts. We <span style={{ color: ACID }}>route around the gates</span> via Azure enterprise endpoints.</p>
-            <p><span style={{ color: PINK }}>// 05 //</span> They built a closed garden. We built a <span style={{ color: ACID }}>multi-model warzone</span> — GPT + Claude + Gemini + Perplexity, routed by intelligence.</p>
-            <p><span style={{ color: PINK }}>// 06 //</span> An 11-year-old founder shipped this in a year. <span style={{ color: ACID }}>What's OpenAI's excuse?</span></p>
-            <p className="pt-3 border-t text-center text-lg font-black" style={{ color: NEON, borderColor: NEON + "33", textShadow: `0 0 10px ${NEON}` }}>
-              &gt;_ THE AI MONOPOLY ENDS HERE.
-            </p>
+          <div className="space-y-px">
+            {[
+              ["01", "Per-token honest pricing.", "If your monthly token spend stays under the next tier's threshold, you don't get upgraded. Period."],
+              ["02", "No silent throttling.", "Pro and Research tiers have no per-message cap. If we ever add one, you'll see it in the billing console first."],
+              ["03", "Every answer is verifiable.", "Citations on factual claims. A second model double-checks. The confidence score is shown — including when it's low."],
+              ["04", "Your data stays yours.", "Conversations are not used to train any model. Crisis-support chats are AES-256-GCM encrypted client-side."],
+              ["05", "Cancel in one click.", "No retention dark-patterns. No survey wall. The button is in Settings, two clicks from the chat."],
+              ["06", "Built in public.", "An 11-year-old shipped this in twelve months. The roadmap is on GitHub. The bug tracker is open."],
+            ].map(([n, h, d]) => (
+              <div
+                key={n}
+                className="grid grid-cols-[auto_1fr] gap-6 py-6"
+                style={{ borderTop: `1px solid ${LINE}` }}
+              >
+                <div
+                  className="text-sm font-mono tabular-nums"
+                  style={{ color: ACCENT }}
+                >
+                  {n}
+                </div>
+                <div>
+                  <div
+                    className="text-lg sm:text-xl font-semibold mb-1.5"
+                    style={{ color: "#fff", letterSpacing: "-0.015em" }}
+                  >
+                    {h}
+                  </div>
+                  <div className="text-sm sm:text-base" style={{ color: MUTED, lineHeight: 1.55 }}>
+                    {d}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ============ PRICING ============ */}
-      <section id="pricing" className="relative z-10 py-20 px-5">
+      {/* ─────────── PRICING ─────────── */}
+      <section id="pricing" className="py-24 px-5">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="text-[11px] uppercase tracking-[0.4em] mb-2" style={{ color: PINK }}>// ACCESS LEVELS</div>
-            <h2 className="text-4xl sm:text-5xl font-black" style={{ color: "#fff", textShadow: `0 0 14px ${NEON}88` }}>
-              PICK YOUR <GlitchText className="text-4xl sm:text-5xl">CLEARANCE.</GlitchText>
+          <div className="text-center mb-12">
+            <div className="text-xs uppercase tracking-[0.18em] mb-3" style={{ color: ACCENT }}>
+              Pricing
+            </div>
+            <h2
+              className="text-3xl sm:text-5xl font-semibold tracking-tight"
+              style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+            >
+              Three tiers. No fine print.
             </h2>
-            <p className="mt-3 text-sm" style={{ color: NEON_DIM }}>// All tiers run on Azure-hosted GPT-5.4. No throttle. No BS.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
             {/* FREE */}
-            <div className="neon-card rounded p-6 flex flex-col">
-              <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: NEON_DIM }}>CLEARANCE: BLUE</div>
-              <h3 className="text-2xl font-black mb-1" style={{ color: NEON }}>GUEST</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="text-4xl font-black" style={{ color: "#fff" }}>$0</span>
-                <span className="text-xs" style={{ color: NEON_DIM }}>/forever</span>
+            <div className="card rounded-lg p-7 flex flex-col">
+              <div className="text-sm font-semibold mb-1" style={{ color: TEXT }}>
+                Free
               </div>
-              <ul className="space-y-2 mb-6 flex-1 text-xs" style={{ color: "#aaffcc" }}>
-                {["GPT-5.4 Nano routing", "15 queries / day", "Live Vision (camera AI)", "Document analysis", "100+ languages"].map((i) => (
-                  <li key={i} className="flex items-center gap-2"><Check size={12} style={{ color: NEON }} /> {i}</li>
+              <div className="text-xs mb-5" style={{ color: MUTED }}>
+                For trying it out
+              </div>
+              <div className="flex items-baseline gap-1 mb-6">
+                <span className="text-4xl font-semibold tracking-tight" style={{ color: "#fff" }}>
+                  $0
+                </span>
+                <span className="text-sm" style={{ color: MUTED }}>
+                  forever
+                </span>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1 text-sm" style={{ color: TEXT }}>
+                {[
+                  "GPT-5.4 Nano routing",
+                  "15 queries per day",
+                  "Live Vision (camera)",
+                  "Document analysis",
+                ].map((i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Check size={14} className="mt-1 flex-shrink-0" style={{ color: ACCENT }} />
+                    <span>{i}</span>
+                  </li>
                 ))}
               </ul>
               <Link href={ctaHref}>
-                <button className="neon-btn w-full py-3 rounded font-bold tracking-wider text-sm" data-testid="button-plan-free">&gt;_ GET ACCESS</button>
+                <button
+                  className="cta-secondary w-full py-2.5 rounded-md font-medium text-sm"
+                  data-testid="button-plan-free"
+                >
+                  Get started
+                </button>
               </Link>
             </div>
 
             {/* PRO */}
-            <div className="neon-card rounded p-6 flex flex-col" style={{ borderColor: PINK + "88", boxShadow: `0 0 30px ${PINK}33, inset 0 0 30px rgba(0,0,0,0.6)` }}>
-              <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: PINK }}>CLEARANCE: BLACK</div>
-              <h3 className="text-2xl font-black mb-1 flex items-center gap-2" style={{ color: PINK }}>
-                <Crown className="h-5 w-5" /> OPERATOR
-              </h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="text-4xl font-black" style={{ color: "#fff" }}>$6.99</span>
-                <span className="text-xs" style={{ color: NEON_DIM }}>/mo</span>
+            <div
+              className="rounded-lg p-7 flex flex-col relative"
+              style={{
+                background: INK_HI,
+                border: `1px solid ${ACCENT}66`,
+                boxShadow: `0 0 0 1px ${ACCENT}1a, 0 20px 60px -20px ${ACCENT}33`,
+              }}
+            >
+              <div
+                className="absolute -top-2.5 right-5 text-[10px] font-semibold px-2 py-0.5 rounded uppercase tracking-wider"
+                style={{ background: ACCENT, color: "#fff" }}
+              >
+                Most picked
               </div>
-              <ul className="space-y-2 mb-6 flex-1 text-xs" style={{ color: "#aaffcc" }}>
-                {["GPT-5.4 Mini + Claude Sonnet", "UNLIMITED queries", "Live web search (grounded)", "AI image generation", "Voice Turbo streaming", "Verified answer badges"].map((i) => (
-                  <li key={i} className="flex items-center gap-2"><Check size={12} style={{ color: PINK }} /> {i}</li>
+              <div className="text-sm font-semibold mb-1" style={{ color: TEXT }}>
+                Pro
+              </div>
+              <div className="text-xs mb-5" style={{ color: MUTED }}>
+                For daily work
+              </div>
+              <div className="flex items-baseline gap-1 mb-6">
+                <span className="text-4xl font-semibold tracking-tight" style={{ color: "#fff" }}>
+                  $6.99
+                </span>
+                <span className="text-sm" style={{ color: MUTED }}>
+                  /month
+                </span>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1 text-sm" style={{ color: TEXT }}>
+                {[
+                  "GPT-5.4 Mini + Claude Sonnet",
+                  "Unlimited messages",
+                  "Live web search (grounded)",
+                  "AI image generation",
+                  "Voice Turbo streaming",
+                  "Verified-answer badges",
+                ].map((i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Check size={14} className="mt-1 flex-shrink-0" style={{ color: ACCENT }} />
+                    <span>{i}</span>
+                  </li>
                 ))}
               </ul>
               <Link href={ctaHref}>
-                <button className="w-full py-3 rounded font-bold tracking-wider text-sm text-white"
-                  style={{ background: `linear-gradient(90deg, ${PINK}, #9b00ff)`, boxShadow: `0 0 20px ${PINK}88` }}
-                  data-testid="button-plan-pro">
-                  &gt;_ DEPLOY · 7-DAY TRIAL
+                <button
+                  className="cta-primary w-full py-2.5 rounded-md font-medium text-sm"
+                  data-testid="button-plan-pro"
+                >
+                  Start 7-day trial
                 </button>
               </Link>
             </div>
 
             {/* RESEARCH */}
-            <div className="neon-card rounded p-6 flex flex-col relative overflow-hidden" style={{ borderColor: ACID, boxShadow: `0 0 40px ${ACID}33, inset 0 0 30px rgba(0,0,0,0.6)` }}>
-              <div className="absolute top-2 right-2 text-[9px] font-black tracking-widest px-2 py-0.5 rounded" style={{ background: ACID, color: "#000" }}>
-                ★ GODMODE
+            <div className="card rounded-lg p-7 flex flex-col">
+              <div className="text-sm font-semibold mb-1" style={{ color: TEXT }}>
+                Research
               </div>
-              <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: ACID }}>CLEARANCE: NULL</div>
-              <h3 className="text-2xl font-black mb-1 flex items-center gap-2" style={{ color: ACID }}>
-                <Skull className="h-5 w-5" /> GHOST
-              </h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="text-4xl font-black" style={{ color: "#fff" }}>$30</span>
-                <span className="text-xs" style={{ color: NEON_DIM }}>/mo</span>
+              <div className="text-xs mb-5" style={{ color: MUTED }}>
+                For engineers and teams
               </div>
-              <ul className="space-y-2 mb-6 flex-1 text-xs" style={{ color: "#aaffcc" }}>
+              <div className="flex items-baseline gap-1 mb-6">
+                <span className="text-4xl font-semibold tracking-tight" style={{ color: "#fff" }}>
+                  $30
+                </span>
+                <span className="text-sm" style={{ color: MUTED }}>
+                  /month
+                </span>
+              </div>
+              <ul className="space-y-2.5 mb-7 flex-1 text-sm" style={{ color: TEXT }}>
                 {[
-                  "GPT-5.4 PRO + Codex Max",
-                  "Code Surgeon (GPT-5.1 Codex Max)",
-                  "Stack Trace Surgeon (auto PRs)",
+                  "GPT-5.4 Pro + Codex Max",
+                  "Stack Trace Surgeon (auto-PRs)",
                   "Deep Research (20+ sources)",
                   "AI Video Studio (Veo 3.1)",
                   "1M-token long context",
-                  "Self-verifying fact-check chain",
-                  "Priority sub-300ms responses",
+                  "Priority sub-300ms routing",
                 ].map((i) => (
-                  <li key={i} className="flex items-center gap-2"><Check size={12} style={{ color: ACID }} /> {i}</li>
+                  <li key={i} className="flex items-start gap-2">
+                    <Check size={14} className="mt-1 flex-shrink-0" style={{ color: ACCENT }} />
+                    <span>{i}</span>
+                  </li>
                 ))}
               </ul>
               <Link href={ctaHref}>
-                <button className="w-full py-3 rounded font-black tracking-wider text-sm"
-                  style={{ background: ACID, color: "#000", boxShadow: `0 0 30px ${ACID}` }}
-                  data-testid="button-plan-research">
-                  &gt;_ GODMODE · 7-DAY TRIAL
+                <button
+                  className="cta-secondary w-full py-2.5 rounded-md font-medium text-sm"
+                  data-testid="button-plan-research"
+                >
+                  Start 7-day trial
                 </button>
               </Link>
             </div>
           </div>
 
-          <p className="text-center text-[11px] mt-6 tracking-widest uppercase" style={{ color: NEON_DIM }}>
-            // 7-day trial · No CC charged · Cancel anytime · OpenAI charges $200 for less
+          <p className="text-center text-xs mt-8" style={{ color: MUTED }}>
+            7-day free trial · No card required · Cancel any time
           </p>
         </div>
       </section>
 
-      {/* ============ FINAL CTA ============ */}
-      <section className="relative z-10 py-24 px-5">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="neon-card rounded-lg p-10 sm:p-14 relative overflow-hidden">
-            <div className="absolute inset-0 hex-grid opacity-30" />
-            <div className="relative">
-              <Terminal className="h-12 w-12 mx-auto mb-5" style={{ color: NEON, filter: `drop-shadow(0 0 12px ${NEON})` }} />
-              <h2 className="text-3xl sm:text-5xl font-black mb-4" style={{ color: "#fff" }}>
-                <GlitchText className="text-3xl sm:text-5xl">JACK IN.</GlitchText>
-              </h2>
-              <p className="text-sm sm:text-base mb-8 max-w-md mx-auto" style={{ color: "#aaffcc" }}>
-                The matrix is open. GPT-5.4 Pro is loaded. The disruption is live.<br />
-                <span style={{ color: PINK }}>// Free forever. Your first query starts the revolution.</span>
-              </p>
-              <Link href={ctaHref}>
-                <button className="neon-btn px-10 py-4 rounded font-black tracking-widest text-base" data-testid="button-final-cta">
-                  {ctaLabel} <ArrowRight className="inline h-4 w-4 ml-2" />
-                </button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* floating chat pill */}
-      {isAuthenticated && (
-        <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
-          <div className="text-[10px] font-mono px-2 py-0.5 rounded border" style={{ borderColor: NEON + "55", color: NEON, background: "rgba(0,0,0,0.7)" }}>
-            // root@{user?.firstName || user?.email?.split("@")[0] || "ghost"}
-          </div>
-          <Link href="/chat">
-            <button className="neon-btn px-5 py-3 rounded font-bold tracking-wider text-sm">
-              &gt;_ OPEN MATRIX <ArrowRight className="inline h-3 w-3 ml-1" />
+      {/* ─────────── FINAL CTA ─────────── */}
+      <section className="py-24 px-5 relative overflow-hidden">
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 50%, rgba(255,107,26,0.12) 0%, transparent 60%)",
+          }}
+        />
+        <div className="relative max-w-3xl mx-auto text-center">
+          <h2
+            className="text-3xl sm:text-5xl font-semibold tracking-tight mb-5"
+            style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+          >
+            Stop reading. Ask it something.
+          </h2>
+          <p className="text-base mb-9" style={{ color: MUTED }}>
+            Your first answer comes back before you finish this sentence.
+          </p>
+          <Link href={ctaHref}>
+            <button
+              className="cta-primary px-7 py-3.5 rounded-md font-medium text-sm inline-flex items-center gap-2"
+              data-testid="button-final-cta"
+            >
+              {ctaLabel} <ArrowRight className="h-4 w-4" />
             </button>
           </Link>
         </div>
-      )}
+      </section>
 
-      {/* ============ FOOTER ============ */}
-      <footer className="border-t py-8 px-5 relative z-10" style={{ borderColor: NEON + "33", background: "rgba(0,0,0,0.7)" }}>
+      {/* ─────────── FOOTER ─────────── */}
+      <footer
+        className="border-t py-10 px-5"
+        style={{ borderColor: LINE, background: "#06060a" }}
+      >
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs font-mono" style={{ color: NEON_DIM }}>
-            <Terminal className="h-4 w-4" style={{ color: NEON }} />
-            <span>TURBO//ANSWER v5.4 · powered by GPT-5.4 + Codex Max · uptime 99.97%</span>
+          <div className="flex items-center gap-2.5 text-sm" style={{ color: MUTED }}>
+            <div
+              className="w-5 h-5 rounded flex items-center justify-center"
+              style={{ background: ACCENT }}
+            >
+              <Zap className="h-3 w-3 text-white" strokeWidth={2.5} />
+            </div>
+            <span>TurboAnswer · powered by Azure OpenAI</span>
           </div>
-          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-[11px] uppercase tracking-widest" style={{ color: NEON_DIM }}>
-            <Link href="/privacy-policy" className="hover:text-white">./Privacy</Link>
-            <Link href="/support" className="hover:text-white">./Support</Link>
-            <Link href="/business" className="hover:text-white">./B2B</Link>
-            <Link href="/beta" className="hover:text-white">./Beta</Link>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm" style={{ color: MUTED }}>
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">
+              Privacy
+            </Link>
+            <Link href="/support" className="hover:text-white transition-colors">
+              Support
+            </Link>
+            <Link href="/business" className="hover:text-white transition-colors">
+              For business
+            </Link>
+            <Link href="/beta" className="hover:text-white transition-colors">
+              Beta program
+            </Link>
           </div>
         </div>
       </footer>
