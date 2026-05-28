@@ -413,15 +413,15 @@ function ArchSection() {
           }}
         >
           <div className="mono text-xs" style={{ color: TEXT }}>
-            <span style={{ color: MUTED }}>end-to-end p50 ▸</span>{" "}
-            <span className="shimmer-text text-base sm:text-lg font-semibold">287ms</span>
-            <span style={{ color: MUTED }}>  ·  p95 ▸</span>{" "}
-            <span style={{ color: NEON }} className="text-sm font-semibold">441ms</span>
-            <span style={{ color: MUTED }}>  ·  p99 ▸</span>{" "}
-            <span style={{ color: NEON }} className="text-sm font-semibold">612ms</span>
+            <span style={{ color: MUTED }}>end-to-end target ▸</span>{" "}
+            <span className="shimmer-text text-base sm:text-lg font-semibold">&lt;300ms</span>
+            <span style={{ color: MUTED }}>  ·  ttft ▸</span>{" "}
+            <span style={{ color: NEON }} className="text-sm font-semibold">~150ms</span>
+            <span style={{ color: MUTED }}>  ·  edge hop ▸</span>{" "}
+            <span style={{ color: NEON }} className="text-sm font-semibold">&lt;20ms</span>
           </div>
           <div className="mono text-[11px]" style={{ color: MUTED }}>
-            <span style={{ color: NEON }}>●</span> measured last 24h · global, all tiers
+            <span style={{ color: ACCENT }}>●</span> design budget · we're early — actual numbers will go here once we have them
           </div>
         </div>
 
@@ -496,16 +496,16 @@ function ArchSection() {
                 "Score <0.6 → answer gets a [low confidence] banner before you read it.",
                 "We log NOTHING about your prompt — only the score + claim hash.",
               ]} />
-              <NerdBlock title="# 6. THE NUMBERS — what actually happens, last 7 days" lines={[
-                "p50 latency ............................ 287ms",
-                "p95 latency ............................ 441ms",
-                "p99 latency ............................ 612ms",
-                "uptime (90d) ........................... 99.974%",
-                "queries served ......................... 18.4M",
-                "tokens streamed ........................ 4.83B",
-                "regions live ........................... 10 / 10",
-                "edge PoPs live ......................... 310+",
-                "cold-start events ...................... 0",
+              <NerdBlock title="# 6. THE NUMBERS — what we target (and what's real)" lines={[
+                "edge hop (you → nearest PoP) ........... <20ms      [Cloudflare published SLO]",
+                "ttft target (first token) .............. ~150ms     [Azure PTU spec]",
+                "end-to-end p50 target .................. <300ms     [our design budget]",
+                "regions provisioned .................... 10 Azure   [actual deploy]",
+                "edge PoPs (via Cloudflare) ............. 310+       [Cloudflare network]",
+                "cold-start events on Worker layer ...... 0          [V8 isolates, architectural]",
+                "",
+                "→ we're being upfront: we're still early. live latency dashboard goes",
+                "  here once we have meaningful traffic to chart. no fake metrics.",
               ]} />
               <NerdBlock title="# 7. WHAT WE DON'T DO" lines={[
                 "✗ run on a third-party AI reseller (looking at you, openrouter wrappers)",
@@ -629,55 +629,37 @@ function LiveOpsSection() {
     return () => clearInterval(id);
   }, []);
 
-  // live counters
-  const [totals, setTotals] = useState({ q: 18402397, ms: 287, tok: 4827193401 });
-  useEffect(() => {
-    const id = setInterval(() => {
-      setTotals((t) => ({
-        q: t.q + Math.floor(Math.random() * 4 + 1),
-        ms: 270 + Math.floor(Math.random() * 50),
-        tok: t.tok + Math.floor(Math.random() * 1800 + 400),
-      }));
-    }, 900);
-    return () => clearInterval(id);
-  }, []);
-
   return (
     <section id="liveops" className="py-20 px-5 relative overflow-hidden">
       <div aria-hidden className="absolute inset-0 grid-bg" style={{ zIndex: 0 }} />
       <div className="relative max-w-6xl mx-auto" style={{ zIndex: 2 }}>
         <div className="text-center mb-10">
           <div className="text-xs uppercase tracking-[0.18em] mb-3 mono inline-flex items-center gap-2" style={{ color: ACCENT }}>
-            <span className="live-dot" /> ─── live ops · streaming ───
+            <span className="live-dot" /> ─── routing demo · example prompts ───
           </div>
           <h2
             className="text-3xl sm:text-5xl font-semibold tracking-tight"
             style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
           >
-            The world is asking. <span className="shimmer-text">Right now.</span>
+            Watch the router <span className="shimmer-text">pick a model.</span>
           </h2>
           <p className="mt-4 text-sm max-w-2xl mx-auto" style={{ color: MUTED }}>
-            A live tail of queries hitting the cluster, sanitized. Yes, this is real-ish.
-            No, we don't store the prompts.
+            Sample prompts showing which GPT-5.4 variant the router would dial — Nano for quick stuff,
+            Mini for daily work, Pro for reasoning, Codex Max for code. <span style={{ color: TEXT }}>Example data, not real user traffic.</span>
           </p>
         </div>
 
-        {/* counters */}
-        <div className="grid grid-cols-3 gap-3 mb-6 max-w-3xl mx-auto">
-          {[
-            { l: "queries served", v: totals.q.toLocaleString() },
-            { l: "median latency",  v: `${totals.ms}ms` },
-            { l: "tokens streamed", v: `${(totals.tok / 1e9).toFixed(2)}B` },
-          ].map((c) => (
-            <div
-              key={c.l}
-              className="rounded-md px-4 py-3 text-center"
-              style={{ background: "rgba(0,212,255,0.04)", border: `1px solid ${LINE}` }}
-            >
-              <div className="mono text-lg sm:text-2xl font-semibold shimmer-text" style={{ letterSpacing: "-0.02em" }}>{c.v}</div>
-              <div className="mono text-[10px] mt-0.5" style={{ color: MUTED }}>{c.l}</div>
-            </div>
-          ))}
+        {/* honesty chips */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6 mono text-[11px]">
+          <span className="px-2.5 py-1 rounded" style={{ background: "rgba(255,200,0,0.08)", color: "#ffc83b", border: "1px solid rgba(255,200,0,0.25)" }}>
+            ⓘ demo · not real-time traffic
+          </span>
+          <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,255,170,0.06)", color: NEON, border: `1px solid ${NEON}33` }}>
+            ✓ model routing logic is real
+          </span>
+          <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,212,255,0.06)", color: ACCENT, border: `1px solid ${LINE}` }}>
+            ✓ no prompts stored, no PII logged
+          </span>
         </div>
 
         {/* terminal */}
@@ -694,10 +676,10 @@ function LiveOpsSection() {
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#febc2e" }} />
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#28c840" }} />
             <span className="ml-2 text-[11px] mono" style={{ color: MUTED }}>
-              turbo@cluster ~ /tail --follow ops.stream
+              turbo@router ~ /demo --replay example-prompts.jsonl
             </span>
-            <span className="ml-auto mono text-[10px] inline-flex items-center gap-1" style={{ color: NEON }}>
-              <span className="live-dot" /> LIVE
+            <span className="ml-auto mono text-[10px] inline-flex items-center gap-1" style={{ color: "#ffc83b" }}>
+              ⓘ DEMO
             </span>
           </div>
           <div
@@ -710,7 +692,7 @@ function LiveOpsSection() {
               <span>region</span>
               <span>model</span>
               <span>query (sanitized)</span>
-              <span className="text-right">tokens</span>
+              <span className="text-right">est. tokens</span>
               <span className="text-right">latency</span>
             </div>
             {rows.map((r, idx) => (
@@ -727,12 +709,10 @@ function LiveOpsSection() {
                 <span className="truncate" style={{ color: ACCENT_2 }}>{r.model}</span>
                 <span className="truncate" style={{ color: "#fff" }}>
                   <span style={{ color: NEON }}>$</span> {r.q}
-                  {r.verified
-                    ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${NEON}22`, color: NEON, border: `1px solid ${NEON}44` }}>verified</span>
-                    : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,200,0,0.12)", color: "#ffc83b", border: "1px solid rgba(255,200,0,0.3)" }}>flagged</span>}
+                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}1a`, color: ACCENT, border: `1px solid ${LINE}` }}>routed</span>
                 </span>
-                <span className="text-right" style={{ color: MUTED }}>{r.tokens}t</span>
-                <span className="text-right mono" style={{ color: r.ms < 320 ? NEON : ACCENT_2 }}>{r.ms}ms</span>
+                <span className="text-right" style={{ color: MUTED }}>~{r.tokens}t</span>
+                <span className="text-right mono" style={{ color: MUTED }}>—</span>
               </div>
             ))}
             <div className="mt-2 flex items-center gap-1" style={{ color: ACCENT }}>
@@ -743,7 +723,7 @@ function LiveOpsSection() {
         </div>
 
         <p className="text-center text-[11px] mt-4 mono" style={{ color: MUTED }}>
-          {">"} prompt content sanitized · no PII logged · feed throttled to 1 row/sec for the demo
+          {">"} sample prompts replayed for illustration · the routing decisions are how the real app works
         </p>
       </div>
     </section>
