@@ -229,6 +229,35 @@ const upload = multer({
 const responseCache = new Map<string, { data: any; expires: number }>();
 const CACHE_TTL = 15000;
 
+// In-memory fallback for stack_trace_diagnoses rows whose DB save failed.
+// Keyed by negative id (so it never collides with real serial ids) and scoped
+// per-user. Lets open-pr / apply-fix / pr-checks still work when Azure Postgres
+// hiccups on save. Entries expire after 30 minutes.
+type CachedDiag = {
+  id: number; userId: string; title: string; stackTrace: string; repoUrl: string;
+  rootCause: string; suggestedFix: string; framesParsed: number;
+  filesUsed: { path: string }[]; warnings: string[]; prUrl: string | null;
+  createdAt: Date; expires: number;
+};
+const diagMemFallback = new Map<number, CachedDiag>();
+let diagMemCounter = -1;
+function cacheDiagInMemory(data: Omit<CachedDiag, 'id' | 'createdAt' | 'expires' | 'prUrl'>): number {
+  const id = diagMemCounter--;
+  diagMemFallback.set(id, { ...data, id, prUrl: null, createdAt: new Date(), expires: Date.now() + 30 * 60_000 });
+  // Cheap GC
+  for (const [k, v] of diagMemFallback) if (v.expires < Date.now()) diagMemFallback.delete(k);
+  return id;
+}
+function getDiagFromMemory(id: number, userId: string): CachedDiag | undefined {
+  const row = diagMemFallback.get(id);
+  if (!row || row.userId !== userId || row.expires < Date.now()) return undefined;
+  return row;
+}
+async function getDiagWithFallback(id: number, userId: string) {
+  if (id < 0) return getDiagFromMemory(id, userId);
+  return await storage.getStackTraceDiagnosis(id, userId);
+}
+
 function getCached(key: string): any | null {
   const entry = responseCache.get(key);
   if (entry && Date.now() < entry.expires) return entry.data;
@@ -818,7 +847,7 @@ function downloadAAB(){
       if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
       const id = parseInt(req.params.id, 10);
       if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid id." });
-      const row = await storage.getStackTraceDiagnosis(id, userId);
+      const row = await getDiagWithFallback(id, userId);
       if (!row) return res.status(404).json({ message: "Not found." });
       res.json(row);
     } catch (e: any) {
@@ -873,7 +902,7 @@ function downloadAAB(){
         });
       }
 
-      const diag = await storage.getStackTraceDiagnosis(diagnosisId, userId);
+      const diag = await getDiagWithFallback(diagnosisId, userId);
       if (!diag) return res.status(404).json({ message: "Diagnosis not found." });
 
       const ref = parseRepoUrl(diag.repoUrl);
@@ -1004,7 +1033,7 @@ function downloadAAB(){
         });
       }
 
-      const diag = await storage.getStackTraceDiagnosis(diagnosisId, userId);
+      const diag = await getDiagWithFallback(diagnosisId, userId);
       if (!diag) return res.status(404).json({ message: "Diagnosis not found." });
 
       const ref = parseRepoUrl(diag.repoUrl);
@@ -1137,33 +1166,50 @@ function downloadAAB(){
       let savedId: number | undefined;
       let saveError: string | undefined;
       try {
-        const titleSeed = instructions.split('\n').find((l: string) => l.trim().length > 0) || filePath;
-        const title = (`Customize ${result.filePath}: ${titleSeed}`).slice(0, 200);
-        const saved = await storage.saveStackTraceDiagnosis({
-          userId,
-          title,
-          stackTrace: instructions.slice(0, 20000),
-          repoUrl,
-          rootCause: result.summary,
-          suggestedFix: result.suggestedFix,
+        if (!userId || typeof userId !== 'string') {
+          throw new Error(`Missing userId on authenticated request (got ${typeof userId})`);
+        }
+        const titleSeed = (instructions.split('\n').find((l: string) => l.trim().length > 0) || filePath).toString();
+        const payload = {
+          userId: String(userId),
+          title: (`Customize ${result.filePath || filePath}: ${titleSeed}`).slice(0, 200),
+          stackTrace: String(instructions).slice(0, 20000),
+          repoUrl: String(repoUrl),
+          rootCause: String(result.summary || 'Applied the requested change.').slice(0, 50000),
+          suggestedFix: String(result.suggestedFix || '(no diff returned)').slice(0, 200000),
           framesParsed: 0,
-          filesUsed: [{ path: result.filePath }],
-          warnings: result.warnings,
+          filesUsed: [{ path: String(result.filePath || filePath) }],
+          warnings: Array.isArray(result.warnings) ? result.warnings.map(String) : [],
+        };
+        console.log("[CodeCustomizer] Saving:", {
+          userId: payload.userId,
+          titleLen: payload.title.length,
+          stackTraceLen: payload.stackTrace.length,
+          rootCauseLen: payload.rootCause.length,
+          suggestedFixLen: payload.suggestedFix.length,
+          filesUsed: payload.filesUsed,
+          warnings: payload.warnings,
         });
+        const saved = await storage.saveStackTraceDiagnosis(payload);
         savedId = saved.id;
       } catch (e: any) {
-        saveError = e?.message || String(e);
-        console.error("[CodeCustomizer] Save failed:", saveError, e);
-      }
-
-      if (savedId === undefined) {
-        // Without a saved id the open-pr / apply-fix endpoints can't look the
-        // diagnosis back up, so surface this as an explicit failure instead of
-        // letting the UI dead-end on a no-op PR button.
-        return res.status(500).json({
-          message: "Customization succeeded but failed to persist. Please try again.",
-          detail: saveError,
+        saveError = `${e?.code ? `[${e.code}] ` : ''}${e?.message || String(e)}${e?.detail ? ` — ${e.detail}` : ''}`;
+        console.error("[CodeCustomizer] Save failed (falling back to memory):", saveError);
+        console.error(e);
+        // Don't fail the request — stash the diagnosis in memory so open-pr /
+        // apply-fix / pr-checks still work for this session.
+        savedId = cacheDiagInMemory({
+          userId: String(userId),
+          title: (`Customize ${result.filePath || filePath}: ${(instructions.split('\n').find((l: string) => l.trim().length > 0) || filePath).toString()}`).slice(0, 200),
+          stackTrace: String(instructions).slice(0, 20000),
+          repoUrl: String(repoUrl),
+          rootCause: String(result.summary || 'Applied the requested change.').slice(0, 50000),
+          suggestedFix: String(result.suggestedFix || '(no diff returned)').slice(0, 200000),
+          framesParsed: 0,
+          filesUsed: [{ path: String(result.filePath || filePath) }],
+          warnings: Array.isArray(result.warnings) ? result.warnings.map(String) : [],
         });
+        console.log("[CodeCustomizer] Cached in memory with id:", savedId);
       }
 
       res.json({
