@@ -85,10 +85,10 @@ echo "   OK — $(echo "$DST_VERSION" | head -c 60)..."
 # Snapshot source row counts
 echo ">> [3/6] Snapshotting source row counts (read-only)..."
 psql "$DATABASE_URL" -tAc "
-  SELECT schemaname || '.' || tablename || E'\t' || n_live_tup
+  SELECT schemaname || '.' || relname || E'\t' || n_live_tup
   FROM pg_stat_user_tables
   WHERE schemaname = 'public'
-  ORDER BY tablename;
+  ORDER BY relname;
 " > "$SRC_COUNTS"
 SRC_TABLES=$(wc -l < "$SRC_COUNTS")
 SRC_ROWS=$(awk -F'\t' '{s+=$2} END {print s}' "$SRC_COUNTS")
@@ -155,10 +155,10 @@ psql "$AZURE_DATABASE_URL" -c "ANALYZE;" >/dev/null
 if $VERIFY; then
   echo ">> [6/6] Verifying row counts on target..."
   psql "$AZURE_DATABASE_URL" -tAc "
-    SELECT schemaname || '.' || tablename || E'\t' || n_live_tup
+    SELECT schemaname || '.' || relname || E'\t' || n_live_tup
     FROM pg_stat_user_tables
     WHERE schemaname = 'public'
-    ORDER BY tablename;
+    ORDER BY relname;
   " > "$DST_COUNTS"
   DST_TABLES=$(wc -l < "$DST_COUNTS")
   DST_ROWS=$(awk -F'\t' '{s+=$2} END {print s}' "$DST_COUNTS")
