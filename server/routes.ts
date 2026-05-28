@@ -1135,6 +1135,7 @@ function downloadAAB(){
       // Save as a stack_trace_diagnoses row so open-pr / apply-fix / pr-checks
       // all work without any new persistence layer.
       let savedId: number | undefined;
+      let saveError: string | undefined;
       try {
         const titleSeed = instructions.split('\n').find((l: string) => l.trim().length > 0) || filePath;
         const title = (`Customize ${result.filePath}: ${titleSeed}`).slice(0, 200);
@@ -1151,14 +1152,18 @@ function downloadAAB(){
         });
         savedId = saved.id;
       } catch (e: any) {
-        console.error("[CodeCustomizer] Save failed:", e?.message || e);
+        saveError = e?.message || String(e);
+        console.error("[CodeCustomizer] Save failed:", saveError, e);
       }
 
       if (savedId === undefined) {
         // Without a saved id the open-pr / apply-fix endpoints can't look the
         // diagnosis back up, so surface this as an explicit failure instead of
         // letting the UI dead-end on a no-op PR button.
-        return res.status(500).json({ message: "Customization succeeded but failed to persist. Please try again." });
+        return res.status(500).json({
+          message: "Customization succeeded but failed to persist. Please try again.",
+          detail: saveError,
+        });
       }
 
       res.json({

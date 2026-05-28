@@ -112,7 +112,7 @@ export default function CodeCustomizer() {
         repoUrl, filePath, instructions, githubToken: githubToken || undefined,
       });
       const data = await res.json();
-      if (!res.ok) setError(data?.message || 'Customization failed.');
+      if (!res.ok) setError([data?.message, data?.detail].filter(Boolean).join(' — ') || 'Customization failed.');
       else setResult(data);
     } catch (e: any) {
       setError(e?.message || 'Network error');
