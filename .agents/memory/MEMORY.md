@@ -1,1 +1,2 @@
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
+- [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.

@@ -70,6 +70,28 @@ const NULLABLE_COLUMNS: Array<{ table: string; column: string }> = [
   { table: "ticket_notifications", column: "workgroup_id" },
 ];
 
+// Tables introduced after the initial schema. Created idempotently on startup
+// so production databases (which never get `drizzle-kit push`) stay in sync.
+const NEW_TABLES: Array<{ name: string; ddl: string }> = [
+  {
+    name: "stack_trace_diagnoses",
+    ddl: `CREATE TABLE IF NOT EXISTS stack_trace_diagnoses (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      stack_trace TEXT NOT NULL,
+      repo_url TEXT NOT NULL,
+      root_cause TEXT NOT NULL,
+      suggested_fix TEXT NOT NULL,
+      frames_parsed INTEGER NOT NULL DEFAULT 0,
+      files_used JSONB NOT NULL DEFAULT '[]'::jsonb,
+      warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
+      pr_url TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT now()
+    )`,
+  },
+];
+
 async function tableExists(table: string): Promise<boolean> {
   const res = await pool.query(
     "SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1",
@@ -84,6 +106,23 @@ export async function ensureDatabaseSchema(): Promise<void> {
   let alreadyExisted = 0;
   let failed = 0;
   let relaxed = 0;
+  let tablesCreated = 0;
+
+  for (const t of NEW_TABLES) {
+    try {
+      const existed = await tableExists(t.name);
+      await pool.query(t.ddl);
+      if (existed) {
+        alreadyExisted++;
+      } else {
+        tablesCreated++;
+        console.log(`[DB Migration] Created table ${t.name}`);
+      }
+    } catch (e: any) {
+      failed++;
+      console.error(`[DB Migration] Failed to create table ${t.name}: ${e?.message || e}`);
+    }
+  }
 
   for (const col of USERS_COLUMNS) {
     try {
@@ -145,6 +184,6 @@ export async function ensureDatabaseSchema(): Promise<void> {
   }
 
   console.log(
-    `[DB Migration] Complete in ${Date.now() - startedAt}ms — added: ${added}, existing: ${alreadyExisted}, relaxed: ${relaxed}, failed: ${failed}`
+    `[DB Migration] Complete in ${Date.now() - startedAt}ms — tables created: ${tablesCreated}, columns added: ${added}, existing: ${alreadyExisted}, relaxed: ${relaxed}, failed: ${failed}`
   );
 }
