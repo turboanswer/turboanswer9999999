@@ -38,6 +38,7 @@ import Workgroups from "@/pages/workgroups";
 import CollabRooms from "@/pages/collab-rooms";
 import StackTraceSurgeon from "@/pages/stack-trace-surgeon";
 import DevTools from "@/pages/devtools";
+import { WebOnlyGate } from "@/components/WebOnlyGate";
 
 import NotificationPopup from "@/components/NotificationPopup";
 import AutoTranslate from "@/components/AutoTranslate";
@@ -50,13 +51,38 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 const isNativeMobile = !!(window as any).Capacitor?.isNativePlatform?.();
 
+/* On native (Android AAB), AI features are gated behind WebOnlyGate so the
+ * Play Store build ships as a marketing + subscription manager, while every
+ * AI feature points users to the full web experience. Account, billing,
+ * pricing, support, and legal pages remain fully usable inside the app. */
+const gate = (name: string, Page: React.ComponentType<any>) =>
+  function GatedPage() {
+    return (
+      <WebOnlyGate featureName={name}>
+        <Page />
+      </WebOnlyGate>
+    );
+  };
+
+const ChatGated = gate("AI Chat", Chat);
+const AISettingsGated = gate("AI Settings", AISettings);
+const CrisisSupportGated = gate("Crisis Support", CrisisSupport);
+const ImageStudioGated = gate("Image Studio", ImageStudio);
+const PhotoEditorGated = gate("Photo Editor", PhotoEditor);
+const MediaEditorGated = gate("Media Editor", MediaEditor);
+const VideoStudioGated = gate("Video Studio", VideoStudio);
+const WorkgroupsGated = gate("Workgroups", Workgroups);
+const CollabRoomsGated = gate("Collab Rooms", CollabRooms);
+const StackTraceGated = gate("Stack Trace Surgeon", StackTraceSurgeon);
+const TrialChatGated = gate("Trial Chat", TrialChat);
+
 function AuthenticatedRouter() {
   return (
     <Switch>
-      <Route path="/" component={isNativeMobile ? Chat : LandingPage} />
+      <Route path="/" component={isNativeMobile ? LandingPage : LandingPage} />
       <Route path="/home" component={LandingPage} />
-      <Route path="/chat" component={Chat} />
-      <Route path="/ai-settings" component={AISettings} />
+      <Route path="/chat" component={ChatGated} />
+      <Route path="/ai-settings" component={AISettingsGated} />
       <Route path="/subscribe" component={Subscribe} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/support" component={Support} />
@@ -70,16 +96,16 @@ function AuthenticatedRouter() {
       <Route path="/simple" component={Simple} />
       <Route path="/where-to-add" component={WhereToAdd} />
       <Route path="/widget-demo" component={WidgetDemo} />
-      <Route path="/crisis-support" component={CrisisSupport} />
+      <Route path="/crisis-support" component={CrisisSupportGated} />
       <Route path="/crisis-info" component={CrisisInfo} />
       <Route path="/email-templates" component={EmailTemplates} />
-      <Route path="/image-studio" component={ImageStudio} />
-      <Route path="/photo-editor" component={PhotoEditor} />
-      <Route path="/media-editor" component={MediaEditor} />
-      <Route path="/video-studio" component={VideoStudio} />
-      <Route path="/workgroups" component={Workgroups} />
-      <Route path="/collab" component={CollabRooms} />
-      <Route path="/stack-trace-surgeon" component={StackTraceSurgeon} />
+      <Route path="/image-studio" component={ImageStudioGated} />
+      <Route path="/photo-editor" component={PhotoEditorGated} />
+      <Route path="/media-editor" component={MediaEditorGated} />
+      <Route path="/video-studio" component={VideoStudioGated} />
+      <Route path="/workgroups" component={WorkgroupsGated} />
+      <Route path="/collab" component={CollabRoomsGated} />
+      <Route path="/stack-trace-surgeon" component={StackTraceGated} />
       <Route path="/devtools" component={DevTools} />
 
       <Route path="/beta" component={BetaApply} />
@@ -106,7 +132,7 @@ function UnauthenticatedRouter() {
     <Switch>
       <Route path="/" component={mobileRoot} />
       <Route path="/welcome" component={MobileWelcome} />
-      <Route path="/trial-chat" component={TrialChat} />
+      <Route path="/trial-chat" component={TrialChatGated} />
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/pricing" component={Pricing} />
@@ -119,7 +145,7 @@ function UnauthenticatedRouter() {
       <Route path="/widget-demo" component={WidgetDemo} />
       <Route path="/crisis-info" component={CrisisInfo} />
       <Route path="/forgot-password" component={ForgotPassword} />
-      <Route path="/image-studio" component={ImageStudio} />
+      <Route path="/image-studio" component={ImageStudioGated} />
       <Route path="/devtools" component={DevTools} />
       <Route path="/workgroups">{() => {
         const inviteParam = new URLSearchParams(window.location.search).get('invite');
