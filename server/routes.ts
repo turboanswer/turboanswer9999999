@@ -1089,6 +1089,42 @@ function downloadAAB(){
 
   // Check whether the Replit GitHub integration is connected.
   // Lets the frontend hide the token input when we already have a usable token.
+  // ─── CI STATUS FOR AN OPENED PR ────────────────────────────────────────────
+  // Polled by the UI every few seconds after a PR is opened, so the user sees
+  // ✅/❌/⏳ next to the "PR opened" badge without leaving the page.
+  app.get("/api/stack-trace-surgeon/pr-checks", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      if (!allowed) return res.status(403).json({ message: "Research tier required." });
+
+      const prUrl = String(req.query.prUrl || '');
+      const providedToken = typeof req.query.githubToken === 'string' ? req.query.githubToken.trim() : '';
+      if (!prUrl) return res.status(400).json({ message: "prUrl is required." });
+
+      const { parsePrUrl, getPullRequestChecks, getReplitGithubToken } = await import('./services/github-pr.js');
+      const ref = parsePrUrl(prUrl);
+      if (!ref) return res.status(400).json({ message: "Not a valid github.com PR URL." });
+
+      let token = providedToken;
+      if (!token) {
+        const integrationToken = await getReplitGithubToken();
+        if (integrationToken) token = integrationToken;
+      }
+      if (!token) return res.status(400).json({ message: "GitHub token required to read PR checks." });
+
+      const summary = await getPullRequestChecks(ref.owner, ref.repo, ref.number, token);
+      res.json(summary);
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] pr-checks failed:", e?.status, e?.message || e);
+      res.status(e?.status === 401 || e?.status === 403 ? 403 : 500).json({
+        message: e?.message || "Failed to fetch PR checks.",
+      });
+    }
+  });
+
   app.get("/api/stack-trace-surgeon/github-status", isAuthenticated, async (_req: any, res) => {
     try {
       const { getReplitGithubToken } = await import('./services/github-pr.js');

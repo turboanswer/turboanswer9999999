@@ -301,6 +301,84 @@ export async function applyFixDirect(opts: {
  *
  * Returns null if the connector is not configured (e.g. local dev outside Replit).
  */
+/**
+ * Parse a github.com PR URL into owner / repo / number.
+ * Accepts e.g. https://github.com/foo/bar/pull/42
+ */
+export function parsePrUrl(url: string): { owner: string; repo: string; number: number } | null {
+  try {
+    const m = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/i);
+    if (!m) return null;
+    return { owner: m[1], repo: m[2], number: parseInt(m[3], 10) };
+  } catch { return null; }
+}
+
+export type PrCheckSummary = {
+  state: 'pending' | 'success' | 'failure' | 'no_checks';
+  total: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  runs: { name: string; conclusion: string | null; status: string; url: string | null }[];
+  headSha: string | null;
+};
+
+/**
+ * Fetch the combined CI status (GitHub Actions check-runs + legacy commit
+ * statuses) for the head commit of a PR. Returns a normalized summary the UI
+ * can render as a live badge.
+ *
+ * - "pending"     → at least one check still queued/in_progress and none have failed
+ * - "success"     → ≥1 check ran and all completed checks succeeded
+ * - "failure"     → ≥1 check failed/timed out/cancelled/errored
+ * - "no_checks"   → repo has no CI configured for this commit
+ */
+export async function getPullRequestChecks(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  token: string,
+): Promise<PrCheckSummary> {
+  const pr = await ghFetch(token, `/repos/${owner}/${repo}/pulls/${prNumber}`);
+  const headSha: string | null = pr?.head?.sha || null;
+  if (!headSha) {
+    return { state: 'no_checks', total: 0, passed: 0, failed: 0, pending: 0, runs: [], headSha: null };
+  }
+
+  // GitHub Actions / Apps surface via /check-runs; older integrations use /status.
+  const [checksRes, statusRes] = await Promise.all([
+    ghFetch(token, `/repos/${owner}/${repo}/commits/${headSha}/check-runs?per_page=100`).catch(() => ({ check_runs: [] })),
+    ghFetch(token, `/repos/${owner}/${repo}/commits/${headSha}/status`).catch(() => ({ statuses: [], state: 'pending' })),
+  ]);
+
+  const runs: PrCheckSummary['runs'] = [];
+  let passed = 0, failed = 0, pending = 0;
+
+  for (const r of (checksRes?.check_runs || [])) {
+    const status = String(r.status || ''); // queued / in_progress / completed
+    const conclusion = r.conclusion ? String(r.conclusion) : null;
+    runs.push({ name: r.name, conclusion, status, url: r.html_url || null });
+    if (status !== 'completed') { pending++; continue; }
+    if (conclusion === 'success' || conclusion === 'neutral' || conclusion === 'skipped') passed++;
+    else failed++;
+  }
+  for (const s of (statusRes?.statuses || [])) {
+    runs.push({ name: s.context, conclusion: s.state, status: 'completed', url: s.target_url || null });
+    if (s.state === 'success') passed++;
+    else if (s.state === 'pending') pending++;
+    else failed++;
+  }
+
+  const total = runs.length;
+  let state: PrCheckSummary['state'];
+  if (total === 0) state = 'no_checks';
+  else if (failed > 0) state = 'failure';
+  else if (pending > 0) state = 'pending';
+  else state = 'success';
+
+  return { state, total, passed, failed, pending, runs, headSha };
+}
+
 let _cachedGhConn: any = null;
 export async function getReplitGithubToken(): Promise<string | null> {
   try {

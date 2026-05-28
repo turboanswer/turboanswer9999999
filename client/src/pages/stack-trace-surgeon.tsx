@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy, Lock, FlaskConical, History, Trash2, GitPullRequest, ExternalLink, Zap, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Stethoscope, Github, Loader2, AlertCircle, CheckCircle2, FileCode, Sparkles, Copy, Lock, FlaskConical, History, Trash2, GitPullRequest, ExternalLink, Zap, ShieldAlert, XCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -604,16 +604,19 @@ export default function StackTraceSurgeon() {
 
                   {/* Already-PR state */}
                   {prUrl && !appliedCommit && (
-                    <a
-                      href={prUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold"
-                      style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
-                      data-testid="link-pr-opened"
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> PR opened — view on GitHub <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
+                    <div className="flex flex-col gap-2">
+                      <a
+                        href={prUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold self-start"
+                        style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}
+                        data-testid="link-pr-opened"
+                      >
+                        <CheckCircle2 className="h-4 w-4" /> PR opened — view on GitHub <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <PrChecksBadge prUrl={prUrl} githubToken={githubToken} isDark={isDark} border={border} subtext={subtext} text={text} />
+                    </div>
                   )}
 
                   {/* Action buttons */}
@@ -731,6 +734,106 @@ export default function StackTraceSurgeon() {
           Stack Trace Surgeon by TurboAnswer · Reads only the files in your trace · Tokens never stored
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── CI STATUS BADGE ──────────────────────────────────────────────────────────
+// Polls /api/stack-trace-surgeon/pr-checks for the opened PR and renders a live
+// ✅ / ❌ / ⏳ / ⚪ badge so the user knows whether the auto-generated fix
+// actually passes the repo's tests before they merge. Stops polling once the
+// state is terminal (success / failure / no_checks).
+type PrCheckRun = { name: string; conclusion: string | null; status: string; url: string | null };
+type PrCheckResp = {
+  state: 'pending' | 'success' | 'failure' | 'no_checks';
+  total: number; passed: number; failed: number; pending: number;
+  runs: PrCheckRun[]; headSha: string | null;
+};
+
+function PrChecksBadge({
+  prUrl, githubToken, isDark, border, subtext, text,
+}: { prUrl: string; githubToken: string; isDark: boolean; border: string; subtext: string; text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const qs = new URLSearchParams({ prUrl, ...(githubToken ? { githubToken } : {}) }).toString();
+  const { data, error, isLoading } = useQuery<PrCheckResp>({
+    queryKey: ['/api/stack-trace-surgeon/pr-checks', prUrl, githubToken],
+    queryFn: async () => {
+      const res = await fetch(`/api/stack-trace-surgeon/pr-checks?${qs}`, { credentials: 'include' });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.message || `HTTP ${res.status}`);
+      }
+      return res.json();
+    },
+    refetchInterval: (q) => {
+      const s = (q.state.data as PrCheckResp | undefined)?.state;
+      // Keep polling while CI is running. Stop after a terminal state.
+      if (!s || s === 'pending') return 6000;
+      return false;
+    },
+    refetchIntervalInBackground: false,
+    staleTime: 0,
+  });
+
+  if (isLoading && !data) {
+    return (
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] self-start" style={{ background: isDark ? '#0a0a0a' : '#f8fafc', border: `1px solid ${border}`, color: subtext }}>
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking CI status…
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] self-start" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+        <AlertCircle className="h-3.5 w-3.5" /> Can't read CI status — open the PR to check
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const palette = {
+    pending:   { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.35)', color: '#f59e0b', Icon: Clock,        label: `CI running… ${data.passed}/${data.total} passed` },
+    success:   { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.35)', color: '#10b981', Icon: CheckCircle2, label: `✅ CI passed — all ${data.total} checks green · safe to merge` },
+    failure:   { bg: 'rgba(239,68,68,0.08)',  border: 'rgba(239,68,68,0.35)',  color: '#ef4444', Icon: XCircle,      label: `❌ CI failed — ${data.failed}/${data.total} checks broke · review before merging` },
+    no_checks: { bg: isDark ? '#0a0a0a' : '#f8fafc', border, color: subtext, Icon: AlertCircle, label: 'No CI configured on this repo — review the diff manually before merging' },
+  } as const;
+  const p = palette[data.state];
+
+  return (
+    <div className="flex flex-col gap-2 self-start">
+      <button
+        onClick={() => data.runs.length > 0 && setExpanded(e => !e)}
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] font-medium transition-opacity hover:opacity-80"
+        style={{ background: p.bg, border: `1px solid ${p.border}`, color: p.color, cursor: data.runs.length > 0 ? 'pointer' : 'default' }}
+        data-testid="badge-pr-checks"
+        type="button"
+      >
+        <p.Icon className="h-3.5 w-3.5" />
+        <span>{p.label}</span>
+        {data.runs.length > 0 && <span className="text-[10px] opacity-70">{expanded ? '▲' : '▼'}</span>}
+      </button>
+      {expanded && data.runs.length > 0 && (
+        <div className="rounded-md text-[11px] overflow-hidden" style={{ background: isDark ? '#0a0a0a' : '#f8fafc', border: `1px solid ${border}` }}>
+          {data.runs.slice(0, 20).map((r, i) => {
+            const ok = r.status === 'completed' && (r.conclusion === 'success' || r.conclusion === 'neutral' || r.conclusion === 'skipped');
+            const bad = r.status === 'completed' && r.conclusion && !ok;
+            const Ico = ok ? CheckCircle2 : bad ? XCircle : Clock;
+            const col = ok ? '#10b981' : bad ? '#ef4444' : '#f59e0b';
+            const content = (
+              <>
+                <Ico className="h-3 w-3" style={{ color: col }} />
+                <span className="flex-1 truncate" style={{ color: text }}>{r.name}</span>
+                <span style={{ color: subtext }}>{r.status === 'completed' ? (r.conclusion || '—') : r.status}</span>
+              </>
+            );
+            return r.url ? (
+              <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-1.5 hover:opacity-80" style={{ borderTop: i ? `1px solid ${border}` : 'none' }}>{content}</a>
+            ) : (
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5" style={{ borderTop: i ? `1px solid ${border}` : 'none' }}>{content}</div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
