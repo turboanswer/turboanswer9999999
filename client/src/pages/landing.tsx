@@ -1143,10 +1143,8 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: Code2, title: "Code Surgeon",        desc: "Drops Codex Max into your codebase, hunts race conditions, security holes, and perf traps. Ships a patch you can apply with one click." },
-              { icon: Eye,   title: "Live Vision",          desc: "Point the camera. The model watches, reads, transcribes, and talks back in real time. Native on Android." },
+              { icon: Code2, title: "Code Surgeon",        desc: "Drops Codex Max into your codebase, hunts race conditions, security holes, and perf traps. Reads your repo, ships a patch, opens a PR — one tool, one click." },
               { icon: Brain, title: "Verified Chat",        desc: "Every factual claim gets a confidence score. A second pass independently grades the answer. We show low scores too." },
-              { icon: Shield,title: "Stack Trace Surgeon",  desc: "Paste an error + your repo URL. It reads the source, isolates root cause, opens a PR. No screenshots required." },
               { icon: Mic,   title: "Voice Turbo",          desc: "Real-time voice. Streaming token-by-token. Wake-word optional. Sounds like a person, not a kiosk." },
               { icon: Database, title: "Deep Research",     desc: "Twenty-plus sources synthesised through a multi-agent chain. Citations on every claim. Disagrees with itself in public." },
             ].map(({ icon: Icon, title, desc }) => (
@@ -1194,7 +1192,7 @@ export default function LandingPage() {
                 <span className="text-sm" style={{ color: MUTED }}>forever</span>
               </div>
               <ul className="space-y-2.5 mb-7 flex-1 text-sm" style={{ color: TEXT }}>
-                {["GPT-5.4 Nano routing","15 queries per day","Live Vision (camera)","Document analysis"].map((i) => (
+                {["GPT-5.4 Nano routing","15 queries per day","Code Surgeon (paste mode)","Document analysis"].map((i) => (
                   <li key={i} className="flex items-start gap-2"><Check size={14} className="mt-1 flex-shrink-0" style={{ color: NEON }} /><span>{i}</span></li>
                 ))}
               </ul>

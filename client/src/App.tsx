@@ -107,8 +107,9 @@ function AuthenticatedRouter() {
       <Route path="/video-studio" component={VideoStudioGated} />
       <Route path="/workgroups" component={WorkgroupsGated} />
       <Route path="/collab" component={CollabRoomsGated} />
-      <Route path="/stack-trace-surgeon" component={StackTraceGated} />
+      <Route path="/stack-trace-surgeon" component={CodeCustomizerGated} />
       <Route path="/code-customizer" component={CodeCustomizerGated} />
+      <Route path="/code-surgeon" component={CodeCustomizerGated} />
       <Route path="/devtools" component={DevTools} />
 
       <Route path="/beta" component={BetaApply} />
@@ -159,10 +160,14 @@ function UnauthenticatedRouter() {
         return null;
       }}</Route>
       <Route path="/beta" component={BetaApply} />
+      <Route path="/code-surgeon">{() => {
+        window.location.href = '/login?redirect=/code-customizer';
+        return null;
+      }}</Route>
       <Route path="/stack-trace-surgeon">{() => {
         // Research-only feature: bounce unauthenticated visitors to login
         // with a return path so they land back here after signing in.
-        window.location.href = '/login?redirect=/stack-trace-surgeon';
+        window.location.href = '/login?redirect=/code-customizer';
         return null;
       }}</Route>
       <Route path="/code-customizer">{() => {

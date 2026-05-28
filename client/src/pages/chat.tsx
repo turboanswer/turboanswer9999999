@@ -4,10 +4,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic, Eye } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic } from "lucide-react";
 import { VoiceTalkModal } from "@/components/VoiceTalkModal";
 import { TTS_ENABLED, VOICE_TALK_ENABLED } from "@/lib/feature-flags";
-import LiveVisionModal from "@/components/LiveVisionModal";
 import CodeAnalyzerModal from "@/components/CodeAnalyzerModal";
 import { QRCodeCanvas } from "qrcode.react";
 import { Link, useLocation } from "wouter";
@@ -31,7 +30,6 @@ export default function Chat() {
   const [pendingImagePrompt, setPendingImagePrompt] = useState<string | null>(null);
   const [pendingPronounce, setPendingPronounce] = useState<string | null>(null);
   const [showVoiceTalk, setShowVoiceTalk] = useState(false);
-  const [showLiveVision, setShowLiveVision] = useState(false);
   const [showCodeAnalyzer, setShowCodeAnalyzer] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
@@ -1094,37 +1092,18 @@ export default function Chat() {
               </button>
             )}
 
-            {(() => {
-              const liveVisionUnlocked = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise';
-              return (
-                <button
-                  onClick={() => {
-                    if (liveVisionUnlocked) {
-                      setShowLiveVision(true);
-                    } else {
-                      setShowProPopup(true);
-                    }
-                  }}
-                  className={`h-8 w-8 flex items-center justify-center rounded-full ${liveVisionUnlocked ? 'bg-gradient-to-br from-cyan-500 to-blue-500' : 'bg-gray-600/60 hover:bg-gray-600'} text-white hover:scale-105 transition-transform relative`}
-                  title={liveVisionUnlocked ? 'Live Vision — AI watches through your camera' : 'Live Vision — upgrade to Pro or Research'}
-                  data-testid="button-live-vision"
-                  type="button"
-                >
-                  <Eye className="h-4 w-4" />
-                  {!liveVisionUnlocked && <span className="absolute -top-0.5 -right-0.5 text-[8px] bg-yellow-500 text-black rounded-full px-1 leading-none py-0.5 font-bold">PRO</span>}
-                </button>
-              );
-            })()}
 
-            <button
-              onClick={() => setShowCodeAnalyzer(true)}
-              className={`h-8 w-8 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white hover:scale-105 transition-transform`}
-              title="Code Surgeon — GPT-5.1 Codex Max deep code analysis"
-              data-testid="button-code-analyzer"
-              type="button"
-            >
-              <Code2 className="h-4 w-4" />
-            </button>
+            <Link href="/code-customizer">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 flex items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white hover:scale-105 transition-transform"
+                title="Code Surgeon — repo-aware analysis, fixes, and one-click PRs"
+                data-testid="button-code-surgeon"
+              >
+                <Code2 className="h-4 w-4" />
+              </Button>
+            </Link>
 
             <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -1146,13 +1125,13 @@ export default function Chat() {
                   <Film className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/stack-trace-surgeon">
+              <Link href="/code-customizer">
                 <Button
                   variant="ghost"
                   size="sm"
                   className={`h-8 w-8 p-0 rounded-full relative ${isDark ? 'text-purple-300 hover:text-purple-200 hover:bg-[#1e1f20]' : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'}`}
-                  title="Stack Trace Surgeon — diagnose errors from your repo"
-                  data-testid="button-stack-trace-surgeon"
+                  title="Code Surgeon — repo-aware diagnoses and one-click PRs"
+                  data-testid="button-code-surgeon-secondary"
                 >
                   <Stethoscope className="h-4 w-4" />
                 </Button>
@@ -1192,7 +1171,7 @@ export default function Chat() {
               </Link>
               {user?.isEmployee && (
                 <Link href="/devtools">
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10" title="Microsoft Dream Machine — Azure DevTools" data-testid="link-devtools">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10" title="Code Studio — Azure DevTools" data-testid="link-devtools">
                     <Sparkles className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -1239,7 +1218,7 @@ export default function Chat() {
               )}
               {user?.isEmployee && (
                 <Link href="/devtools">
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-cyan-400 hover:text-cyan-300" title="Microsoft Dream Machine — Azure DevTools" data-testid="link-devtools-mobile">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-cyan-400 hover:text-cyan-300" title="Code Studio — Azure DevTools" data-testid="link-devtools-mobile">
                     <Sparkles className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -1382,10 +1361,6 @@ export default function Chat() {
           </div>
           <DocumentUpload conversationId={currentConversationId ?? undefined} onAnalysisComplete={(a) => { setDroppedDocFile(null); handleDocumentAnalysis(a); }} initialFile={droppedDocFile} />
         </div>
-      )}
-
-      {showLiveVision && (
-        <LiveVisionModal isDark={isDark} onClose={() => setShowLiveVision(false)} />
       )}
 
       {showCodeAnalyzer && (

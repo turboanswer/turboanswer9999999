@@ -3,20 +3,20 @@ import { Link } from "wouter";
 import yaml from "js-yaml";
 import { useAuth } from "@/hooks/use-auth";
 
-const NEON = "#0078d4";
-const NEON_DIM = "#106ebe";
-const PINK = "#5c2d91";
-const BG = "#faf9f8";
-const PANEL = "#ffffff";
-const PANEL_HI = "#f3f2f1";
-const BORDER = "#e1dfdd";
-const MUTED = "#605e5c";
-const WARN = "#ca5010";
-const RED = "#a4262c";
+const NEON = "#3aa0ff";
+const NEON_DIM = "#1f6fb8";
+const PINK = "#b486ff";
+const BG = "#000000";
+const PANEL = "#0a0a0a";
+const PANEL_HI = "#141414";
+const BORDER = "#1f1f1f";
+const MUTED = "#8a8f95";
+const WARN = "#f0a868";
+const RED = "#ff6b6b";
 
 const MONO = `"JetBrains Mono", "Fira Code", "Cascadia Code", Menlo, Consolas, monospace`;
-const CODE_BG = "#f8f8f8";
-const CODE_FG = "#24292f";
+const CODE_BG = "#0d0d0d";
+const CODE_FG = "#e6edf3";
 
 type ToolId =
   | "jwt" | "base64" | "json-yaml" | "hash" | "uuid" | "timestamp"
