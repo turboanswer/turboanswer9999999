@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Eye, Mic, MicOff, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { TTS_ENABLED } from "@/lib/feature-flags";
 
 interface LiveVisionModalProps {
   isDark: boolean;
@@ -62,6 +63,7 @@ export default function LiveVisionModal({ isDark, onClose }: LiveVisionModalProp
   };
 
   const speak = (text: string) => {
+    if (!TTS_ENABLED) return; // TTS hidden until OpenAI Realtime Voice ships
     if (!ttsEnabledRef.current) return;
     try {
       window.speechSynthesis.cancel();
@@ -325,14 +327,16 @@ export default function LiveVisionModal({ isDark, onClose }: LiveVisionModalProp
         >
           {micOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
         </button>
-        <button
-          onClick={handleToggleTts}
-          className={`h-12 w-12 rounded-full flex items-center justify-center ${ttsOn ? "bg-purple-600 text-white" : "bg-zinc-700 text-zinc-300"}`}
-          title={ttsOn ? "Mute voice" : "Unmute voice"}
-          data-testid="button-vision-tts"
-        >
-          {ttsOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-        </button>
+        {TTS_ENABLED && (
+          <button
+            onClick={handleToggleTts}
+            className={`h-12 w-12 rounded-full flex items-center justify-center ${ttsOn ? "bg-purple-600 text-white" : "bg-zinc-700 text-zinc-300"}`}
+            title={ttsOn ? "Mute voice" : "Unmute voice"}
+            data-testid="button-vision-tts"
+          >
+            {ttsOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+          </button>
+        )}
         <button
           onClick={() => analyzeNow("What do you see right now? Be specific.")}
           disabled={status !== "ready" || analyzing}

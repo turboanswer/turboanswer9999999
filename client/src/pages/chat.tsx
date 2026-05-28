@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic, Eye } from "lucide-react";
 import { VoiceTalkModal } from "@/components/VoiceTalkModal";
+import { TTS_ENABLED, VOICE_TALK_ENABLED } from "@/lib/feature-flags";
 import LiveVisionModal from "@/components/LiveVisionModal";
 import CodeAnalyzerModal from "@/components/CodeAnalyzerModal";
 import { QRCodeCanvas } from "qrcode.react";
@@ -589,6 +590,7 @@ export default function Chat() {
 
   // Auto-read AI responses aloud when pref is enabled
   useEffect(() => {
+    if (!TTS_ENABLED) return; // TTS hidden until OpenAI Realtime Voice ships
     if (!autoReadPref || !messages || messages.length === 0) return;
     const last = messages[messages.length - 1];
     if (last.role !== 'assistant') return;
@@ -879,6 +881,10 @@ export default function Chat() {
   };
 
   const runPronounceMagic = async (word: string, originalUserText: string, convId: number) => {
+    if (!TTS_ENABLED) {
+      toast({ title: "Voice features paused", description: "Pronunciation audio returns soon with a much better voice." });
+      return;
+    }
     setPendingPronounce(word);
     setMessageContent("");
     try {
@@ -1386,7 +1392,7 @@ export default function Chat() {
         <CodeAnalyzerModal isDark={isDark} onClose={() => setShowCodeAnalyzer(false)} />
       )}
 
-      {showVoiceTalk && currentConversationId && (
+      {VOICE_TALK_ENABLED && showVoiceTalk && currentConversationId && (
         <VoiceTalkModal
           conversationId={currentConversationId}
           isDark={isDark}
