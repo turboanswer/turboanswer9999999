@@ -155,59 +155,11 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
 };
 
 
-async function callClaude(prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
-  const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  const anthropicBase = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-  if (!anthropicKey) return null;
-
-  const { isModelDowned } = await import('./auto-remediation.js');
-  if (isModelDowned('anthropic')) {
-    console.log(`[Claude] Skipped — provider marked downed by auto-remediation`);
-    return null;
-  }
-
-  try {
-    const controller = new AbortController();
-    // Scale timeout with budget: ~50 tok/sec floor + 10s headroom, min 20s, max 120s.
-    const claudeTimeoutMs = Math.min(120_000, Math.max(20_000, maxTokens * 20 + 10_000));
-    const timeout = setTimeout(() => controller.abort(), claudeTimeoutMs);
-    const response = await fetch(`${anthropicBase}/v1/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: maxTokens,
-        temperature,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      console.log(`[Claude] HTTP ${response.status}`);
-      if (response.status === 429 || response.status === 529) {
-        const { trackError } = await import('./error-tracker.js');
-        trackError('aiError', `Anthropic Claude HTTP ${response.status}: rate limit/quota`);
-      }
-      return null;
-    }
-
-    const data: any = await response.json();
-    const text = data.content?.[0]?.text;
-    if (text) {
-      console.log(`[Claude] claude-sonnet-4 responded`);
-      return text;
-    }
-    return null;
-  } catch (err: any) {
-    console.log(`[Claude] Failed: ${err.message}`);
-    return null;
-  }
+async function callClaude(_prompt: string, _maxTokens: number, _temperature: number): Promise<string | null> {
+  // DISABLED per product decision: GPT-only stack. Returning null short-circuits any
+  // fallback path that would otherwise route to Claude. Re-enable by restoring the
+  // direct-router wrapper if Claude is ever brought back.
+  return null;
 }
 
 export async function verifyAIResponse(response: string, question: string, apiKey: string): Promise<"verified" | "unverified" | "unknown"> {

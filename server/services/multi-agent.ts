@@ -85,44 +85,10 @@ async function callOpenRouter(model: string, prompt: string, maxTokens: number, 
   return callDirect(model, [{ role: 'user', content: prompt }], { maxTokens, temperature, timeoutMs: 45000 });
 }
 
-async function callClaude(prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
-  const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  const anthropicBase = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-  if (!anthropicKey) return null;
-
-  const { isModelDowned } = await import('./auto-remediation.js');
-  if (isModelDowned('anthropic')) {
-    console.log(`[Claude] Skipped — provider marked downed by auto-remediation`);
-    return null;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-    const response = await fetch(`${anthropicBase}/v1/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        temperature,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (!response.ok) {
-      if (response.status === 429 || response.status === 529) {
-        const { trackError } = await import('./error-tracker.js');
-        trackError('aiError', `Anthropic Claude HTTP ${response.status}: rate limit/quota`);
-      }
-      return null;
-    }
-    const data: any = await response.json();
-    return data.content?.[0]?.text || null;
-  } catch {
-    return null;
-  }
+async function callClaude(_prompt: string, _maxTokens: number, _temperature: number): Promise<string | null> {
+  // DISABLED per product decision: GPT-only stack. Agents fall through to Gemini
+  // (and ultimately fail-soft) instead of routing to Claude.
+  return null;
 }
 
 async function callGemini(prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
