@@ -1184,6 +1184,13 @@ export default function Chat() {
                   <Heart className="h-4 w-4" />
                 </Button>
               </Link>
+              {user?.isEmployee && (
+                <Link href="/devtools">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10" title="Microsoft Dream Machine — Azure DevTools" data-testid="link-devtools">
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
               <Link href="/ai-settings">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Settings">
                   <Settings className="h-4 w-4" />
@@ -1219,8 +1226,15 @@ export default function Chat() {
               </Button>
               {user?.isEmployee && (
                 <Link href="/employee/dashboard">
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:text-red-300">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-400 hover:text-red-300" title="Employee Dashboard">
                     <Shield className="h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
+              {user?.isEmployee && (
+                <Link href="/devtools">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-cyan-400 hover:text-cyan-300" title="Microsoft Dream Machine — Azure DevTools" data-testid="link-devtools-mobile">
+                    <Sparkles className="h-4 w-4" />
                   </Button>
                 </Link>
               )}
