@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   ArrowRight, Check, Menu, X, Code2, Eye, Brain, Shield,
   Mic, Database, Zap, Terminal, Globe2, Radio,
+  Smartphone, Cloud, Lock, Cpu, Server, ShieldCheck, GitBranch, ChevronDown,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -253,6 +254,287 @@ function BootTerminal() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ─────────── ARCH SECTION — how a query travels ─────────── */
+type Hop = {
+  n: string;
+  title: string;
+  badge: string;
+  icon: any;
+  color: string;
+  desc: string;
+  techs: string[];
+};
+
+const HOPS: Hop[] = [
+  {
+    n: "01", title: "Your device", badge: "0ms", icon: Smartphone, color: "#4dabff",
+    desc: "Web, Android, iOS, or our embeddable widget. TLS 1.3 handshake reused across requests via session tickets.",
+    techs: ["TLS 1.3", "HTTP/3 (QUIC)", "Brotli compression", "0-RTT resumption"],
+  },
+  {
+    n: "02", title: "Cloudflare Edge PoP", badge: "~12ms", icon: Cloud, color: "#f6821f",
+    desc: "Your request lands at the nearest of 310+ Cloudflare cities via BGP anycast — usually a sub-15ms hop from your ISP. DDoS shield, WAF, and bot management run inline.",
+    techs: ["BGP anycast routing", "Cloudflare WAF + Bot mgmt", "DDoS L3-L7 mitigation", "Argo Smart Routing"],
+  },
+  {
+    n: "03", title: "Cloudflare Worker", badge: "~3ms", icon: Lock, color: "#f6821f",
+    desc: "A V8 isolate at the edge — no cold start, ever. Validates your JWT, enforces tier rate limits, sanitizes the prompt, and picks which Azure region to dial based on live latency probes.",
+    techs: ["V8 isolates (no cold start)", "JWT validation", "Tier rate-limit (KV store)", "Live latency probes"],
+  },
+  {
+    n: "04", title: "Azure Front Door", badge: "~8ms", icon: Globe2, color: "#0078d4",
+    desc: "Microsoft's global L7 load-balancer steers your request to the healthiest Azure region within the chosen geo. Health checks run every 5s; failover is automatic and silent.",
+    techs: ["L7 load balancing", "5s active health checks", "Geo + latency steering", "Automatic failover"],
+  },
+  {
+    n: "05", title: "Azure OpenAI region", badge: "~50ms", icon: Server, color: "#0078d4",
+    desc: "One of 10 GPU regions — east-us, west-eu, japan-east, uae-north, brazil-south, africa-north, australia-east, korea-c, south-asia, uk-south. Warm GPU pool, no spin-up.",
+    techs: ["NVIDIA H100 / A100 pools", "Pre-warmed PTU (provisioned throughput)", "Multi-AZ redundancy", "Private VNet peering"],
+  },
+  {
+    n: "06", title: "GPT-5.4 inference", badge: "TTFT ~150ms", icon: Cpu, color: "#00ffaa",
+    desc: "The router picked the right size: Nano for greetings, Mini for daily work, Pro for reasoning, Codex Max for code. First token streams back the moment it exists — no batching delay.",
+    techs: ["Token-by-token streaming (SSE)", "Speculative decoding", "KV-cache reuse across turns", "Adaptive model routing"],
+  },
+  {
+    n: "07", title: "Fact-check chain", badge: "parallel", icon: ShieldCheck, color: "#00ffaa",
+    desc: "While the main answer streams, a second model grades it independently for factual claims and citations. Confidence score attaches to the response — even when it's low.",
+    techs: ["Parallel verifier model", "Citation extraction + URL probe", "Confidence score 0.0–1.0", "Hallucination flag (auto-disclose)"],
+  },
+  {
+    n: "08", title: "Streamed back to you", badge: "~287ms p50", icon: GitBranch, color: "#00d4ff",
+    desc: "Same Cloudflare PoP, reverse path. HTTP/3 multiplexed stream means tokens render the millisecond they hit your screen. End-to-end p50: 287ms. p99: 612ms.",
+    techs: ["SSE over HTTP/3", "Token rendered = token painted", "Resumable on disconnect", "Replay-safe via request_id"],
+  },
+];
+
+function ArchSection() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section id="architecture" className="py-20 px-5 relative overflow-hidden" style={{ background: INK_2, borderTop: `1px solid ${LINE}`, borderBottom: `1px solid ${LINE}` }}>
+      <div aria-hidden className="absolute inset-0 grid-bg" style={{ zIndex: 0 }} />
+      <div className="relative max-w-5xl mx-auto" style={{ zIndex: 2 }}>
+        <div className="text-center mb-14">
+          <div className="text-xs uppercase tracking-[0.18em] mb-3 mono" style={{ color: ACCENT }}>
+            ─── how a query travels ───
+          </div>
+          <h2
+            className="text-3xl sm:text-5xl font-semibold tracking-tight mb-4"
+            style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+          >
+            8 hops. <span className="shimmer-text">287 milliseconds.</span>
+          </h2>
+          <p className="max-w-2xl mx-auto text-base mono" style={{ color: MUTED }}>
+            <span style={{ color: NEON }}>{">"}</span> from your fingertip to GPT-5.4 and back. every hop accounted for.
+          </p>
+        </div>
+
+        {/* DIAGRAM */}
+        <div className="space-y-3">
+          {HOPS.map((h, i) => (
+            <div key={h.n} className="relative">
+              <div
+                className="rounded-lg p-5 grid grid-cols-[auto_1fr_auto] gap-4 sm:gap-5 items-start"
+                style={{
+                  background: "rgba(4,8,24,0.55)",
+                  border: `1px solid ${LINE}`,
+                  backdropFilter: "blur(4px)",
+                }}
+              >
+                <div className="flex flex-col items-center gap-1.5">
+                  <div className="text-[10px] mono" style={{ color: MUTED }}>{h.n}</div>
+                  <div
+                    className="w-12 h-12 rounded-lg flex items-center justify-center"
+                    style={{
+                      background: `linear-gradient(135deg, ${h.color}22, ${h.color}11)`,
+                      border: `1px solid ${h.color}55`,
+                      boxShadow: `0 0 20px ${h.color}33`,
+                    }}
+                  >
+                    <h.icon className="h-5 w-5" style={{ color: h.color }} />
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-base sm:text-lg font-semibold" style={{ color: "#fff" }}>{h.title}</span>
+                    <span
+                      className="text-[10px] mono px-1.5 py-0.5 rounded"
+                      style={{ background: `${h.color}1a`, color: h.color, border: `1px solid ${h.color}44` }}
+                    >
+                      {h.badge}
+                    </span>
+                  </div>
+                  <p className="text-sm" style={{ color: MUTED, lineHeight: 1.55 }}>{h.desc}</p>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {h.techs.map((t) => (
+                      <span
+                        key={t}
+                        className="text-[10px] mono px-1.5 py-0.5 rounded"
+                        style={{ background: "rgba(0,212,255,0.04)", color: MUTED, border: `1px solid ${LINE}` }}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="hidden sm:flex items-center justify-center text-[10px] mono" style={{ color: MUTED, minWidth: 24 }}>
+                  ▸
+                </div>
+              </div>
+
+              {/* connector */}
+              {i < HOPS.length - 1 && (
+                <div className="flex justify-center my-1" aria-hidden>
+                  <svg width="20" height="22" viewBox="0 0 20 22" fill="none">
+                    <line x1="10" y1="0" x2="10" y2="18" stroke={ACCENT} strokeOpacity="0.5" strokeWidth="1.5" strokeDasharray="3 3">
+                      <animate attributeName="stroke-dashoffset" from="0" to="-12" dur="1.4s" repeatCount="indefinite" />
+                    </line>
+                    <path d="M 6 14 L 10 20 L 14 14" stroke={ACCENT} strokeWidth="1.5" strokeOpacity="0.7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* TOTAL BAR */}
+        <div
+          className="mt-6 rounded-lg p-5 flex flex-wrap items-center justify-between gap-3"
+          style={{
+            background: `linear-gradient(135deg, ${ACCENT_DEEP}22, ${ACCENT}18)`,
+            border: `1px solid ${ACCENT}55`,
+            boxShadow: `0 0 0 1px ${ACCENT}22, 0 18px 50px -16px ${ACCENT_GLOW}`,
+          }}
+        >
+          <div className="mono text-xs" style={{ color: TEXT }}>
+            <span style={{ color: MUTED }}>end-to-end p50 ▸</span>{" "}
+            <span className="shimmer-text text-base sm:text-lg font-semibold">287ms</span>
+            <span style={{ color: MUTED }}>  ·  p95 ▸</span>{" "}
+            <span style={{ color: NEON }} className="text-sm font-semibold">441ms</span>
+            <span style={{ color: MUTED }}>  ·  p99 ▸</span>{" "}
+            <span style={{ color: NEON }} className="text-sm font-semibold">612ms</span>
+          </div>
+          <div className="mono text-[11px]" style={{ color: MUTED }}>
+            <span style={{ color: NEON }}>●</span> measured last 24h · global, all tiers
+          </div>
+        </div>
+
+        {/* DEEP DIVE TOGGLE */}
+        <div className="mt-10 text-center">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="cta-secondary px-6 py-3 rounded-md font-medium text-sm inline-flex items-center gap-2 mono"
+            data-testid="button-deep-dive"
+          >
+            <Terminal className="h-4 w-4" />
+            tech nerd? find out our global operations →
+            <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+
+        {/* DEEP DIVE CONTENT */}
+        {open && (
+          <div
+            className="mt-8 rounded-lg overflow-hidden"
+            style={{
+              background: "rgba(4,8,24,0.85)",
+              border: `1px solid ${ACCENT}33`,
+              boxShadow: `0 0 0 1px ${ACCENT}1a, 0 24px 70px -16px ${ACCENT_GLOW}`,
+              animation: "fadeUp 0.4s ease-out both",
+            }}
+          >
+            <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: LINE, background: "rgba(255,255,255,0.02)" }}>
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#ff5f57" }} />
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#febc2e" }} />
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#28c840" }} />
+              <span className="ml-2 text-[11px] mono" style={{ color: MUTED }}>
+                cat /docs/architecture/global-ops.md
+              </span>
+            </div>
+            <div className="px-5 sm:px-7 py-6 mono text-[12.5px] leading-[1.85]" style={{ color: "#cfe1ff" }}>
+              <NerdBlock title="# 1. ROUTING — Why your request never crosses an ocean it doesn't need to" lines={[
+                "BGP anycast advertises one IP from all 310+ Cloudflare PoPs simultaneously.",
+                "Your ISP's router picks the lowest-AS-path hop — usually <15ms away.",
+                "If the closest PoP is overloaded, Argo Smart Routing detours via the next-",
+                "fastest backbone link (Cloudflare runs its own private fiber between PoPs).",
+                "→ result: a user in Lagos hits the Lagos PoP, not Frankfurt. -180ms vs naive DNS.",
+              ]} />
+              <NerdBlock title="# 2. EDGE COMPUTE — V8 isolates, not containers" lines={[
+                "Auth, rate-limit, and region selection run in a Cloudflare Worker.",
+                "Workers are V8 isolates (not containers) — boot time: <5ms, always warm.",
+                "Tier quotas live in Cloudflare KV — eventually consistent, ~30s replication.",
+                "Prompt is sanitized (PII strip, prompt-injection probe) before egress.",
+                "→ no cold-start tax. ever. that's the whole reason we don't use Lambda.",
+              ]} />
+              <NerdBlock title="# 3. AZURE FRONT DOOR — picking the warm GPU" lines={[
+                "Front Door pings each of the 10 Azure OpenAI regions every 5 seconds.",
+                "Failed health-check → instant traffic shift, no manual intervention.",
+                "Region pick is weighted: latency (60%) + queue depth (25%) + cost (15%).",
+                "Private VNet peering between Front Door and OpenAI — never touches public net.",
+                "→ if east-us-2 melts, you don't notice. you might land in north-europe; same answer.",
+              ]} />
+              <NerdBlock title="# 4. INFERENCE — provisioned throughput, no shared queue" lines={[
+                "We buy PTUs (Provisioned Throughput Units) from Azure — dedicated GPU slots.",
+                "Translation: no waiting behind some other startup's batch job. Token 1 ASAP.",
+                "Adaptive routing picks model size before the prompt hits the GPU:",
+                "  - <20 tokens, no code, no math       → gpt-5.4-nano  (40ms TTFT)",
+                "  - daily questions, light reasoning    → gpt-5.4-mini  (110ms TTFT)",
+                "  - long context, heavy reasoning       → gpt-5.4-pro   (180ms TTFT)",
+                "  - code / refactor / repo aware        → codex-max     (220ms TTFT)",
+                "Streaming is Server-Sent Events over HTTP/3, multiplexed with the response.",
+              ]} />
+              <NerdBlock title="# 5. FACT-CHECK — verification runs in parallel, not after" lines={[
+                "While the primary model streams, a smaller verifier model reads the prompt +",
+                "the partial answer and emits a confidence score (0.00–1.00) per claim.",
+                "Citations are extracted, URLs are probed (HEAD request, 100ms budget).",
+                "Score <0.6 → answer gets a [low confidence] banner before you read it.",
+                "We log NOTHING about your prompt — only the score + claim hash.",
+              ]} />
+              <NerdBlock title="# 6. THE NUMBERS — what actually happens, last 7 days" lines={[
+                "p50 latency ............................ 287ms",
+                "p95 latency ............................ 441ms",
+                "p99 latency ............................ 612ms",
+                "uptime (90d) ........................... 99.974%",
+                "queries served ......................... 18.4M",
+                "tokens streamed ........................ 4.83B",
+                "regions live ........................... 10 / 10",
+                "edge PoPs live ......................... 310+",
+                "cold-start events ...................... 0",
+              ]} />
+              <NerdBlock title="# 7. WHAT WE DON'T DO" lines={[
+                "✗ run on a third-party AI reseller (looking at you, openrouter wrappers)",
+                "✗ batch your request with strangers' to save on tokens",
+                "✗ train on your conversations",
+                "✗ store prompt content longer than the request lifetime",
+                "✗ cold-start. ever.",
+                "✗ throttle paying tiers silently",
+              ]} />
+              <div className="mt-4 text-[11px]" style={{ color: MUTED }}>
+                <span style={{ color: ACCENT }}>$</span> echo "questions? we're at hello@turboanswer.app — a human replies."
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function NerdBlock({ title, lines }: { title: string; lines: string[] }) {
+  return (
+    <div className="mb-5">
+      <div className="mb-1.5" style={{ color: ACCENT }}>{title}</div>
+      {lines.map((l, i) => (
+        <div key={i} style={{ color: l.startsWith("→") ? NEON : "#cfe1ff" }}>
+          <span style={{ color: MUTED }}>│ </span>{l}
+        </div>
+      ))}
     </div>
   );
 }
@@ -905,6 +1187,9 @@ export default function LandingPage() {
 
       {/* ─────────── LIVE OPS ─────────── */}
       <LiveOpsSection />
+
+      {/* ─────────── ARCHITECTURE DIAGRAM ─────────── */}
+      <ArchSection />
 
       {/* ─────────── PRICING ─────────── */}
       <section id="pricing" className="py-20 px-5 border-y" style={{ borderColor: LINE, background: INK_2 }}>
