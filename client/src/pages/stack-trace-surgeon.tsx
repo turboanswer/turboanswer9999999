@@ -754,11 +754,15 @@ function PrChecksBadge({
   prUrl, githubToken, isDark, border, subtext, text,
 }: { prUrl: string; githubToken: string; isDark: boolean; border: string; subtext: string; text: string }) {
   const [expanded, setExpanded] = useState(false);
-  const qs = new URLSearchParams({ prUrl, ...(githubToken ? { githubToken } : {}) }).toString();
   const { data, error, isLoading } = useQuery<PrCheckResp>({
     queryKey: ['/api/stack-trace-surgeon/pr-checks', prUrl, githubToken],
     queryFn: async () => {
-      const res = await fetch(`/api/stack-trace-surgeon/pr-checks?${qs}`, { credentials: 'include' });
+      const res = await fetch('/api/stack-trace-surgeon/pr-checks', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prUrl, ...(githubToken ? { githubToken } : {}) }),
+      });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j?.message || `HTTP ${res.status}`);

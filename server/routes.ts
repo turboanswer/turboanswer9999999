@@ -1089,10 +1089,98 @@ function downloadAAB(){
 
   // Check whether the Replit GitHub integration is connected.
   // Lets the frontend hide the token input when we already have a usable token.
+  // ─── CODE CUSTOMIZER ───────────────────────────────────────────────────────
+  // Paste a repo URL + file path + plain-English change request. GPT-4o reads
+  // the file, generates a unified diff that satisfies the request, and we save
+  // it as a stack_trace_diagnoses row so the existing open-pr / apply-fix /
+  // pr-checks endpoints all work unchanged.
+  app.post("/api/code-customizer/customize", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      const tier = (user?.subscriptionTier || 'free').toLowerCase();
+      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      if (!allowed) {
+        return res.status(403).json({
+          message: "Code Customizer is a Research-tier feature. Upgrade to Research to unlock repo-aware code edits.",
+          code: "RESEARCH_TIER_REQUIRED",
+        });
+      }
+
+      const { repoUrl, filePath, instructions, githubToken } = req.body || {};
+      if (!repoUrl || typeof repoUrl !== 'string' || !repoUrl.trim()) {
+        return res.status(400).json({ message: "GitHub repo URL is required." });
+      }
+      if (!filePath || typeof filePath !== 'string' || !filePath.trim()) {
+        return res.status(400).json({ message: "File path inside the repo is required (e.g. src/components/Button.tsx)." });
+      }
+      if (!instructions || typeof instructions !== 'string' || !instructions.trim()) {
+        return res.status(400).json({ message: "Describe what you want changed in the file." });
+      }
+
+      const effectiveTier = isOwnerAccount(user) ? 'owner' : tier;
+      const { customizeFile } = await import('./services/code-customizer.js');
+      const { getReplitGithubToken } = await import('./services/github-pr.js');
+
+      // Prefer user-provided token; fall back to the Replit GitHub integration
+      // so connected users can read private repos without pasting a PAT.
+      let resolvedToken = (typeof githubToken === 'string' && githubToken.trim()) ? githubToken.trim() : '';
+      if (!resolvedToken) {
+        const integrationToken = await getReplitGithubToken();
+        if (integrationToken) resolvedToken = integrationToken;
+      }
+
+      const result = await customizeFile(repoUrl, filePath, instructions, effectiveTier, resolvedToken || undefined);
+
+      // Save as a stack_trace_diagnoses row so open-pr / apply-fix / pr-checks
+      // all work without any new persistence layer.
+      let savedId: number | undefined;
+      try {
+        const titleSeed = instructions.split('\n').find((l: string) => l.trim().length > 0) || filePath;
+        const title = (`Customize ${result.filePath}: ${titleSeed}`).slice(0, 200);
+        const saved = await storage.saveStackTraceDiagnosis({
+          userId,
+          title,
+          stackTrace: instructions.slice(0, 20000),
+          repoUrl,
+          rootCause: result.summary,
+          suggestedFix: result.suggestedFix,
+          framesParsed: 0,
+          filesUsed: [{ path: result.filePath }],
+          warnings: result.warnings,
+        });
+        savedId = saved.id;
+      } catch (e: any) {
+        console.error("[CodeCustomizer] Save failed:", e?.message || e);
+      }
+
+      if (savedId === undefined) {
+        // Without a saved id the open-pr / apply-fix endpoints can't look the
+        // diagnosis back up, so surface this as an explicit failure instead of
+        // letting the UI dead-end on a no-op PR button.
+        return res.status(500).json({ message: "Customization succeeded but failed to persist. Please try again." });
+      }
+
+      res.json({
+        id: savedId,
+        rootCause: result.summary,
+        suggestedFix: result.suggestedFix,
+        filesUsed: [{ path: result.filePath }],
+        framesParsed: 0,
+        warnings: result.warnings,
+      });
+    } catch (error: any) {
+      console.error("[CodeCustomizer] Error:", error?.message || error);
+      res.status(500).json({ message: "Customization failed. Please try again." });
+    }
+  });
+
   // ─── CI STATUS FOR AN OPENED PR ────────────────────────────────────────────
   // Polled by the UI every few seconds after a PR is opened, so the user sees
   // ✅/❌/⏳ next to the "PR opened" badge without leaving the page.
-  app.get("/api/stack-trace-surgeon/pr-checks", isAuthenticated, async (req: any, res) => {
+  // POST so the GitHub token rides in the request body — never in a URL query
+  // string where it could be captured by access logs or browser history.
+  app.post("/api/stack-trace-surgeon/pr-checks", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
       const user = userId ? await storage.getUser(userId) : null;
@@ -1100,8 +1188,8 @@ function downloadAAB(){
       const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
       if (!allowed) return res.status(403).json({ message: "Research tier required." });
 
-      const prUrl = String(req.query.prUrl || '');
-      const providedToken = typeof req.query.githubToken === 'string' ? req.query.githubToken.trim() : '';
+      const prUrl = typeof req.body?.prUrl === 'string' ? req.body.prUrl : '';
+      const providedToken = typeof req.body?.githubToken === 'string' ? req.body.githubToken.trim() : '';
       if (!prUrl) return res.status(400).json({ message: "prUrl is required." });
 
       const { parsePrUrl, getPullRequestChecks, getReplitGithubToken } = await import('./services/github-pr.js');

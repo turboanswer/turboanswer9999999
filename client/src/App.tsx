@@ -37,6 +37,7 @@ import BetaFeedback from "@/pages/beta-feedback";
 import Workgroups from "@/pages/workgroups";
 import CollabRooms from "@/pages/collab-rooms";
 import StackTraceSurgeon from "@/pages/stack-trace-surgeon";
+import CodeCustomizer from "@/pages/code-customizer";
 import DevTools from "@/pages/devtools";
 import { WebOnlyGate } from "@/components/WebOnlyGate";
 
@@ -74,6 +75,7 @@ const VideoStudioGated = gate("Video Studio", VideoStudio);
 const WorkgroupsGated = gate("Workgroups", Workgroups);
 const CollabRoomsGated = gate("Collab Rooms", CollabRooms);
 const StackTraceGated = gate("Stack Trace Surgeon", StackTraceSurgeon);
+const CodeCustomizerGated = gate("Code Customizer", CodeCustomizer);
 const TrialChatGated = gate("Trial Chat", TrialChat);
 
 function AuthenticatedRouter() {
@@ -106,6 +108,7 @@ function AuthenticatedRouter() {
       <Route path="/workgroups" component={WorkgroupsGated} />
       <Route path="/collab" component={CollabRoomsGated} />
       <Route path="/stack-trace-surgeon" component={StackTraceGated} />
+      <Route path="/code-customizer" component={CodeCustomizerGated} />
       <Route path="/devtools" component={DevTools} />
 
       <Route path="/beta" component={BetaApply} />
@@ -160,6 +163,10 @@ function UnauthenticatedRouter() {
         // Research-only feature: bounce unauthenticated visitors to login
         // with a return path so they land back here after signing in.
         window.location.href = '/login?redirect=/stack-trace-surgeon';
+        return null;
+      }}</Route>
+      <Route path="/code-customizer">{() => {
+        window.location.href = '/login?redirect=/code-customizer';
         return null;
       }}</Route>
       <Route component={LandingPage} />
