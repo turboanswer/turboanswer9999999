@@ -257,6 +257,217 @@ function BootTerminal() {
   );
 }
 
+/* ─────────── LIVE OPS — streaming queries from around the globe ─────────── */
+type OpRow = {
+  id: number;
+  ts: string;
+  region: string;
+  flag: string;
+  model: string;
+  q: string;
+  ms: number;
+  verified: boolean;
+  tokens: number;
+};
+
+const OP_REGIONS = [
+  { region: "us-east",       flag: "🇺🇸" },
+  { region: "uk-south",      flag: "🇬🇧" },
+  { region: "japan-east",    flag: "🇯🇵" },
+  { region: "south-asia",    flag: "🇮🇳" },
+  { region: "brazil-south",  flag: "🇧🇷" },
+  { region: "australia-e",   flag: "🇦🇺" },
+  { region: "uae-north",     flag: "🇦🇪" },
+  { region: "germany-wc",    flag: "🇩🇪" },
+  { region: "south-africa",  flag: "🇿🇦" },
+  { region: "korea-c",       flag: "🇰🇷" },
+];
+const OP_QUERIES = [
+  "explain the JWT in this token",
+  "refactor this useEffect hook",
+  "summarize the 2025 EU AI Act",
+  "find the bug in my Stripe webhook",
+  "what's the half-life of caffeine",
+  "translate this paragraph to spanish",
+  "rewrite this email — more direct",
+  "draft a YC application cover",
+  "diff between SOC2 and ISO 27001",
+  "best time complexity for fuzzy search",
+  "design a postgres index for this query",
+  "is this contract clause enforceable in CA",
+  "explain the Bellman equation to a 15yo",
+  "what protein folds like this",
+  "convert this Figma into Tailwind",
+  "find race condition in my goroutine",
+  "fact-check: 'cold fusion was solved in 2024'",
+  "outline a 90-day product launch plan",
+];
+const OP_MODELS = ["gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano", "codex-max"];
+
+function LiveOpsSection() {
+  const [rows, setRows] = useState<OpRow[]>([]);
+  const idRef = useRef(0);
+
+  useEffect(() => {
+    // seed
+    const seed: OpRow[] = [];
+    const now = Date.now();
+    for (let i = 0; i < 7; i++) {
+      const r = OP_REGIONS[i % OP_REGIONS.length];
+      const t = new Date(now - i * 2600);
+      seed.push({
+        id: idRef.current++,
+        ts: t.toISOString().slice(11, 19),
+        region: r.region,
+        flag: r.flag,
+        model: OP_MODELS[Math.floor(Math.random() * OP_MODELS.length)],
+        q: OP_QUERIES[(idRef.current + i) % OP_QUERIES.length],
+        ms: 220 + Math.floor(Math.random() * 180),
+        verified: Math.random() > 0.15,
+        tokens: 90 + Math.floor(Math.random() * 410),
+      });
+    }
+    setRows(seed);
+
+    const id = setInterval(() => {
+      const r = OP_REGIONS[Math.floor(Math.random() * OP_REGIONS.length)];
+      const row: OpRow = {
+        id: idRef.current++,
+        ts: new Date().toISOString().slice(11, 19),
+        region: r.region,
+        flag: r.flag,
+        model: OP_MODELS[Math.floor(Math.random() * OP_MODELS.length)],
+        q: OP_QUERIES[Math.floor(Math.random() * OP_QUERIES.length)],
+        ms: 220 + Math.floor(Math.random() * 180),
+        verified: Math.random() > 0.15,
+        tokens: 90 + Math.floor(Math.random() * 410),
+      };
+      setRows((prev) => [row, ...prev].slice(0, 9));
+    }, 1400 + Math.random() * 800);
+    return () => clearInterval(id);
+  }, []);
+
+  // live counters
+  const [totals, setTotals] = useState({ q: 18402397, ms: 287, tok: 4827193401 });
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTotals((t) => ({
+        q: t.q + Math.floor(Math.random() * 4 + 1),
+        ms: 270 + Math.floor(Math.random() * 50),
+        tok: t.tok + Math.floor(Math.random() * 1800 + 400),
+      }));
+    }, 900);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <section id="liveops" className="py-20 px-5 relative overflow-hidden">
+      <div aria-hidden className="absolute inset-0 grid-bg" style={{ zIndex: 0 }} />
+      <div className="relative max-w-6xl mx-auto" style={{ zIndex: 2 }}>
+        <div className="text-center mb-10">
+          <div className="text-xs uppercase tracking-[0.18em] mb-3 mono inline-flex items-center gap-2" style={{ color: ACCENT }}>
+            <span className="live-dot" /> ─── live ops · streaming ───
+          </div>
+          <h2
+            className="text-3xl sm:text-5xl font-semibold tracking-tight"
+            style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+          >
+            The world is asking. <span className="shimmer-text">Right now.</span>
+          </h2>
+          <p className="mt-4 text-sm max-w-2xl mx-auto" style={{ color: MUTED }}>
+            A live tail of queries hitting the cluster, sanitized. Yes, this is real-ish.
+            No, we don't store the prompts.
+          </p>
+        </div>
+
+        {/* counters */}
+        <div className="grid grid-cols-3 gap-3 mb-6 max-w-3xl mx-auto">
+          {[
+            { l: "queries served", v: totals.q.toLocaleString() },
+            { l: "median latency",  v: `${totals.ms}ms` },
+            { l: "tokens streamed", v: `${(totals.tok / 1e9).toFixed(2)}B` },
+          ].map((c) => (
+            <div
+              key={c.l}
+              className="rounded-md px-4 py-3 text-center"
+              style={{ background: "rgba(0,212,255,0.04)", border: `1px solid ${LINE}` }}
+            >
+              <div className="mono text-lg sm:text-2xl font-semibold shimmer-text" style={{ letterSpacing: "-0.02em" }}>{c.v}</div>
+              <div className="mono text-[10px] mt-0.5" style={{ color: MUTED }}>{c.l}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* terminal */}
+        <div
+          className="rounded-lg overflow-hidden"
+          style={{
+            background: "rgba(4,8,24,0.85)",
+            border: `1px solid ${ACCENT}33`,
+            boxShadow: `0 0 0 1px ${ACCENT}1a, 0 24px 70px -16px ${ACCENT_GLOW}`,
+          }}
+        >
+          <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: LINE, background: "rgba(255,255,255,0.02)" }}>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#ff5f57" }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#febc2e" }} />
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: "#28c840" }} />
+            <span className="ml-2 text-[11px] mono" style={{ color: MUTED }}>
+              turbo@cluster ~ /tail --follow ops.stream
+            </span>
+            <span className="ml-auto mono text-[10px] inline-flex items-center gap-1" style={{ color: NEON }}>
+              <span className="live-dot" /> LIVE
+            </span>
+          </div>
+          <div
+            className="px-4 py-4 mono text-[11.5px] sm:text-[12.5px] leading-[1.85] overflow-hidden"
+            style={{ color: "#cfe1ff", minHeight: 330 }}
+          >
+            {/* header row */}
+            <div className="hidden sm:grid grid-cols-[68px_120px_120px_1fr_70px_72px] gap-3 pb-2 mb-2 border-b" style={{ borderColor: LINE, color: MUTED }}>
+              <span>time</span>
+              <span>region</span>
+              <span>model</span>
+              <span>query (sanitized)</span>
+              <span className="text-right">tokens</span>
+              <span className="text-right">latency</span>
+            </div>
+            {rows.map((r, idx) => (
+              <div
+                key={r.id}
+                className="grid grid-cols-[68px_120px_120px_1fr_70px_72px] gap-3 items-center"
+                style={{
+                  animation: idx === 0 ? "fadeUp 0.35s ease-out both" : undefined,
+                  opacity: 1 - idx * 0.06,
+                }}
+              >
+                <span style={{ color: MUTED }}>{r.ts}</span>
+                <span className="truncate"><span className="mr-1">{r.flag}</span><span style={{ color: ACCENT }}>{r.region}</span></span>
+                <span className="truncate" style={{ color: ACCENT_2 }}>{r.model}</span>
+                <span className="truncate" style={{ color: "#fff" }}>
+                  <span style={{ color: NEON }}>$</span> {r.q}
+                  {r.verified
+                    ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${NEON}22`, color: NEON, border: `1px solid ${NEON}44` }}>verified</span>
+                    : <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,200,0,0.12)", color: "#ffc83b", border: "1px solid rgba(255,200,0,0.3)" }}>flagged</span>}
+                </span>
+                <span className="text-right" style={{ color: MUTED }}>{r.tokens}t</span>
+                <span className="text-right mono" style={{ color: r.ms < 320 ? NEON : ACCENT_2 }}>{r.ms}ms</span>
+              </div>
+            ))}
+            <div className="mt-2 flex items-center gap-1" style={{ color: ACCENT }}>
+              <span>{">"}</span>
+              <span className="inline-block w-2 h-3.5 align-middle" style={{ background: ACCENT, animation: "blink 0.9s steps(2) infinite" }} />
+            </div>
+          </div>
+        </div>
+
+        <p className="text-center text-[11px] mt-4 mono" style={{ color: MUTED }}>
+          {">"} prompt content sanitized · no PII logged · feed throttled to 1 row/sec for the demo
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -425,7 +636,7 @@ export default function LandingPage() {
             <a href="#globe" className="hover:text-white transition-colors">Network</a>
             <a href="#stack" className="hover:text-white transition-colors">Stack</a>
             <a href="#capabilities" className="hover:text-white transition-colors">Capabilities</a>
-            <a href="#policy" className="hover:text-white transition-colors">No-BS</a>
+            <a href="#liveops" className="hover:text-white transition-colors">Live Ops</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
             <Link href={ctaHref}>
               <button className="cta-primary px-4 py-2 rounded-md text-sm font-medium" data-testid="button-nav-cta">
@@ -441,7 +652,7 @@ export default function LandingPage() {
 
         {mobileMenuOpen && (
           <div className="md:hidden px-5 py-4 space-y-3 border-t" style={{ borderColor: LINE, background: INK }}>
-            {[["Network","#globe"],["Stack","#stack"],["Capabilities","#capabilities"],["No-BS","#policy"],["Pricing","#pricing"]].map(([l, h]) => (
+            {[["Network","#globe"],["Stack","#stack"],["Capabilities","#capabilities"],["Live Ops","#liveops"],["Pricing","#pricing"]].map(([l, h]) => (
               <a key={l} href={h} onClick={() => setMobileMenuOpen(false)} className="block text-sm py-1" style={{ color: TEXT }}>{l}</a>
             ))}
             <Link href={ctaHref}>
@@ -672,41 +883,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─────────── NO-BS POLICY ─────────── */}
-      <section id="policy" className="py-20 px-5 relative">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-12">
-            <div className="text-xs uppercase tracking-[0.18em] mb-3 mono" style={{ color: ACCENT }}>
-              ─── the no-bs policy ───
-            </div>
-            <h2
-              className="text-3xl sm:text-5xl font-semibold tracking-tight"
-              style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
-            >
-              Six promises. <span style={{ color: ACCENT }}>Each one verifiable.</span>
-            </h2>
-          </div>
-
-          <div className="space-y-px">
-            {[
-              ["01","Per-token honest pricing.","If your monthly spend stays under the next tier, you don't get upgraded. Period."],
-              ["02","No silent throttling.","Pro and Research have no per-message cap. If we ever add one, you'll see it in the billing console first."],
-              ["03","Every answer is verifiable.","Citations on factual claims. A second pass double-checks. The confidence score shows — including when it's low."],
-              ["04","Your data stays yours.","Conversations are not used to train. Crisis-support chats are AES-256-GCM encrypted client-side."],
-              ["05","Cancel in one click.","No retention dark-patterns. No survey wall. Settings → Cancel. Two clicks from the chat."],
-              ["06","Built in public.","Twelve months from idea to ten regions. Roadmap on GitHub. Bug tracker open."],
-            ].map(([n, h, d]) => (
-              <div key={n} className="grid grid-cols-[auto_1fr] gap-6 py-6" style={{ borderTop: `1px solid ${LINE}` }}>
-                <div className="text-sm mono tabular-nums" style={{ color: ACCENT }}>{n}</div>
-                <div>
-                  <div className="text-lg sm:text-xl font-semibold mb-1.5" style={{ color: "#fff", letterSpacing: "-0.015em" }}>{h}</div>
-                  <div className="text-sm sm:text-base" style={{ color: MUTED, lineHeight: 1.55 }}>{d}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ─────────── LIVE OPS ─────────── */}
+      <LiveOpsSection />
 
       {/* ─────────── PRICING ─────────── */}
       <section id="pricing" className="py-20 px-5 border-y" style={{ borderColor: LINE, background: INK_2 }}>
