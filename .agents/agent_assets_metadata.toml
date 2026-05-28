@@ -221,3 +221,15 @@ id = "3giJoqxOSgh_mHefFnUHf"
 uri = "file://attached_assets/generated_images/turbo_splash.png"
 type = "image"
 title = "New TurboAnswer splash screen preview"
+
+[[outputs]]
+id = "0hNRB0TpGnrLaHwGuGRjO"
+uri = "file://dist/turboanswer-android-release.tar.gz"
+type = "unspecified"
+title = "TurboAnswer Android Release — AAB + signing keystore + readme (extract this)"
+
+[[outputs]]
+id = "8WmpPIn3oldAWUz4pZShU"
+uri = "file://dist/KEYSTORE-README.txt"
+type = "text"
+title = "Keystore credentials + Play Console upload steps"
