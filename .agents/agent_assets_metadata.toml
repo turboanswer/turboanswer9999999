@@ -232,4 +232,10 @@ title = "TurboAnswer Android Release — AAB + signing keystore + readme (extrac
 id = "8WmpPIn3oldAWUz4pZShU"
 uri = "file://dist/KEYSTORE-README.txt"
 type = "text"
-title = "Keystore credentials + Play Console upload steps"
+title = "Keystore credentials — BACK UP separately"
+
+[[outputs]]
+id = "ikLqBxB0Nll3KSzKPBrwk"
+uri = "file://dist/turboanswer-aab-only.zip"
+type = "unspecified"
+title = "TurboAnswer AAB — extract this zip, then upload the .aab inside"
