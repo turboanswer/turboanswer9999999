@@ -597,7 +597,7 @@ export default function LandingPage() {
         className="w-full text-center text-xs py-2 px-4 mono relative z-50"
         style={{ background: "#000", color: MUTED, borderBottom: `1px solid ${LINE}` }}
       >
-        <span style={{ color: ACCENT }}>$</span> built by an 11-year-old · shipping from a bedroom · live on azure ·{" "}
+        <span style={{ color: ACCENT }}>$</span> azure openai · cloudflare anycast · 310+ edge cities · zero cold starts ·{" "}
         <Link href={ctaHref}>
           <span className="underline cursor-pointer" style={{ color: ACCENT }}>try it →</span>
         </Link>
@@ -712,9 +712,13 @@ export default function LandingPage() {
                 className="fade-up fade-up-3 max-w-xl mx-auto lg:mx-0 mb-8 text-base sm:text-lg"
                 style={{ color: MUTED, lineHeight: 1.6 }}
               >
-                One AI. Ten Azure regions. <span style={{ color: TEXT }}>Sub-300ms anywhere on Earth.</span>{" "}
-                Fact-checked, source-cited, never throttled. The fastest honest answer on the internet —
-                built by an 11-year-old in his bedroom.
+                Stacked on <span style={{ color: "#fff", fontWeight: 600 }}>Microsoft Azure OpenAI</span> across{" "}
+                <span style={{ color: ACCENT }}>10 GPU regions</span>, fronted by{" "}
+                <span style={{ color: "#fff", fontWeight: 600 }}>Cloudflare's 310+ city edge network</span>.
+                Your packets hop to the nearest PoP in <span style={{ color: NEON }}>under 20ms</span>, your
+                answer streams back in <span style={{ color: NEON }}>under 300ms</span> —{" "}
+                <span style={{ color: TEXT }}>Tokyo, Lagos, São Paulo, doesn't matter.</span> No cold starts.
+                No throttle. No excuses.
               </p>
 
               <div className="fade-up fade-up-4 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start items-center mb-8">
@@ -762,12 +766,28 @@ export default function LandingPage() {
             className="text-3xl sm:text-5xl font-semibold tracking-tight mb-4"
             style={{ color: "#fff", letterSpacing: "-0.025em" }}
           >
-            Ten regions. <span style={{ color: ACCENT }}>One brain.</span>
+            10 Azure regions. <span style={{ color: ACCENT }}>310 Cloudflare cities.</span> One brain.
           </h2>
-          <p className="max-w-2xl mx-auto text-base mb-12" style={{ color: MUTED }}>
-            Your query lands in the nearest Azure region, gets answered, fact-checked, and routed
-            back — usually before your cursor stops blinking.
+          <p className="max-w-3xl mx-auto text-base mb-6" style={{ color: MUTED }}>
+            We don't rent inference from a reseller. We're plugged <span style={{ color: "#fff" }}>directly into Azure OpenAI</span>{" "}
+            in 10 GPU regions, with <span style={{ color: "#fff" }}>Cloudflare Workers + anycast</span> grabbing your
+            request at the closest of 310+ edge cities and steering it to the nearest warm GPU. The whole round-trip
+            happens in fewer hops than most apps' login flow.
           </p>
+          <div className="flex flex-wrap justify-center gap-2 mb-10 mono text-[11px]" style={{ color: MUTED }}>
+            <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,212,255,0.06)", border: `1px solid ${LINE}` }}>
+              <span style={{ color: NEON }}>●</span> azure openai · enterprise tier
+            </span>
+            <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,212,255,0.06)", border: `1px solid ${LINE}` }}>
+              <span style={{ color: NEON }}>●</span> cloudflare anycast · ddos-shielded
+            </span>
+            <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,212,255,0.06)", border: `1px solid ${LINE}` }}>
+              <span style={{ color: NEON }}>●</span> http/3 + 0-rtt resumption
+            </span>
+            <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,212,255,0.06)", border: `1px solid ${LINE}` }}>
+              <span style={{ color: NEON }}>●</span> warm gpu pool · zero cold starts
+            </span>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 max-w-4xl mx-auto">
             {[
               "east-us · 287ms", "west-eu · 312ms", "south-asia · 298ms", "east-asia · 305ms",
@@ -1016,7 +1036,7 @@ export default function LandingPage() {
             >
               <img src={turboLogo} alt="" className="w-5 h-5 object-contain" />
             </div>
-            <span>turboanswer · azure openai · 10 regions worldwide</span>
+            <span>turboanswer · azure openai · cloudflare edge · 10 regions · 310 cities</span>
           </div>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm" style={{ color: MUTED }}>
             <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
