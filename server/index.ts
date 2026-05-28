@@ -1,3 +1,4 @@
+import "./db-cutover";
 import express, { type Request, Response, NextFunction } from "express";
 import compression from "compression";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
