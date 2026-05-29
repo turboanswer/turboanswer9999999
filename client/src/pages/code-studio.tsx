@@ -612,7 +612,7 @@ export default function CodeStudio() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ message: msg, code: activeFileData?.content || "", language: activeFileData?.language || "html" }),
+        body: JSON.stringify({ message: msg, code: activeFileData?.content || "", language: activeFileData?.language || "html", files }),
       });
       const data = await res.json();
 

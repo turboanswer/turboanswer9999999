@@ -5729,7 +5729,7 @@ ${currentHtml}`;
       const titleMatch = htmlContent.match(/<title[^>]*>([^<]+)<\/title>/i);
       const projectName = titleMatch?.[1]?.trim() || prompt.slice(0, 50);
 
-      const generatedFiles = [{ name: 'index.html', language: 'html', content: htmlContent }];
+      const generatedFiles = splitHtmlIntoFiles(htmlContent);
 
       const { db } = await import('./db');
       const { codeProjects } = await import('../shared/schema');
@@ -6055,8 +6055,17 @@ ${currentHtml}`;
 
   app.post('/api/code/ai', isAuthenticated, async (req: any, res) => {
     try {
-      const { message, code, language, projectId } = req.body;
+      const { message, projectId } = req.body;
+      let { code, language } = req.body;
+      const incomingFiles = req.body.files;
       if (!message) return res.status(400).json({ error: 'message required' });
+
+      // Multi-file: if the client sends the full file set, combine into one
+      // self-contained HTML so the AI sees CSS + JS context, not just the open tab.
+      if (Array.isArray(incomingFiles) && incomingFiles.length > 1) {
+        const combined = combineFilesToHtml(incomingFiles);
+        if (combined) { code = combined; language = 'html'; }
+      }
 
       const userId = req.user.claims.sub;
       const currentUser = await storage.getUser(userId);
@@ -6362,6 +6371,80 @@ console.log(\`Welcome, \${user.name}!\`);` },
     return `${base}-${id}`;
   }
 
+  // Combine a multi-file project (index.html + styles.css + app.js + …) back into
+  // one self-contained HTML string by inlining any locally-referenced css/js files.
+  // This is the inverse of splitHtmlIntoFiles below.
+  function combineFilesToHtml(files: { name: string; content: string; language: string }[]): string {
+    const htmlFile = files.find(f => f.name === 'index.html') || files.find(f => f.language === 'html');
+    if (!htmlFile) return '';
+    let html = htmlFile.content;
+    for (const file of files) {
+      if (file.language === 'css') {
+        const cssRegex = new RegExp(`<link[^>]*href=["']${file.name}["'][^>]*>`, 'gi');
+        html = html.replace(cssRegex, `<style>${file.content}</style>`);
+      }
+      if (file.language === 'javascript' && file.name !== 'index.html') {
+        const jsRegex = new RegExp(`<script[^>]*src=["']${file.name}["'][^>]*>\\s*</script>`, 'gi');
+        html = html.replace(jsRegex, `<script>${file.content}</script>`);
+      }
+    }
+    return html;
+  }
+
+  // Split one self-contained HTML document into separate index.html / styles.css /
+  // app.js files. <style> blocks are merged into styles.css and the first one is
+  // replaced with a <link>; inline <script> blocks (no src) are merged into app.js
+  // and the first one is replaced with <script src>. External scripts are left in
+  // place. buildProjectHtml/buildSrcdoc re-inline these for preview and publishing.
+  function splitHtmlIntoFiles(html: string): { name: string; content: string; language: string }[] {
+    let work = html;
+    const STYLE_TOKEN = '\u0000STYLE\u0000';
+    const SCRIPT_TOKEN = '\u0000SCRIPT\u0000';
+
+    const styleContents: string[] = [];
+    work = work.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_m, css) => {
+      styleContents.push(String(css).trim());
+      return STYLE_TOKEN;
+    });
+
+    const scriptContents: string[] = [];
+    work = work.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (m, attrs, js) => {
+      if (/\bsrc\s*=/i.test(String(attrs))) return m; // keep external scripts
+      scriptContents.push(String(js).trim());
+      return SCRIPT_TOKEN;
+    });
+
+    const css = styleContents.filter(Boolean).join('\n\n');
+    const js = scriptContents.filter(Boolean).join('\n\n');
+
+    let linkDone = false;
+    work = work.replace(new RegExp(STYLE_TOKEN, 'g'), () => {
+      if (!linkDone && css) { linkDone = true; return '<link rel="stylesheet" href="styles.css">'; }
+      return '';
+    });
+    if (css && !linkDone) {
+      if (/<\/head>/i.test(work)) work = work.replace(/<\/head>/i, '  <link rel="stylesheet" href="styles.css">\n</head>');
+      else work = `<link rel="stylesheet" href="styles.css">\n${work}`;
+    }
+
+    let scriptDone = false;
+    work = work.replace(new RegExp(SCRIPT_TOKEN, 'g'), () => {
+      if (!scriptDone && js) { scriptDone = true; return '<script src="app.js"></script>'; }
+      return '';
+    });
+    if (js && !scriptDone) {
+      if (/<\/body>/i.test(work)) work = work.replace(/<\/body>/i, '  <script src="app.js"></script>\n</body>');
+      else work = `${work}\n<script src="app.js"></script>`;
+    }
+
+    const files: { name: string; content: string; language: string }[] = [
+      { name: 'index.html', language: 'html', content: work.trim() },
+    ];
+    if (css) files.push({ name: 'styles.css', language: 'css', content: css });
+    if (js) files.push({ name: 'app.js', language: 'javascript', content: js });
+    return files;
+  }
+
   function buildProjectHtml(projectName: string, files: { name: string; content: string; language: string }[], mainLang: string, secrets?: Record<string, string>): string {
     if (mainLang !== 'html') {
       const allCode = files.map(f => `<h3>${f.name}</h3><pre><code class="language-${f.language}">${escapeHtml(f.content)}</code></pre>`).join('\n');
@@ -6370,21 +6453,8 @@ console.log(\`Welcome, \${user.name}!\`);` },
 </head><body><h1>${escapeHtml(projectName)}</h1>${allCode}</body></html>`;
     }
 
-    const htmlFile = files.find(f => f.name === 'index.html') || files.find(f => f.language === 'html');
-    if (!htmlFile) return `<!DOCTYPE html><html><body><h1>${escapeHtml(projectName)}</h1><p>No HTML file found.</p></body></html>`;
-
-    let html = htmlFile.content;
-
-    for (const file of files) {
-      if (file.language === 'css') {
-        const cssRegex = new RegExp(`<link[^>]*href=["']${file.name}["'][^>]*>`, 'gi');
-        html = html.replace(cssRegex, `<style>${file.content}</style>`);
-      }
-      if (file.language === 'javascript') {
-        const jsRegex = new RegExp(`<script[^>]*src=["']${file.name}["'][^>]*>\\s*</script>`, 'gi');
-        html = html.replace(jsRegex, `<script>${file.content}</script>`);
-      }
-    }
+    let html = combineFilesToHtml(files);
+    if (!html) return `<!DOCTYPE html><html><body><h1>${escapeHtml(projectName)}</h1><p>No HTML file found.</p></body></html>`;
 
     // Inject secrets as window.SECRETS so generated apps can use API keys
     const secretsScript = secrets && Object.keys(secrets).length > 0
