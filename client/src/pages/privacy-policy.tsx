@@ -32,7 +32,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-2xl font-semibold text-white mb-3">Website</h2>
             <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 space-y-1">
-              <p><strong>Website URL:</strong> https://ai-companion-tiagotschantret.replit.app/</p>
+              <p><strong>Website URL:</strong> https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net/</p>
               <p><strong>Website Name:</strong> Turboanswer</p>
             </div>
           </section>
