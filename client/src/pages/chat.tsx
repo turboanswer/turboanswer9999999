@@ -213,21 +213,18 @@ export default function Chat() {
       if (await trySync(2)) return;
       await new Promise(r => setTimeout(r, 3000));
       if (await trySync(3)) return;
-      localStorage.removeItem('turbo_pending_subscription');
-      setWelcomeTier(expectedTier as 'pro' | 'research' | 'enterprise');
-      setShowWelcomePro(true);
+      // Payment could NOT be confirmed with PayPal after several attempts. Do not
+      // show the "Welcome to <tier>" modal — that would falsely tell the user the
+      // upgrade succeeded when no payment was verified. Keep the pending marker so
+      // a later visit re-checks, and refresh the server-verified status (the single
+      // source of truth for what tier the account actually has).
       queryClient.invalidateQueries({ queryKey: ["/api/models"] });
       queryClient.invalidateQueries({ queryKey: ["/api/subscription-status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/enterprise-code"] });
-      if (expectedTier === 'enterprise' && !enterpriseCode) {
-        try {
-          const codeRes = await fetch("/api/enterprise-code", { credentials: "include" });
-          const codeData = await codeRes.json();
-          if (codeData.hasCode && codeData.code) {
-            setEnterpriseCode(codeData.code);
-          }
-        } catch (e) {}
-      }
+      toast({
+        title: "Finishing up your subscription",
+        description: "We're still confirming your payment with PayPal. Your plan unlocks automatically once it's approved.",
+      });
     };
     syncSubscription();
   }, []);
@@ -801,8 +798,12 @@ export default function Chat() {
   const { data: userWorkgroups = [] } = useQuery<any[]>({ queryKey: ['/api/workgroups'] });
   // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
   // Gate all paid UI off the live subscription data (not the stale user object).
-  // FOUNDER TEST OVERRIDE: append ?tier=free (or ?tier=pro, etc.) to URL to preview gates
-  const _tierOverride = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tier') : null;
+  // FOUNDER TEST OVERRIDE: append ?tier=free (or ?tier=pro, etc.) to URL to preview gates.
+  // SECURITY: this override is honored ONLY for staff/owner accounts. Without this
+  // guard any visitor could unlock paid UI by editing the URL (?tier=enterprise)
+  // and appear to be on a higher plan without ever paying.
+  const _rawTierOverride = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tier') : null;
+  const _tierOverride = (user as any)?.isEmployee === true ? _rawTierOverride : null;
   const userTier = (_tierOverride || subscriptionData?.tier || (user as any)?.tier || 'free') as string;
   const isPaidPro = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
   // LAUNCH NIGHT (HN demo): show verification badges, confidence scores,

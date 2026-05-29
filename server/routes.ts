@@ -2226,7 +2226,11 @@ Formatting rules:
     }
   });
 
-  // Stripe checkout - create subscription and redirect to hosted Checkout page
+  // PayPal checkout — create a subscription and redirect to PayPal's approval page.
+  // IMPORTANT: selecting a plan here never grants a paid tier. The tier is only
+  // elevated AFTER PayPal confirms the subscription is ACTIVE/APPROVED, which
+  // happens in /api/sync-subscription (on return) and the PayPal webhook. Until
+  // then the account stays on its current tier (free for new accounts).
   app.post('/api/checkout', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -2235,30 +2239,45 @@ Formatting rules:
         return res.status(401).json({ error: 'User not found' });
       }
 
-      if (!stripeEnabled) {
+      if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
         return res.status(503).json({ error: 'Billing is temporarily unavailable. Please try again shortly.' });
       }
 
-      const { plan } = req.body || {};
+      const { plan, coupon } = req.body || {};
       const tier: 'pro' | 'research' | 'enterprise' =
         plan === 'enterprise' ? 'enterprise' : plan === 'research' ? 'research' : 'pro';
-      console.log('[Stripe Checkout] Starting for user:', userId, 'plan:', tier);
+
+      // Optional coupon price override (enterprise only). Re-validated server-side
+      // here so a client can never fake a discount by passing an arbitrary price.
+      let priceOverride: string | undefined;
+      if (tier === 'enterprise' && coupon) {
+        const couponData = VALID_COUPONS[String(coupon).trim().toUpperCase()];
+        if (couponData && user.email?.toLowerCase() === couponData.allowedEmail.toLowerCase()) {
+          priceOverride = couponData.discountedPrice.replace(/[^0-9.]/g, '');
+          console.log(`[PayPal Checkout] Coupon applied for ${user.email}: $${priceOverride}/mo`);
+        }
+      }
+
+      console.log('[PayPal Checkout] Starting for user:', userId, 'plan:', tier);
 
       const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
-      const { url } = await createCheckoutSession({
+      const { subscriptionId, approvalUrl } = await createSubscription(
         tier,
+        user.email,
         userId,
-        email: user.email,
-        existingCustomerId: user.stripeCustomerId,
-        successUrl: `${baseUrl}/chat?subscription=${tier}&session_id={CHECKOUT_SESSION_ID}`,
-        cancelUrl: `${baseUrl}/subscribe?cancelled=1`,
-        trialDays: 7,
-      });
+        `${baseUrl}/chat?subscription=${tier}`,
+        `${baseUrl}/subscribe?cancelled=1`,
+        priceOverride,
+      );
 
-      console.log('[Stripe Checkout] Session created, redirecting user:', userId);
-      res.json({ url });
+      // Store ONLY the pending subscription id (no tier change). This lets the
+      // return flow / webhook find and verify the subscription with PayPal.
+      await storage.storePendingSubscription(userId, subscriptionId);
+
+      console.log('[PayPal Checkout] Subscription created, redirecting user:', userId, subscriptionId);
+      res.json({ url: approvalUrl });
     } catch (error: any) {
-      console.error('[Stripe Checkout] ERROR:', error.message);
+      console.error('[PayPal Checkout] ERROR:', error.message);
       res.status(500).json({ error: 'Checkout failed. Please try again.' });
     }
   });
