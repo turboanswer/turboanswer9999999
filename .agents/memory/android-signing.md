@@ -13,7 +13,7 @@ the signer cert fingerprint of the rejected bundle to a previously-accepted one:
 just confirms it's self-consistent, not that it's the *right* key.
 
 ## TurboAnswer accumulated 3+ different keys (root cause of rejections)
-- **Original (Feb, the one Google registered)**: `CN=TurboAnswer, O=TurboAnswer Inc, New York` — signed the approved `dist/public/turboanswer-v3.2.0.aab`. **Lost** — no keystore in the repo opens to it; none of the saved passwords fit.
+- **Original = the registered upload key (RECOVERED)**: `CN=TurboAnswer, O=TurboAnswer Inc` (L=Colonie, New York), alias `turbo-answer-upload`, SHA1 `79:87:57:E6:E3:18:6D:37:B4:56:71:21:C2:45:C1:5B:BB:01:E1:1A` — signed the approved `dist/public/turboanswer-v3.2.0.aab`. It lives in `android/turbo-answer-upload.keystore` (PKCS12). Its store/key password is NOT `turboanswer2024`/`turboanswer2026`; the correct one appears in the **git history of `android/app/build.gradle`** (an old hardcoded `storePassword`/`keyPassword` line for this keystore — recover via `git log -p -S turbo-answer-upload`). When Play rejects with "signed with the wrong key" it prints the expected SHA1, which equals this key — so always sign uploads with `turbo-answer-upload.keystore` and NO reset is needed.
 - **CI key (swapped in May 27)**: `CN=Turbo Answer, O=Turbo Answer, Lisbon PT` — comes from GitHub secret `ANDROID_KEYSTORE_BASE64`. This swap is what started the rejections.
 - **Key C (`dist/turboanswer-release.jks`)**: alias `turboanswer`, password documented in `dist/KEYSTORE-README.txt`. We control this one → standardized on it going forward.
 
