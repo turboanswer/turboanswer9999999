@@ -60,6 +60,18 @@ app.disable('x-powered-by');
 app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
 app.get('/healthz', (_req, res) => res.status(200).json({ status: 'ok' }));
 
+// Direct download of the signed Android App Bundle for Google Play upload.
+// Serves the raw .aab (NOT a zip) with the correct filename so it can be
+// dropped straight into Play Console's "App bundles" uploader.
+app.get('/download/turboanswer.aab', (_req, res) => {
+  const aabPath = path.resolve(import.meta.dirname, "..", "build-output", "TurboAnswer.aab");
+  res.download(aabPath, "TurboAnswer.aab", (err) => {
+    if (err && !res.headersSent) {
+      res.status(404).send("AAB not found. Rebuild it first.");
+    }
+  });
+});
+
 app.use((req, res, next) => {
   const allowed = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
   if (!allowed.includes(req.method)) {
