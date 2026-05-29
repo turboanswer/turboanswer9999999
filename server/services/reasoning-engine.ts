@@ -1062,12 +1062,20 @@ async function answerForTierStream(
 ): Promise<string | null> {
   // Azure AI Foundry only. Same nano/mini/pro mapping as the non-streaming path.
   const primary = deploymentForTier(tier);
-  const out = await callAzureFoundryStream(primary, prompt, opts, onChunk);
+  // Track whether ANY chunk has reached the client. Once it has, we must NOT
+  // cascade to another deployment — a second stream would re-emit tokens and
+  // garble the live output. In that case fail (return null) and let the caller
+  // keep the partial text it already received.
+  let emitted = false;
+  const guarded = (text: string) => { emitted = true; onChunk(text); };
+  const out = await callAzureFoundryStream(primary, prompt, opts, guarded);
   if (out) return out;
+  if (emitted) return null;
   const cascade = [AZURE_DEPLOY.mini(), AZURE_DEPLOY.nano()].filter(d => d !== primary);
   for (const d of cascade) {
-    const fb = await callAzureFoundryStream(d, prompt, opts, onChunk);
+    const fb = await callAzureFoundryStream(d, prompt, opts, guarded);
     if (fb) return fb;
+    if (emitted) return null;
   }
   return null;
 }
@@ -1101,6 +1109,31 @@ export async function retrievalAnswer(question: string, sources: Source[], syste
   const retrievalMax = Math.min(shaped.maxTokens, (tier || 'free').toLowerCase() === 'free' ? 600 : 2200);
   const out = await answerForTier(`${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`, tier, { maxTokens: retrievalMax, temperature: 0.2, system: shaped.system, timeoutMs: 25000, history });
   return out || 'I could not retrieve enough information to answer reliably.';
+}
+
+// Streaming variant of retrievalAnswer — emits onChunk(text) for each token so
+// cited answers pop up word-by-word instead of arriving as one block. Returns
+// null if the streaming provider yields nothing, so the caller can fall back to
+// the robust non-streaming cascade.
+export async function retrievalAnswerStream(
+  question: string,
+  sources: Source[],
+  onChunk: (text: string) => void,
+  system?: string,
+  tier?: string,
+  history?: ChatTurn[],
+): Promise<string | null> {
+  const ctx = sources.length
+    ? `Use these sources (cite as [1], [2], ...):\n${sources.map((s, i) => `[${i + 1}] ${s.title}${s.publishedAt ? ` (${s.publishedAt})` : ''}: ${s.snippet}`).join('\n')}\n\n`
+    : '';
+  const shaped = shapeForTier(tier, system, question);
+  const retrievalMax = Math.min(shaped.maxTokens, (tier || 'free').toLowerCase() === 'free' ? 600 : 2200);
+  return answerForTierStream(
+    `${ctx}Question: ${question}\n\nAnswer concisely with inline citations like [1].`,
+    tier,
+    { maxTokens: retrievalMax, temperature: 0.2, system: shaped.system, timeoutMs: 25000, history },
+    onChunk,
+  );
 }
 
 // ============= ORCHESTRATOR =============
@@ -1192,7 +1225,21 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
     stage('retrieve', `${retrieved.sources.length} source${retrieved.sources.length === 1 ? '' : 's'}${retrieved.arithmetic ? ' + math verified' : ''}`, 'done');
     if (retrieved.sources.length) onEvent({ type: 'sources', sources: retrieved.sources });
     stage('answer', 'Answering with citations', 'active');
-    const content = await retrievalAnswer(question, retrieved.sources, systemPrompt, tier, history);
+    // Stream token-by-token; fall back to the non-streaming cascade if the
+    // streaming provider emits nothing (keeps the same robustness as before).
+    let acc = '';
+    const streamed = await retrievalAnswerStream(question, retrieved.sources, (chunk) => {
+      acc += chunk;
+      onEvent({ type: 'chunk', text: chunk });
+    }, systemPrompt, tier, history);
+    if (!acc) {
+      const fallback = (streamed && streamed.trim())
+        ? streamed
+        : await retrievalAnswer(question, retrieved.sources, systemPrompt, tier, history);
+      acc = fallback;
+      onEvent({ type: 'chunk', text: fallback });
+    }
+    const content = acc;
     stage('answer', 'Answer ready', 'done');
     stage('verify', 'Fact-checking claims', 'active');
     const ver = await verifyAndMark(content, retrieved.sources).catch(() => ({ verdict: 'unknown' as const, claims: [], markedAnswer: content, confidence: 60 }));

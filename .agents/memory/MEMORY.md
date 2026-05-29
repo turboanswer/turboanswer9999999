@@ -1,4 +1,5 @@
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
 - [Code Studio multi-file model](code-studio-multifile.md) — projects stored as file arrays; serving/preview re-inline css/js; generation builds one HTML then splits into index/styles/app.
+- [SSE token streaming](streaming-sse.md) — fast/retrieval/deep all stream via answerForTierStream; never cascade to another deployment after a chunk reached the client (duplicates the stream).
 - [AI response language](ai-response-language.md) — "wrong language" is usually the Google Translate DOM widget, not the model; require explicit-choice flag, default English; server must always pin language incl. deep mode.
 - [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.
