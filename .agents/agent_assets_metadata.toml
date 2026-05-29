@@ -251,3 +251,9 @@ id = "B4LsVIMoMfaVGyy7z6uyT"
 uri = "file://build-output/turboanswer-play-fix.zip"
 type = "unspecified"
 title = "TurboAnswer Play Store fix (AAB + certificate + instructions)"
+
+[[outputs]]
+id = "elMWUnmD7OO1ZBb6ptYH0"
+uri = "file://build-output/PLAY-UPLOAD-aab-only.zip"
+type = "unspecified"
+title = "Play upload — unzip, then upload the .aab inside"
