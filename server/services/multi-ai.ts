@@ -12,6 +12,31 @@ import {
 } from "./weather-location";
 import { runMultiAgentResearch } from "./multi-agent";
 
+// Maps a language code (from the user's explicit picker, default "en") to a
+// human-readable name the AI reliably understands. We ALWAYS force a response
+// language — including English — so the model never drifts to a wrong language
+// (e.g. mistaking Filipino/Tagalog input for Indonesian). Falls back to the
+// raw code for anything not listed.
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English", es: "Spanish", fr: "French", de: "German", it: "Italian",
+  pt: "Portuguese", nl: "Dutch", pl: "Polish", ru: "Russian", uk: "Ukrainian",
+  tr: "Turkish", ar: "Arabic", he: "Hebrew", fa: "Persian", hi: "Hindi",
+  bn: "Bengali", pa: "Punjabi", ur: "Urdu", zh: "Chinese", "zh-CN": "Simplified Chinese",
+  "zh-TW": "Traditional Chinese", ja: "Japanese", ko: "Korean", vi: "Vietnamese",
+  th: "Thai", id: "Indonesian", ms: "Malay", tl: "Filipino", fil: "Filipino",
+  sw: "Swahili", el: "Greek", cs: "Czech", sv: "Swedish", no: "Norwegian",
+  da: "Danish", fi: "Finnish", hu: "Hungarian", ro: "Romanian", bg: "Bulgarian",
+  hr: "Croatian", sk: "Slovak", sl: "Slovenian", lt: "Lithuanian", lv: "Latvian",
+  et: "Estonian", ca: "Catalan", ta: "Tamil", te: "Telugu", ml: "Malayalam",
+  kn: "Kannada", mr: "Marathi", gu: "Gujarati", ne: "Nepali", si: "Sinhala",
+  af: "Afrikaans", am: "Amharic", yo: "Yoruba", ig: "Igbo", ha: "Hausa",
+};
+
+export function getLanguageName(code?: string): string {
+  if (!code) return "English";
+  return LANGUAGE_NAMES[code] || LANGUAGE_NAMES[code.split("-")[0]] || code;
+}
+
 // ============= ADAPTIVE COMPLEXITY THROTTLE =============
 // Same logic as reasoning-engine.shapeForTier — kept inline here so the legacy
 // multi-ai entrypoint also throttles tokens/temperature based on what the user
@@ -591,8 +616,13 @@ export async function generateAIResponse(
       enhancedMessage = `${userMessage}\n\n[Time zone reference provided]`;
     }
 
-    const languageInstruction = userLanguage !== "en" ? 
-      `CRITICAL: Respond in ${userLanguage} language. ALL responses must be in ${userLanguage}.` : "";
+    // ALWAYS pin the response language — including English. Without this, the
+    // model mirrors whatever language it thinks the user wrote in, and for
+    // ambiguous input (e.g. Tagalog/Filipino) it drifts to Indonesian. The
+    // user's explicit selection (default English) must always win.
+    const languageName = getLanguageName(userLanguage);
+    const languageInstruction =
+      `CRITICAL: You MUST write your entire response in ${languageName}. Do not switch to any other language, even if the user's message appears to be in a different language. Respond only in ${languageName}.`;
 
     const styleMap: Record<string, string> = {
       concise: "Keep responses brief and to the point. Use short sentences.",

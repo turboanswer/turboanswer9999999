@@ -1,2 +1,3 @@
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
+- [AI response language](ai-response-language.md) — always pin output language (even English) or Gemini drifts (Filipino→Indonesian); deep mode bypasses systemPrompt; 3 disconnected client lang keys.
 - [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.

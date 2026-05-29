@@ -2120,9 +2120,11 @@ Formatting rules:
         send('quota', { tier: effectiveTier, used: deepUsed, limit: deepLimit, fellBackToFast: false, autoCapped: true });
       }
 
-      const systemPrompt = responseStyle || responseTone
-        ? `Respond in a ${responseTone || 'casual'} tone with a ${responseStyle || 'balanced'} level of detail.${language && language !== 'en' ? ` Reply in ${language}.` : ''}`
-        : undefined;
+      // ALWAYS pin the response language — including English — so the model
+      // never drifts to a wrong language (e.g. Filipino input -> Indonesian).
+      const { getLanguageName } = await import('./services/multi-ai.js');
+      const languageName = getLanguageName(language || 'en');
+      const systemPrompt = `Respond in a ${responseTone || 'casual'} tone with a ${responseStyle || 'balanced'} level of detail. CRITICAL: You MUST write your entire response in ${languageName}. Do not switch to any other language, even if the user's message appears to be in a different language.`;
 
       try {
         const result = await tre.runReasoning({

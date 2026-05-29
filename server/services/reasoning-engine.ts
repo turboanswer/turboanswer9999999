@@ -273,9 +273,9 @@ Question: """${question.slice(0, 1200)}"""`;
 }
 
 // ============= PANEL =============
-function buildPanelPrompt(question: string, subQs: string[], context: string): string {
+function buildPanelPrompt(question: string, subQs: string[], context: string, system?: string): string {
   return `You are a careful expert. Answer the user's question with maximum accuracy.
-
+${system ? `\n${system}\n` : ''}
 ${context ? `Reference material (may help, may be incomplete):\n${context}\n\n` : ''}${subQs.length > 1 ? `Sub-questions to address:\n${subQs.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n` : ''}User question: ${question}
 
 Rules:
@@ -291,9 +291,9 @@ export async function panelAnswer(
   context: string,
   modelIds: { id: string; name: string }[],
   onPanel: (model: string, preview: string) => void,
-  opts: { quorum?: number; graceMs?: number; onQuorum?: (n: number) => void } = {},
+  opts: { quorum?: number; graceMs?: number; onQuorum?: (n: number) => void; system?: string } = {},
 ): Promise<{ model: string; answer: string }[]> {
-  const prompt = buildPanelPrompt(question, subQs, context);
+  const prompt = buildPanelPrompt(question, subQs, context, opts.system);
   const quorum = opts.quorum ?? modelIds.length;     // default = wait for all (back-compat)
   const graceMs = opts.graceMs ?? 4000;
   const results: { model: string; answer: string }[] = [];
@@ -392,6 +392,7 @@ export async function synthesizeStream(
   arithmetic: string | null,
   debateOut: { agreements: string[]; disagreements: string[] },
   onChunk: (text: string) => void,
+  system?: string,
 ): Promise<string> {
   if (panel.length === 0) return 'I could not generate a verified answer at this time. Please try again.';
   if (panel.length === 1) {
@@ -399,6 +400,7 @@ export async function synthesizeStream(
     return panel[0].answer;
   }
   const prompt = `You are the synthesis judge. Three expert AI models answered. Produce the BEST single answer following STRICT rules:
+${system ? `\n${system}\n` : ''}
 
 CONSENSUS GATING (critical):
 - Only assert a factual claim as fact if AT LEAST 2 of 3 models support it.
@@ -1239,6 +1241,7 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
       quorum: quorumTarget,
       graceMs: 4000,
       onQuorum: (n) => stage('panel', `Quorum reached (${n}/${panelModels.length}) — starting synthesis`, 'active'),
+      system: systemPrompt,
     },
   );
   if (panel.length === 0) {
@@ -1269,6 +1272,7 @@ export async function runReasoning(opts: RunOptions): Promise<{ content: string;
     retrieved.arithmetic,
     debateOut,
     (chunk) => onEvent({ type: 'chunk', text: chunk }),
+    systemPrompt,
   );
   stage('synth', 'Synthesis complete', 'done');
 
