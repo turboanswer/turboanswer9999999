@@ -239,3 +239,9 @@ id = "ikLqBxB0Nll3KSzKPBrwk"
 uri = "file://dist/turboanswer-aab-only.zip"
 type = "unspecified"
 title = "TurboAnswer AAB — extract this zip, then upload the .aab inside"
+
+[[outputs]]
+id = "yAGre-KYIlhwVnvk-2I0J"
+uri = "file://build-output/turboanswer-v3.2.0-signed-aab.zip"
+type = "unspecified"
+title = "Turbo Answer v3.2.0 — signed AAB (unzip to get the .aab, Play-ready, points to Azure)"
