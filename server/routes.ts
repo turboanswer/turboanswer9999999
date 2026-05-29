@@ -2349,7 +2349,11 @@ Formatting rules:
   app.post('/api/sync-subscription', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { subscriptionId, expectedTier } = req.body || {};
+      const { subscriptionId } = req.body || {};
+
+      // Tiers a PayPal subscription is allowed to grant. Anything else (e.g. a
+      // one-off "code-studio-addon" custom_id) must never set the account tier.
+      const PAID_TIERS = ['pro', 'research', 'enterprise'];
 
       const currentUser = await storage.getUser(userId);
       const oldTier = currentUser?.subscriptionTier || 'free';
@@ -2364,12 +2368,24 @@ Formatting rules:
 
       if (subscriptionId) {
         const subDetails = await getSubscriptionDetails(subscriptionId);
+
+        // SECURITY: bind the subscription to THIS user. PayPal stores the owner's
+        // id in custom_id at checkout. Without this check a user could pass any
+        // active subscription id and self-elevate their tier without paying.
+        let customData: any = {};
+        try { customData = JSON.parse(subDetails.custom_id || '{}'); } catch (e) {}
+        if (!customData.userId || String(customData.userId) !== String(userId)) {
+          console.warn(`[PayPal Sync] Ownership mismatch: subscription ${subscriptionId} owner=${customData.userId} requester=${userId}`);
+          return res.status(403).json({ error: 'This subscription does not belong to your account.' });
+        }
+
         if (subDetails.status === 'ACTIVE' || subDetails.status === 'APPROVED') {
-          let tier = expectedTier || 'pro';
-          try {
-            const customData = JSON.parse(subDetails.custom_id || '{}');
-            if (customData.tier) tier = customData.tier;
-          } catch (e) {}
+          // Tier comes ONLY from the server-set custom_id, never the client.
+          const tier = customData.tier;
+          if (!PAID_TIERS.includes(tier)) {
+            console.warn(`[PayPal Sync] Subscription ${subscriptionId} has invalid tier '${tier}'`);
+            return res.status(400).json({ error: 'Subscription tier is invalid.' });
+          }
 
           await storage.updatePaypalSubscription(userId, subscriptionId, tier);
           console.log(`[PayPal Sync] Updated user ${userId} to ${tier}`);
@@ -2404,12 +2420,21 @@ Formatting rules:
           console.log(`[PayPal Sync] Checking stored subscription ${user.paypalSubscriptionId} for user ${userId}`);
           const subDetails = await getSubscriptionDetails(user.paypalSubscriptionId);
           console.log(`[PayPal Sync] Subscription status: ${subDetails.status}`);
+
+          let customData: any = {};
+          try { customData = JSON.parse(subDetails.custom_id || '{}'); } catch (e) {}
+          // Defence-in-depth: the stored subscription must also belong to this user.
+          if (customData.userId && String(customData.userId) !== String(userId)) {
+            console.warn(`[PayPal Sync] Stored subscription owner mismatch (owner=${customData.userId}, requester=${userId})`);
+            return res.status(403).json({ error: 'This subscription does not belong to your account.' });
+          }
+
           if (subDetails.status === 'ACTIVE' || subDetails.status === 'APPROVED') {
-            let tier = expectedTier || user.subscriptionTier || 'pro';
-            try {
-              const customData = JSON.parse(subDetails.custom_id || '{}');
-              if (customData.tier) tier = customData.tier;
-            } catch (e) {}
+            const tier = customData.tier;
+            if (!PAID_TIERS.includes(tier)) {
+              console.warn(`[PayPal Sync] Stored subscription has invalid tier '${tier}'`);
+              return res.json({ tier: user.subscriptionTier || 'free', status: user.subscriptionStatus || 'none' });
+            }
             await storage.updatePaypalSubscription(userId, user.paypalSubscriptionId, tier);
             console.log(`[PayPal Sync] Updated user ${userId} to ${tier} via stored subscription`);
             if (oldTier !== tier) fireSubEmail(tier, user);

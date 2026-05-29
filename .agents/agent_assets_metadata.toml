@@ -245,3 +245,9 @@ id = "yAGre-KYIlhwVnvk-2I0J"
 uri = "file://build-output/turboanswer-v3.2.0-signed-aab.zip"
 type = "unspecified"
 title = "Turbo Answer v3.2.0 — signed AAB (unzip to get the .aab, Play-ready, points to Azure)"
+
+[[outputs]]
+id = "B4LsVIMoMfaVGyy7z6uyT"
+uri = "file://build-output/turboanswer-play-fix.zip"
+type = "unspecified"
+title = "TurboAnswer Play Store fix (AAB + certificate + instructions)"

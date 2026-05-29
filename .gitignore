@@ -9,3 +9,6 @@ vite.config.ts.*
 *.jks
 KEYSTORE_SECRETS.txt
 keystore.b64
+
+# Generated signing deliverables (AAB/keystore base64/passwords) — never commit
+build-output/

@@ -1,4 +1,6 @@
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
+- [Android signing / Play upload key](android-signing.md) — "bundle isn't valid" = wrong signing key; multi-key history, lost original, use upload-key reset not delete/republish.
+- [PayPal tier-sync IDOR](paypal-sync-ownership.md) — /api/sync-subscription must verify custom_id.userId == caller and take tier only from custom_id, never client.
 - [Code Studio multi-file model](code-studio-multifile.md) — projects stored as file arrays; serving/preview re-inline css/js; generation builds one HTML then splits into index/styles/app.
 - [SSE token streaming](streaming-sse.md) — fast/retrieval/deep all stream via answerForTierStream; never cascade to another deployment after a chunk reached the client (duplicates the stream).
 - [AI response language](ai-response-language.md) — "wrong language" is usually the Google Translate DOM widget, not the model; require explicit-choice flag, default English; server must always pin language incl. deep mode.
