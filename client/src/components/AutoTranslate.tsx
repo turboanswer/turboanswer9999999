@@ -221,22 +221,20 @@ export default function AutoTranslate() {
       const cookieLang = cookie?.startsWith("/en/") ? cookie.slice(4) : "";
       const pendingLang = sessionStorage.getItem(PENDING_KEY);
 
-      let initial = stored || cookieLang || "";
+      // Only an EXPLICIT stored choice counts. A leftover `googtrans` cookie
+      // (from the old auto-detect behavior or a VPN session) must NOT resurrect
+      // a language — otherwise a VPN exiting in Indonesia keeps forcing the site
+      // into Indonesian even after this fix. Any stray non-English cookie with no
+      // explicit choice is cleared by the sync block below.
+      let initial = stored || "";
 
-      if (!initial && !suppressed) {
-        const detected = detectBrowserLang();
-        if (detected && detected !== "en") {
-          initial = detected;
-          localStorage.setItem(STORAGE_KEY, detected);
-          setGoogtransCookie(detected);
-          if (!sessionStorage.getItem(RELOADED_KEY)) {
-            sessionStorage.setItem(RELOADED_KEY, "1");
-            sessionStorage.setItem(PENDING_KEY, detected);
-            window.location.reload();
-            return;
-          }
-        }
-      }
+      // NOTE: We deliberately do NOT auto-detect & apply a language from the
+      // browser/VPN locale here. Doing so let a VPN (e.g. exiting in Indonesia)
+      // force the whole site — including the AI's replies — into that language
+      // and reload the page out from under the user. The site now stays in
+      // English until the user EXPLICITLY picks a language from this pill.
+      // `detectBrowserLang()` is kept only as a non-applied hint if ever needed.
+      void suppressed;
 
       // Sync cookie ↔ storage in BOTH directions so they never disagree.
       if (initial && initial !== "en" && cookieLang !== initial) {
@@ -316,11 +314,15 @@ export default function AutoTranslate() {
     if (code === "en") {
       localStorage.setItem(STORAGE_KEY, "en");
       localStorage.setItem(SUPPRESSED_KEY, "1");
+      // Keep the chat AI's response language in sync with the pill.
+      localStorage.setItem("turbo_language", "en");
       clearGoogtransCookie();
       sessionStorage.removeItem(PENDING_KEY);
     } else {
       localStorage.setItem(STORAGE_KEY, code);
       localStorage.removeItem(SUPPRESSED_KEY);
+      // The AI expects a base language code; Google Translate uses zh-CN/zh-TW.
+      localStorage.setItem("turbo_language", code.startsWith("zh") ? "zh" : code);
       setGoogtransCookie(code);
       sessionStorage.setItem(PENDING_KEY, code);
     }

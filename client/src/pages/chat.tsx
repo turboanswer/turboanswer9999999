@@ -136,8 +136,17 @@ export default function Chat() {
   const isDark = theme === "dark";
 
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('turbo_language');
-    if (savedLanguage) setCurrentLanguage(savedLanguage);
+    // Single source of truth for the user's EXPLICIT language choice.
+    // `turbo_language` = the chat's own picker; `turbo_translate_lang` = the
+    // floating translate pill. Whichever the user explicitly set should drive
+    // the AI's response language. We never fall back to browser/VPN locale.
+    const explicit =
+      localStorage.getItem('turbo_language') ||
+      localStorage.getItem('turbo_translate_lang');
+    if (explicit) {
+      // Google Translate uses zh-CN/zh-TW; the AI wants the base code.
+      setCurrentLanguage(explicit.startsWith('zh') ? 'zh' : explicit);
+    }
   }, []);
 
   useEffect(() => {
