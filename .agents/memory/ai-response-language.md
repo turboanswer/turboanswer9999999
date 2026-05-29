@@ -1,39 +1,44 @@
 ---
 name: AI response language pinning
-description: Why the AI must always be told its output language, and which paths bypass the system prompt
+description: Why "AI replied in the wrong language" is usually a CLIENT display bug, plus the server pinning rules
 ---
 
-# AI response language must be pinned on EVERY path — including English
+# "AI replied in the wrong language" is usually the Google Translate DOM widget, NOT the model
 
-Rule: when generating an answer, always inject an explicit "respond in <language>"
-instruction, even when the language is English. Never gate it on `language !== "en"`.
+The app ships a Google Translate widget (`AutoTranslate`) that rewrites the visible
+page DOM — including correct AI replies — into whatever the `googtrans` cookie says.
+So a user can get a perfectly English AI response that is then visually translated to
+another language client-side. Before touching server prompts, confirm whether the
+*model output* is wrong or only the *displayed text* is.
 
-**Why:** With no instruction, the model mirrors whatever language it thinks the
-user's input is. Ambiguous input (notably Filipino/Tagalog) makes Gemini drift to
-Indonesian, so default-English users in the Philippines got Indonesian replies.
-The product has an explicit language picker (default `en`), so the user's
-selection must always win over the model's guess.
+**How to prove which:** call the answer path server-side with a non-English question
+and a system prompt forcing English; if it returns English, the bug is the client
+display layer (cookie/widget), not the model.
 
-**How to apply:** Use `getLanguageName(code)` in `server/services/multi-ai.ts`
-(code→readable name, falls back to the raw code) and build the instruction
-unconditionally.
+# Explicit-choice-wins: require a positive flag, never trust bare stored values
 
-# The reasoning engine's DEEP mode bypasses `systemPrompt`
+Default to English. Only honor a stored/cookie language when a positive
+"user explicitly picked" marker (`turbo_lang_explicit`) is present, written solely
+on a real user action. Any stored language WITHOUT that marker is stale auto-detect
+junk (old builds auto-applied browser/VPN locale) and must be wiped to English.
 
-`runReasoning()` only forwards `systemPrompt` into `fastAnswerStream` and
-`retrievalAnswer`. The deep path (panel + synthesis) uses fixed internal prompts.
-Any per-request directive (language, tone, style) must be threaded explicitly into
-`buildPanelPrompt`/`panelAnswer` (via `opts.system`) and `synthesizeStream`,
-otherwise it is silently dropped for complex queries.
+**Why:** auto-detecting from `navigator.language` or a VPN exit IP let the wrong
+language stick across sessions and could not be told apart from a real choice. A
+positive opt-in flag is the only reliable discriminator. Every language-setting
+entry point MUST set this flag or it will be silently reset on next load.
 
-**Why it bites:** during LAUNCH NIGHT the free tier gets deep verifications, so the
-most-used tier hits exactly the path that ignored the language fix.
+# Server: always pin output language, even English
 
-# Language state lives in multiple disconnected keys (client)
+Always inject "respond in <language>" — never gate it on `language !== "en"`.
+With no instruction the model mirrors the input language; ambiguous input (notably
+Filipino/Tagalog) makes Gemini drift to Indonesian. The product has an explicit
+picker (default `en`), so the selection must always win over the model's guess.
+Deep/reasoning mode has its own internal prompts and will drop any per-request
+directive (language, tone) unless it is threaded explicitly into the panel and
+synthesis prompts — easy to miss because the simple fast path works fine.
 
-Three separate localStorage keys exist: `turbo_language` (chat AI picker),
-`turbo_translate_lang` (floating Google-Translate pill), `turbo_lang` (useLang UI
-strings). They do NOT auto-sync. The pill now also writes `turbo_language` so it
-drives the AI; chat reads `turbo_language || turbo_translate_lang`. Never auto-apply
-a language from `navigator.language` or a leftover `googtrans` cookie — a VPN/locale
-must not override the user's explicit choice.
+# Client language state lives in several disconnected keys
+
+`turbo_language` (chat AI), `turbo_translate_lang` (translate pill), `turbo_lang`
+(UI strings), plus the `googtrans` cookie — they do NOT auto-sync. Keep them in
+lockstep when changing language behavior.

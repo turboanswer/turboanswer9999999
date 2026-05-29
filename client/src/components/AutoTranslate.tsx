@@ -76,6 +76,11 @@ const STORAGE_KEY = "turbo_translate_lang";
 const SUPPRESSED_KEY = "turbo_translate_suppressed";
 const PENDING_KEY = "turbo_translate_pending";
 const RELOADED_KEY = "turbo_translate_reloaded";
+// Positive proof the user EXPLICITLY picked a language from this pill (or the
+// header selector). The old build auto-applied a language from the browser/VPN
+// locale and wrote it to STORAGE_KEY with no such marker — so any stored value
+// WITHOUT this flag is stale auto-detect junk and must be ignored/cleared.
+const EXPLICIT_KEY = "turbo_lang_explicit";
 
 function readCookie(name: string): string {
   const m = document.cookie.match(new RegExp("(^|;\\s*)" + name + "=([^;]*)"));
@@ -217,16 +222,23 @@ export default function AutoTranslate() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       const suppressed = localStorage.getItem(SUPPRESSED_KEY) === "1";
+      const explicit = localStorage.getItem(EXPLICIT_KEY) === "1";
       const cookie = readCookie("googtrans");
       const cookieLang = cookie?.startsWith("/en/") ? cookie.slice(4) : "";
       const pendingLang = sessionStorage.getItem(PENDING_KEY);
 
-      // Only an EXPLICIT stored choice counts. A leftover `googtrans` cookie
-      // (from the old auto-detect behavior or a VPN session) must NOT resurrect
-      // a language — otherwise a VPN exiting in Indonesia keeps forcing the site
-      // into Indonesian even after this fix. Any stray non-English cookie with no
-      // explicit choice is cleared by the sync block below.
-      let initial = stored || "";
+      // Only an EXPLICIT stored choice counts. A leftover `googtrans` cookie OR a
+      // `turbo_translate_lang` written by the OLD auto-detect build (which had no
+      // EXPLICIT_KEY marker) must NOT resurrect a language — otherwise a VPN
+      // exiting in Indonesia, or a Filipino device locale, keeps forcing the site
+      // into the wrong language even after this fix. Without the explicit flag we
+      // treat ANY stored/cookie language as stale junk and wipe it back to English.
+      if (!explicit && ((stored && stored !== "en") || (cookieLang && cookieLang !== "en"))) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem("turbo_language");
+        clearGoogtransCookie();
+      }
+      let initial = explicit ? (stored || "") : "";
 
       // NOTE: We deliberately do NOT auto-detect & apply a language from the
       // browser/VPN locale here. Doing so let a VPN (e.g. exiting in Indonesia)
@@ -311,6 +323,9 @@ export default function AutoTranslate() {
     setOpen(false);
     setSearch("");
     setCurrent(code);
+    // The user just made an EXPLICIT choice — mark it so it survives the
+    // stale-state wipe on the next mount (including a deliberate pick of English).
+    localStorage.setItem(EXPLICIT_KEY, "1");
     if (code === "en") {
       localStorage.setItem(STORAGE_KEY, "en");
       localStorage.setItem(SUPPRESSED_KEY, "1");

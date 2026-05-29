@@ -138,14 +138,19 @@ export default function Chat() {
   useEffect(() => {
     // Single source of truth for the user's EXPLICIT language choice.
     // `turbo_language` = the chat's own picker; `turbo_translate_lang` = the
-    // floating translate pill. Whichever the user explicitly set should drive
-    // the AI's response language. We never fall back to browser/VPN locale.
-    const explicit =
-      localStorage.getItem('turbo_language') ||
-      localStorage.getItem('turbo_translate_lang');
-    if (explicit) {
+    // floating translate pill. A value only counts if the user EXPLICITLY chose
+    // it (turbo_lang_explicit === '1'). The old build auto-applied a language
+    // from the browser/VPN locale with no such flag, so we ignore any value
+    // lacking it and default to English. We never fall back to browser/VPN locale.
+    const isExplicit = localStorage.getItem('turbo_lang_explicit') === '1';
+    const chosen = isExplicit
+      ? (localStorage.getItem('turbo_language') || localStorage.getItem('turbo_translate_lang'))
+      : null;
+    if (chosen) {
       // Google Translate uses zh-CN/zh-TW; the AI wants the base code.
-      setCurrentLanguage(explicit.startsWith('zh') ? 'zh' : explicit);
+      setCurrentLanguage(chosen.startsWith('zh') ? 'zh' : chosen);
+    } else {
+      setCurrentLanguage('en');
     }
   }, []);
 
@@ -715,6 +720,8 @@ export default function Chat() {
   const handleLanguageChange = (languageCode: string) => {
     setCurrentLanguage(languageCode);
     localStorage.setItem('turbo_language', languageCode);
+    // Mark this as an explicit choice so it isn't wiped as stale auto-detect on reload.
+    localStorage.setItem('turbo_lang_explicit', '1');
     toast({ title: "Language Changed", description: `Switched to ${languageCode.toUpperCase()}` });
   };
 
