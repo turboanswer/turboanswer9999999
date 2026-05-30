@@ -1,5 +1,5 @@
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
-- [Android build env & AAB bloat](android-build-env.md) — rebuild recipe + 2 traps: client/public binaries get baked into the AAB; /tmp SDK gets wiped (use ~/android-sdk).
+- [Android build env & AAB bloat](android-build-env.md) — rebuild recipe + traps: users see Azure-served site (server.url) not APK assets so must redeploy web; client/index.html ships a replit dev-banner; client/public binaries bloat the AAB; SDK gets wiped between sessions.
 - [Android signing / Play upload key](android-signing.md) — "bundle isn't valid" = wrong signing key; multi-key history, lost original, use upload-key reset not delete/republish.
 - [PayPal tier-sync IDOR](paypal-sync-ownership.md) — /api/sync-subscription must verify custom_id.userId == caller and take tier only from custom_id, never client.
 - [Code Studio multi-file model](code-studio-multifile.md) — projects stored as file arrays; serving/preview re-inline css/js; generation builds one HTML then splits into index/styles/app.

@@ -17,3 +17,10 @@ Convert an existing AAB to a sideloadable APK without a full gradle build: `bund
 ## Trap 2 — Android SDK in /tmp gets wiped
 `android/local.properties` had `sdk.dir=/tmp/android-sdk`, which disappears between sessions → "SDK location not found". Reinstall cmdline-tools + `platforms;android-35` + `build-tools;34.0.0` to a persistent path (`/home/runner/android-sdk`) and point local.properties there. Project compiles against android-35 (gradle will auto-install it, eating one build's time budget — run the build twice).
 **Gradle dep cache** at `~/.gradle/caches` persists (~321MB), so only the SDK needs reinstalling.
+
+## Trap 3 — users see the AZURE-served site, not the bundled APK assets
+`capacitor.config.ts` sets `server.url` to the Azure URL, so the WebView loads remote content from Azure at runtime. The HTML/JS baked into the APK is essentially unused. Therefore **fixing the APK does NOT change what users see** — you must also redeploy the web to Azure (push to GitHub main → `main_turboanswergroup.yml` deploys). When someone reports "app still points to replit," check the LIVE Azure response (`curl https://…azurewebsites.net/`), not just the APK.
+
+## Trap 4 — client/index.html ships a Replit dev-banner by default
+Vite's template puts `<script src="https://replit.com/public/js/replit-dev-banner.js">` in `client/index.html`. It renders a Replit banner on non-replit production domains. Remove it for any external/Play release. Also check `client/public/robots.txt` (sitemap line) and `client/public/widget.js` (default API URL) for hardcoded `*.replit.app` URLs — these are easy to miss because they are not in `client/src`.
+**Verify a release is replit-free:** `grep -rl replit dist/public` AND `grep -rl replit` over extracted AAB `base/assets` must both be 0, AND `curl` the live Azure root must be 0.

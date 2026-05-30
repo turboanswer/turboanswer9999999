@@ -7,7 +7,7 @@
   'use strict';
 
   // Widget configuration
-  const WIDGET_API_URL = window.TURBO_WIDGET_API || 'https://turbo-answer.replit.app/api/widget';
+  const WIDGET_API_URL = window.TURBO_WIDGET_API || 'https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net/api/widget';
   const WIDGET_CONFIG = {
     position: window.TURBO_WIDGET_POSITION || 'bottom-right',
     theme: window.TURBO_WIDGET_THEME || 'dark',

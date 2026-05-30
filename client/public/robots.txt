@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://turbo-answer.replit.app/sitemap.xml
+Sitemap: https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net/sitemap.xml
