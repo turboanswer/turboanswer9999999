@@ -1945,16 +1945,36 @@ Formatting rules:
           const userId = `user_${Math.random().toString(36).substr(2, 9)}`;
           const sender = await storage.getUser(sendingUserId);
           const userTier = sender?.subscriptionTier || 'free';
+          // SECURITY: clamp the requested model to what the user's tier allows.
+          // The client gates the model dropdown, but the API must enforce it too —
+          // otherwise a free user can POST selectedModel:'claude-research' and use
+          // a paid model without paying. Tier elevates only via verified PayPal.
+          const isStaff = isOwnerAccount(sender) || (sender as any)?.isEmployee === true;
+          const canPro = isStaff || ['pro', 'research', 'enterprise'].includes(userTier);
+          const canResearch = isStaff || ['research', 'enterprise'].includes(userTier);
+          // These aliases all map to PAID model branches in generateAIResponse:
+          //  research tier → claude-research / enterprise-research / matrix-research
+          //  pro tier      → gemini-pro / gpt-4o / claude-sonnet-4
+          const researchModels = ['claude-research', 'enterprise-research', 'matrix-research'];
+          const proModels = ['gemini-pro', 'gpt-4o', 'claude-sonnet-4'];
+          let requestedModel = req.body.selectedModel || "auto-select";
+          if (researchModels.includes(requestedModel) && !canResearch) {
+            requestedModel = canPro ? 'gemini-pro' : 'auto-select';
+          }
+          if (proModels.includes(requestedModel) && !canPro) {
+            requestedModel = 'auto-select';
+          }
+          const allowDeepThink = req.body.deepThink === true && canResearch;
           const aiResult = await generateAIResponse(
             content,
             conversationHistory,
             userTier,
-            req.body.selectedModel || "auto-select",
+            requestedModel,
             userId,
             req.body.language || "en",
             req.body.responseStyle || "balanced",
             req.body.responseTone || "casual",
-            req.body.deepThink === true
+            allowDeepThink
           );
           responseUsedGroundedSearch = typeof aiResult === 'object' && aiResult.usedGroundedSearch;
           aiResponseContent = typeof aiResult === 'object' ? aiResult.text : aiResult;
@@ -1965,7 +1985,7 @@ Formatting rules:
       const senderTier = senderForVerify?.subscriptionTier || 'free';
 
       const verifyPromise = (async (): Promise<"verified" | "unverified" | "unknown"> => {
-        // LAUNCH NIGHT (HN demo): free tier gets verification too. To revert: restore `if (senderTier === 'free') return "unknown";`
+        if (senderTier === 'free') return "unknown";
         try {
           const { verifyAIResponse } = await import('./services/multi-ai.js');
           if (responseUsedGroundedSearch) return "verified";
@@ -2019,10 +2039,12 @@ Formatting rules:
       //   - Active referral-code grant (1 month Pro from a beta-tester invite)
       const hasReferralPro = !!(user?.referralProUntil && new Date(user.referralProUntil) > new Date());
       const tier = (rawTier === 'free' && (user?.isBetaTester || hasReferralPro)) ? 'pro' : rawTier;
-      const effectiveTier = isOwner ? 'owner' : tier;
+      // Staff (owner OR employee) get full access regardless of subscriptionTier.
+      const isStaff = isOwner || (user as any)?.isEmployee === true;
+      const effectiveTier = isStaff ? 'owner' : tier;
 
       // Free-tier daily question limit (same as legacy endpoint)
-      if (tier === 'free' && !isOwner) {
+      if (tier === 'free' && !isStaff) {
         const now = new Date();
         const resetAt = user?.dailyQuestionsResetAt ? new Date(user.dailyQuestionsResetAt) : null;
         let used = user?.dailyQuestionsUsed || 0;
@@ -2090,7 +2112,7 @@ Formatting rules:
       const today = tre.todayUTC();
       const deepUsed = userId ? await (await import('./storage')).getDeepThinkUsage(userId, today) : 0;
       const deepLimit = tre.DEEP_QUOTA[effectiveTier] ?? tre.DEEP_QUOTA.free;
-      const tierBlocksDeep = false; // LAUNCH NIGHT (HN demo). To revert: `effectiveTier === 'free' || effectiveTier === 'pro'`
+      const tierBlocksDeep = effectiveTier === 'free' || effectiveTier === 'pro';
       let allowDeep = !tierBlocksDeep;
       let quotaFellBack = false;
       if (allowDeep && deepLimit !== -1 && deepUsed >= deepLimit) {

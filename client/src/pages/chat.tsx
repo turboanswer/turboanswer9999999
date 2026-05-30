@@ -806,10 +806,7 @@ export default function Chat() {
   const _tierOverride = (user as any)?.isEmployee === true ? _rawTierOverride : null;
   const userTier = (_tierOverride || subscriptionData?.tier || (user as any)?.tier || 'free') as string;
   const isPaidPro = userTier === 'pro' || userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
-  // LAUNCH NIGHT (HN demo): show verification badges, confidence scores,
-  // and the "see reasoning" toggle to ALL tiers so HN visitors see them on
-  // the free tier. To revert: restore the original tier check.
-  const isResearchOrAbove = true; // LAUNCH NIGHT (HN demo): verification UI for every tier. To revert: `userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true`
+  const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const isEnterpriseTier = userTier === 'enterprise' || (user as any)?.isEmployee === true;
   const isFreeTier = !subscriptionData?.tier || subscriptionData?.tier === 'free';
   const isAnyPopupOpen = showProPopup || showResearchPopup || showEnterprisePopup || showPromoPopup || showWelcomePro || checkoutLoading;
@@ -980,8 +977,9 @@ export default function Chat() {
   };
 
   const handleModelChange = (value: string) => {
-    // LAUNCH NIGHT: all models unlocked for every tier so free users can try the full stack.
-    // Original code paywalled gemini-pro/claude-research/enterprise-research; restore those checks to re-gate.
+    if (value === 'gemini-pro' && !isPaidPro) { setShowProPopup(true); return; }
+    if (value === 'claude-research' && !isResearchOrAbove) { setShowResearchPopup(true); return; }
+    if (value === 'enterprise-research' && !isEnterpriseTier) { setShowEnterprisePopup(true); return; }
     setSelectedAIModel(value === 'enterprise-research' ? 'claude-research' : value);
   };
 
