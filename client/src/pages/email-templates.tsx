@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 
-const APP_URL = 'https://turbo-answer.replit.app';
+const APP_URL = 'https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net';
 
 const TEMPLATES = [
   {

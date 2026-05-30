@@ -29,7 +29,7 @@ export default function TermsConditions() {
               <p><strong>Address:</strong> 33 Broderick Street, Colonie, New York, 12205</p>
               <p><strong>Phone:</strong> 5185732922</p>
               <p><strong>E-Mail:</strong> support@turboanswer.it.com</p>
-              <p><strong>Website:</strong> https://turbo-answer.replit.app</p>
+              <p><strong>Website:</strong> https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net</p>
             </div>
           </section>
 

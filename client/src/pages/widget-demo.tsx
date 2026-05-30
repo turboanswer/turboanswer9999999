@@ -8,7 +8,7 @@ export default function WidgetDemo() {
   const [copied, setCopied] = useState(false);
 
   const integrationCode = `<!-- Turbo Answer AI Widget -->
-<script src="https://turbo-answer.replit.app/widget.js"></script>
+<script src="https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net/widget.js"></script>
 <script>
   // Optional configuration
   window.TURBO_WIDGET_POSITION = 'bottom-right';
@@ -18,7 +18,7 @@ export default function WidgetDemo() {
   window.TURBO_WIDGET_WELCOME = 'Hi! How can I help you today?';
 </script>`;
 
-  const simpleCode = `<script src="https://turbo-answer.replit.app/widget.js"></script>`;
+  const simpleCode = `<script src="https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net/widget.js"></script>`;
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
