@@ -82,12 +82,15 @@ function AuthenticatedRouter() {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
   const isReceptionist = !!(user as any)?.isReceptionist && !(user as any)?.isEmployee;
+  const isEmployee = !!(user as any)?.isEmployee;
 
   useEffect(() => {
     if (isReceptionist && ["/", "/home", "/chat"].includes(location)) {
       setLocation("/receptionist");
+    } else if (isEmployee && ["/", "/home"].includes(location)) {
+      setLocation("/employee/dashboard");
     }
-  }, [isReceptionist, location, setLocation]);
+  }, [isReceptionist, isEmployee, location, setLocation]);
 
   return (
     <Switch>

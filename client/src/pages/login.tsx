@@ -63,9 +63,12 @@ export default function Login() {
 
         toast({ title: "Welcome back!", description: "You're now signed in to Turbo Answer." });
         const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+        const defaultRedirect = data.isReceptionist
+          ? '/receptionist'
+          : (data.isEmployee ? '/employee/dashboard' : '/chat');
         const safeRedirect = redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
           ? redirectParam
-          : (data.isReceptionist ? '/receptionist' : '/chat');
+          : defaultRedirect;
         setLocation(safeRedirect);
       } else {
         toast({ title: "Error", description: data.message || "Invalid credentials", variant: "destructive" });
