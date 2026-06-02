@@ -27,6 +27,8 @@ import {
   AlertTriangle,
   XCircle,
   ChevronRight,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import { PROCEDURES, PROCEDURE_CATEGORIES, DIFFICULTIES, type Procedure } from "@shared/procedures";
 
@@ -59,6 +61,20 @@ const TIER_COLOR: Record<string, string> = {
   pro: "bg-blue-600",
   research: "bg-purple-600",
   enterprise: "bg-amber-600",
+};
+
+const TIER_RANK: Record<string, number> = {
+  free: 0,
+  pro: 1,
+  research: 2,
+  enterprise: 3,
+};
+
+const TIER_PRICE: Record<string, string> = {
+  free: "$0/mo",
+  pro: "$6.99/mo",
+  research: "$30/mo",
+  enterprise: "$100/mo",
 };
 
 const DIFF_COLOR: Record<string, string> = {
@@ -138,6 +154,8 @@ export default function ReceptionistDashboard() {
   const [escalateUser, setEscalateUser] = useState<RecepUser | null>(null);
   const [escalateText, setEscalateText] = useState("");
   const [escalateSeverity, setEscalateSeverity] = useState("normal");
+  const [upgradeUser, setUpgradeUser] = useState<{ user: RecepUser; tier: string } | null>(null);
+  const payUrl = (typeof window !== "undefined" ? window.location.origin : "https://turboanswer.it.com") + "/subscribe";
 
   // Assistant
   const [issue, setIssue] = useState("");
@@ -432,7 +450,13 @@ export default function ReceptionistDashboard() {
                         <Button
                           size="sm"
                           disabled={!changed || isSaving}
-                          onClick={() => modifyMutation.mutate({ userId: u.id, tier: selected })}
+                          onClick={() => {
+                            if ((TIER_RANK[selected] ?? 0) > (TIER_RANK[current] ?? 0)) {
+                              setUpgradeUser({ user: u, tier: selected });
+                            } else {
+                              modifyMutation.mutate({ userId: u.id, tier: selected });
+                            }
+                          }}
                           className="bg-purple-600 hover:bg-purple-700"
                           data-testid={`button-apply-${u.id}`}
                         >
@@ -578,6 +602,61 @@ export default function ReceptionistDashboard() {
               .map((p) => (
                 <ProcedureCard key={p.id} p={p} />
               ))}
+          </div>
+        </div>
+      )}
+
+      {/* ---- Upgrade payment warning ---- */}
+      {upgradeUser && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setUpgradeUser(null)}>
+          <div className="bg-[#141416] border border-amber-700/60 rounded-lg w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold mb-2 flex items-center gap-2 text-amber-300">
+              <ShieldAlert className="h-5 w-5 text-amber-400" /> Collect payment before upgrading
+            </h3>
+            <p className="text-sm text-gray-300 mb-3">
+              Do <span className="font-semibold text-amber-300">not</span> grant a paid plan for free. To upgrade{" "}
+              <span className="font-semibold">{upgradeUser.user.email}</span> to{" "}
+              <span className="font-semibold">{TIER_LABEL[upgradeUser.tier]}</span>{" "}
+              ({TIER_PRICE[upgradeUser.tier]}), the customer must pay securely through the PayPal portal.
+            </p>
+            <div className="rounded-md border border-[#2a2a2e] bg-[#0b0b0c] p-3 mb-4">
+              <p className="text-xs text-gray-400 mb-1">Secure PayPal payment link</p>
+              <p className="text-sm text-purple-300 break-all" data-testid="text-pay-url">{payUrl}</p>
+              <p className="text-[11px] text-gray-500 mt-2">
+                The customer must be signed in to their own account ({upgradeUser.user.email}) when they pay, so the
+                upgrade applies to them automatically — never pay from this agent account.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
+              <Button
+                variant="outline"
+                className="border-[#333] text-gray-300"
+                onClick={() => {
+                  navigator.clipboard?.writeText(payUrl);
+                  toast({ title: "Payment link copied", description: "Send it to the customer to pay securely." });
+                }}
+                data-testid="button-copy-pay-link"
+              >
+                <Copy className="h-4 w-4 mr-1" /> Copy link
+              </Button>
+              <Button
+                className="bg-amber-600 hover:bg-amber-700"
+                onClick={() => {
+                  window.open(payUrl, "_blank", "noopener,noreferrer");
+                  setUpgradeUser(null);
+                }}
+                data-testid="button-open-pay-portal"
+              >
+                <ExternalLink className="h-4 w-4 mr-1" /> Open PayPal portal
+              </Button>
+            </div>
+            <button
+              onClick={() => setUpgradeUser(null)}
+              className="text-xs text-gray-500 hover:text-white mt-3"
+              data-testid="button-close-upgrade"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

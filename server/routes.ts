@@ -3680,6 +3680,18 @@ Formatting rules:
 
       const oldTier = targetUser.subscriptionTier || 'free';
 
+      // Stop receptionists from granting paid upgrades for free. Owners/admins
+      // (isEmployee) keep full control; pure receptionists must collect payment
+      // by sending the customer to the secure PayPal portal (/subscribe).
+      const TIER_RANK_SRV: Record<string, number> = { free: 0, pro: 1, research: 2, enterprise: 3 };
+      const actor = await storage.getUser(actorUserId);
+      const actorIsStaff = isOwnerAccount(actor) || (actor as any)?.isEmployee === true;
+      if (!actorIsStaff && (TIER_RANK_SRV[tier] ?? 0) > (TIER_RANK_SRV[oldTier] ?? 0)) {
+        return res.status(403).json({
+          error: 'Upgrades require payment. Send the customer to the secure PayPal portal at /subscribe to pay — receptionists cannot grant paid upgrades directly.',
+        });
+      }
+
       if (oldTier === 'enterprise' && tier !== 'enterprise') {
         const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
         await storage.deactivateEnterpriseCode(userId);
