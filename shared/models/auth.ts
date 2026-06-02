@@ -38,6 +38,7 @@ export const users = pgTable("users", {
   preferredModel: text("preferred_model").default("gemini-2.0-flash"),
   isEmployee: boolean("is_employee").default(false),
   employeeRole: text("employee_role").default("basic"),
+  isReceptionist: boolean("is_receptionist").default(false),
   canViewAllChats: boolean("can_view_all_chats").default(false),
   canBanUsers: boolean("can_ban_users").default(false),
   isBanned: boolean("is_banned").default(false),

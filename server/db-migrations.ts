@@ -17,6 +17,7 @@ const USERS_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "preferred_model", ddl: "TEXT DEFAULT 'gemini-2.0-flash'" },
   { name: "is_employee", ddl: "BOOLEAN DEFAULT false" },
   { name: "employee_role", ddl: "TEXT DEFAULT 'basic'" },
+  { name: "is_receptionist", ddl: "BOOLEAN DEFAULT false" },
   { name: "can_view_all_chats", ddl: "BOOLEAN DEFAULT false" },
   { name: "can_ban_users", ddl: "BOOLEAN DEFAULT false" },
   { name: "is_banned", ddl: "BOOLEAN DEFAULT false" },

@@ -19,7 +19,7 @@ import {
   getAnalysisOptions,
   SUPPORTED_FILE_TYPES 
 } from "./services/document-analysis";
-import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin } from "./replit_integrations/auth";
+import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin, isReceptionistOrAdmin } from "./replit_integrations/auth";
 import { getSession } from "./replit_integrations/auth";
 import { attachRealtimeWSS } from "./services/realtime-voice";
 import { registerImageRoutes } from "./replit_integrations/image";
@@ -3641,6 +3641,84 @@ Formatting rules:
       res.json({ success: true, user: { id: user.id, email: user.email, subscriptionTier: user.subscriptionTier, subscriptionStatus: user.subscriptionStatus } });
     } catch (error: any) {
       console.error('[Admin] Modify subscription error:', error.message);
+      res.status(500).json({ error: 'Failed to modify subscription' });
+    }
+  });
+
+  // ---- Limited Receptionist panel endpoints ----
+  // Receptionists (isReceptionist=true, isEmployee=false) can ONLY list users,
+  // change a user's subscription tier, and view procedures. They are blocked from
+  // every isAdmin route automatically because they are not employees.
+  app.get('/api/receptionist/users', isReceptionistOrAdmin, async (req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const sanitized = allUsers.map(user => ({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        subscriptionTier: user.subscriptionTier,
+        subscriptionStatus: user.subscriptionStatus,
+      }));
+      res.json(sanitized);
+    } catch (error: any) {
+      console.error('[Receptionist] Get users error:', error.message);
+      res.status(500).json({ message: 'Failed to fetch users' });
+    }
+  });
+
+  app.post('/api/receptionist/modify-subscription', isReceptionistOrAdmin, async (req: any, res) => {
+    try {
+      const actorUserId = req.user.claims.sub;
+      const { userId, tier, reason } = req.body;
+      if (!userId || !tier) return res.status(400).json({ error: 'User ID and tier required' });
+      const validTiers = ['free', 'pro', 'research', 'enterprise'];
+      if (!validTiers.includes(tier)) return res.status(400).json({ error: 'Invalid tier' });
+
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+      const oldTier = targetUser.subscriptionTier || 'free';
+
+      if (oldTier === 'enterprise' && tier !== 'enterprise') {
+        const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
+        await storage.deactivateEnterpriseCode(userId);
+        console.log(`[Receptionist] Revoked enterprise access for ${revokedUsers.length} team members`);
+      }
+
+      if (tier === 'enterprise') {
+        const existingCode = await storage.getEnterpriseCodeByOwner(userId);
+        if (!existingCode) {
+          const { randomInt } = await import('crypto');
+          const code = String(randomInt(100000, 999999));
+          await storage.createEnterpriseCode(code, userId, targetUser.email || null);
+          console.log(`[Receptionist] Generated enterprise code ${code} for user ${userId}`);
+        } else if (!existingCode.isActive) {
+          await storage.reactivateEnterpriseCode(userId);
+        }
+      }
+
+      const status = tier === 'free' ? 'free' : 'active';
+      const user = await storage.adminSetSubscription(userId, tier, status);
+
+      try {
+        await storage.createAuditLog({
+          employeeId: actorUserId,
+          employeeUsername: 'receptionist',
+          action: 'modify_subscription',
+          targetUserId: userId,
+          targetUsername: targetUser.email || userId,
+          reason: reason || `Changed from ${oldTier} to ${tier}`,
+          details: JSON.stringify({ oldTier, newTier: tier, via: 'receptionist' }),
+        });
+      } catch (e) {
+        console.error('[Receptionist] Audit log error:', e);
+      }
+
+      console.log(`[Receptionist] Modified subscription for ${userId}: ${oldTier} -> ${tier}`);
+      res.json({ success: true, user: { id: user.id, email: user.email, subscriptionTier: user.subscriptionTier, subscriptionStatus: user.subscriptionStatus } });
+    } catch (error: any) {
+      console.error('[Receptionist] Modify subscription error:', error.message);
       res.status(500).json({ error: 'Failed to modify subscription' });
     }
   });

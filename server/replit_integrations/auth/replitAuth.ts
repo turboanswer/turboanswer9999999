@@ -628,3 +628,24 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
 
   next();
 };
+
+// Allows receptionist accounts (limited panel) AND full employees/admins.
+// Receptionists have isEmployee=false so they are blocked from all isAdmin
+// routes by default; this gate is used only for the limited receptionist endpoints.
+export const isReceptionistOrAdmin: RequestHandler = async (req, res, next) => {
+  const userId = (req.session as any)?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const user = await authStorage.getUser(userId);
+  if (!user || (!user.isReceptionist && !user.isEmployee)) {
+    return res.status(403).json({ message: "Access denied." });
+  }
+
+  (req as any).user = {
+    claims: { sub: userId },
+  };
+
+  next();
+};
