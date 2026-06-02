@@ -13,6 +13,7 @@ import Subscribe from "@/pages/subscribe";
 import NotFound from "@/pages/not-found";
 import Pricing from "@/pages/pricing";
 import Support from "@/pages/support";
+import CustomerSupport from "@/pages/customer-support";
 import EmployeeDashboard from "@/pages/employee-dashboard";
 import ReceptionistDashboard from "@/pages/receptionist-dashboard";
 import PrivacyPolicy from "@/pages/privacy-policy";
@@ -107,6 +108,7 @@ function AuthenticatedRouter() {
       <Route path="/subscribe" component={Subscribe} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/support" component={Support} />
+      <Route path="/customer-support" component={CustomerSupport} />
       <Route path="/employee/dashboard" component={EmployeeDashboard} />
       <Route path="/receptionist" component={ReceptionistDashboard} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
@@ -161,6 +163,7 @@ function UnauthenticatedRouter() {
       <Route path="/register" component={Register} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/support" component={Support} />
+      <Route path="/customer-support" component={CustomerSupport} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms-conditions" component={TermsConditions} />
       <Route path="/data-deletion" component={DataDeletion} />
