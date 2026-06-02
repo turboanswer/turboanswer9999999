@@ -226,21 +226,30 @@ applyIntrusionMiddleware(app);
 const CSRF_COOKIE = '_csrf_token';
 const CSRF_HEADER = 'x-csrf-token';
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.REPL_SLUG;
-const csrfCookieOptions = {
-  httpOnly: false,
-  secure: isProd,
-  // Frontend and API are same-origin — use Lax. SameSite=None is blocked as a
-  // third-party cookie by modern browsers, which breaks CSRF validation (login
-  // returns 403 and shows "Invalid credentials") in production only.
-  sameSite: 'lax' as const,
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: '/',
-};
+// Cookie SameSite must depend on who is calling:
+//  - Web (turboanswer.it.com) is SAME-ORIGIN with the API → SameSite=Lax works
+//    and avoids third-party-cookie blocking.
+//  - The native app loads bundled assets at https://localhost and calls the
+//    Azure API CROSS-ORIGIN. Cross-site cookies are only sent when they are
+//    SameSite=None; Secure, so native origins must get None.
+// Using Lax for everyone breaks login in the app only; using None for everyone
+// risks third-party-cookie blocking on web. So choose per request origin.
+function csrfCookieOptionsFor(req: Request) {
+  const origin = req.headers.origin as string | undefined;
+  const isNative = !!origin && NATIVE_ORIGINS.has(origin);
+  return {
+    httpOnly: false,
+    secure: isNative ? true : isProd,
+    sameSite: (isNative ? 'none' : 'lax') as 'none' | 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: '/',
+  };
+}
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (!req.cookies?.[CSRF_COOKIE]) {
     const token = crypto.randomBytes(32).toString('hex');
-    res.cookie(CSRF_COOKIE, token, csrfCookieOptions);
+    res.cookie(CSRF_COOKIE, token, csrfCookieOptionsFor(req));
   }
   next();
 });
@@ -249,7 +258,7 @@ app.get('/api/csrf-token', (req: Request, res: Response) => {
   let token = req.cookies?.[CSRF_COOKIE];
   if (!token) {
     token = crypto.randomBytes(32).toString('hex');
-    res.cookie(CSRF_COOKIE, token, csrfCookieOptions);
+    res.cookie(CSRF_COOKIE, token, csrfCookieOptionsFor(req));
   }
   res.json({ token });
 });

@@ -202,18 +202,39 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: process.env.REPL_SLUG ? true : process.env.NODE_ENV === "production",
-      // Frontend and API are same-origin, so use Lax. SameSite=None cookies are
-      // blocked as third-party by modern browsers, which silently breaks the
-      // session (login appears to fail for everyone) in production.
+      // Default for same-origin web: Lax (avoids third-party-cookie blocking).
+      // For the native app (cross-origin https://localhost → Azure) this is
+      // upgraded to SameSite=None; Secure per request in setupAuth, since
+      // cross-site cookies are only sent when None+Secure.
       sameSite: "lax" as const,
       maxAge: sessionTtl,
     },
   });
 }
 
+const NATIVE_SESSION_ORIGINS = new Set([
+  'https://localhost',
+  'capacitor://localhost',
+  'http://localhost',
+  'ionic://localhost',
+]);
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
+
+  // The native app calls the API cross-origin (https://localhost → Azure), so
+  // its session cookie must be SameSite=None; Secure to be sent on those
+  // requests. Same-origin web keeps the Lax default. express-session serializes
+  // req.session.cookie at response time, so adjusting it per request works.
+  app.use((req: any, _res, next) => {
+    const origin = req.headers.origin as string | undefined;
+    if (origin && NATIVE_SESSION_ORIGINS.has(origin) && req.session?.cookie) {
+      req.session.cookie.sameSite = 'none';
+      req.session.cookie.secure = true;
+    }
+    next();
+  });
 
   app.post("/api/sms/send-verification", async (req, res) => {
     try {
