@@ -8,3 +8,4 @@
 - [SSE token streaming](streaming-sse.md) — fast/retrieval/deep all stream via answerForTierStream; never cascade to another deployment after a chunk reached the client (duplicates the stream).
 - [AI response language](ai-response-language.md) — "wrong language" is usually the Google Translate DOM widget, not the model; require explicit-choice flag, default English; server must always pin language incl. deep mode.
 - [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.
+- [Prod data provisioning](prod-data-provisioning.md) — prod DB is unreachable from dev + read-only; seed privileged roles via login-time app grant (allowlist), not manual SQL.

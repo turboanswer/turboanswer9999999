@@ -158,6 +158,7 @@ async function sendBrevoWelcomeEmail(recipientEmail: string, firstName: string) 
 }
 
 const ADMIN_EMAILS = ["support@turboanswer.it.com", "lanetschantret12@gmail.com"];
+const RECEPTIONIST_EMAILS = ["receptionist@turboanswer.it.com"];
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000;
@@ -335,6 +336,13 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "An account with this email already exists" });
       }
 
+      // Receptionist accounts are pre-provisioned, not self-registered. Reject any attempt
+      // to claim a reserved receptionist email so the login-time role grant can never be
+      // captured by a newly self-registered account.
+      if (RECEPTIONIST_EMAILS.some(e => e.toLowerCase() === email.toLowerCase())) {
+        return res.status(400).json({ message: "This email is reserved. Please contact support." });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 12);
       const isAdminEmail = ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
 
@@ -488,7 +496,7 @@ export async function setupAuth(app: Express) {
         }
       }
 
-      const isAdminEmail = ADMIN_EMAILS.some(e => e.toLowerCase() === user.email.toLowerCase());
+      const isAdminEmail = ADMIN_EMAILS.some(e => e.toLowerCase() === (user.email || "").toLowerCase());
       if (isAdminEmail && !user.isEmployee) {
         await authStorage.upsertUser({
           ...user,
@@ -498,6 +506,15 @@ export async function setupAuth(app: Express) {
           canBanUsers: true,
         });
         user.isEmployee = true;
+      }
+
+      const isReceptionistEmail = RECEPTIONIST_EMAILS.some(e => e.toLowerCase() === (user.email || "").toLowerCase());
+      if (isReceptionistEmail && !(user as any).isReceptionist) {
+        await authStorage.upsertUser({
+          ...user,
+          isReceptionist: true,
+        });
+        (user as any).isReceptionist = true;
       }
 
       await authStorage.updateLastLogin(user.id);
