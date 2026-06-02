@@ -482,7 +482,7 @@ export default function Support() {
               <Phone size={28} color="white" />
             </div>
             <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', color: 'white' }}>Phone Support</h3>
-            <p style={{ color: '#9ca3af', marginBottom: '14px', fontSize: '14px' }}>Call us directly during business hours.</p>
+            <p style={{ color: '#9ca3af', marginBottom: '14px', fontSize: '14px' }}>Call us anytime — real people, around the clock.</p>
             <a href="tel:+18663206042" style={{ display: 'inline-block', padding: '10px 18px', backgroundColor: '#10b981', color: 'white', textDecoration: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}>
               (866) 320-6042
             </a>
@@ -495,10 +495,9 @@ export default function Support() {
             <h3 style={{ fontSize: '20px', fontWeight: 700, color: 'white', margin: 0 }}>Support Hours</h3>
           </div>
           <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '14px', lineHeight: 1.6 }}>
-            <p style={{ margin: '4px 0' }}><strong style={{ color: 'white' }}>Monday – Friday:</strong> 9:30 AM – 6:00 PM EST</p>
-            <p style={{ margin: '4px 0' }}><strong style={{ color: 'white' }}>Saturday – Sunday:</strong> Closed</p>
+            <p style={{ margin: '4px 0' }}><strong style={{ color: 'white' }}>Every day:</strong> 24 hours a day, 7 days a week</p>
             <p style={{ marginTop: '12px', fontSize: '13px' }}>
-              Tickets and email are accepted 24/7 — we'll respond as soon as possible.
+              Phone, tickets, and email are all available 24/7 — we'll respond as soon as possible.
             </p>
           </div>
         </div>

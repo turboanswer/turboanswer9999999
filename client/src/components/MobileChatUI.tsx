@@ -694,7 +694,7 @@ export default function MobileChatUI({
                 </a>
                 <div className="flex items-center gap-3 py-2">
                   <Clock className="h-4 w-4" style={{ color: TEXT_MUTED }} />
-                  <span className="text-xs" style={{ color: TEXT_MUTED }}>Mon–Fri, 9:30am–6pm EST</span>
+                  <span className="text-xs" style={{ color: TEXT_MUTED }}>Available 24/7</span>
                 </div>
               </div>
             </div>

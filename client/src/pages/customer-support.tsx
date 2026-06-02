@@ -60,10 +60,11 @@ export default function CustomerSupport() {
 
       <div className="relative mx-auto max-w-6xl px-4 py-10 sm:py-14">
         {/* Back */}
-        <Link href="/">
-          <button className="mb-10 flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300">
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to home
-          </button>
+        <Link
+          href="/"
+          className="mb-10 inline-flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to home
         </Link>
 
         {/* Hero */}

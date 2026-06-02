@@ -52,12 +52,12 @@ ${bodyText.split('\n').map(line => {
 <p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 320-6042</p>
-<p style="font-size:13px;color:#999;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Hours: 24/7 — always open</p>
 </div>
 </body>
 </html>`;
 
-  const textContent = `${bodyText}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 320-6042\nHours: Mon-Fri, 9:30 AM - 6:00 PM EST`;
+  const textContent = `${bodyText}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 320-6042\nHours: 24/7 — always open`;
 
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -5011,7 +5011,7 @@ You can log in at: ${appUrl}/login`,
 TurboAnswer Support
 Email: support@turboanswer.it.com
 Phone: (866) 320-6042
-Hours: Mon-Fri, 9:30 AM - 6:00 PM EST
+Hours: 24/7 — always open
 
 To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
 
@@ -5032,7 +5032,7 @@ ${template.bodyText.split('\n').map(line => {
 <p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 320-6042</p>
-<p style="font-size:13px;color:#999;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Hours: 24/7 — always open</p>
 </div>
 </body>
 </html>`;

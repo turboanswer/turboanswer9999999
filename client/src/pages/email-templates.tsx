@@ -190,7 +190,7 @@ export default function EmailTemplates() {
 TurboAnswer Support
 Email: support@turboanswer.it.com
 Phone: (866) 320-6042
-Hours: Mon-Fri, 9:30 AM - 6:00 PM EST
+Hours: 24/7 — always open
 
 To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
 

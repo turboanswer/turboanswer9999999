@@ -900,6 +900,7 @@ export default function LandingPage() {
             <a href="#capabilities" className="hover:text-white transition-colors">Capabilities</a>
             <a href="#liveops" className="hover:text-white transition-colors">Live Ops</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+            <Link href="/customer-support" className="hover:text-white transition-colors" data-testid="link-nav-support">Support</Link>
             <Link href={ctaHref}>
               <button className="cta-primary px-4 py-2 rounded-md text-sm font-medium" data-testid="button-nav-cta">
                 {ctaLabel}
@@ -917,6 +918,7 @@ export default function LandingPage() {
             {[["Network","#globe"],["Stack","#stack"],["Capabilities","#capabilities"],["Live Ops","#liveops"],["Pricing","#pricing"]].map(([l, h]) => (
               <a key={l} href={h} onClick={() => setMobileMenuOpen(false)} className="block text-sm py-1" style={{ color: TEXT }}>{l}</a>
             ))}
+            <Link href="/customer-support" onClick={() => setMobileMenuOpen(false)} className="block text-sm py-1" style={{ color: TEXT }}>Support</Link>
             <Link href={ctaHref}>
               <button className="cta-primary w-full py-2.5 rounded-md text-sm font-medium">{ctaLabel}</button>
             </Link>
@@ -1303,7 +1305,8 @@ export default function LandingPage() {
           </div>
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm" style={{ color: MUTED }}>
             <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="/support" className="hover:text-white transition-colors">Support</Link>
+            <Link href="/customer-support" className="hover:text-white transition-colors">Support</Link>
+            <Link href="/support" className="hover:text-white transition-colors">Help center</Link>
             <Link href="/business" className="hover:text-white transition-colors">For business</Link>
             <Link href="/beta" className="hover:text-white transition-colors">Beta program</Link>
           </div>

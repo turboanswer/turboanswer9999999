@@ -1275,7 +1275,7 @@ export default function Chat() {
                         </div>
                         <div>
                           <p className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Hours</p>
-                          <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Mon–Fri, 9:30am–6pm EST</p>
+                          <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Available 24/7</p>
                         </div>
                       </div>
                     </div>
