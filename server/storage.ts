@@ -1,4 +1,4 @@
-import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, deepThinkUsage, stackTraceDiagnoses, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode, type InsertStackTraceDiagnosis, type StackTraceDiagnosisRow } from "@shared/schema";
+import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, deepThinkUsage, stackTraceDiagnoses, escalations, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode, type InsertStackTraceDiagnosis, type StackTraceDiagnosisRow, type Escalation, type InsertEscalation } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -50,6 +50,9 @@ export interface IStorage {
   getAuditLogs(limit?: number): Promise<AuditLog[]>;
   getAuditLogsByUser(userId: string): Promise<AuditLog[]>;
   getAuditLogsByEmployee(employeeId: string): Promise<AuditLog[]>;
+  createEscalation(escalation: InsertEscalation): Promise<Escalation>;
+  getEscalations(limit?: number): Promise<Escalation[]>;
+  resolveEscalation(id: number, resolvedById: string): Promise<Escalation | undefined>;
 
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getConversation(id: number): Promise<Conversation | undefined>;
@@ -505,6 +508,31 @@ export class DatabaseStorage implements IStorage {
       .from(auditLogs)
       .where(eq(auditLogs.employeeId, employeeId))
       .orderBy(auditLogs.timestamp);
+  }
+
+  async createEscalation(insertEscalation: InsertEscalation): Promise<Escalation> {
+    const [escalation] = await db
+      .insert(escalations)
+      .values(insertEscalation)
+      .returning();
+    return escalation;
+  }
+
+  async getEscalations(limit: number = 200): Promise<Escalation[]> {
+    return await db
+      .select()
+      .from(escalations)
+      .orderBy(desc(escalations.createdAt))
+      .limit(limit);
+  }
+
+  async resolveEscalation(id: number, resolvedById: string): Promise<Escalation | undefined> {
+    const [escalation] = await db
+      .update(escalations)
+      .set({ status: "resolved", resolvedById, resolvedAt: new Date() })
+      .where(eq(escalations.id, id))
+      .returning();
+    return escalation;
   }
 
   async getAllConversationsWithMessages(): Promise<Array<{conversation: Conversation, messages: Message[]}>> {

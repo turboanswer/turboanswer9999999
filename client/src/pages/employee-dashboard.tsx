@@ -115,7 +115,23 @@ interface ActivityEntry {
   duration: number;
 }
 
-type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes' | 'emailTemplates' | 'tickets';
+interface EscalationData {
+  id: number;
+  raisedById: string;
+  raisedByEmail: string | null;
+  customerUserId: string | null;
+  customerEmail: string | null;
+  customerName: string | null;
+  summary: string;
+  severity: string;
+  status: string;
+  emailed: boolean;
+  resolvedById: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes' | 'emailTemplates' | 'tickets' | 'escalations';
 
 const EMAIL_TEMPLATES_LIST = [
   { id: 'account-banned', label: 'Account Banned', icon: Ban, color: '#ef4444', description: 'Notify a user that their account has been banned for violating guidelines.' },
@@ -313,6 +329,22 @@ export default function EmployeeDashboard() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/notifications'] });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/notifications/unread-count'] });
     },
+  });
+
+  const { data: escalations = [] } = useQuery<EscalationData[]>({
+    queryKey: ['/api/admin/escalations'],
+    refetchInterval: 20000,
+  });
+
+  const openEscalationCount = escalations.filter(e => e.status !== 'resolved').length;
+
+  const resolveEscalationMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('POST', `/api/admin/escalations/${id}/resolve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/escalations'] });
+      toast({ title: 'Escalation resolved' });
+    },
+    onError: () => toast({ title: 'Could not resolve escalation', variant: 'destructive' }),
   });
 
   const banMutation = useMutation({
@@ -655,6 +687,7 @@ export default function EmployeeDashboard() {
   const navItems = [
     { id: 'commandcenter' as TabType, icon: LayoutDashboard, label: 'Command Center' },
     { id: 'tickets' as TabType, icon: Ticket, label: 'Support Tickets' },
+    { id: 'escalations' as TabType, icon: Siren, label: 'Escalations', badge: openEscalationCount },
     { id: 'users' as TabType, icon: Users, label: 'Users' },
     { id: 'subscriptions' as TabType, icon: CreditCard, label: 'Subscriptions' },
     { id: 'system' as TabType, icon: Terminal, label: 'System & Debug' },
@@ -780,6 +813,15 @@ export default function EmployeeDashboard() {
 
         {activeTab === 'tickets' && (
           <TicketsTab currentUser={currentUser} users={users} />
+        )}
+
+        {activeTab === 'escalations' && (
+          <EscalationsTab
+            escalations={escalations}
+            onResolve={(id) => resolveEscalationMutation.mutate(id)}
+            resolvingId={resolveEscalationMutation.isPending ? (resolveEscalationMutation.variables as number) : null}
+            onViewUser={(userId) => { setSelectedUserId(userId); setActiveTab('users'); }}
+          />
         )}
 
         {activeTab === 'overview' && (
@@ -1478,6 +1520,98 @@ function AdminInviteTab({ currentUser }: { currentUser: any }) {
 }
 
 function CommandCenter(props: any) { return <CommandCenterAzure {...props} />; }
+function EscalationsTab({ escalations, onResolve, resolvingId, onViewUser }: {
+  escalations: EscalationData[];
+  onResolve: (id: number) => void;
+  resolvingId: number | null;
+  onViewUser: (userId: string) => void;
+}) {
+  const sevMeta: Record<string, { label: string; cls: string }> = {
+    urgent: { label: 'URGENT', cls: 'bg-red-700/40 text-red-300 border border-red-700/60' },
+    high: { label: 'HIGH', cls: 'bg-orange-700/40 text-orange-300 border border-orange-700/60' },
+    normal: { label: 'NORMAL', cls: 'bg-yellow-700/40 text-yellow-300 border border-yellow-700/60' },
+    low: { label: 'LOW', cls: 'bg-gray-700/40 text-gray-300 border border-gray-700/60' },
+  };
+  const open = escalations.filter(e => e.status !== 'resolved');
+  const resolved = escalations.filter(e => e.status === 'resolved');
+  const ordered = [...open, ...resolved];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Siren className="w-5 h-5 text-red-400" />
+        <h2 className="text-lg font-semibold text-white">Escalations</h2>
+        <span className="text-sm text-gray-400">{open.length} open · {resolved.length} resolved</span>
+      </div>
+
+      {ordered.length === 0 && (
+        <Card className="bg-gray-900/40 border-gray-800">
+          <CardContent className="p-8 text-center text-gray-400">
+            No escalations yet. Issues raised by the receptionist team will appear here.
+          </CardContent>
+        </Card>
+      )}
+
+      {ordered.map((e) => {
+        const meta = sevMeta[e.severity] || sevMeta.normal;
+        const isResolved = e.status === 'resolved';
+        return (
+          <Card key={e.id} className={`border ${isResolved ? 'bg-gray-900/30 border-gray-800 opacity-70' : 'bg-gray-900/60 border-gray-700'}`}>
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${meta.cls}`}>{meta.label}</span>
+                  {isResolved
+                    ? <span className="text-xs font-bold px-2 py-0.5 rounded bg-green-700/40 text-green-300 border border-green-700/60">RESOLVED</span>
+                    : <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-700/40 text-blue-300 border border-blue-700/60">OPEN</span>}
+                  {e.emailed && <span className="text-xs px-2 py-0.5 rounded bg-gray-700/40 text-gray-300 border border-gray-700/60">EMAILED</span>}
+                </div>
+                <span className="text-xs text-gray-500">{new Date(e.createdAt).toLocaleString()}</span>
+              </div>
+
+              <p className="text-sm text-white whitespace-pre-wrap">{e.summary}</p>
+
+              <div className="text-xs text-gray-400 space-y-0.5">
+                <div>
+                  Customer:{' '}
+                  {e.customerName || e.customerEmail ? (
+                    <>
+                      <span className="text-gray-200">{e.customerName || '(no name)'}</span>
+                      {e.customerEmail ? ` · ${e.customerEmail}` : ''}
+                      {e.customerUserId && (
+                        <button
+                          onClick={() => onViewUser(e.customerUserId!)}
+                          className="ml-2 text-blue-400 hover:text-blue-300 underline"
+                        >
+                          View user
+                        </button>
+                      )}
+                    </>
+                  ) : <span className="text-gray-500">(not specified)</span>}
+                </div>
+                <div>Raised by: <span className="text-gray-200">{e.raisedByEmail || e.raisedById}</span></div>
+              </div>
+
+              {!isResolved && (
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={() => onResolve(e.id)}
+                    disabled={resolvingId === e.id}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {resolvingId === e.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle className="w-4 h-4 mr-1" /> Mark resolved</>}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 function OverviewTab({ stats, systemHealth, users, unreadCount, onTabChange }: {
   stats: AdminStats | undefined;
   systemHealth: SystemHealth | undefined;

@@ -91,6 +91,24 @@ const NEW_TABLES: Array<{ name: string; ddl: string }> = [
       created_at TIMESTAMP NOT NULL DEFAULT now()
     )`,
   },
+  {
+    name: "escalations",
+    ddl: `CREATE TABLE IF NOT EXISTS escalations (
+      id SERIAL PRIMARY KEY,
+      raised_by_id TEXT NOT NULL,
+      raised_by_email TEXT,
+      customer_user_id TEXT,
+      customer_email TEXT,
+      customer_name TEXT,
+      summary TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'normal',
+      status TEXT NOT NULL DEFAULT 'open',
+      emailed BOOLEAN NOT NULL DEFAULT false,
+      resolved_by_id TEXT,
+      resolved_at TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT now()
+    )`,
+  },
 ];
 
 async function tableExists(table: string): Promise<boolean> {

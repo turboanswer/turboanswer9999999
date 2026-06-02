@@ -3853,6 +3853,21 @@ Formatting rules:
       );
 
       try {
+        await storage.createEscalation({
+          raisedById: actorUserId,
+          raisedByEmail: actor?.email || null,
+          customerUserId: userId || null,
+          customerEmail: targetUser?.email || null,
+          customerName: targetUser ? ([targetUser.firstName, targetUser.lastName].filter(Boolean).join(' ') || null) : null,
+          summary: String(summary).trim(),
+          severity: sev,
+          emailed: !!messageId,
+        });
+      } catch (e) {
+        console.error('[Receptionist Escalate] Failed to save escalation row:', e);
+      }
+
+      try {
         await storage.createAuditLog({
           employeeId: actorUserId,
           employeeUsername: 'receptionist',
@@ -3875,6 +3890,32 @@ Formatting rules:
     } catch (error: any) {
       console.error('[Receptionist] Escalate error:', error.message);
       res.status(500).json({ error: 'Failed to send escalation' });
+    }
+  });
+
+  // Owner/admin escalations inbox: list every escalation raised by receptionists.
+  app.get('/api/admin/escalations', isAdmin, async (req: any, res) => {
+    try {
+      const escalations = await storage.getEscalations(200);
+      res.json(escalations);
+    } catch (error: any) {
+      console.error('[Admin] List escalations error:', error.message);
+      res.status(500).json({ error: 'Failed to load escalations' });
+    }
+  });
+
+  // Mark an escalation as resolved.
+  app.post('/api/admin/escalations/:id/resolve', isAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid escalation id' });
+      const resolverId = req.user.claims.sub;
+      const updated = await storage.resolveEscalation(id, resolverId);
+      if (!updated) return res.status(404).json({ error: 'Escalation not found' });
+      res.json(updated);
+    } catch (error: any) {
+      console.error('[Admin] Resolve escalation error:', error.message);
+      res.status(500).json({ error: 'Failed to resolve escalation' });
     }
   });
 

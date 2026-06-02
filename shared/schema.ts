@@ -169,6 +169,37 @@ export const insertAuditLogSchema = createInsertSchema(auditLogs).pick({
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogs.$inferSelect;
 
+// Escalations raised by the receptionist team to engineering
+export const escalations = pgTable("escalations", {
+  id: serial("id").primaryKey(),
+  raisedById: text("raised_by_id").notNull(),
+  raisedByEmail: text("raised_by_email"),
+  customerUserId: text("customer_user_id"),
+  customerEmail: text("customer_email"),
+  customerName: text("customer_name"),
+  summary: text("summary").notNull(),
+  severity: text("severity").notNull().default("normal"),
+  status: text("status").notNull().default("open"),
+  emailed: boolean("emailed").notNull().default(false),
+  resolvedById: text("resolved_by_id"),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertEscalationSchema = createInsertSchema(escalations).pick({
+  raisedById: true,
+  raisedByEmail: true,
+  customerUserId: true,
+  customerEmail: true,
+  customerName: true,
+  summary: true,
+  severity: true,
+  emailed: true,
+});
+
+export type InsertEscalation = z.infer<typeof insertEscalationSchema>;
+export type Escalation = typeof escalations.$inferSelect;
+
 // Beta Testing
 export const betaApplications = pgTable("beta_applications", {
   id: serial("id").primaryKey(),
