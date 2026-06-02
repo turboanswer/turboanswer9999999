@@ -3723,6 +3723,286 @@ Formatting rules:
     }
   });
 
+  // Cancel a customer's subscription (mirrors the admin cancel: stops PayPal
+  // billing and downgrades to free).
+  app.post('/api/receptionist/cancel-subscription', isReceptionistOrAdmin, async (req: any, res) => {
+    try {
+      const actorUserId = req.user.claims.sub;
+      const { userId, reason } = req.body;
+      if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+      if (targetUser.subscriptionTier === 'enterprise') {
+        const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
+        await storage.deactivateEnterpriseCode(userId);
+        console.log(`[Receptionist Cancel] Revoked enterprise access for ${revokedUsers.length} team members`);
+      }
+
+      if (targetUser.paypalSubscriptionId) {
+        try {
+          await cancelSubscription(targetUser.paypalSubscriptionId, 'Receptionist cancelled subscription');
+        } catch (e: any) {
+          console.error('[Receptionist Cancel] PayPal cancel error:', e.message);
+        }
+      }
+
+      await storage.cancelUserSubscription(userId);
+
+      try {
+        await storage.createAuditLog({
+          employeeId: actorUserId,
+          employeeUsername: 'receptionist',
+          action: 'cancel_subscription',
+          targetUserId: userId,
+          targetUsername: targetUser.email || userId,
+          reason: reason || 'Receptionist cancelled subscription',
+          details: JSON.stringify({ previousTier: targetUser.subscriptionTier, via: 'receptionist' }),
+        });
+      } catch (e) {
+        console.error('[Receptionist Cancel] Audit log error:', e);
+      }
+
+      console.log(`[Receptionist] Cancelled subscription for ${userId}`);
+      res.json({ success: true, message: 'Subscription cancelled' });
+    } catch (error: any) {
+      console.error('[Receptionist] Cancel subscription error:', error.message);
+      res.status(500).json({ error: 'Failed to cancel subscription' });
+    }
+  });
+
+  // View a customer's recent chat activity so the receptionist can understand
+  // the issue they're calling about. Content is truncated for safety.
+  app.get('/api/receptionist/user-activity/:userId', isReceptionistOrAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+      const targetUser = await storage.getUser(userId);
+      if (!targetUser) return res.status(404).json({ error: 'User not found' });
+
+      const allConvos = await storage.getConversationsByUser(userId);
+      const convos = allConvos
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 15);
+
+      const result = [];
+      for (const c of convos) {
+        const msgs = await storage.getMessagesByConversation(c.id);
+        const recent = msgs.slice(-12).map((m) => ({
+          role: m.role,
+          content: (m.content || '').slice(0, 1500),
+          createdAt: m.createdAt,
+        }));
+        result.push({ id: c.id, title: c.title, createdAt: c.createdAt, messages: recent });
+      }
+
+      res.json({
+        user: { id: targetUser.id, email: targetUser.email, firstName: targetUser.firstName, lastName: targetUser.lastName },
+        conversations: result,
+      });
+    } catch (error: any) {
+      console.error('[Receptionist] User activity error:', error.message);
+      res.status(500).json({ error: 'Failed to fetch user activity' });
+    }
+  });
+
+  // Escalate a customer issue to engineering by emailing support@turboanswer.it.com.
+  app.post('/api/receptionist/escalate', isReceptionistOrAdmin, async (req: any, res) => {
+    try {
+      const actorUserId = req.user.claims.sub;
+      const { userId, summary, severity } = req.body;
+      if (!summary || !String(summary).trim()) return res.status(400).json({ error: 'A description of the issue is required' });
+
+      const sev = ['low', 'normal', 'high', 'urgent'].includes(severity) ? severity : 'normal';
+      const actor = await storage.getUser(actorUserId);
+
+      let customerBlock = 'Customer: (not specified)';
+      let targetUser: any = null;
+      if (userId) {
+        targetUser = await storage.getUser(userId);
+        if (targetUser) {
+          const name = [targetUser.firstName, targetUser.lastName].filter(Boolean).join(' ') || '(no name)';
+          customerBlock = [
+            `Customer name: ${name}`,
+            `Customer email: ${targetUser.email || '(none)'}`,
+            `Account ID: ${targetUser.id}`,
+            `Plan: ${targetUser.subscriptionTier || 'free'} (${targetUser.subscriptionStatus || 'free'})`,
+          ].join('\n');
+        }
+      }
+
+      const body = [
+        `A new escalation has been raised by the receptionist team.`,
+        ``,
+        `Severity: ${sev.toUpperCase()}`,
+        `Raised by: ${actor?.email || actorUserId}`,
+        ``,
+        customerBlock,
+        ``,
+        `Issue summary:`,
+        String(summary).trim(),
+      ].join('\n');
+
+      const messageId = await sendBrevoEmail(
+        'support@turboanswer.it.com',
+        'TurboAnswer Engineering',
+        `[Escalation - ${sev.toUpperCase()}] ${targetUser?.email || 'Customer issue'}`,
+        body,
+      );
+
+      try {
+        await storage.createAuditLog({
+          employeeId: actorUserId,
+          employeeUsername: 'receptionist',
+          action: 'escalate_issue',
+          targetUserId: userId || 'n/a',
+          targetUsername: targetUser?.email || 'n/a',
+          reason: String(summary).slice(0, 500),
+          details: JSON.stringify({ severity: sev, emailed: !!messageId }),
+        });
+      } catch (e) {
+        console.error('[Receptionist Escalate] Audit log error:', e);
+      }
+
+      if (!messageId) {
+        return res.status(502).json({ error: 'Escalation logged but the email could not be sent. Please notify engineering directly.' });
+      }
+
+      console.log(`[Receptionist] Escalation emailed to support (severity ${sev})`);
+      res.json({ success: true, message: 'Escalation sent to engineering.' });
+    } catch (error: any) {
+      console.error('[Receptionist] Escalate error:', error.message);
+      res.status(500).json({ error: 'Failed to send escalation' });
+    }
+  });
+
+  // AI help assistant: receptionist types an issue, we rank the 1,000 procedures
+  // by keyword overlap, hand the top candidates to GPT-5.1 Codex, and return the
+  // best-matching procedure(s) plus short guidance. Falls back to keyword matches.
+  app.post('/api/receptionist/assistant', isReceptionistOrAdmin, async (req: any, res) => {
+    try {
+      const { issue } = req.body;
+      if (!issue || !String(issue).trim()) return res.status(400).json({ error: 'Please describe the issue.' });
+      const query = String(issue).trim().slice(0, 1000);
+
+      const { PROCEDURES } = await import('@shared/procedures');
+
+      const stop = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'and', 'or', 'on', 'in', 'is', 'it', 'my', 'i', 'with', 'when', 'how', 'do', 'can', 'cant', 'not', 'customer']);
+      const qTokens = query.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !stop.has(w));
+
+      const scored = PROCEDURES.map((p) => {
+        const hay = `${p.title} ${p.when} ${(p.keywords || []).join(' ')} ${p.category}`.toLowerCase();
+        let score = 0;
+        for (const t of qTokens) {
+          if (hay.includes(t)) score += 1;
+          if ((p.title || '').toLowerCase().includes(t)) score += 1;
+        }
+        return { p, score };
+      }).sort((a, b) => b.score - a.score);
+
+      const candidates = scored.filter((s) => s.score > 0).slice(0, 12).map((s) => s.p);
+      const fallback = (candidates.length ? candidates : scored.slice(0, 5).map((s) => s.p)).slice(0, 5);
+
+      // The exact procedures shown to the model — match ids are validated against
+      // this subset so the model cannot return ids outside the candidate list.
+      const candidateProcs = candidates.length ? candidates : scored.slice(0, 8).map((s) => s.p);
+      const candidateIdSet = new Set(candidateProcs.map((p) => p.id));
+      const candidateList = candidateProcs
+        .map((p) => `#${p.id} [${p.category}/${p.difficulty}] ${p.title} — ${p.when}`)
+        .join('\n');
+
+      const system = `You are the receptionist's help assistant for TurboAnswer, powered by GPT-5.1 Codex. A receptionist describes a customer's issue and you pick the best-matching procedure(s) from the provided list and give brief, plain guidance.
+
+Rules:
+- Only choose ids that appear in the candidate list.
+- Pick the 1-3 most relevant procedure ids.
+- Guidance must be 1-3 short sentences, plain text, no markdown, no asterisks, no headings.
+- Reply with ONLY a JSON object: {"matchIds": [numbers], "guidance": "..."}`;
+
+      const userMsg = `Customer issue: ${query}\n\nCandidate procedures:\n${candidateList}`;
+
+      const models = ['openai/gpt-5.1-codex', 'openai/gpt-5.1-codex-max', 'openai/gpt-5-codex', 'openai/gpt-4.1', 'openai/gpt-4o'];
+      let parsed: { matchIds?: number[]; guidance?: string } | null = null;
+      let raw: string | null = null;
+
+      // Primary: GPT-5.1 Codex via OpenRouter (reasoning models need a larger
+      // token budget than a plain completion).
+      const orKey = process.env.OPENROUTER_API_KEY;
+      if (orKey) {
+        for (const model of models.slice(0, 3)) {
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 40000);
+            const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${orKey}` },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: 'system', content: system },
+                  { role: 'user', content: userMsg },
+                ],
+                max_tokens: 2500,
+              }),
+              signal: ctrl.signal,
+            });
+            clearTimeout(timer);
+            if (r.ok) {
+              const data: any = await r.json();
+              const content = data?.choices?.[0]?.message?.content;
+              if (content && content.trim()) { raw = content; break; }
+            } else {
+              console.warn(`[Receptionist Assistant] OpenRouter ${model} HTTP ${r.status}`);
+            }
+          } catch (e: any) {
+            console.warn(`[Receptionist Assistant] OpenRouter ${model} failed: ${e.message}`);
+          }
+        }
+      }
+
+      // Secondary: shared direct router (Azure/OpenAI/Gemini) if OpenRouter is unavailable.
+      if (!raw) {
+        try {
+          const { callDirect } = await import('./services/direct-router.js');
+          for (const m of models) {
+            raw = await callDirect(m, [
+              { role: 'system', content: system },
+              { role: 'user', content: userMsg },
+            ], { maxTokens: 2000, timeoutMs: 30000 });
+            if (raw && raw.trim()) break;
+          }
+        } catch (e: any) {
+          console.error('[Receptionist Assistant] AI error:', e.message);
+        }
+      }
+
+      if (raw) {
+        try {
+          const match = raw.match(/\{[\s\S]*\}/);
+          if (match) parsed = JSON.parse(match[0]);
+        } catch { /* fall back to keyword matches */ }
+      }
+
+      let matchIds = (parsed?.matchIds || []).filter((id) => candidateIdSet.has(id)).slice(0, 3);
+      if (matchIds.length === 0) matchIds = fallback.map((p) => p.id).slice(0, 3);
+
+      const matches = matchIds
+        .map((id) => PROCEDURES.find((p) => p.id === id))
+        .filter(Boolean)
+        .map((p: any) => ({ id: p.id, title: p.title, category: p.category, difficulty: p.difficulty }));
+
+      const guidance = (parsed?.guidance && String(parsed.guidance).trim())
+        || 'Here are the closest matching procedures. Open one to see the exact steps.';
+
+      res.json({ guidance, matches });
+    } catch (error: any) {
+      console.error('[Receptionist] Assistant error:', error.message);
+      res.status(500).json({ error: 'Assistant failed. Please use the Procedures search instead.' });
+    }
+  });
+
   app.post('/api/admin/cancel-user-subscription', isAdmin, async (req: any, res) => {
     try {
       const adminUserId = req.user.claims.sub;

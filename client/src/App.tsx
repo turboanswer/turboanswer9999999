@@ -79,6 +79,16 @@ const CodeCustomizerGated = gate("Code Customizer", CodeCustomizer);
 const TrialChatGated = gate("Trial Chat", TrialChat);
 
 function AuthenticatedRouter() {
+  const { user } = useAuth();
+  const [location, setLocation] = useLocation();
+  const isReceptionist = !!(user as any)?.isReceptionist && !(user as any)?.isEmployee;
+
+  useEffect(() => {
+    if (isReceptionist && ["/", "/home", "/chat"].includes(location)) {
+      setLocation("/receptionist");
+    }
+  }, [isReceptionist, location, setLocation]);
+
   return (
     <Switch>
       <Route path="/" component={isNativeMobile ? LandingPage : LandingPage} />
