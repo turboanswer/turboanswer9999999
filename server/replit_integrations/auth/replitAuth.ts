@@ -202,7 +202,10 @@ export function getSession() {
     cookie: {
       httpOnly: true,
       secure: process.env.REPL_SLUG ? true : process.env.NODE_ENV === "production",
-      sameSite: (process.env.REPL_SLUG || process.env.NODE_ENV === "production") ? ("none" as const) : ("lax" as const),
+      // Frontend and API are same-origin, so use Lax. SameSite=None cookies are
+      // blocked as third-party by modern browsers, which silently breaks the
+      // session (login appears to fail for everyone) in production.
+      sameSite: "lax" as const,
       maxAge: sessionTtl,
     },
   });

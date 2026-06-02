@@ -229,7 +229,10 @@ const isProd = process.env.NODE_ENV === 'production' || !!process.env.REPL_SLUG;
 const csrfCookieOptions = {
   httpOnly: false,
   secure: isProd,
-  sameSite: isProd ? ('none' as const) : ('lax' as const),
+  // Frontend and API are same-origin — use Lax. SameSite=None is blocked as a
+  // third-party cookie by modern browsers, which breaks CSRF validation (login
+  // returns 403 and shows "Invalid credentials") in production only.
+  sameSite: 'lax' as const,
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/',
 };
