@@ -257,3 +257,9 @@ id = "elMWUnmD7OO1ZBb6ptYH0"
 uri = "file://build-output/PLAY-UPLOAD-aab-only.zip"
 type = "unspecified"
 title = "Play upload — unzip, then upload the .aab inside"
+
+[[outputs]]
+id = "hMzy6PvKn0HPwfNvm_cib"
+uri = "file://RECEPTIONIST_PORTAL_GUIDE.md"
+type = "text"
+title = "Receptionist Portal — Team Guide"
