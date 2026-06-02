@@ -1,6 +1,6 @@
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
+- [Azure runtime DB vs Neon](azure-runtime-db.md) — runtime DB is Azure; new tables/columns must go in server/db-migrations.ts (db:push only hits Neon, not runtime).
 - [Azure Foundry GPT-5 params](azure-foundry-gpt5.md) — GPT-5.x needs max_completion_tokens (not max_tokens) and default temperature; mini/nano live, pro unsupported in this resource.
-- [Azure runtime DB vs db:push](azure-runtime-db.md) — live app uses Azure DB (db-cutover), but db:push/sandbox executeSql hit Neon; add schema via server/db-migrations.ts startup migration.
 - [Android build env & AAB bloat](android-build-env.md) — rebuild recipe + traps: users see Azure-served site (server.url) not APK assets so must redeploy web; client/index.html ships a replit dev-banner; client/public binaries bloat the AAB; SDK gets wiped between sessions.
 - [Android signing / Play upload key](android-signing.md) — "bundle isn't valid" = wrong signing key; multi-key history, lost original, use upload-key reset not delete/republish.
 - [PayPal tier-sync IDOR](paypal-sync-ownership.md) — /api/sync-subscription must verify custom_id.userId == caller and take tier only from custom_id, never client.

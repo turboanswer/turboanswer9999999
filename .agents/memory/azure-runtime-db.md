@@ -1,14 +1,12 @@
 ---
-name: Azure runtime DB vs db:push/sandbox
-description: The running app uses the Azure DB, but db:push and the code_execution executeSql hit a different (Neon) DB — schema/data changes must target Azure.
+name: Azure runtime DB vs Neon (db:push)
+description: Why new tables/columns must be registered in server/db-migrations.ts, not just shared/schema.ts + db:push
 ---
 
-At startup `server/db-cutover.ts` overrides `process.env.DATABASE_URL` with the `AZURE_DATABASE_URL` secret (logged as `[db-cutover] ... routing DATABASE_URL to Azure`). So the live app talks to the Azure Postgres, NOT the default Neon DB.
+The app's runtime DB is **Azure Postgres**, not Neon. `server/db-cutover` reroutes `DATABASE_URL` to `AZURE_DATABASE_URL` at process start.
 
-**Why it bites:** `npm run db:push` (drizzle.config reads the pre-override `DATABASE_URL`) and the `code_execution` `executeSql` helper both connect to the default Neon DB. Changes applied there are invisible to the running app, producing runtime errors like `column "x" does not exist` even though the push "succeeded".
+**Rule:** Any new table or column must be added to `server/db-migrations.ts` (`NEW_TABLES` for tables, `USERS_COLUMNS`/column arrays for columns) using idempotent `CREATE TABLE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`. These run at server startup against the live Azure DB.
 
-**How to apply:**
-- To add a column/table for the live app, add it to the curated startup migration `server/db-migrations.ts` (`USERS_COLUMNS` / `EXTRA_TABLE_COLUMNS` / `NEW_TABLES`, all `ADD COLUMN IF NOT EXISTS`). Restarting the app runs it against Azure. This is the project's intended pattern (prod DBs never get `drizzle-kit push`).
-- Do NOT run `db:push --force` against Azure to fix drift — drizzle-kit wants destructive constraint drops because Azure's schema differs from the Drizzle model.
-- To run one-off SQL/seed against the live DB, run a script with `DATABASE_URL="$AZURE_DATABASE_URL" node script.mjs` (pass the secret by env-var name, never print its value).
-- Session cookies are `secure: true` + `sameSite: none` + `trust proxy`, so curl over plain `http://localhost` gets NO session cookie. Add `-H "X-Forwarded-Proto: https"` to simulate the Replit proxy when testing login via curl.
+**Why:** `npm run db:push` (drizzle-kit) targets the Neon `DATABASE_URL` from the build env, **not** the Azure runtime DB. So schema changes pushed via drizzle-kit never reach production/runtime. Editing only `shared/schema.ts` makes the types compile but the column/table won't exist at runtime → runtime "column/relation does not exist" errors.
+
+**How to apply:** When adding a model, do all three: (1) `shared/schema.ts` (types), (2) `server/storage.ts` (CRUD), (3) `server/db-migrations.ts` (startup DDL). Verify with a direct `psql "$AZURE_DATABASE_URL"` query. Note the startup migration counter log can read "tables created: 0" even when CREATE IF NOT EXISTS just ran — confirm via psql, not the counter.
