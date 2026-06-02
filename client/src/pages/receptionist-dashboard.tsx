@@ -310,11 +310,12 @@ export default function ReceptionistDashboard() {
       {tab === "assistant" && (
         <div className="p-4 sm:p-6 max-w-3xl">
           <p className="text-sm text-gray-400 mb-4">
-            Type what the customer is having trouble with. The assistant (powered by GPT-5.1 Codex)
-            finds the exact procedure to follow.
+            Got a hard question? Ask anything — a customer issue or a backend/technical
+            problem. The assistant (powered by Azure Foundry) knows TurboAnswer's whole
+            system and helps you troubleshoot, plus points you to the exact procedure.
           </p>
           <Textarea
-            placeholder="e.g. Customer was charged twice and wants a refund"
+            placeholder="e.g. Customer was charged twice — or — why would Azure Foundry calls suddenly fail?"
             value={issue}
             onChange={(e) => setIssue(e.target.value)}
             className="bg-[#141416] border-[#2a2a2e] text-white min-h-[90px]"
@@ -346,6 +347,7 @@ export default function ReceptionistDashboard() {
                 <p className="text-xs font-semibold text-purple-300 mb-1 uppercase tracking-wide">Guidance</p>
                 <p className="text-sm text-gray-100">{result.guidance}</p>
               </div>
+              {result.matches.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">Matching procedures</p>
                 <div className="space-y-2">
@@ -365,6 +367,7 @@ export default function ReceptionistDashboard() {
                   ))}
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>

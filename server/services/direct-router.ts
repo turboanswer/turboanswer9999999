@@ -118,8 +118,17 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
       const ep = process.env.AZURE_OPENAI_ENDPOINT;
       if (!key || !ep) { console.warn('[Router/Azure] missing AZURE_OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT'); return null; }
       const deployment = azureDeployment(r.modelName);
-      const body: any = { messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3 };
+      // GPT-5 family (reasoning models) require `max_completion_tokens` instead
+      // of `max_tokens` and only support the default temperature.
+      const isReasoning = /gpt-5/.test(r.modelName.toLowerCase());
+      const body: any = { messages };
       if (isAzureFoundry()) body.model = deployment;
+      if (isReasoning) {
+        body.max_completion_tokens = opts.maxTokens ?? 1500;
+      } else {
+        body.max_tokens = opts.maxTokens ?? 1500;
+        body.temperature = opts.temperature ?? 0.3;
+      }
       if (opts.jsonMode) body.response_format = { type: 'json_object' };
       const res = await fetch(azureUrl(deployment, 'chat/completions'), {
         method: 'POST',
@@ -223,8 +232,16 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
       const ep = process.env.AZURE_OPENAI_ENDPOINT;
       if (!key || !ep) return null;
       const deployment = azureDeployment(r.modelName);
-      const body: any = { messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, stream: true };
+      // GPT-5 family: use max_completion_tokens and the default temperature.
+      const isReasoning = /gpt-5/.test(r.modelName.toLowerCase());
+      const body: any = { messages, stream: true };
       if (isAzureFoundry()) body.model = deployment;
+      if (isReasoning) {
+        body.max_completion_tokens = opts.maxTokens ?? 1500;
+      } else {
+        body.max_tokens = opts.maxTokens ?? 1500;
+        body.temperature = opts.temperature ?? 0.3;
+      }
       const res = await fetch(azureUrl(deployment, 'chat/completions'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'api-key': key },

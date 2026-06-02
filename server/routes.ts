@@ -3878,9 +3878,10 @@ Formatting rules:
     }
   });
 
-  // AI help assistant: receptionist types an issue, we rank the 1,000 procedures
-  // by keyword overlap, hand the top candidates to GPT-5.1 Codex, and return the
-  // best-matching procedure(s) plus short guidance. Falls back to keyword matches.
+  // AI help assistant: receptionist types an issue or a hard backend question.
+  // We rank the 1,000 procedures by keyword overlap, hand the top candidates to
+  // Azure Foundry (GPT-5.4), and return the best-matching procedure(s) plus a
+  // troubleshooting answer. Falls back to keyword matches when the AI is down.
   app.post('/api/receptionist/assistant', isReceptionistOrAdmin, async (req: any, res) => {
     try {
       const { issue } = req.body;
@@ -3913,69 +3914,42 @@ Formatting rules:
         .map((p) => `#${p.id} [${p.category}/${p.difficulty}] ${p.title} — ${p.when}`)
         .join('\n');
 
-      const system = `You are the receptionist's help assistant for TurboAnswer, powered by GPT-5.1 Codex. A receptionist describes a customer's issue and you pick the best-matching procedure(s) from the provided list and give brief, plain guidance.
+      const system = `You are the TurboAnswer receptionist's expert help assistant, running on Azure Foundry. A receptionist asks about a customer issue OR a hard technical/backend question, and you help them troubleshoot.
 
-Rules:
-- Only choose ids that appear in the candidate list.
-- Pick the 1-3 most relevant procedure ids.
-- Guidance must be 1-3 short sentences, plain text, no markdown, no asterisks, no headings.
+You know the TurboAnswer system end to end:
+- Frontend: React 18 + TypeScript + Vite, Tailwind + shadcn/ui, TanStack Query, Wouter routing. Mobile app via Capacitor (Android).
+- Backend: Express.js + TypeScript (Node ES modules), RESTful API.
+- Database: PostgreSQL hosted on Azure, Drizzle ORM, schema in shared/schema.ts.
+- AI: multi-model system routed through Azure Foundry (GPT-5.4 family), with Gemini, Anthropic and others for synthesis/fallback. Streaming responses.
+- Payments: PayPal Subscriptions API and Stripe. Tiers: Free, Pro, Research, Enterprise, plus promo codes and enterprise team codes.
+- Email: Brevo (transactional). SMS verification: Twilio.
+- Security: bcrypt passwords, CSRF protection, tiered rate limiting, HTTP security headers, intrusion detection, conversation ownership enforcement, AES-256-GCM encryption for the Crisis Support Bot.
+- Features: multi-model chat, voice assistant "Turbo", AI Scanner (vision), AI Video (Veo), Code Studio IDE, Media Studio, Collaborative AI Rooms, Enterprise Workgroups, embeddable widget, support tickets, fact-check chain.
+
+How to answer:
+- If a procedure in the candidate list matches the issue, pick the 1-3 best ids so the receptionist can open the exact steps.
+- For hard technical/backend questions (errors, integrations, why something behaves a certain way, how to troubleshoot a failure), give a concrete, practical troubleshooting answer based on the architecture above — likely cause first, then what to check or do. If no procedure fits, return an empty matchIds array.
+- Guidance: plain text, no markdown, no asterisks, no headings. Be clear and direct; 1-4 short sentences.
 - Reply with ONLY a JSON object: {"matchIds": [numbers], "guidance": "..."}`;
 
-      const userMsg = `Customer issue: ${query}\n\nCandidate procedures:\n${candidateList}`;
+      const userMsg = `Receptionist asks: ${query}\n\nCandidate procedures:\n${candidateList || '(none matched)'}`;
 
-      const models = ['openai/gpt-5.1-codex', 'openai/gpt-5.1-codex-max', 'openai/gpt-5-codex', 'openai/gpt-4.1', 'openai/gpt-4o'];
+      // Azure Foundry only (GPT-5.4 family). No OpenRouter.
+      const models = ['azure/gpt-5-4-mini', 'azure/gpt-5-4-nano'];
       let parsed: { matchIds?: number[]; guidance?: string } | null = null;
       let raw: string | null = null;
 
-      // Primary: GPT-5.1 Codex via OpenRouter (reasoning models need a larger
-      // token budget than a plain completion).
-      const orKey = process.env.OPENROUTER_API_KEY;
-      if (orKey) {
-        for (const model of models.slice(0, 3)) {
-          try {
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 40000);
-            const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${orKey}` },
-              body: JSON.stringify({
-                model,
-                messages: [
-                  { role: 'system', content: system },
-                  { role: 'user', content: userMsg },
-                ],
-                max_tokens: 2500,
-              }),
-              signal: ctrl.signal,
-            });
-            clearTimeout(timer);
-            if (r.ok) {
-              const data: any = await r.json();
-              const content = data?.choices?.[0]?.message?.content;
-              if (content && content.trim()) { raw = content; break; }
-            } else {
-              console.warn(`[Receptionist Assistant] OpenRouter ${model} HTTP ${r.status}`);
-            }
-          } catch (e: any) {
-            console.warn(`[Receptionist Assistant] OpenRouter ${model} failed: ${e.message}`);
-          }
+      try {
+        const { callDirect } = await import('./services/direct-router.js');
+        for (const m of models) {
+          raw = await callDirect(m, [
+            { role: 'system', content: system },
+            { role: 'user', content: userMsg },
+          ], { maxTokens: 1200, timeoutMs: 40000 });
+          if (raw && raw.trim()) break;
         }
-      }
-
-      // Secondary: shared direct router (Azure/OpenAI/Gemini) if OpenRouter is unavailable.
-      if (!raw) {
-        try {
-          const { callDirect } = await import('./services/direct-router.js');
-          for (const m of models) {
-            raw = await callDirect(m, [
-              { role: 'system', content: system },
-              { role: 'user', content: userMsg },
-            ], { maxTokens: 2000, timeoutMs: 30000 });
-            if (raw && raw.trim()) break;
-          }
-        } catch (e: any) {
-          console.error('[Receptionist Assistant] AI error:', e.message);
-        }
+      } catch (e: any) {
+        console.error('[Receptionist Assistant] Azure AI error:', e.message);
       }
 
       if (raw) {
@@ -3985,8 +3959,11 @@ Rules:
         } catch { /* fall back to keyword matches */ }
       }
 
+      const aiAnswered = !!(parsed && parsed.guidance && String(parsed.guidance).trim());
       let matchIds = (parsed?.matchIds || []).filter((id) => candidateIdSet.has(id)).slice(0, 3);
-      if (matchIds.length === 0) matchIds = fallback.map((p) => p.id).slice(0, 3);
+      // Only force keyword fallback matches when the AI gave us no usable answer
+      // at all — a hard backend question may have a real answer but no procedure.
+      if (matchIds.length === 0 && !aiAnswered) matchIds = fallback.map((p) => p.id).slice(0, 3);
 
       const matches = matchIds
         .map((id) => PROCEDURES.find((p) => p.id === id))
