@@ -78,7 +78,7 @@ async function sendBrevoOtpEmail(recipientEmail: string, recipientName: string, 
 <p style="color:#e2e2e2;margin:0 0 12px;">If you did not request a password reset, you can safely ignore this email. Your password will not change.</p>
 <hr style="border:none;border-top:1px solid #333;margin:24px 0;">
 <p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
-<p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com | Phone: (866) 467-7269</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com | Phone: (866) 320-6042</p>
 </div>
 </body>
 </html>`;
@@ -133,7 +133,7 @@ async function sendBrevoWelcomeEmail(recipientEmail: string, firstName: string) 
   <p style="margin:0 0 6px;color:#999;font-size:13px;">Need help? Reply to this email or visit our support page.</p>
   <p style="margin:0;color:#999;font-size:13px;">We're excited to have you onboard!</p>
   <hr style="border:none;border-top:1px solid #333;margin:24px 0;">
-  <p style="font-size:12px;color:#777;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 467-7269</p>
+  <p style="font-size:12px;color:#777;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 320-6042</p>
 </div>
 </body>
 </html>`;
@@ -146,7 +146,7 @@ async function sendBrevoWelcomeEmail(recipientEmail: string, firstName: string) 
         to: [{ email: recipientEmail, name: firstName }],
         subject: `Welcome to TurboAnswer, ${name}! 🚀`,
         htmlContent: html,
-        textContent: `Hi ${name},\n\nWelcome to TurboAnswer! Here's how to get started:\n\n1. Ask anything — get expert-level answers in seconds.\n2. AI Scanner — upload images to read, transcribe, or summarize them.\n3. Code Studio — write and run code with full AI help.\n4. Upgrade — go Pro, Research, or Enterprise for unlimited access.\n5. Settings — customize your language, response style, and more.\n\nVisit https://turbo-answer.replit.app to start chatting.\n\n-- TurboAnswer Support\nsupport@turboanswer.it.com | (866) 467-7269`,
+        textContent: `Hi ${name},\n\nWelcome to TurboAnswer! Here's how to get started:\n\n1. Ask anything — get expert-level answers in seconds.\n2. AI Scanner — upload images to read, transcribe, or summarize them.\n3. Code Studio — write and run code with full AI help.\n4. Upgrade — go Pro, Research, or Enterprise for unlimited access.\n5. Settings — customize your language, response style, and more.\n\nVisit https://turbo-answer.replit.app to start chatting.\n\n-- TurboAnswer Support\nsupport@turboanswer.it.com | (866) 320-6042`,
       }),
     });
     const result = await response.json();

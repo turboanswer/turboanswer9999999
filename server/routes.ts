@@ -51,13 +51,13 @@ ${bodyText.split('\n').map(line => {
 <hr style="border:none;border-top:1px solid #333;margin:24px 0;">
 <p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com</p>
-<p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 467-7269</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 320-6042</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
 </div>
 </body>
 </html>`;
 
-  const textContent = `${bodyText}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 467-7269\nHours: Mon-Fri, 9:30 AM - 6:00 PM EST`;
+  const textContent = `${bodyText}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 320-6042\nHours: Mon-Fri, 9:30 AM - 6:00 PM EST`;
 
   try {
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -164,7 +164,7 @@ async function sendSubscriptionEmail(
       <div style="text-align:center;margin:28px 0;">
         <a href="https://turbo-answer.replit.app/settings" style="display:inline-block;background:#ef4444;color:#fff;text-decoration:none;padding:13px 32px;border-radius:8px;font-size:15px;font-weight:bold;">Update Payment Method</a>
       </div>
-      <p style="font-size:13px;color:#94a3b8;">If you need help, contact us at support@turboanswer.it.com or call (866) 467-7269.</p>`;
+      <p style="font-size:13px;color:#94a3b8;">If you need help, contact us at support@turboanswer.it.com or call (866) 320-6042.</p>`;
   } else if (type === 'payment_cancelled_failures') {
     subject = `Your TurboAnswer ${label} subscription has been cancelled`;
     heading = `Subscription cancelled after two failed payments`;
@@ -191,7 +191,7 @@ async function sendSubscriptionEmail(
 <div style="background:#1e293b;padding:32px;border:1px solid #334155;border-top:none;border-radius:0 0 12px 12px;">
 ${bodyHtml}
 <hr style="border:none;border-top:1px solid #334155;margin:24px 0;">
-<p style="font-size:12px;color:#94a3b8;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 467-7269</p>
+<p style="font-size:12px;color:#94a3b8;margin:0;">TurboAnswer · support@turboanswer.it.com · (866) 320-6042</p>
 </div>
 </body>
 </html>`;
@@ -5010,7 +5010,7 @@ You can log in at: ${appUrl}/login`,
 --
 TurboAnswer Support
 Email: support@turboanswer.it.com
-Phone: (866) 467-7269
+Phone: (866) 320-6042
 Hours: Mon-Fri, 9:30 AM - 6:00 PM EST
 
 To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
@@ -5031,7 +5031,7 @@ ${template.bodyText.split('\n').map(line => {
 <hr style="border:none;border-top:1px solid #333;margin:24px 0;">
 <p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com</p>
-<p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 467-7269</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Phone: (866) 320-6042</p>
 <p style="font-size:13px;color:#999;margin:2px 0;">Hours: Mon-Fri, 9:30 AM - 6:00 PM EST</p>
 </div>
 </body>
@@ -5228,7 +5228,7 @@ YOUR FOUNDING TESTER PERKS
 • Free Pro-tier access — better intelligence and no daily question cap, for the duration of the beta.
 • ✨ Founding Tester badge on your profile — public recognition that you were here first.
 • 50 MB file uploads — 2.5× the standard limit on documents, images, and audio.
-• Phone support — call (866) 467-7269 for help any time.
+• Phone support — call (866) 320-6042 for help any time.
 • 3 referral codes — give friends 1 month of Pro free. Find them on your feedback page after you log in.
 • Early access to new tools before they hit the public release.
 • A direct line to the product team via the feedback page.

@@ -483,8 +483,8 @@ export default function Support() {
             </div>
             <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', color: 'white' }}>Phone Support</h3>
             <p style={{ color: '#9ca3af', marginBottom: '14px', fontSize: '14px' }}>Call us directly during business hours.</p>
-            <a href="tel:+18664677269" style={{ display: 'inline-block', padding: '10px 18px', backgroundColor: '#10b981', color: 'white', textDecoration: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}>
-              (866) 467-7269
+            <a href="tel:+18663206042" style={{ display: 'inline-block', padding: '10px 18px', backgroundColor: '#10b981', color: 'white', textDecoration: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}>
+              (866) 320-6042
             </a>
           </div>
         </div>

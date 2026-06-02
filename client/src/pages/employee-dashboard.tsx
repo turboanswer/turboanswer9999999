@@ -170,7 +170,7 @@ function EmailTemplatesTab() {
   const name = recipientName.trim() || '[Recipient Name]';
   const template = EMAIL_TEMPLATES_LIST.find(t => t.id === selectedTemplate)!;
   const emailBody = getEmailTemplateBody(selectedTemplate, name, currentDate);
-  const fullPreview = `${emailBody}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 467-7269\nHours: Mon-Fri, 9:30 AM - 6:00 PM EST\n\nTo stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
+  const fullPreview = `${emailBody}\n\n--\nTurboAnswer Support\nEmail: support@turboanswer.it.com\nPhone: (866) 320-6042\nHours: Mon-Fri, 9:30 AM - 6:00 PM EST\n\nTo stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
 
   const handleSendEmail = async () => {
     if (!recipientName.trim() || !recipientEmail.trim()) {

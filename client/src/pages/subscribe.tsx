@@ -42,7 +42,7 @@ const PLANS = [
       'Auto-fallback to Gemini 2.5 Pro',
       'Superior code & writing quality',
       'Image Studio (Google AI)',
-      'Phone support — call (866) 467-7269',
+      'Phone support — call (866) 320-6042',
       'Everything in Free',
     ],
     cta: 'Subscribe — $6.99/mo',
