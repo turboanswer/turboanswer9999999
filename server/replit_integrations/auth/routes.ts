@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { authStorage } from "./storage";
-import { isAuthenticated } from "./replitAuth";
+import { isAuthenticated, maybeGrantReceptionist } from "./replitAuth";
 
 export function registerAuthRoutes(app: Express): void {
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
@@ -13,6 +13,8 @@ export function registerAuthRoutes(app: Express): void {
         res.clearCookie('_csrf_token');
         return res.status(401).json({ message: "Unauthorized" });
       }
+
+      await maybeGrantReceptionist(user);
 
       const { password, twoFactorSecret, ...safeUser } = user;
       res.json(safeUser);
