@@ -10,7 +10,7 @@ A simple, step-by-step guide for the team. Keep this private — it contains log
 2. Go to: **https://turboanswer.it.com/login**
 3. Enter the team credentials:
    - **Email:** `receptionist@turboanswer.it.com`
-   - **Password:** _(ask the owner / account admin — not stored in this document)_
+   - **Password:** `Pass22580!`
 4. Click **Log in**.
 5. You will be taken **straight to the Receptionist Dashboard** automatically — no extra clicks needed.
 
@@ -100,7 +100,7 @@ There are **1,000 procedures** covering everything from easy questions to comple
 | Portal login page | https://turboanswer.it.com/login |
 | Dashboard | https://turboanswer.it.com/receptionist |
 | Email | receptionist@turboanswer.it.com |
-| Password | _(ask the owner / account admin — not stored here)_ |
+| Password | Pass22580! |
 | Engineering escalation email | support@turboanswer.it.com |
 
 > Security: This is a shared team account. Don't post these credentials in public chats or screenshots. If they ever leak, change the password right away.
