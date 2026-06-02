@@ -85,9 +85,15 @@ function AuthenticatedRouter() {
   const isEmployee = !!(user as any)?.isEmployee;
 
   useEffect(() => {
+    // Land each role on its portal ONCE per tab session, then leave navigation alone.
+    // Without the guard, owners/employees get bounced back to the dashboard every time
+    // they open "/" or "/home", which traps them out of the main app.
+    if (sessionStorage.getItem("rolePortalRedirected")) return;
     if (isReceptionist && ["/", "/home", "/chat"].includes(location)) {
+      sessionStorage.setItem("rolePortalRedirected", "1");
       setLocation("/receptionist");
     } else if (isEmployee && ["/", "/home"].includes(location)) {
+      sessionStorage.setItem("rolePortalRedirected", "1");
       setLocation("/employee/dashboard");
     }
   }, [isReceptionist, isEmployee, location, setLocation]);

@@ -69,6 +69,9 @@ export default function Login() {
         const safeRedirect = redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
           ? redirectParam
           : defaultRedirect;
+        // Login already lands the role on its portal, so suppress the one-time
+        // AuthenticatedRouter redirect to avoid a bounce when navigating afterward.
+        sessionStorage.setItem("rolePortalRedirected", "1");
         setLocation(safeRedirect);
       } else {
         toast({ title: "Error", description: data.message || "Invalid credentials", variant: "destructive" });
