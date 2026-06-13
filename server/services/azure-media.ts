@@ -44,7 +44,6 @@ export async function azureGenerateImage(
         prompt,
         n: 1,
         size,
-        response_format: "b64_json",
       }),
       signal: AbortSignal.timeout(90_000),
     });
