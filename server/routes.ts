@@ -23,6 +23,7 @@ import { setupAuth, registerAuthRoutes, isAuthenticated, isAdmin, isReceptionist
 import { getSession } from "./replit_integrations/auth";
 import { attachRealtimeWSS } from "./services/realtime-voice";
 import { registerImageRoutes } from "./replit_integrations/image";
+import { registerAzureInfraRoutes } from "./routes/azure-infra-routes";
 import { createSubscription, getSubscriptionDetails, getPayPalClientId, ensureSubscriptionPlans, cancelSubscription, getSubscriptionTransactions, refundCapture, createAddonSubscription, createCreditPackOrder, captureCreditPackOrder, CREDIT_PACKS, verifyWebhookSignature } from "./paypal";
 import { stripe, stripeEnabled, createCheckoutSession, createPortalSession, constructWebhookEvent, tierForPriceId, type Tier as StripeTier } from "./services/stripe";
 
@@ -449,6 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
   registerAuthRoutes(app);
   registerImageRoutes(app);
+  registerAzureInfraRoutes(app);
 
   app.use(widgetRoutes);
 

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Azure Infrastructure Admin · Control Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            base: '#0b0f19', panel: '#111726', panel2: '#0e1422',
+            slatebd: '#1e293b', slatebd2: '#27334a',
+            ice: '#7dd3fc', icedim: '#3b556e',
+            ok: '#10b981', warn: '#f59e0b', bad: '#e11d48',
+          },
+          fontFamily: { mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    html, body { background: #0b0f19; }
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #27334a; border-radius: 4px; }
+    .glow { box-shadow: 0 0 0 1px rgba(125,211,252,.08), 0 0 24px -10px rgba(125,211,252,.25); }
+    @keyframes blinkbg { 0%,100% { background-color: rgba(225,29,72,.85);} 50% { background-color: rgba(225,29,72,.45);} }
+    .blinking { animation: blinkbg .6s linear infinite; }
+    .countbar { transition: width 3s linear; }
+    .led { width:8px;height:8px;border-radius:9999px;display:inline-block; }
+  </style>
+</head>
+<body class="bg-base text-slate-300 font-sans antialiased text-[13px]">
+  <!-- ===================== TOP BAR ===================== -->
+  <header class="sticky top-0 z-30 border-b border-slatebd bg-panel/95 backdrop-blur">
+    <div class="flex items-center gap-4 px-4 py-2">
+      <div class="flex items-center gap-2">
+        <span class="text-ice font-mono font-bold tracking-tight text-sm">⛁ AZURE · INFRA CONTROL CENTER</span>
+        <span class="text-icedim text-[11px] font-mono">turboanswergroup</span>
+      </div>
+      <div id="appStatePill" class="flex items-center gap-2 px-2 py-1 rounded bg-panel2 border border-slatebd font-mono text-[11px]">
+        <span id="stateLed" class="led" style="background:#3b556e"></span>
+        <span id="stateText" class="text-slate-400">connecting…</span>
+      </div>
+      <div id="configWarn" class="hidden text-warn font-mono text-[11px]"></div>
+      <div class="ml-auto flex items-center gap-4">
+        <span id="clock" class="font-mono text-[11px] text-icedim"></span>
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <span id="lockLabel" class="font-mono text-[11px] text-ok">OPERATIONS UNLOCKED</span>
+          <span class="relative inline-block w-10 h-5">
+            <input id="lockToggle" type="checkbox" class="peer sr-only" />
+            <span class="absolute inset-0 rounded-full bg-slatebd2 peer-checked:bg-bad transition"></span>
+            <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-slate-200 rounded-full transition peer-checked:translate-x-5"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="p-3 grid grid-cols-12 gap-3 max-w-[1800px] mx-auto">
+
+    <!-- ===================== OPERATIONS ===================== -->
+    <section class="col-span-12 xl:col-span-5 rounded-lg border border-slatebd bg-panel p-3">
+      <h2 class="text-ice font-mono text-xs mb-2 tracking-wide">INFRASTRUCTURE OPERATIONS MANAGEMENT</h2>
+      <div id="statusGrid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 font-mono text-[11px]"></div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button data-act="control/stop" data-danger="1" class="opbtn border-bad/40 text-bad">⛔ EMERGENCY STOP APPLICATION SERVICE</button>
+        <button data-act="control/start" class="opbtn border-ok/40 text-ok">⚡ COLD START SYSTEM BOOT</button>
+        <button data-act="control/restart" data-danger="1" class="opbtn border-warn/40 text-warn">↻ FORCE HARD SERVICE RESTART</button>
+        <button data-act="control/deepsleep" data-danger="1" class="opbtn border-slatebd2 text-slate-300">🌙 ENTER DEEP SLEEP POWER MODE</button>
+        <button data-act="control/slotswap" data-danger="1" class="opbtn border-ice/40 text-ice sm:col-span-2">⇄ TRIGGER PRODUCTION SLOT SWAP</button>
+      </div>
+    </section>
+
+    <!-- ===================== METRICS ===================== -->
+    <section class="col-span-12 xl:col-span-7 rounded-lg border border-slatebd bg-panel p-3">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-ice font-mono text-xs tracking-wide">HARDWARE PERFORMANCE MATRIX</h2>
+        <div class="flex gap-1 font-mono text-[11px]">
+          <button data-range="15m" class="rangebtn px-2 py-0.5 rounded border border-slatebd2">15m</button>
+          <button data-range="1h" class="rangebtn px-2 py-0.5 rounded border border-slatebd2 bg-slatebd2 text-ice">1h</button>
+          <button data-range="24h" class="rangebtn px-2 py-0.5 rounded border border-slatebd2">24h</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div><div class="text-[10px] font-mono text-icedim mb-1">CPU TIME (s)</div><canvas id="cpuChart" height="120"></canvas></div>
+        <div><div class="text-[10px] font-mono text-icedim mb-1">MEMORY IN-USE (bytes)</div><canvas id="memChart" height="120"></canvas></div>
+        <div><div class="text-[10px] font-mono text-icedim mb-1">NETWORK I/O (bytes)</div><canvas id="netChart" height="120"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===================== LOG CONSOLE ===================== -->
+    <section class="col-span-12 xl:col-span-7 rounded-lg border border-slatebd bg-panel2 p-0 overflow-hidden">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-slatebd">
+        <h2 class="text-ice font-mono text-xs tracking-wide">AZURE ACTIVITY LOG STREAM · AzureActivity (KQL)</h2>
+        <span id="logMeta" class="font-mono text-[10px] text-icedim"></span>
+      </div>
+      <div id="logConsole" class="h-72 overflow-auto font-mono text-[11px] leading-relaxed px-3 py-2"></div>
+    </section>
+
+    <!-- ===================== APP INSIGHTS ===================== -->
+    <section class="col-span-12 xl:col-span-5 rounded-lg border border-slatebd bg-panel p-3">
+      <h2 class="text-ice font-mono text-xs mb-2 tracking-wide">APPLICATION INSIGHTS · USER ANALYTICS</h2>
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <div class="rounded border border-slatebd bg-panel2 p-2">
+          <div class="text-[10px] font-mono text-icedim">ACTIVE SESSIONS (5m)</div>
+          <div id="aiSessions" class="text-2xl font-mono text-ok">—</div>
+        </div>
+        <div class="rounded border border-slatebd bg-panel2 p-2">
+          <div class="text-[10px] font-mono text-icedim">AVG PAGE LATENCY (ms)</div>
+          <div id="aiLatency" class="text-2xl font-mono text-ice">—</div>
+        </div>
+      </div>
+      <div class="text-[10px] font-mono text-icedim mb-1">DEPENDENCY RESPONSE LATENCY</div>
+      <canvas id="depChart" height="90" class="mb-3"></canvas>
+      <div class="text-[10px] font-mono text-icedim mb-1">HTTP RESPONSE STATUS RATIO</div>
+      <div class="w-full h-5 rounded overflow-hidden flex border border-slatebd bg-panel2 mb-1">
+        <div id="bar2xx" class="bg-ok h-full" style="width:0%"></div>
+        <div id="bar4xx" class="bg-warn h-full" style="width:0%"></div>
+        <div id="bar5xx" class="bg-bad h-full" style="width:0%"></div>
+      </div>
+      <div class="flex justify-between font-mono text-[10px] text-icedim mb-3">
+        <span id="lbl2xx" class="text-ok">2xx 0</span><span id="lbl4xx" class="text-warn">4xx 0</span><span id="lbl5xx" class="text-bad">5xx 0</span>
+      </div>
+      <div class="flex gap-1 font-mono text-[10px]">
+        <button id="aiRefresh" class="util">↻ Refresh Stream</button>
+        <button id="aiFreeze" class="util">⏸ Freeze Graph</button>
+        <button id="aiCsv" class="util">⤓ Download CSV</button>
+      </div>
+    </section>
+
+    <!-- ===================== COST GUARD ===================== -->
+    <section class="col-span-12 xl:col-span-6 rounded-lg border border-slatebd bg-panel p-3">
+      <h2 class="text-ice font-mono text-xs mb-2 tracking-wide">FINANCIAL OPERATIONS &amp; COST GUARD</h2>
+      <div class="grid grid-cols-3 gap-3 items-center">
+        <div class="col-span-2 grid grid-cols-2 gap-2">
+          <div class="rounded border border-slatebd bg-panel2 p-2">
+            <div class="text-[10px] font-mono text-icedim">MONTH-TO-DATE SPEND</div>
+            <div id="costMtd" class="text-xl font-mono text-ice">—</div>
+          </div>
+          <div class="rounded border border-slatebd bg-panel2 p-2">
+            <div class="text-[10px] font-mono text-icedim">PROJECTED END-OF-MONTH</div>
+            <div id="costForecast" class="text-xl font-mono text-warn">—</div>
+          </div>
+          <div class="col-span-2 grid grid-cols-2 gap-2">
+            <button id="costLimit" data-danger="1" class="opbtn border-ice/40 text-ice">⛓ DEFINE DAILY COST LIMIT CAP</button>
+            <button id="costSuspend" data-danger="1" class="opbtn border-bad/40 text-bad">⏻ SUSPEND OVER-BUDGET RESOURCES</button>
+            <button id="costAudit" class="opbtn border-slatebd2 text-slate-300 col-span-2">📑 TRIGGER BILLING COMPLIANCE AUDIT REPORT</button>
+          </div>
+        </div>
+        <div><canvas id="costChart" height="150"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ===================== DATABASE ===================== -->
+    <section class="col-span-12 xl:col-span-6 rounded-lg border border-slatebd bg-panel p-3">
+      <h2 class="text-ice font-mono text-xs mb-2 tracking-wide">DATABASE STATE &amp; SYSTEM MANIPULATION</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button data-act="db/cache" data-danger="1" class="opbtn border-warn/40 text-warn">🧹 PURGE ALL TRANSIENT CACHE REPLICAS</button>
+        <button data-act="db/backup" class="opbtn border-ok/40 text-ok">💾 TRIGGER FULL-SYSTEM SQL BACKUP</button>
+        <button data-act="db/reindex" data-danger="1" class="opbtn border-ice/40 text-ice">🗂 RE-INDEX PRIMARY DATABASE SCHEMAS</button>
+        <button data-act="db/killidle" data-danger="1" class="opbtn border-warn/40 text-warn">✂ KILL IDLE DATABASE POOL CONNECTIONS</button>
+        <button data-act="db/regenstrings" data-danger="1" class="opbtn border-bad/40 text-bad sm:col-span-2">🔑 RE-GENERATE SECONDARY CONNECTION STRINGS</button>
+      </div>
+    </section>
+
+    <!-- ===================== TERMINAL FEEDBACK ===================== -->
+    <section class="col-span-12 rounded-lg border border-slatebd bg-black/40 p-0 overflow-hidden">
+      <div class="px-3 py-2 border-b border-slatebd flex items-center justify-between">
+        <h2 class="text-ice font-mono text-xs tracking-wide">EXECUTION FEEDBACK TERMINAL</h2>
+        <div id="progressWrap" class="hidden flex-1 mx-4 h-1.5 bg-slatebd rounded overflow-hidden">
+          <div id="progressBar" class="h-full bg-ice w-0 transition-all"></div>
+        </div>
+      </div>
+      <div id="term" class="h-40 overflow-auto font-mono text-[11px] px-3 py-2 text-slate-400"></div>
+    </section>
+  </main>
+
+  <style type="text/tailwindcss">
+    .opbtn { @apply text-left px-3 py-2 rounded border bg-panel2 font-mono text-[11px] leading-tight hover:bg-slatebd/40 transition disabled:opacity-40 disabled:cursor-not-allowed; }
+    .util { @apply px-2 py-1 rounded border border-slatebd2 bg-panel2 hover:bg-slatebd/40 transition text-slate-300 disabled:opacity-40; }
+    .rangebtn { @apply hover:bg-slatebd2/60 transition; }
+  </style>
+
+  <script>
+  (function () {
+    let CSRF = null, LOCKED = false, frozen = false;
+    let lastInsights = null;
+
+    // ---- helpers ----
+    const $ = (s) => document.querySelector(s);
+    const fmt = (n) => (n == null ? '—' : Number(n).toLocaleString());
+    const fmtBytes = (n) => {
+      if (n == null) return '—'; const u = ['B','KB','MB','GB']; let i = 0; n = Number(n);
+      while (n >= 1024 && i < u.length-1) { n/=1024; i++; } return n.toFixed(1)+' '+u[i];
+    };
+    function term(msg, kind) {
+      const el = $('#term'); const line = document.createElement('div');
+      const c = kind === 'ok' ? 'text-ok' : kind === 'bad' ? 'text-bad' : kind === 'warn' ? 'text-warn' : 'text-slate-400';
+      line.className = c;
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      el.appendChild(line); el.scrollTop = el.scrollHeight;
+    }
+    function progress(on) {
+      const w = $('#progressWrap'), b = $('#progressBar');
+      if (on) { w.classList.remove('hidden'); b.style.width='8%'; setTimeout(()=>b.style.width='75%',50); }
+      else { b.style.width='100%'; setTimeout(()=>{ w.classList.add('hidden'); b.style.width='0'; }, 400); }
+    }
+
+    async function getCsrf() {
+      const r = await fetch('/api/csrf-token', { credentials: 'include' });
+      CSRF = (await r.json()).token;
+    }
+    async function apiGet(path) {
+      const r = await fetch(path, { credentials: 'include' });
+      if (!r.ok) throw await r.json().catch(()=>({message:'HTTP '+r.status}));
+      return r.json();
+    }
+    async function apiPost(path, body) {
+      const r = await fetch(path, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': CSRF },
+        body: JSON.stringify(body || {}),
+      });
+      const data = await r.json().catch(()=>({}));
+      if (!r.ok) throw data;
+      return data;
+    }
+
+    // ---- lock toggle ----
+    $('#lockToggle').addEventListener('change', (e) => {
+      LOCKED = e.target.checked;
+      $('#lockLabel').textContent = LOCKED ? 'OPERATIONS LOCKED' : 'OPERATIONS UNLOCKED';
+      $('#lockLabel').className = 'font-mono text-[11px] ' + (LOCKED ? 'text-bad' : 'text-ok');
+      document.querySelectorAll('.opbtn').forEach(b => { b.disabled = LOCKED; });
+      term(LOCKED ? 'Admin operations LOCKED — all controls inert.' : 'Admin operations unlocked.', LOCKED ? 'warn' : 'ok');
+    });
+
+    // ---- 3-second confirm guard for destructive buttons ----
+    function withConfirm(btn, run) {
+      if (btn.dataset.armed === '1') {
+        clearTimeout(btn._t);
+        btn.dataset.armed = '0';
+        btn.classList.remove('blinking');
+        btn.innerHTML = btn.dataset.orig;
+        run();
+        return;
+      }
+      btn.dataset.orig = btn.innerHTML;
+      btn.dataset.armed = '1';
+      btn.classList.add('blinking');
+      btn.innerHTML = 'CONFIRM ACTION within 3 seconds…<div class="countbar h-1 bg-white/80 mt-1" style="width:100%"></div>';
+      requestAnimationFrame(() => { const bar = btn.querySelector('.countbar'); if (bar) bar.style.width = '0%'; });
+      btn._t = setTimeout(() => {
+        btn.dataset.armed = '0'; btn.classList.remove('blinking'); btn.innerHTML = btn.dataset.orig;
+      }, 3000);
+    }
+
+    // ---- action buttons (control + db) ----
+    document.querySelectorAll('button[data-act]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (LOCKED) return;
+        const act = btn.dataset.act;
+        const fire = async () => {
+          progress(true); term(`→ POST /api/infra/${act} …`);
+          try {
+            const res = await apiPost('/api/infra/' + act, {});
+            term('✓ ' + (res.result || JSON.stringify(res)), 'ok');
+            refreshStatus();
+          } catch (e) {
+            term('✗ ' + (e.message || 'Action failed'), 'bad');
+          } finally { progress(false); }
+        };
+        if (btn.dataset.danger === '1') withConfirm(btn, fire); else fire();
+      });
+    });
+
+    // ---- cost actions ----
+    $('#costLimit').addEventListener('click', (e) => {
+      if (LOCKED) return;
+      withConfirm(e.currentTarget, async () => {
+        const amt = prompt('Set MONTHLY cost cap (in account currency):', '100');
+        if (!amt) return;
+        progress(true); term(`→ set cost cap ${amt} …`);
+        try { const r = await apiPost('/api/infra/cost/limit', { amount: Number(amt) }); term('✓ '+r.result, 'ok'); }
+        catch (er) { term('✗ '+(er.message||'failed'), 'bad'); } finally { progress(false); }
+      });
+    });
+    $('#costSuspend').addEventListener('click', (e) => {
+      if (LOCKED) return;
+      withConfirm(e.currentTarget, async () => {
+        progress(true); term('→ EMERGENCY suspend over-budget resources …', 'warn');
+        try { const r = await apiPost('/api/infra/cost/suspend', {}); term('✓ '+r.result, 'ok'); refreshStatus(); }
+        catch (er) { term('✗ '+(er.message||'failed'), 'bad'); } finally { progress(false); }
+      });
+    });
+    $('#costAudit').addEventListener('click', async () => {
+      if (LOCKED) return;
+      try {
+        const c = await apiGet('/api/infra/cost');
+        const rows = [['Service','Cost ('+c.currency+')'], ...c.byService.map(s=>[s.service, s.cost]),
+          ['MONTH-TO-DATE', c.monthToDate], ['FORECAST', c.forecast]];
+        downloadCsv('billing-audit-'+Date.now()+'.csv', rows);
+        term('✓ Billing compliance audit report generated.', 'ok');
+      } catch (e) { term('✗ '+(e.message||'failed'), 'bad'); }
+    });
+
+    function downloadCsv(name, rows) {
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      a.download = name; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    // ---- charts ----
+    const baseOpts = (yFmt) => ({
+      responsive: true, animation: false, plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#3b556e', font: { size: 8 }, maxTicksLimit: 6 }, grid: { color: '#16203200' } },
+        y: { ticks: { color: '#3b556e', font: { size: 8 }, callback: yFmt }, grid: { color: '#1e293b55' } },
+      },
+      elements: { point: { radius: 0 }, line: { borderWidth: 1.5, tension: .35 } },
+    });
+    function mkLine(id, color, yFmt) {
+      const grad = (ctx) => { const g = ctx.createLinearGradient(0,0,0,140); g.addColorStop(0, color+'55'); g.addColorStop(1, color+'00'); return g; };
+      return new Chart($(id), {
+        type: 'line',
+        data: { labels: [], datasets: [{ data: [], borderColor: color, fill: true, backgroundColor: (c)=>grad(c.chart.ctx) }] },
+        options: baseOpts(yFmt),
+      });
+    }
+    const cpuChart = mkLine('#cpuChart', '#7dd3fc', v=>v);
+    const memChart = mkLine('#memChart', '#10b981', v=>fmtBytes(v));
+    const netChart = new Chart($('#netChart'), {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label:'in', data: [], borderColor:'#7dd3fc', borderWidth:1.5, fill:false, tension:.35 },
+        { label:'out', data: [], borderColor:'#f59e0b', borderWidth:1.5, fill:false, tension:.35 },
+      ]},
+      options: { ...baseOpts(v=>fmtBytes(v)), elements:{ point:{radius:0} } },
+    });
+    const depChart = mkLine('#depChart', '#7dd3fc', v=>v);
+    const costChart = new Chart($('#costChart'), {
+      type: 'doughnut',
+      data: { labels: [], datasets: [{ data: [], backgroundColor: ['#7dd3fc','#10b981','#f59e0b','#e11d48','#6366f1','#14b8a6','#a855f7','#64748b'], borderWidth: 0 }] },
+      options: { responsive: true, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { color:'#3b556e', font:{size:9}, boxWidth:8 } } } },
+    });
+
+    const tlabel = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // ---- data refreshers ----
+    async function refreshStatus() {
+      try {
+        const s = await apiGet('/api/infra/status');
+        const running = (s.state || '').toLowerCase() === 'running';
+        $('#stateLed').style.background = running ? '#10b981' : '#e11d48';
+        $('#stateText').textContent = (s.state || 'Unknown') + (s.alwaysOn===false ? ' · sleep' : '');
+        $('#stateText').className = running ? 'text-ok' : 'text-bad';
+        $('#statusGrid').innerHTML = [
+          ['STATE', s.state || '—'], ['HOST', s.defaultHostName || '—'],
+          ['REGION', s.location || '—'], ['ALWAYS-ON', s.alwaysOn==null?'—':(s.alwaysOn?'on':'off')],
+        ].map(([k,v]) => `<div class="rounded border border-slatebd bg-panel2 p-2"><div class="text-icedim text-[10px]">${k}</div><div class="text-slate-200 truncate" title="${v}">${v}</div></div>`).join('');
+      } catch (e) { $('#stateText').textContent = 'error'; $('#stateText').className='text-bad'; reportErr(e); }
+    }
+
+    async function refreshMetrics(range) {
+      try {
+        const m = await apiGet('/api/infra/metrics?range=' + (range||'1h'));
+        const ser = m.series || {};
+        const at = (k) => (ser[k]||[]);
+        const labels = (at('CpuTime').length ? at('CpuTime') : at('MemoryWorkingSet')).map(p=>tlabel(p.t));
+        cpuChart.data.labels = labels; cpuChart.data.datasets[0].data = at('CpuTime').map(p=>p.v); cpuChart.update();
+        memChart.data.labels = labels; memChart.data.datasets[0].data = at('MemoryWorkingSet').map(p=>p.v); memChart.update();
+        netChart.data.labels = labels;
+        netChart.data.datasets[0].data = at('BytesReceived').map(p=>p.v);
+        netChart.data.datasets[1].data = at('BytesSent').map(p=>p.v); netChart.update();
+      } catch (e) { reportErr(e); }
+    }
+
+    async function refreshLogs() {
+      try {
+        const { rows } = await apiGet('/api/infra/logs?limit=120');
+        $('#logMeta').textContent = rows.length + ' events · last 1h';
+        $('#logConsole').innerHTML = rows.map(r => {
+          const st = (r.ActivityStatusValue||'').toLowerCase();
+          const fail = st.includes('fail') || st.includes('deny') || /denied|error/i.test(r.OperationNameValue||'');
+          const cls = fail ? 'text-bad' : 'text-emerald-400/70';
+          const t = r.TimeGenerated ? new Date(r.TimeGenerated).toLocaleTimeString() : '';
+          return `<div class="${cls}">${t}  ${String(r.ActivityStatusValue||'').padEnd(10)}  ${(r.OperationNameValue||'').slice(0,52).padEnd(52)}  ${(r.Caller||'').slice(0,28)}</div>`;
+        }).join('') || '<div class="text-icedim">No activity records returned.</div>';
+      } catch (e) { $('#logConsole').innerHTML = '<div class="text-bad">'+(e.message||'log query failed')+'</div>'; }
+    }
+
+    async function refreshInsights() {
+      if (frozen) return;
+      try {
+        const ai = await apiGet('/api/infra/insights'); lastInsights = ai;
+        $('#aiSessions').textContent = fmt(ai.activeSessions);
+        const lat = ai.latencySeries||[]; const last = lat.length ? lat[lat.length-1].v : null;
+        $('#aiLatency').textContent = last==null?'—':Math.round(last);
+        depChart.data.labels = (ai.dependencySeries||[]).map(p=>tlabel(p.t));
+        depChart.data.datasets[0].data = (ai.dependencySeries||[]).map(p=>Math.round(p.v||0)); depChart.update();
+        const sc = ai.statusCounts||{}; const tot = (sc['2xx']||0)+(sc['4xx']||0)+(sc['5xx']||0) || 1;
+        $('#bar2xx').style.width = (100*(sc['2xx']||0)/tot)+'%';
+        $('#bar4xx').style.width = (100*(sc['4xx']||0)/tot)+'%';
+        $('#bar5xx').style.width = (100*(sc['5xx']||0)/tot)+'%';
+        $('#lbl2xx').textContent = '2xx '+(sc['2xx']||0); $('#lbl4xx').textContent = '4xx '+(sc['4xx']||0); $('#lbl5xx').textContent = '5xx '+(sc['5xx']||0);
+      } catch (e) { reportErr(e); }
+    }
+
+    async function refreshCost() {
+      try {
+        const c = await apiGet('/api/infra/cost');
+        const cur = c.currency || 'USD';
+        $('#costMtd').textContent = cur+' '+fmt(c.monthToDate);
+        $('#costForecast').textContent = cur+' '+fmt(c.forecast);
+        costChart.data.labels = c.byService.map(s=>s.service);
+        costChart.data.datasets[0].data = c.byService.map(s=>s.cost); costChart.update();
+      } catch (e) { reportErr(e); }
+    }
+
+    let errShown = {};
+    function reportErr(e) {
+      const m = e && e.message ? e.message : String(e);
+      if (errShown[m]) return; errShown[m] = true;
+      term('⚠ ' + m, 'warn');
+    }
+
+    // ---- insights utility buttons ----
+    $('#aiRefresh').addEventListener('click', refreshInsights);
+    $('#aiFreeze').addEventListener('click', (e) => { frozen = !frozen; e.target.textContent = frozen ? '▶ Resume Graph' : '⏸ Freeze Graph'; });
+    $('#aiCsv').addEventListener('click', () => {
+      if (!lastInsights) return;
+      const rows = [['metric','value'], ['activeSessions', lastInsights.activeSessions],
+        ['2xx', lastInsights.statusCounts?.['2xx']||0], ['4xx', lastInsights.statusCounts?.['4xx']||0], ['5xx', lastInsights.statusCounts?.['5xx']||0],
+        ...(lastInsights.latencySeries||[]).map(p=>['latency '+p.t, Math.round(p.v||0)])];
+      downloadCsv('appinsights-'+Date.now()+'.csv', rows);
+    });
+
+    // ---- range buttons ----
+    let curRange = '1h';
+    document.querySelectorAll('.rangebtn').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.rangebtn').forEach(x => x.classList.remove('bg-slatebd2','text-ice'));
+      b.classList.add('bg-slatebd2','text-ice'); curRange = b.dataset.range; refreshMetrics(curRange);
+    }));
+
+    // ---- clock ----
+    setInterval(() => { $('#clock').textContent = new Date().toUTCString().replace('GMT','UTC'); }, 1000);
+
+    // ---- boot ----
+    async function boot() {
+      await getCsrf();
+      try {
+        const cfg = await apiGet('/api/infra/config-status');
+        if (!cfg.configured) {
+          $('#configWarn').classList.remove('hidden');
+          $('#configWarn').textContent = '⚠ Missing config: ' + cfg.missing.join(', ');
+          term('Configuration incomplete — missing: ' + cfg.missing.join(', '), 'warn');
+        } else {
+          term('Azure credentials present. Establishing telemetry…', 'ok');
+        }
+      } catch (e) { reportErr(e); }
+      refreshStatus(); refreshMetrics(curRange); refreshLogs(); refreshInsights(); refreshCost();
+      setInterval(refreshStatus, 15000);
+      setInterval(() => refreshMetrics(curRange), 30000);
+      setInterval(refreshLogs, 20000);
+      setInterval(refreshInsights, 20000);
+      setInterval(refreshCost, 120000);
+      setInterval(getCsrf, 10 * 60 * 1000);
+    }
+    boot();
+  })();
+  </script>
+</body>
+</html>
