@@ -75,7 +75,7 @@ AZURE_HOSTED_ANTHROPIC = "1"
 AZURE_DEPLOYMENT_CLAUDE_SONNET_4_5 = "claude-sonnet-4-6"
 AZURE_TENANT_ID = "4030dc9c-e588-4d62-8539-6be1c1f927ce"
 AZURE_CLIENT_ID = "708de6eb-cfb7-4b56-83eb-73e1bea05af7"
-AZURE_RESOURCE_GROUP = "turboanswergroup"
+AZURE_RESOURCE_GROUP = "turboanswergroup_group"
 AZURE_APP_SERVICE_NAME = "turboanswergroup"
 
 [postMerge]
