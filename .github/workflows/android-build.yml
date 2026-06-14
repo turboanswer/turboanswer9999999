@@ -36,30 +36,15 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
           accept-android-sdk-licenses: true
 
-      - name: Pin npm and add swap headroom
+      - name: Normalize lockfile registry URLs
         run: |
-          npm i -g npm@11
-          npm -v
-          echo "=== memory/disk before ==="; free -h; df -h /
-          sudo fallocate -l 6G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          echo "=== memory after swap ==="; free -h
+          sed -i 's#http://package-firewall.replit.local/npm/#https://registry.npmjs.org/#g' package-lock.json
 
       - name: Install npm deps
-        run: |
-          install_deps() { npm ci --no-audit --no-fund; }
-          install_deps || install_deps || {
-            echo "===== npm ci failed - dumping diagnostics =====";
-            free -h; df -h /;
-            echo "----- npm debug log -----";
-            tail -n +1 ~/.npm/_logs/*-debug-0.log 2>/dev/null;
-            exit 1;
-          }
+        run: npm ci
 
       - name: Build web assets
-        run: NODE_OPTIONS=--max-old-space-size=4096 npm run build
+        run: npm run build
 
       - name: Capacitor sync
         run: npx cap sync android

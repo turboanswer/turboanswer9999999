@@ -23,28 +23,14 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Pin npm and add swap headroom
+      - name: Normalize lockfile registry URLs
         run: |
-          npm i -g npm@11
-          npm -v
-          echo "=== memory/disk before ==="; free -h; df -h /
-          sudo fallocate -l 6G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          echo "=== memory after swap ==="; free -h
+          sed -i 's#http://package-firewall.replit.local/npm/#https://registry.npmjs.org/#g' package-lock.json
 
       - name: npm install, build, and test
         run: |
-          install_deps() { npm ci --no-audit --no-fund; }
-          install_deps || install_deps || {
-            echo "===== npm ci failed - dumping diagnostics =====";
-            free -h; df -h /;
-            echo "----- npm debug log -----";
-            tail -n +1 ~/.npm/_logs/*-debug-0.log 2>/dev/null;
-            exit 1;
-          }
-          NODE_OPTIONS=--max-old-space-size=4096 npm run build --if-present
+          npm install
+          npm run build --if-present
           npm run test --if-present
 
       - name: Upload artifact for deployment job
