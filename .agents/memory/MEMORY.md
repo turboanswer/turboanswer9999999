@@ -2,7 +2,7 @@
 - [Azure runtime DB vs Neon](azure-runtime-db.md) — runtime DB is Azure; new tables/columns must go in server/db-migrations.ts (db:push only hits Neon, not runtime).
 - [Azure Foundry GPT-5 params](azure-foundry-gpt5.md) — GPT-5.x needs max_completion_tokens (not max_tokens) and default temperature; mini/nano live, pro unsupported in this resource.
 - [Android build env & AAB bloat](android-build-env.md) — rebuild recipe + traps: users see Azure-served site (server.url) not APK assets so must redeploy web; client/index.html ships a replit dev-banner; client/public binaries bloat the AAB; SDK gets wiped between sessions.
-- [CI "Exit handler never called" npm crash](ci-npm-exit-handler.md) — GH Actions deploy fails inside npm install (not app code); fix = pin npm + retry + NODE_OPTIONS in workflow YAML; diagnose via GitHub connection Actions API.
+- [CI "Exit handler never called" npm crash](ci-npm-exit-handler.md) — GH deploy npm-install crash since @azure/identity added; generic wrapper hides real error (must dump runner debug log); pin+retry did NOT fix; can't repro locally (Replit firewall blocks es5-ext).
 - [Android signing / Play upload key](android-signing.md) — "bundle isn't valid" = wrong signing key; multi-key history, lost original, use upload-key reset not delete/republish.
 - [Play compliance & native AI gating](play-compliance-webgate.md) — the Play notice was only a broken deletion URL, not AI; un-gating native AI is safe; web gate is a no-op on non-native.
 - [PayPal tier-sync IDOR](paypal-sync-ownership.md) — /api/sync-subscription must verify custom_id.userId == caller and take tier only from custom_id, never client.

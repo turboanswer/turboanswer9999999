@@ -36,16 +36,30 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
           accept-android-sdk-licenses: true
 
-      - name: Pin npm to a stable version
-        run: npm i -g npm@10.9.2
+      - name: Pin npm and add swap headroom
+        run: |
+          npm i -g npm@11
+          npm -v
+          echo "=== memory/disk before ==="; free -h; df -h /
+          sudo fallocate -l 6G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          echo "=== memory after swap ==="; free -h
 
       - name: Install npm deps
-        run: npm ci --no-audit --no-fund || npm ci --no-audit --no-fund || npm i --no-audit --no-fund
+        run: |
+          install_deps() { npm ci --no-audit --no-fund; }
+          install_deps || install_deps || {
+            echo "===== npm ci failed - dumping diagnostics =====";
+            free -h; df -h /;
+            echo "----- npm debug log -----";
+            tail -n +1 ~/.npm/_logs/*-debug-0.log 2>/dev/null;
+            exit 1;
+          }
 
       - name: Build web assets
-        env:
-          NODE_OPTIONS: --max-old-space-size=4096
-        run: npm run build
+        run: NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
       - name: Capacitor sync
         run: npx cap sync android
