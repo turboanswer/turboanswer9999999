@@ -838,17 +838,61 @@ export default function Chat() {
 
   // Magic-word intent detection: image creation + pronunciation.
   // Returns the extracted subject/word, or null if no match.
+  // Broad on purpose: most natural phrasings ("make me a logo of...",
+  // "I want a picture of...", "cyberpunk wallpaper", "/image ...") should
+  // trigger real generation instead of falling back to a text description.
   const detectImageIntent = (text: string): string | null => {
     const t = text.trim();
-    // "create/generate/draw/make/paint an image/picture/photo/art/drawing of X"
-    let m = t.match(/^(?:please\s+)?(?:can\s+you\s+)?(?:create|generate|draw|make|paint|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|photograph|art(?:work)?|drawing|illustration|render)\s+of\s+(.+)$/i);
-    if (m && m[1]) return m[1].trim().replace(/[.!?]+$/, '');
-    // "draw X" / "paint X"
-    m = t.match(/^(?:draw|paint|sketch)\s+(.+)$/i);
-    if (m && m[1] && m[1].trim().length > 2) return m[1].trim().replace(/[.!?]+$/, '');
-    // slash command
-    m = t.match(/^\/(?:image|img|draw)\s+(.+)$/i);
-    if (m && m[1]) return m[1].trim();
+    if (!t) return null;
+    const clean = (s: string) => s.trim().replace(/^["']|["']$/g, "").replace(/[.!?]+$/, "").trim();
+
+    // High-precision image nouns: when followed by "of/showing/...", these
+    // almost always mean a real image request. Deliberately EXCLUDES ambiguous
+    // words (art, design, visual, scene, icon) so informational queries like
+    // "the art of war" or "the design of databases" do NOT trigger generation.
+    const CONNECT_NOUNS = "image|picture|pic|photo|photograph|drawing|illustration|painting|portrait|wallpaper|poster|avatar|sticker|banner|logo|mockup|headshot|artwork|graphic|render|rendering";
+    // Nouns allowed at the END of a "<verb> <subject> <noun>" phrase.
+    const TRAIL_NOUNS = `${CONNECT_NOUNS}|scene|background`;
+    // Nouns that read as images in "<noun> for <subject>".
+    const FOR_NOUNS = "logo|poster|banner|wallpaper|icon|avatar|sticker|portrait|mockup|flyer|graphic";
+    const VERBS = "create|generate|gen|draw|make|paint|design|sketch|render|produce|build|whip\\s+up|cook\\s+up|conjure|imagine|visuali[sz]e|dream\\s+up";
+    const CONNECT = "of|with|showing|depicting|featuring|that\\s+shows?|that\\s+has|containing|portraying";
+    // Optional politeness / request lead-in that may precede a creation verb.
+    const LEAD = "(?:please\\s+|hey\\s+|ok(?:ay)?\\s+)?(?:(?:can|could|would|will)\\s+(?:you\\s+)?)?(?:please\\s+)?(?:(?:i\\s+(?:want|need|would\\s+like|'?d\\s+like)\\s+(?:you\\s+to\\s+)?)|give\\s+me\\s+|show\\s+me\\s+|gimme\\s+)?";
+    const ADJ = "(?:[\\w'-]+\\s+){0,3}?"; // a few optional leading/adjective words (allow "i'd", "kid's")
+
+    // 1) Slash command: /image, /img, /draw, /art, /gen ...
+    let m = t.match(/^\/(?:image|img|draw|art|gen(?:erate)?)\s+(.+)$/i);
+    if (m && m[1]) return clean(m[1]);
+
+    // 2) Start-anchored "<strong-noun> <connector> <subject>" — e.g.
+    //    "a logo of a lion", "an oil painting of a ship", "create a picture of a dog".
+    //    Anchoring avoids matching mid-sentence remarks ("I saw a painting of the sea").
+    m = t.match(new RegExp(`^(?:a|an|the|some|my|your|that)?\\s*${ADJ}(?:${CONNECT_NOUNS})s?\\s+(?:${CONNECT})\\s+(.+)$`, "i"));
+    if (m && m[1] && clean(m[1]).length > 1) return clean(m[1]);
+
+    // 3) Longer polite forms with a creation verb: "can you please make me a
+    //    picture of a dog", "i'd like you to generate an image of mars".
+    m = t.match(new RegExp(`^${LEAD}(?:${VERBS})\\s+(?:me\\s+|us\\s+)?(?:a|an|some|the|my|your)?\\s*${ADJ}(?:${CONNECT_NOUNS})s?\\s+(?:${CONNECT})\\s+(.+)$`, "i"));
+    if (m && m[1] && clean(m[1]).length > 1) return clean(m[1]);
+
+    // 4) Strongly-visual noun + "for" — "design a logo for my coffee shop".
+    m = t.match(new RegExp(`(?:${FOR_NOUNS})s?\\s+for\\s+(.+)$`, "i"));
+    if (m && m[1] && clean(m[1]).length > 1) return clean(m[1]);
+
+    // 5) Creation verb + subject + trailing noun (no connector) —
+    //    "generate a sunset wallpaper", "make a cyberpunk city poster".
+    m = t.match(new RegExp(`^${LEAD}(?:${VERBS})\\s+(?:me\\s+|us\\s+)?(?:a|an|some|the)?\\s*(.+?)\\s+(?:${TRAIL_NOUNS})s?\\s*$`, "i"));
+    if (m && m[1] && clean(m[1]).length > 1) return clean(m[1]);
+
+    // 6) Bare "draw/paint/sketch <subject>", skipping figurative idioms
+    //    ("draw a conclusion", "draw the line", "sketch out a plan").
+    const isIdiom = /^(?:draw|paint|sketch)\s+(?:a\s+|an\s+|the\s+|some\s+)?(?:conclusion|conclusions|comparison|distinction|parallel|parallels|line|lines|blank|breath|attention|inspiration|blood|straw|straws|out\b|up\b|from\b|on\b)/i.test(t);
+    if (!isIdiom) {
+      m = t.match(/^(?:draw|paint|sketch)\s+(?:me\s+)?(?:a|an|the|some)?\s*(.+)$/i);
+      if (m && m[1] && clean(m[1]).length > 2) return clean(m[1]);
+    }
+
     return null;
   };
   const detectPronounceIntent = (text: string): string | null => {
