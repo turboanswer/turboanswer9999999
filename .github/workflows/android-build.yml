@@ -36,10 +36,15 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
           accept-android-sdk-licenses: true
 
+      - name: Pin npm to a stable version
+        run: npm i -g npm@10.9.2
+
       - name: Install npm deps
-        run: npm ci
+        run: npm ci --no-audit --no-fund || npm ci --no-audit --no-fund || npm i --no-audit --no-fund
 
       - name: Build web assets
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run build
 
       - name: Capacitor sync
