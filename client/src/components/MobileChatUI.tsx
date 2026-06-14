@@ -2,30 +2,18 @@ import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
-import { X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, ClipboardCheck, ArrowUp, Film, Phone, Mail, Clock, ImagePlus, Loader2, Plus, Pencil, Trash2, Check, Stethoscope } from "lucide-react";
+import { 
+  X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, 
+  Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, 
+  ClipboardCheck, ArrowUp, Film, Phone, Mail, Clock, ImagePlus, Loader2, Plus, 
+  Pencil, Trash2, Check, Stethoscope, Lightbulb, PenSquare, Telescope, Activity, Send
+} from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Conversation, Message } from "@shared/schema";
 import turboLogo from "@assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509.png";
 import { useTheme } from "@/hooks/use-theme";
-
-const DARK_BG = "#08080F";
-const DARK_CARD = "#111118";
-const DARK_INPUT = "#16171F";
-
-const CARD_STYLES = [
-  { border: "1px solid rgba(66,133,244,0.35)", bg: "linear-gradient(135deg, rgba(66,133,244,0.08) 0%, #111118 100%)", dot: "#4285F4" },
-  { border: "1px solid rgba(139,92,246,0.35)", bg: "linear-gradient(135deg, rgba(139,92,246,0.08) 0%, #111118 100%)", dot: "#8B5CF6" },
-  { border: "1px solid rgba(20,184,166,0.35)", bg: "linear-gradient(135deg, rgba(20,184,166,0.08) 0%, #111118 100%)", dot: "#14B8A6" },
-  { border: "1px solid rgba(251,146,60,0.35)", bg: "linear-gradient(135deg, rgba(251,146,60,0.08) 0%, #111118 100%)", dot: "#FB923C" },
-];
-const CARD_STYLES_LIGHT = [
-  { border: "1px solid rgba(66,133,244,0.3)", bg: "linear-gradient(135deg, rgba(66,133,244,0.07) 0%, #F8FBFF 100%)", dot: "#4285F4" },
-  { border: "1px solid rgba(139,92,246,0.3)", bg: "linear-gradient(135deg, rgba(139,92,246,0.07) 0%, #FAF8FF 100%)", dot: "#8B5CF6" },
-  { border: "1px solid rgba(20,184,166,0.3)", bg: "linear-gradient(135deg, rgba(20,184,166,0.07) 0%, #F8FFFD 100%)", dot: "#14B8A6" },
-  { border: "1px solid rgba(251,146,60,0.3)", bg: "linear-gradient(135deg, rgba(251,146,60,0.07) 0%, #FFFAF5 100%)", dot: "#FB923C" },
-];
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -35,10 +23,10 @@ function getGreeting() {
 }
 
 const SUGGESTIONS = [
-  { icon: "💡", text: "Explain something complex", prompt: "Explain quantum computing in simple terms" },
-  { icon: "✍️", text: "Help me write", prompt: "Help me write a professional email" },
-  { icon: "🔭", text: "Explore ideas", prompt: "What are some interesting science facts?" },
-  { icon: "💪", text: "Health & wellness", prompt: "Give me a quick 10-minute workout plan" },
+  { icon: Lightbulb, text: "Explain something", prompt: "Explain quantum computing in simple terms" },
+  { icon: PenSquare, text: "Help me write", prompt: "Help me write a professional email" },
+  { icon: Telescope, text: "Explore ideas", prompt: "What are some interesting science facts?" },
+  { icon: Activity, text: "Health & wellness", prompt: "Give me a quick 10-minute workout plan" },
 ];
 
 interface Props {
@@ -108,34 +96,25 @@ export default function MobileChatUI({
     try { const s = localStorage.getItem(key); return s !== null ? JSON.parse(s) as T : def; } catch { return def; }
   };
   const fontSizePref = getPref<"small"|"medium"|"large">("pref_fontSize", "medium");
-  const chatDensityPref = getPref<"compact"|"comfortable"|"spacious">("pref_chatDensity", "comfortable");
-  const bubbleStylePref = getPref<"bubbles"|"flat"|"minimal">("pref_bubbleStyle", "bubbles");
   const showTimestampsPref = getPref("pref_showTimestamps", true);
   const animationsPref = getPref("pref_animations", true);
 
-  const msgFontSize = fontSizePref === "small" ? "11px" : fontSizePref === "large" ? "16px" : "14px";
-  const msgSpacing = chatDensityPref === "compact" ? "12px" : chatDensityPref === "spacious" ? "24px" : "20px";
-  const getUserBubbleStyle = (): CSSProperties => {
-    // Gemini-style: soft neutral pill, not heavy blue. Color is theme-driven.
-    if (bubbleStylePref === "flat") return { background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)", color: TEXT_MAIN, borderRadius: "10px", padding: "10px 14px" };
-    if (bubbleStylePref === "minimal") return { background: "transparent", border: `1px solid ${BORDER}`, color: TEXT_MAIN, borderRadius: "16px", padding: "8px 14px" };
-    return { background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)", color: TEXT_MAIN, borderRadius: "20px 20px 6px 20px", padding: "10px 16px" };
+  const msgFontSize = fontSizePref === "small" ? "14px" : fontSizePref === "large" ? "18px" : "16px";
+
+  // Flagship Turbo Identity Palette
+  const THEME = {
+    bg: isDark ? "#0A0A0F" : "#FFFFFF",
+    surface: isDark ? "#13131A" : "#F4F5F8",
+    surfaceHover: isDark ? "#1C1C26" : "#E5E7EB",
+    border: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+    text: isDark ? "#FFFFFF" : "#0F0F14",
+    textMuted: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+    textDim: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)",
+    primaryGradient: "linear-gradient(135deg, #4F46E5 0%, #3B82F6 100%)",
+    aiBubble: isDark ? "#13131A" : "#F4F5F8",
+    userBubble: isDark ? "#2D2B4A" : "#E0E7FF",
+    userText: isDark ? "#E0E7FF" : "#1E3A8A",
   };
-  const getAIBubbleStyle = (): CSSProperties => {
-    if (bubbleStylePref === "flat") return { background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: "8px", padding: "10px 14px" };
-    if (bubbleStylePref === "minimal") return { background: "transparent", padding: "4px 0" };
-    return { background: "transparent", padding: "0" };
-  };
-  const GEMINI_BG = isDark ? DARK_BG : "#F8F9FC";
-  const CARD_BG = isDark ? DARK_CARD : "#FFFFFF";
-  const INPUT_BG = isDark ? DARK_INPUT : "#F0F1F8";
-  const DRAWER_BG = isDark ? "#12131A" : "#FFFFFF";
-  const BORDER = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
-  const TEXT_MUTED = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)";
-  const TEXT_DIM = isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.7)";
-  const TEXT_MAIN = isDark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.85)";
-  const TEXT_TS = isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.3)";
-  const ACTIVE_CARD_STYLES = isDark ? CARD_STYLES : CARD_STYLES_LIGHT;
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [showSupportPanel, setShowSupportPanel] = useState(false);
@@ -154,13 +133,11 @@ export default function MobileChatUI({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + "px";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 140) + "px";
     }
   }, [messageContent]);
 
   const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
-  const tierLabel = selectedAIModel === "gemini-flash" ? "Free" : selectedAIModel === "gemini-pro" ? "Pro" : selectedAIModel === "enterprise-research" ? "Enterprise" : "Research";
-  // Deep Think + confidence/verified badges are RESEARCH-EXCLUSIVE.
   const userTier = ((user as any)?.subscriptionTier || 'free') as string;
   const isResearchOrAbove = userTier === 'research' || userTier === 'enterprise' || (user as any)?.isEmployee === true;
 
@@ -261,9 +238,18 @@ export default function MobileChatUI({
   };
 
   return (
-    <div className="flex flex-col" style={{ position: "fixed", inset: 0, background: GEMINI_BG, overflow: "hidden", overscrollBehavior: "none", touchAction: "pan-y", color: TEXT_MAIN }}>
-
-      {/* Hidden camera input */}
+    <div 
+      className="flex flex-col w-full" 
+      style={{ 
+        position: "fixed", inset: 0, 
+        backgroundColor: THEME.bg, 
+        color: THEME.text,
+        overflow: "hidden", 
+        overscrollBehavior: "none", 
+        touchAction: "pan-y",
+        fontFamily: "system-ui, -apple-system, sans-serif"
+      }}
+    >
       <input
         ref={cameraInputRef}
         type="file"
@@ -273,97 +259,98 @@ export default function MobileChatUI({
         onChange={handleCameraSelect}
       />
 
-      {/* Camera analyze modal */}
+      {/* Camera Analyze Modal */}
       {cameraImage && (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: "#000" }}>
-          <div className="flex items-center justify-between px-4 py-3" style={{ background: isDark ? "#0D0D14" : "#FFFFFF", borderBottom: `1px solid ${BORDER}` }}>
-            <button onClick={() => { setCameraImage(null); setCameraImageFull(null); setCameraQuestion(""); }} style={{ color: TEXT_DIM }}>
-              <X className="h-5 w-5" />
+        <div className="fixed inset-0 z-[100] flex flex-col backdrop-blur-xl bg-black/90 transition-all duration-300">
+          <div className="flex items-center justify-between px-4 py-4" style={{ paddingTop: "max(16px, env(safe-area-inset-top))" }}>
+            <button onClick={() => { setCameraImage(null); setCameraImageFull(null); setCameraQuestion(""); }} className="p-2 rounded-full bg-white/10 text-white active:scale-90 transition-transform">
+              <X className="h-6 w-6" />
             </button>
-            <span className="font-semibold text-sm" style={{ color: TEXT_MAIN }}>AI Scanner</span>
-            <div className="w-8" />
+            <span className="font-semibold text-white tracking-tight">Scanner</span>
+            <div className="w-10" />
           </div>
 
-          <div className="flex-1 overflow-y-auto flex flex-col">
-            <div className="relative w-full" style={{ background: "#000" }}>
-              <img src={`data:image/jpeg;base64,${cameraImage}`} alt="Captured" className="w-full object-contain" style={{ maxHeight: "55vh" }} />
+          <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center p-4">
+            <div className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-black/50">
+              <img src={`data:image/jpeg;base64,${cameraImage}`} alt="Captured" className="w-full h-auto object-cover" style={{ maxHeight: "50vh" }} />
             </div>
 
-            <div className="px-4 pt-4 pb-2">
-              <p className="text-xs mb-2" style={{ color: TEXT_DIM }}>Ask something specific (optional)</p>
+            <div className="w-full max-w-sm mt-8 space-y-3">
+              <p className="text-sm text-white/70 ml-1">Add context (optional)</p>
               <textarea
                 value={cameraQuestion}
                 onChange={(e) => setCameraQuestion(e.target.value)}
-                placeholder="e.g. What does this say? How much is the total? Translate this..."
+                placeholder="What do you want to know about this?"
                 rows={2}
-                className="w-full rounded-2xl px-3 py-2.5 text-sm resize-none outline-none"
-                style={{ background: INPUT_BG, border: "1px solid rgba(66,133,244,0.2)", color: TEXT_MAIN, minHeight: "64px" }}
+                className="w-full rounded-2xl px-4 py-3.5 text-[15px] resize-none outline-none bg-white/10 text-white placeholder:text-white/40 border border-white/10 focus:border-indigo-500/50 transition-colors shadow-inner"
               />
             </div>
           </div>
 
-          <div className="px-4 py-3" style={{ background: isDark ? "#0D0D14" : "#FFFFFF", borderTop: `1px solid ${BORDER}`, paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+          <div className="px-4 py-4" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
             <button
               onClick={handleCameraAnalyze}
               disabled={cameraProcessing}
-              className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-40 transition-all active:scale-95"
-              style={{ background: "linear-gradient(135deg, #4285F4, #34A853)", boxShadow: "0 4px 20px rgba(66,133,244,0.3)" }}
+              className="w-full max-w-sm mx-auto py-4 rounded-[1.25rem] font-semibold text-white flex items-center justify-center gap-2.5 shadow-lg active:scale-[0.98] transition-all disabled:opacity-50"
+              style={{ background: THEME.primaryGradient }}
             >
               {cameraProcessing ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
+                <><Loader2 className="h-5 w-5 animate-spin" /> Analyzing...</>
               ) : (
-                <><Camera className="h-4 w-4" /> Analyze with AI</>
+                <><Sparkles className="h-5 w-5" /> Analyze Image</>
               )}
             </button>
           </div>
         </div>
       )}
 
-      {/* Drawer backdrop */}
+      {/* Navigation Drawer */}
       {showDrawer && (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowDrawer(false)} />
+        <div 
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-300" 
+          onClick={() => setShowDrawer(false)} 
+        />
       )}
 
-      {/* Left drawer */}
       <div
-        className="fixed top-0 left-0 h-full w-72 z-50 flex flex-col transition-transform duration-300 ease-in-out"
-        style={{ background: DRAWER_BG, borderRight: `1px solid ${BORDER}`, transform: showDrawer ? "translateX(0)" : "translateX(-100%)" }}
+        className="fixed top-0 left-0 h-full w-[85%] max-w-[320px] z-[60] flex flex-col shadow-2xl transition-transform duration-300 cubic-bezier(0.16, 1, 0.3, 1)"
+        style={{ 
+          background: THEME.bg, 
+          borderRight: `1px solid ${THEME.border}`, 
+          transform: showDrawer ? "translateX(0)" : "translateX(-100%)" 
+        }}
       >
-        {/* Drawer header */}
-        <div className="px-4 pt-12 pb-4 border-b" style={{ borderColor: BORDER, background: "linear-gradient(180deg, rgba(66,133,244,0.06) 0%, transparent 100%)" }}>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white text-base font-bold flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #4285F4, #8B5CF6)", boxShadow: "0 4px 12px rgba(66,133,244,0.4)" }}>
+        <div className="px-5 pb-5" style={{ paddingTop: "max(24px, env(safe-area-inset-top))" }}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0 shadow-md"
+              style={{ background: THEME.primaryGradient }}>
               {firstName[0]?.toUpperCase() || "U"}
             </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-sm truncate" style={{ color: TEXT_MAIN }}>{user?.firstName ? `${user.firstName}` : "My Account"}</p>
-              <p className="text-xs truncate" style={{ color: TEXT_MUTED }}>{user?.email}</p>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-[15px] truncate text-foreground">{user?.firstName ? `${user.firstName}` : "My Account"}</p>
+              <p className="text-[13px] truncate" style={{ color: THEME.textMuted }}>{user?.email}</p>
             </div>
           </div>
-        </div>
-
-        {/* New chat button */}
-        <div className="px-4 pt-4 pb-2">
+          
           <button
             onClick={() => newChatMutation.mutate()}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium text-white transition-all active:scale-95"
-            style={{ background: "linear-gradient(135deg, #4285F4, #8B5CF6)", boxShadow: "0 4px 15px rgba(66,133,244,0.3)" }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl text-[15px] font-semibold text-white transition-all active:scale-[0.98] shadow-md"
+            style={{ background: THEME.primaryGradient }}
           >
-            <Plus className="h-4 w-4" />
-            New chat
+            <Plus className="h-5 w-5" />
+            Start New Chat
           </button>
         </div>
 
-        {/* Conversations */}
-        <div className="flex-1 overflow-y-auto px-3 py-2">
+        <div className="flex-1 overflow-y-auto px-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider px-3 mb-2 mt-2" style={{ color: THEME.textMuted }}>Chat History</p>
           {conversations && conversations.length > 0 ? (
-            <>
-              <p className="text-xs font-medium px-2 mb-2" style={{ color: TEXT_MUTED }}>Recent</p>
-              {conversations.slice(0, 20).map((conv) => (
-                <div key={conv.id} className="group relative rounded-xl mb-0.5" style={{ background: conv.id === currentConversationId ? "rgba(66,133,244,0.12)" : "transparent" }}>
+            <div className="space-y-1 pb-4">
+              {conversations.map((conv) => (
+                <div key={conv.id} className="group relative rounded-xl overflow-hidden" 
+                     style={{ background: conv.id === currentConversationId ? THEME.surface : "transparent" }}>
                   {renamingId === conv.id ? (
-                    <div className="flex items-center gap-1.5 px-3 py-2">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-surface">
                       <input
                         autoFocus
                         value={renameValue}
@@ -372,414 +359,324 @@ export default function MobileChatUI({
                           if (e.key === "Enter" && renameValue.trim()) renameMutation.mutate({ id: conv.id, title: renameValue.trim() });
                           if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
                         }}
-                        className="flex-1 text-sm rounded-lg px-2 py-1 outline-none min-w-0"
-                        style={{ background: INPUT_BG, color: TEXT_MAIN, border: `1px solid rgba(66,133,244,0.4)` }}
+                        className="flex-1 text-[14px] bg-transparent outline-none min-w-0"
+                        style={{ color: THEME.text }}
                       />
-                      <button
-                        onClick={() => { if (renameValue.trim()) renameMutation.mutate({ id: conv.id, title: renameValue.trim() }); }}
-                        className="flex-shrink-0 p-1 rounded-lg text-blue-400 hover:text-blue-300"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => { setRenamingId(null); setRenameValue(""); }}
-                        className="flex-shrink-0 p-1 rounded-lg"
-                        style={{ color: TEXT_MUTED }}
-                      >
-                        <X className="h-3.5 w-3.5" />
+                      <button onClick={() => { if (renameValue.trim()) renameMutation.mutate({ id: conv.id, title: renameValue.trim() }); }} className="text-indigo-500 p-1">
+                        <Check className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => { setCurrentConversationId(conv.id); setShowDrawer(false); }}
-                        className="flex-1 text-left px-3 py-2.5 text-sm flex items-center gap-2 min-w-0"
-                        style={{ color: conv.id === currentConversationId ? (isDark ? "white" : "#1a1a2e") : TEXT_DIM }}
+                        className="flex-1 text-left px-3 py-3 text-[14px] flex items-center gap-3 min-w-0 active:bg-black/5"
+                        style={{ color: conv.id === currentConversationId ? THEME.text : THEME.textDim }}
                       >
-                        <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-                        <span className="truncate">{conv.title || "New Chat"}</span>
+                        <MessageSquare className="h-4 w-4 flex-shrink-0 opacity-50" />
+                        <span className="truncate font-medium">{conv.title || "New Chat"}</span>
                       </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setRenamingId(conv.id); setRenameValue(conv.title || ""); }}
-                        className="flex-shrink-0 p-1.5 rounded-lg transition-opacity"
-                        style={{ color: TEXT_MUTED, opacity: 0.6 }}
-                        title="Rename"
-                      >
-                        <Pencil className="h-3 w-3" />
+                      <button onClick={(e) => { e.stopPropagation(); setRenamingId(conv.id); setRenameValue(conv.title || ""); }} className="p-2 opacity-60 active:opacity-100" style={{ color: THEME.textDim }}>
+                        <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(conv.id); }}
-                        className="flex-shrink-0 p-1.5 rounded-lg transition-opacity mr-1"
-                        style={{ color: "rgba(239,68,68,0.6)" }}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3 w-3" />
+                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(conv.id); }} className="p-2 mr-1 opacity-60 active:opacity-100 text-red-500">
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   )}
                 </div>
               ))}
-            </>
+            </div>
           ) : (
-            <p className="text-xs text-center py-4" style={{ color: TEXT_MUTED }}>No conversations yet</p>
+            <p className="text-[13px] text-center py-6" style={{ color: THEME.textMuted }}>No conversations yet</p>
           )}
         </div>
 
-        {/* Delete confirmation dialog */}
+        <div className="px-4 py-4 border-t space-y-1" style={{ borderColor: THEME.border, paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+          <Link href="/ai-settings">
+             <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => setShowDrawer(false)}>
+               <Settings className="h-4 w-4" /> Settings
+             </button>
+          </Link>
+          <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); setShowSupportPanel(true); }}>
+            <Phone className="h-4 w-4" /> Contact Support
+          </button>
+          <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5 text-red-500/80" onClick={logout}>
+            <LogOut className="h-4 w-4" /> Sign Out
+          </button>
+        </div>
+
+        {/* Drawer Delete Confirm */}
         {deleteConfirmId !== null && (
-          <div className="absolute inset-0 z-60 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,0.7)" }}>
-            <div className="rounded-2xl p-5 w-full max-w-xs" style={{ background: DRAWER_BG, border: `1px solid ${BORDER}` }}>
-              <p className="font-semibold text-sm mb-1" style={{ color: TEXT_MAIN }}>Delete conversation?</p>
-              <p className="text-xs mb-4" style={{ color: TEXT_MUTED }}>Are you really sure you want to delete this? This cannot be undone.</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 py-2 rounded-xl text-sm font-medium"
-                  style={{ background: INPUT_BG, color: TEXT_DIM }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => deleteMutation.mutate(deleteConfirmId!)}
-                  disabled={deleteMutation.isPending}
-                  className="flex-1 py-2 rounded-xl text-sm font-semibold text-white"
-                  style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}
-                >
-                  {deleteMutation.isPending ? "Deleting…" : "Delete"}
+          <div className="absolute inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="rounded-3xl p-5 w-full max-w-[260px] shadow-2xl" style={{ background: THEME.bg, border: `1px solid ${THEME.border}` }}>
+              <p className="font-bold text-[16px] mb-2 text-center" style={{ color: THEME.text }}>Delete Chat?</p>
+              <p className="text-[13px] mb-5 text-center leading-relaxed" style={{ color: THEME.textDim }}>This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteConfirmId(null)} className="flex-1 py-2.5 rounded-xl text-[14px] font-semibold bg-surface active:bg-surfaceHover transition-colors" style={{ color: THEME.textDim }}>Cancel</button>
+                <button onClick={() => deleteMutation.mutate(deleteConfirmId!)} disabled={deleteMutation.isPending} className="flex-1 py-2.5 rounded-xl text-[14px] font-semibold text-white bg-red-500 active:bg-red-600 transition-colors shadow-sm">
+                  {deleteMutation.isPending ? "..." : "Delete"}
                 </button>
               </div>
             </div>
           </div>
         )}
-
-        {/* Drawer footer */}
-        <div className="px-3 pb-8 border-t pt-3 space-y-1" style={{ borderColor: BORDER }}>
-          <Link href="/crisis-support">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)}>
-              <Heart className="h-4 w-4 text-pink-400" /> Crisis Support
-            </button>
-          </Link>
-          <Link href="/photo-editor">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)}>
-              <Camera className="h-4 w-4 text-pink-400" /> Photo Studio
-            </button>
-          </Link>
-          <Link href="/video-studio">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)}>
-              <Film className="h-4 w-4 text-violet-400" /> Video Studio
-            </button>
-          </Link>
-          <Link href="/stack-trace-surgeon">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)} data-testid="link-stack-trace-surgeon-mobile">
-              <Stethoscope className="h-4 w-4 text-purple-400" /> Stack Trace Surgeon <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(168,85,247,0.15)', color: '#c084fc' }}>RESEARCH</span>
-            </button>
-          </Link>
-          {user?.isEmployee && (
-            <Link href="/employee/dashboard">
-              <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)}>
-                <Shield className="h-4 w-4 text-red-400" /> Admin Panel
-              </button>
-            </Link>
-          )}
-          {user?.isBetaTester && (
-            <Link href="/beta-feedback">
-              <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)} data-testid="link-beta-feedback-mobile">
-                <ClipboardCheck className="h-4 w-4 text-blue-400" /> Beta Feedback
-              </button>
-            </Link>
-          )}
-          <Link href="/ai-settings">
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }} onClick={() => setShowDrawer(false)}>
-              <Settings className="h-4 w-4 opacity-60" /> Settings
-            </button>
-          </Link>
-          <button onClick={() => logout()} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: TEXT_DIM }}>
-            <LogOut className="h-4 w-4 opacity-60" /> Sign out
-          </button>
-        </div>
       </div>
 
-      {/* Header — minimal Gemini-style: no gradient overlay, no border, generous touch targets */}
-      <header className="flex items-center justify-between px-3 shrink-0" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: "8px" }}>
-        <button onClick={() => setShowDrawer(true)} className="w-10 h-10 flex items-center justify-center rounded-full transition-colors active:bg-white/5" aria-label="Menu">
-          <Menu className="h-5 w-5" style={{ color: TEXT_MAIN }} />
+      {/* Header — Floating & Clean */}
+      <header 
+        className="flex items-center justify-between px-3 z-30 shrink-0 backdrop-blur-2xl transition-all" 
+        style={{ 
+          paddingTop: "max(12px, env(safe-area-inset-top))", 
+          paddingBottom: "12px",
+          background: isDark ? "rgba(10, 10, 15, 0.85)" : "rgba(255, 255, 255, 0.85)",
+          borderBottom: messages.length > 0 ? `1px solid ${THEME.border}` : "1px solid transparent"
+        }}
+      >
+        <button onClick={() => setShowDrawer(true)} className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all bg-surface" aria-label="Menu">
+          <Menu className="h-5 w-5" style={{ color: THEME.text }} />
         </button>
 
-        <Select value={selectedAIModel} onValueChange={handleModelChange}>
-          <SelectTrigger className="h-9 text-[14px] font-medium rounded-full border-0 px-3.5 gap-1.5 focus:ring-0" style={{ background: "transparent", color: TEXT_MAIN }}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="gemini-flash">Free</SelectItem>
-            <SelectItem value="gemini-pro">Pro</SelectItem>
-            <SelectItem value="claude-research">Research</SelectItem>
-            <SelectItem value="enterprise-research">Enterprise</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[13px] font-medium flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, #4285F4, #9B72F2)" }}
-          aria-label="Account"
-        >
-          {firstName[0]?.toUpperCase() || "U"}
+        <div className="flex-1 flex justify-center">
+          <Select value={selectedAIModel} onValueChange={handleModelChange}>
+            <SelectTrigger className="h-9 text-[13px] font-bold tracking-wide rounded-full border border-border/50 px-4 gap-2 bg-surface shadow-sm focus:ring-0 uppercase">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-border/50 shadow-xl">
+              <SelectItem value="gemini-flash" className="rounded-xl my-1">Turbo Free</SelectItem>
+              <SelectItem value="gemini-pro" className="rounded-xl my-1 text-indigo-500 font-semibold">Turbo Pro</SelectItem>
+              <SelectItem value="claude-research" className="rounded-xl my-1 font-semibold">Matrix Research</SelectItem>
+              <SelectItem value="enterprise-research" className="rounded-xl my-1 font-semibold">Enterprise</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+
+        <button onClick={() => newChatMutation.mutate()} className="w-10 h-10 flex items-center justify-center rounded-full active:scale-90 transition-all bg-surface" aria-label="New Chat">
+          <Plus className="h-5 w-5" style={{ color: THEME.text }} />
+        </button>
       </header>
 
-      {/* Main messages / welcome area */}
-      <main className="flex-1 overflow-y-auto">
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
         {messages.length === 0 && !isTyping ? (
-          /* Gemini-style welcome — generous whitespace, big light gradient greeting, monochrome suggestions */
-          <div className="flex flex-col h-full px-6 pt-12 pb-4">
-            {/* Big greeting in soft 4-color gradient — light weight, lots of air */}
-            <h1
-              className="text-[44px] font-light leading-[1.05] tracking-tight"
-              style={{
-                background: "linear-gradient(90deg, #4285F4 0%, #9B72F2 35%, #D96570 65%, #F2B95E 100%)",
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              {getGreeting()},
+          <div className="flex flex-col h-full px-6 pt-10 pb-6 items-center justify-center animate-in fade-in duration-700">
+            <div className="w-20 h-20 mb-8 rounded-3xl bg-surface flex items-center justify-center shadow-lg relative overflow-hidden">
+               <div className="absolute inset-0 opacity-20" style={{ background: THEME.primaryGradient }} />
+               <img src={turboLogo} alt="Turbo Answer" className="w-10 h-10 object-contain relative z-10" />
+            </div>
+            
+            <h1 className="text-[32px] font-bold text-center leading-tight tracking-tight mb-2" style={{ color: THEME.text }}>
+              {getGreeting()}, <br/>
+              <span style={{ 
+                background: THEME.primaryGradient, 
+                WebkitBackgroundClip: "text", 
+                WebkitTextFillColor: "transparent" 
+              }}>
+                {firstName}
+              </span>
             </h1>
-            <h2
-              className="text-[44px] font-light leading-[1.05] tracking-tight mb-2"
-              style={{ color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)" }}
-            >
-              {firstName}.
-            </h2>
+            <p className="text-[15px] text-center mb-10 max-w-[280px]" style={{ color: THEME.textMuted }}>
+              I'm ready to help. What's on your mind?
+            </p>
 
-            {/* Push suggestions to the bottom of the welcome area */}
-            <div className="flex-1" />
-
-            {/* Minimal monochrome suggestion chips — Gemini-style */}
-            <div className="grid grid-cols-2 gap-2 w-full">
-              {SUGGESTIONS.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => setMessageContent(s.prompt)}
-                  className="rounded-2xl p-3.5 text-left transition-all active:scale-[0.98]"
-                  style={{
-                    background: "transparent",
-                    border: `1px solid ${BORDER}`,
-                  }}
-                >
-                  <div className="text-base mb-1.5 opacity-80">{s.icon}</div>
-                  <p className="text-[13px] leading-snug" style={{ color: TEXT_DIM }}>{s.text}</p>
-                </button>
-              ))}
+            <div className="grid grid-cols-1 w-full gap-3 max-w-[320px] mt-auto">
+              {SUGGESTIONS.map((s, i) => {
+                const Icon = s.icon;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setMessageContent(s.prompt)}
+                    className="flex items-center gap-4 p-4 rounded-[1.25rem] text-left transition-all active:scale-[0.98] active:opacity-70 bg-surface border border-transparent shadow-sm"
+                  >
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-background shrink-0 shadow-sm" style={{ color: THEME.textDim }}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-semibold" style={{ color: THEME.text }}>{s.text}</p>
+                      <p className="text-[12px] truncate max-w-[200px]" style={{ color: THEME.textMuted }}>{s.prompt}</p>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ) : (
-          /* Messages */
-          <div className="px-4 py-4">
-            {messages.map((msg) => (
+          <div className="px-4 py-6">
+            {messages.map((msg, i) => (
               <div
                 key={msg.id}
-                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                style={{ marginBottom: msgSpacing, transition: animationsPref ? "all 0.15s" : "none" }}
+                className={`flex flex-col mb-6 animate-in slide-in-from-bottom-2 duration-300 ${msg.role === "user" ? "items-end" : "items-start"}`}
               >
                 {msg.role === "assistant" && (
-                  <img src={turboLogo} alt="Turbo" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
+                  <div className="flex items-center gap-2 mb-1.5 ml-1">
+                     <img src={turboLogo} alt="Turbo" className="w-5 h-5 rounded-full object-cover" />
+                     <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: THEME.textMuted }}>Turbo Answer</span>
+                  </div>
                 )}
-                <div className="max-w-[82%]">
-                  {msg.role === "user" ? (
-                    <div className="leading-relaxed break-words" style={{ fontSize: msgFontSize, ...getUserBubbleStyle() }}>
-                      {renderMessageContent(msg.content, msg.role)}
-                    </div>
-                  ) : (
-                    <div className="leading-relaxed break-words" style={{ fontSize: msgFontSize, color: TEXT_MAIN, ...getAIBubbleStyle() }}>
-                      {renderMessageContent(msg.content, msg.role)}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mt-1 px-1">
-                    {isResearchOrAbove && msg.role === 'assistant' && verifiedMessages[msg.id] && verifiedMessages[msg.id] !== "unknown" && (
-                      <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors ${verifiedMessages[msg.id] === "verified" ? 'text-blue-400 bg-blue-500/10 border-blue-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
+                <div 
+                  className="max-w-[88%] leading-relaxed break-words shadow-sm" 
+                  style={{ 
+                    fontSize: msgFontSize, 
+                    background: msg.role === "user" ? THEME.userBubble : THEME.aiBubble,
+                    color: msg.role === "user" ? THEME.userText : THEME.text,
+                    padding: "12px 16px",
+                    borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "4px 20px 20px 20px",
+                    border: msg.role !== "user" ? `1px solid ${THEME.border}` : "none"
+                  }}
+                >
+                  {renderMessageContent(msg.content, msg.role)}
+                </div>
+                
+                {msg.role === "assistant" && (
+                  <div className="flex items-center gap-2 mt-2 ml-1">
+                    {isResearchOrAbove && verifiedMessages[msg.id] && verifiedMessages[msg.id] !== "unknown" && (
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide border transition-colors ${verifiedMessages[msg.id] === "verified" ? 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20' : 'text-amber-500 bg-amber-500/10 border-amber-500/20'}`}>
                         {verifiedMessages[msg.id] === "verified" ? (
-                          <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="currentColor" opacity="0.15"/><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg> Verified</>
+                          <><CheckCircle className="w-3 h-3" /> Verified</>
                         ) : (
-                          <><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" opacity="0.6"/><path d="M12 8v4M12 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg> Unverified</>
+                          <><Shield className="w-3 h-3 opacity-70" /> Unverified</>
                         )}
                       </span>
                     )}
                     {showTimestampsPref && (
-                      <span className="text-[10px]" style={{ color: TEXT_TS }}>
+                      <span className="text-[11px] font-medium" style={{ color: THEME.textMuted }}>
                         {formatTimestamp(msg.timestamp)}
                       </span>
                     )}
                   </div>
-                </div>
+                )}
               </div>
             ))}
 
-            {/* Live streaming assistant bubble (token-by-token) */}
-            {isTyping && streamingText ? (
-              <div className="flex gap-3 justify-start mb-3">
-                <img src={turboLogo} alt="Turbo" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
-                <div className="max-w-[82%]">
+            {isTyping && streamingText && (
+              <div className="flex flex-col mb-6 items-start animate-in fade-in duration-300">
+                <div className="flex items-center gap-2 mb-1.5 ml-1">
+                   <img src={turboLogo} alt="Turbo" className="w-5 h-5 rounded-full object-cover" />
+                   <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: THEME.textMuted }}>Turbo Answer</span>
+                </div>
+                <div className="max-w-[88%] leading-relaxed break-words shadow-sm" 
+                  style={{ 
+                    fontSize: msgFontSize, 
+                    background: THEME.aiBubble,
+                    color: THEME.text,
+                    padding: "12px 16px",
+                    borderRadius: "4px 20px 20px 20px",
+                    border: `1px solid ${THEME.border}`
+                  }}>
                   {autoDowngraded && (
-                    <div className="text-[10px] mb-1 px-2 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold border" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.3)' }}>
-                      ⚡ Auto-routed to fast — toggle Deep Think for verified deep reasoning
+                    <div className="text-[11px] mb-2 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 font-bold uppercase tracking-wide border" style={{ color: '#d97706', background: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)' }}>
+                      <Zap className="w-3 h-3" /> Auto-routed to fast
                     </div>
                   )}
-                  <div className="leading-relaxed break-words whitespace-pre-wrap" style={{ fontSize: msgFontSize, color: TEXT_MAIN, ...getAIBubbleStyle() }}>
-                    {cleanMarkdown(streamingText)}
-                    <span className="inline-block w-1.5 h-4 ml-0.5 align-middle bg-blue-500 animate-pulse" />
-                  </div>
-                </div>
-              </div>
-            ) : isTyping && (
-              /* Gemini-style thinking state — clean shimmer line + dot, no rainbow circus */
-              <div className="flex gap-3 justify-start">
-                <img src={turboLogo} alt="Turbo" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
-                <div className="flex items-center gap-2 pt-2">
-                  <style>{`
-                    @keyframes turbo-pulse { 0%,100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
-                    @keyframes turbo-shimmer-line {
-                      0% { background-position: -200% 0; }
-                      100% { background-position: 200% 0; }
-                    }
-                  `}</style>
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{
-                      background: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)',
-                      animation: animationsPref ? 'turbo-pulse 1.4s ease-in-out infinite' : 'none',
-                    }}
-                  />
-                  <span
-                    className="text-[13px] font-normal"
-                    style={{
-                      background: animationsPref
-                        ? `linear-gradient(90deg, ${TEXT_MUTED} 0%, ${TEXT_MAIN} 50%, ${TEXT_MUTED} 100%)`
-                        : 'none',
-                      backgroundSize: '200% 100%',
-                      WebkitBackgroundClip: animationsPref ? 'text' : 'unset',
-                      backgroundClip: animationsPref ? 'text' : 'unset',
-                      WebkitTextFillColor: animationsPref ? 'transparent' : 'inherit',
-                      color: animationsPref ? undefined : TEXT_MUTED,
-                      animation: animationsPref ? 'turbo-shimmer-line 2.2s linear infinite' : 'none',
-                    }}
-                  >
-                    Thinking
-                  </span>
+                  <span className="whitespace-pre-wrap">{cleanMarkdown(streamingText)}</span>
+                  <span className="inline-block w-2 h-4 ml-1 align-middle rounded-sm animate-pulse" style={{ background: THEME.primaryGradient }} />
                 </div>
               </div>
             )}
 
-            <div ref={messagesEndRef} />
+            {isTyping && !streamingText && (
+              <div className="flex flex-col mb-6 items-start animate-in fade-in">
+                 <div className="flex items-center gap-2 mb-1.5 ml-1">
+                   <img src={turboLogo} alt="Turbo" className="w-5 h-5 rounded-full object-cover" />
+                </div>
+                <div className="flex gap-1.5 px-4 py-3 rounded-2xl bg-surface border border-border/50">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <div className="w-2 h-2 rounded-full bg-indigo-500/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <div className="w-2 h-2 rounded-full bg-indigo-500/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} className="h-4" />
           </div>
         )}
       </main>
 
-      {/* Bottom input bar */}
-      <div className="shrink-0 px-3 pt-1" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-        {/* Support contact - compact */}
-        <div className="relative">
-          {showSupportPanel && (
-            <div className="absolute bottom-full mb-2 left-0 right-0 rounded-2xl p-4 z-30" style={{ background: isDark ? "#1C1D26" : "#FFFFFF", border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold" style={{ color: TEXT_MAIN }}>Contact Support</p>
-                <button onClick={() => setShowSupportPanel(false)} style={{ color: TEXT_MUTED }}><X className="h-4 w-4" /></button>
-              </div>
-              <div className="space-y-2">
-                <a href="mailto:support@turboanswer.it.com" className="flex items-center gap-3 py-2">
-                  <Mail className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-blue-400">support@turboanswer.it.com</span>
-                </a>
-                <a href="tel:8663206042" className="flex items-center gap-3 py-2">
-                  <Phone className="h-4 w-4 text-blue-400" />
-                  <span className="text-xs text-blue-400">866-320-6042</span>
-                </a>
-                <div className="flex items-center gap-3 py-2">
-                  <Clock className="h-4 w-4" style={{ color: TEXT_MUTED }} />
-                  <span className="text-xs" style={{ color: TEXT_MUTED }}>Available 24/7</span>
-                </div>
-              </div>
+      {/* Modern Floating Composer */}
+      <div className="shrink-0 px-4 pt-2 z-30" style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))", background: `linear-gradient(to top, ${THEME.bg} 80%, transparent)` }}>
+        
+        {showSupportPanel && (
+          <div className="absolute bottom-[calc(100%+8px)] left-4 right-4 rounded-[1.5rem] p-5 shadow-2xl animate-in slide-in-from-bottom-2" style={{ background: THEME.surface, border: `1px solid ${THEME.border}` }}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[15px] font-bold" style={{ color: THEME.text }}>Contact Support</p>
+              <button onClick={() => setShowSupportPanel(false)} className="p-1.5 rounded-full bg-background active:scale-90 transition-transform"><X className="h-4 w-4" style={{ color: THEME.textDim }} /></button>
             </div>
-          )}
+            <div className="space-y-1">
+              <a href="mailto:support@turboanswer.it.com" className="flex items-center gap-3 py-2.5 px-3 rounded-xl active:bg-black/5">
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center"><Mail className="h-4 w-4 text-blue-500" /></div>
+                <span className="text-[14px] font-medium text-blue-500">support@turboanswer.it.com</span>
+              </a>
+              <a href="tel:8663206042" className="flex items-center gap-3 py-2.5 px-3 rounded-xl active:bg-black/5">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center"><Phone className="h-4 w-4 text-indigo-500" /></div>
+                <span className="text-[14px] font-medium text-indigo-500">866-320-6042</span>
+              </a>
+            </div>
+          </div>
+        )}
 
-          {/* Input bar — Gemini-style pill: rounded-full, neutral border, monochrome send */}
-          <div
-            className="flex items-end gap-2 pl-4 pr-2 py-2 rounded-full"
+        <div className="relative flex items-end gap-2 bg-surface rounded-[1.75rem] p-1.5 shadow-sm border border-border/50 focus-within:border-indigo-500/30 transition-all duration-300">
+          <button
+            onClick={() => cameraInputRef.current?.click()}
+            className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 hover:bg-background/50 mb-0.5 ml-0.5"
+            style={{ color: THEME.textDim }}
+          >
+            <Camera className="h-5 w-5" />
+          </button>
+
+          <textarea
+            ref={textareaRef}
+            value={messageContent}
+            onChange={(e) => setMessageContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message Turbo Answer..."
+            rows={1}
+            className="flex-1 bg-transparent text-[15px] resize-none outline-none py-3 placeholder:opacity-50"
+            style={{ color: THEME.text, minHeight: "24px", maxHeight: "140px" }}
+          />
+
+          <button
+            onClick={handleSend}
+            disabled={!messageContent.trim() || isSending}
+            className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 disabled:scale-100 mb-0.5 mr-0.5"
             style={{
-              background: INPUT_BG,
-              border: `1px solid ${BORDER}`,
+              background: messageContent.trim() ? THEME.primaryGradient : THEME.surfaceHover,
+              color: messageContent.trim() ? "#FFF" : THEME.textMuted,
+              boxShadow: messageContent.trim() ? "0 4px 12px rgba(79, 70, 229, 0.2)" : "none"
             }}
           >
-            <button
-              onClick={() => cameraInputRef.current?.click()}
-              className="flex-shrink-0 mb-1 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 -ml-2"
-              style={{ color: TEXT_DIM }}
-              title="Take a photo"
-              aria-label="Camera"
-            >
-              <Camera className="h-[18px] w-[18px]" />
-            </button>
-
-            <textarea
-              ref={textareaRef}
-              value={messageContent}
-              onChange={(e) => setMessageContent(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask Turbo Answer"
-              rows={1}
-              className="flex-1 bg-transparent text-[15px] resize-none outline-none py-2 placeholder:opacity-60"
-              style={{ color: TEXT_MAIN, minHeight: "24px", maxHeight: "120px" }}
-            />
-
-            <button
-              onClick={handleSend}
-              disabled={!messageContent.trim() || isSending}
-              className="flex-shrink-0 mb-0.5 w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-95 disabled:opacity-30"
-              style={{
-                background: messageContent.trim()
-                  ? (isDark ? "#fff" : "#0b0b0d")
-                  : "transparent",
-                color: messageContent.trim()
-                  ? (isDark ? "#0b0b0d" : "#fff")
-                  : TEXT_DIM,
-              }}
-              aria-label="Send"
-            >
-              <ArrowUp className="h-[18px] w-[18px]" />
-            </button>
-          </div>
+            <ArrowUp className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
-      {/* ===== ALL SUBSCRIPTION MODALS (identical to web) ===== */}
-
-      {/* Pro Upgrade Popup */}
+      {/* --- ALL POPUPS (Kept functionally identical but visually tweaked for premium feel) --- */}
       {showProPopup && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowProPopup(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-sm w-full p-6 relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowProPopup(false)} className="absolute top-3 right-3 text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
-            <div className="text-center mb-5">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4"><Crown className="text-white h-7 w-7" /></div>
-              <h2 className="text-xl font-bold mb-1 text-white">Upgrade to Pro</h2>
-              <p className="text-zinc-400 text-sm">Unlock Advanced AI</p>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-5 animate-in fade-in" onClick={() => setShowProPopup(false)}>
+          <div className="bg-surface border border-border rounded-[2rem] max-w-sm w-full p-8 relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowProPopup(false)} className="absolute top-4 right-4 p-2 bg-background rounded-full"><X className="h-5 w-5" style={{ color: THEME.textDim }} /></button>
+            <div className="text-center mb-6 mt-2">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: THEME.primaryGradient }}>
+                <Crown className="text-white h-8 w-8" />
+              </div>
+              <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Turbo Pro</h2>
+              <p className="text-[14px]" style={{ color: THEME.textMuted }}>Unlock Advanced Intelligence</p>
             </div>
-            <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
+            <div className="text-center mb-6">
+              <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$6.99</span>
+              <span className="text-[16px] ml-1" style={{ color: THEME.textMuted }}>/mo</span>
+              <div className="inline-flex items-center gap-1.5 mt-2 bg-indigo-500/10 text-indigo-500 text-[12px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full">
+                7-day free trial
               </div>
             </div>
-            <div className="text-center mb-5">
-              <span className="text-4xl font-bold text-white">$6.99</span>
-              <span className="text-zinc-400 text-base">/month</span>
-              <p className="text-xs mt-1 text-zinc-500">after free trial</p>
-            </div>
-            <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "Advanced AI model — deeper reasoning", "Priority response speed", "Everything in Free included"].map((text, i) => (
+            <ul className="space-y-4 mb-8">
+              {["Advanced reasoning model", "Priority response speed", "Early access to new features"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 flex-shrink-0 text-blue-400" />
-                  <span className={`text-sm ${i === 0 ? "font-semibold text-blue-400" : "text-zinc-200"}`}>{text}</span>
+                  <CheckCircle className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                  <span className="text-[14px] font-medium" style={{ color: THEME.text }}>{text}</span>
                 </li>
               ))}
             </ul>
-            <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-5 rounded-xl text-base" disabled={checkoutLoading}
+            <Button className="w-full font-bold py-6 rounded-[1rem] text-[16px] shadow-lg" disabled={checkoutLoading} style={{ background: THEME.primaryGradient, color: '#fff' }}
               onClick={async () => {
                 setCheckoutLoading(true);
                 try {
@@ -790,45 +687,39 @@ export default function MobileChatUI({
                 } catch { toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }); }
                 finally { setCheckoutLoading(false); }
               }}>
-              <Star className="w-4 h-4 mr-2" />{checkoutLoading ? "Loading..." : "Start Free Trial"}
+              {checkoutLoading ? "Loading..." : "Start Free Trial"}
             </Button>
-            <p className="text-center text-xs mt-3 text-zinc-500">7 days free, then $6.99/mo. Cancel anytime.</p>
           </div>
         </div>
       )}
 
-      {/* Research Upgrade Popup */}
       {showResearchPopup && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowResearchPopup(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-sm w-full p-6 relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowResearchPopup(false)} className="absolute top-3 right-3 text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
-            <div className="text-center mb-5">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4"><Brain className="text-white h-7 w-7" /></div>
-              <h2 className="text-xl font-bold mb-1 text-white">Upgrade to Research</h2>
-              <p className="text-zinc-400 text-sm">Matrix AI Research · Maximum Intelligence · Video Studio</p>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-5 animate-in fade-in" onClick={() => setShowResearchPopup(false)}>
+          <div className="bg-surface border border-border rounded-[2rem] max-w-sm w-full p-8 relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowResearchPopup(false)} className="absolute top-4 right-4 p-2 bg-background rounded-full"><X className="h-5 w-5" style={{ color: THEME.textDim }} /></button>
+            <div className="text-center mb-6 mt-2">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500">
+                <Brain className="text-white h-8 w-8" />
+              </div>
+              <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Matrix Research</h2>
+              <p className="text-[14px]" style={{ color: THEME.textMuted }}>Maximum Intelligence</p>
             </div>
-            <div className="flex h-1 rounded-full overflow-hidden mb-4">
-              {["#4285F4","#EA4335","#FBBC05","#34A853"].map((c,i) => <div key={i} className="flex-1" style={{background:c}} />)}
-            </div>
-            <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
+            <div className="text-center mb-6">
+              <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$30</span>
+              <span className="text-[16px] ml-1" style={{ color: THEME.textMuted }}>/mo</span>
+              <div className="inline-flex items-center gap-1.5 mt-2 bg-blue-500/10 text-blue-500 text-[12px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full">
+                7-day free trial
               </div>
             </div>
-            <div className="text-center mb-5">
-              <span className="text-4xl font-bold text-white">$30</span>
-              <span className="text-zinc-400 text-base">/month</span>
-              <p className="text-xs mt-1 text-zinc-500">after free trial</p>
-            </div>
-            <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI Deep Research — 20+ sources per question", "🎬 AI Video Studio (Google Veo 3.1)", "🖼️ Unlimited AI image generation", "📄 Unlimited document & PDF analysis", "⚡ Always-on maximum reasoning depth", "🔗 Live citations & confidence scores", "💾 Export answers to PDF / Word / Markdown", "Everything in Pro + Free included"].map((text, i) => (
+            <ul className="space-y-4 mb-8">
+              {["Matrix AI Deep Research", "AI Video Studio (Veo 3.1)", "Unlimited image & doc analysis", "Live citations & confidence"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <span className={`text-sm ${i === 0 ? "font-semibold text-blue-400" : "text-zinc-200"}`}>{text}</span>
+                  <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                  <span className="text-[14px] font-medium" style={{ color: THEME.text }}>{text}</span>
                 </li>
               ))}
             </ul>
-            <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-5 rounded-xl text-base" disabled={checkoutLoading}
+            <Button className="w-full font-bold py-6 rounded-[1rem] text-[16px] shadow-lg bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0" disabled={checkoutLoading}
               onClick={async () => {
                 setCheckoutLoading(true);
                 try {
@@ -839,39 +730,46 @@ export default function MobileChatUI({
                 } catch { toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }); }
                 finally { setCheckoutLoading(false); }
               }}>
-              <Brain className="w-4 h-4 mr-2" />{checkoutLoading ? "Loading..." : "Start Free Trial"}
+              {checkoutLoading ? "Loading..." : "Start Free Trial"}
             </Button>
-            <p className="text-center text-xs mt-3 text-zinc-500">7 days free, then $30/mo. Cancel anytime.</p>
           </div>
         </div>
       )}
 
-      {/* Enterprise Upgrade Popup */}
       {showEnterprisePopup && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowEnterprisePopup(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-sm w-full p-6 relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowEnterprisePopup(false)} className="absolute top-3 right-3 text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
-            <div className="text-center mb-5">
-              <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4"><Crown className="text-white h-7 w-7" /></div>
-              <h2 className="text-xl font-bold mb-1 text-white">Upgrade to Enterprise</h2>
-              <p className="text-zinc-400 text-sm">Matrix AI Research · For up to 5 team members</p>
-            </div>
-            <div className="text-center mb-1">
-              <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-5 animate-in fade-in" onClick={() => setShowEnterprisePopup(false)}>
+          <div className="bg-surface border border-border rounded-[2rem] max-w-sm w-full p-8 relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowEnterprisePopup(false)} className="absolute top-4 right-4 p-2 bg-background rounded-full"><X className="h-5 w-5" style={{ color: THEME.textDim }} /></button>
+            <div className="text-center mb-6 mt-2">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-amber-500 to-orange-500">
+                <Users className="text-white h-8 w-8" />
               </div>
+              <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Enterprise</h2>
+              <p className="text-[14px]" style={{ color: THEME.textMuted }}>For up to 5 members</p>
             </div>
-            <div className="text-center mb-5">
+            
+            <div className="text-center mb-6">
               {entCouponApplied ? (
-                <><span className="text-lg line-through text-zinc-500">$100</span><span className="text-4xl font-bold ml-2 text-white">$0.99</span><span className="text-zinc-400 text-base">/month</span></>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-[20px] line-through" style={{ color: THEME.textMuted }}>$100</span>
+                  <div>
+                    <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$0.99</span>
+                    <span className="text-[16px] ml-1" style={{ color: THEME.textMuted }}>/mo</span>
+                  </div>
+                </div>
               ) : (
-                <><span className="text-4xl font-bold text-white">$100</span><span className="text-zinc-400 text-base">/month</span><p className="text-xs mt-1 text-zinc-500">after free trial</p></>
+                <>
+                  <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$100</span>
+                  <span className="text-[16px] ml-1" style={{ color: THEME.textMuted }}>/mo</span>
+                </>
               )}
             </div>
-            <div className="mb-5 flex gap-2">
+
+            <div className="mb-6 flex gap-2">
               <input type="text" placeholder="Promo code" value={entCoupon}
                 onChange={(e) => { setEntCoupon(e.target.value); if (entCouponApplied) setEntCouponApplied(false); }}
-                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none bg-zinc-800 border border-zinc-600 text-white" />
+                className="flex-1 px-4 py-3 rounded-xl text-[14px] outline-none border transition-colors bg-background"
+                style={{ color: THEME.text, borderColor: THEME.border }} />
               <button onClick={async () => {
                 if (!entCoupon.trim()) return;
                 try {
@@ -881,159 +779,94 @@ export default function MobileChatUI({
                   toast({ title: "Promo Applied!", description: "Enterprise discounted to $0.99/mo" });
                 } catch (err: any) { toast({ title: "Invalid Code", description: err.message || "This promo code is not valid.", variant: "destructive" }); setEntCouponApplied(false); }
               }} disabled={!entCoupon.trim() || entCouponApplied}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold ${entCouponApplied ? "bg-blue-500 text-white" : "bg-amber-500 hover:bg-amber-600 text-white"} ${!entCoupon.trim() ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}>
+                className={`px-5 py-3 rounded-xl text-[14px] font-bold transition-all ${entCouponApplied ? "bg-amber-500 text-white" : "bg-surfaceHover"}`}
+                style={{ color: entCouponApplied ? '#FFF' : THEME.text }}>
                 {entCouponApplied ? "✓" : "Apply"}
               </button>
             </div>
-            <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
-                <li key={i} className="flex items-center gap-3">
-                  <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                  <span className={`text-sm ${i === 0 ? "font-semibold text-blue-400" : "text-zinc-200"}`}>{text}</span>
-                </li>
-              ))}
-            </ul>
-            <Button className="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold py-5 rounded-xl text-base" disabled={checkoutLoading}
+
+            <Button className="w-full font-bold py-6 rounded-[1rem] text-[16px] shadow-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0" disabled={checkoutLoading}
               onClick={async () => {
                 setCheckoutLoading(true);
                 try {
-                  const body: any = { plan: "enterprise" };
-                  if (entCouponApplied && entCoupon.trim()) body.coupon = entCoupon.trim().toUpperCase();
-                  const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), credentials: "include" });
+                  const res = await fetch("/api/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: "enterprise", coupon: entCouponApplied ? entCoupon.trim().toUpperCase() : undefined }), credentials: "include" });
                   const data = await res.json();
                   if (data.url) { localStorage.setItem("turbo_pending_subscription", JSON.stringify({ tier: "enterprise", timestamp: Date.now() })); window.location.href = data.url; }
                   else toast({ title: "Error", description: data.error || "Could not start checkout", variant: "destructive" });
                 } catch { toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }); }
                 finally { setCheckoutLoading(false); }
               }}>
-              <Crown className="w-4 h-4 mr-2" />{checkoutLoading ? "Loading..." : entCouponApplied ? "Start Free Trial - $0.99/mo after" : "Start Free Trial"}
+              {checkoutLoading ? "Loading..." : "Start Trial"}
             </Button>
-            <p className="text-center text-xs mt-3 text-zinc-500">7 days free, then $100/mo. Cancel anytime.</p>
-            <div className="mt-4 pt-4 border-t border-zinc-700 text-center">
-              <p className="text-xs text-zinc-500">Need more than 5 members? <a href="mailto:support@turboanswer.it.com?subject=Custom%20Enterprise%20Plan%20Inquiry" className="text-amber-400 hover:text-amber-300 underline">Contact us</a></p>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Welcome after subscription */}
+      {/* Welcome Modal */}
       {showWelcomePro && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowWelcomePro(false)}>
-          <div className={`bg-zinc-900 rounded-2xl p-6 max-w-md w-full border ${welcomeTier === "enterprise" ? "border-amber-500/30" : welcomeTier === "research" ? "border-blue-500/30" : "border-purple-500/30"}`} onClick={e => e.stopPropagation()}>
-            <div className="text-center mb-6">
-              <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${welcomeTier === "enterprise" ? "bg-gradient-to-br from-amber-500 to-orange-500" : welcomeTier === "research" ? "bg-gradient-to-br from-blue-500 to-cyan-500" : "bg-gradient-to-br from-purple-500 to-pink-500"}`}>
-                {welcomeTier === "research" ? <Brain className="w-8 h-8 text-white" /> : <Crown className="w-8 h-8 text-white" />}
-              </div>
-              <h2 className="text-2xl font-bold mb-2 text-white">{welcomeTier === "enterprise" ? "Welcome to Enterprise!" : welcomeTier === "research" ? "Welcome to Research!" : "Welcome to Pro!"}</h2>
-              <p className="text-zinc-400">Your subscription is now active</p>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[2rem] p-8 max-w-sm w-full text-center shadow-2xl border border-border animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-lg"
+                 style={{ background: welcomeTier === 'enterprise' ? 'linear-gradient(135deg, #f59e0b, #ea580c)' : welcomeTier === 'research' ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : THEME.primaryGradient }}>
+              <Crown className="text-white h-10 w-10" />
             </div>
-            {welcomeTier === "enterprise" && enterpriseCode && (
-              <div className="bg-amber-950/30 border border-amber-800/50 rounded-xl p-4 mb-4 text-center">
-                <p className="text-sm font-medium mb-2 text-amber-300">Your Team Code</p>
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-3xl font-mono tracking-[0.3em] font-bold text-white">{enterpriseCode}</span>
-                  <button onClick={() => navigator.clipboard.writeText(enterpriseCode)} className="text-amber-400 hover:text-amber-300 p-1"><Copy className="w-5 h-5" /></button>
-                </div>
-                <p className="text-xs mt-2 text-amber-400/60">Share this code with up to 5 team members</p>
-              </div>
+            <h2 className="text-[26px] font-bold mb-3" style={{ color: THEME.text }}>
+              Welcome to {welcomeTier === 'enterprise' ? 'Enterprise' : welcomeTier === 'research' ? 'Matrix Research' : 'Turbo Pro'}!
+            </h2>
+            <p className="text-[15px] mb-8 leading-relaxed" style={{ color: THEME.textDim }}>
+              Your account has been upgraded. You now have access to our most advanced AI models and premium features.
+            </p>
+            {enterpriseCode && (
+               <div className="mb-8 p-5 rounded-[1.25rem] border" style={{ background: THEME.bg, borderColor: THEME.border }}>
+                  <p className="text-[12px] font-bold uppercase tracking-wider mb-2" style={{ color: THEME.textMuted }}>Your Team Code</p>
+                  <div className="text-[32px] font-mono tracking-widest font-bold" style={{ color: THEME.text }}>{enterpriseCode}</div>
+               </div>
             )}
-            <Button
-              className={`w-full text-white font-semibold py-5 rounded-xl text-base ${welcomeTier === "enterprise" ? "bg-gradient-to-r from-amber-600 to-orange-600" : welcomeTier === "research" ? "bg-gradient-to-r from-blue-600 to-cyan-600" : "bg-gradient-to-r from-purple-600 to-pink-600"}`}
-              onClick={() => { setShowWelcomePro(false); setSelectedAIModel(welcomeTier === "enterprise" ? "claude-research" : welcomeTier === "research" ? "claude-research" : "gemini-pro"); }}>
-              {welcomeTier === "enterprise" ? "Start Using Enterprise" : welcomeTier === "research" ? "Start Using Research" : "Start Using Pro"}
+            <Button onClick={() => { setShowWelcomePro(false); setSelectedAIModel(welcomeTier === "enterprise" ? "claude-research" : welcomeTier === "research" ? "claude-research" : "gemini-pro"); }} className="w-full py-6 rounded-[1rem] font-bold text-[16px] shadow-md" style={{ background: THEME.text, color: THEME.bg }}>
+              Start Chatting
             </Button>
           </div>
         </div>
       )}
 
-      {/* Promo popup for free users */}
+      {/* Daily Limit Modal */}
       {showDailyLimitModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDailyLimitModal(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-sm w-full p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-red-500/5 to-transparent pointer-events-none" />
-            <button onClick={() => setShowDailyLimitModal(false)} className="absolute top-3 right-3 z-10 text-zinc-400 hover:text-white">
-              <X className="h-5 w-5" />
-            </button>
-            <div className="relative text-center mb-5">
-              <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/25">
-                <Zap className="text-white h-8 w-8" />
-              </div>
-              <h2 className="text-xl font-bold mb-1 text-white">Daily Limit Reached</h2>
-              <p className="text-zinc-400 text-sm">You've used all 25 free questions for today</p>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-surface rounded-[2rem] p-8 max-w-sm w-full text-center shadow-2xl border border-border animate-in zoom-in-95">
+            <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center mb-5">
+              <Zap className="text-red-500 h-8 w-8" />
             </div>
-            <div className="relative space-y-3 mb-5">
-              <div className="p-4 rounded-xl text-center bg-zinc-800/50">
-                <p className="text-sm text-zinc-300">
-                  Your free questions reset at <strong>midnight</strong> in your time zone. Or upgrade to Pro for <strong>unlimited questions</strong> every day.
-                </p>
-              </div>
-              {[
-                { icon: <Sparkles className="w-4 h-4 text-yellow-400" />, title: "Unlimited Questions", desc: "No daily caps — ask as much as you want" },
-                { icon: <Brain className="w-4 h-4 text-purple-400" />, title: "Matrix AI", desc: "A new era of intelligence" },
-                { icon: <Zap className="w-4 h-4 text-cyan-400" />, title: "Priority Speed", desc: "Faster responses, always" },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/50">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-zinc-700">{item.icon}</div>
-                  <div>
-                    <p className="text-sm font-medium text-white">{item.title}</p>
-                    <p className="text-xs text-zinc-400">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
+            <h2 className="text-[22px] font-bold mb-3" style={{ color: THEME.text }}>Daily Limit Reached</h2>
+            <p className="text-[15px] mb-8 leading-relaxed" style={{ color: THEME.textDim }}>
+              You've reached your free message limit for today. Upgrade to Pro for unlimited access and advanced reasoning.
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button onClick={() => { setShowDailyLimitModal(false); setShowProPopup(true); }} className="w-full py-6 rounded-[1rem] font-bold text-[16px]" style={{ background: THEME.primaryGradient, color: '#fff' }}>
+                Upgrade to Pro
+              </Button>
+              <Button onClick={() => setShowDailyLimitModal(false)} variant="ghost" className="w-full py-6 rounded-[1rem] font-bold text-[16px]" style={{ color: THEME.textDim }}>
+                Maybe Later
+              </Button>
             </div>
-            <div className="relative text-center mb-4">
-              <span className="text-3xl font-bold text-white">$6.99</span>
-              <span className="text-base text-zinc-400">/month</span>
-            </div>
-            <Button
-              className="relative w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-5 rounded-xl text-base"
-              disabled={checkoutLoading}
-              onClick={async () => {
-                setShowDailyLimitModal(false);
-                setCheckoutLoading(true);
-                try {
-                  const res = await fetch("/api/checkout", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ plan: "pro" }),
-                    credentials: "include",
-                  });
-                  const data = await res.json();
-                  if (data.url) {
-                    localStorage.setItem('turbo_pending_subscription', JSON.stringify({ tier: 'pro', timestamp: Date.now() }));
-                    window.location.href = data.url;
-                  } else toast({ title: "Error", description: data.error || "Could not start checkout", variant: "destructive" });
-                } catch { toast({ title: "Error", description: "Could not start checkout. Please try again.", variant: "destructive" }); }
-                finally { setCheckoutLoading(false); }
-              }}>
-              <Crown className="w-4 h-4 mr-2" />
-              {checkoutLoading ? "Loading..." : "Upgrade to Pro — Unlimited"}
-            </Button>
-            <button
-              onClick={() => setShowDailyLimitModal(false)}
-              className="w-full text-center text-xs mt-3 py-1 text-zinc-500 hover:text-zinc-300"
-            >
-              I'll wait until tomorrow
-            </button>
           </div>
         </div>
       )}
 
+      {/* Promo / Upgrade Modal */}
       {showPromoPopup && isFreeTier && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={dismissPromo}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-sm w-full p-6 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-pink-500/5 to-transparent pointer-events-none" />
-            <button onClick={dismissPromo} className="absolute top-3 right-3 z-10 text-zinc-400 hover:text-white"><X className="h-5 w-5" /></button>
-            <div className="relative text-center mb-5">
-              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/25"><Rocket className="text-white h-8 w-8" /></div>
-              <h2 className="text-xl font-bold mb-1 text-white">Supercharge Your Experience</h2>
-              <p className="text-zinc-400 text-sm">Unlock Pro for smarter, faster answers</p>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={dismissPromo}>
+          <div className="bg-surface rounded-[2rem] p-8 max-w-sm w-full text-center shadow-2xl border border-border animate-in zoom-in-95 duration-300 relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={dismissPromo} className="absolute top-4 right-4 p-1.5 rounded-full active:scale-90 transition-transform" style={{ color: THEME.textMuted }}><X className="h-5 w-5" /></button>
+            <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-lg" style={{ background: THEME.primaryGradient }}>
+              <Rocket className="text-white h-10 w-10" />
             </div>
-            <div className="relative text-center mb-4">
-              <span className="text-3xl font-bold text-white">$6.99</span>
-              <span className="text-base text-zinc-400">/month</span>
+            <h2 className="text-[26px] font-bold mb-2" style={{ color: THEME.text }}>Supercharge Your Experience</h2>
+            <p className="text-[15px] mb-6 leading-relaxed" style={{ color: THEME.textDim }}>Unlock Turbo Pro for smarter, faster answers and advanced reasoning.</p>
+            <div className="mb-8">
+              <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$6.99</span>
+              <span className="text-[16px]" style={{ color: THEME.textMuted }}>/month</span>
             </div>
-            <Button className="relative w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-5 rounded-xl text-base" disabled={checkoutLoading}
+            <Button disabled={checkoutLoading} className="w-full py-6 rounded-[1rem] font-bold text-[16px] shadow-md" style={{ background: THEME.primaryGradient, color: '#fff' }}
               onClick={async () => {
                 setShowPromoPopup(false); setCheckoutLoading(true);
                 try {
@@ -1046,11 +879,10 @@ export default function MobileChatUI({
               }}>
               {checkoutLoading ? "Loading..." : "Upgrade to Pro"}
             </Button>
-            <button onClick={dismissPromo} className="w-full text-center text-xs mt-3 text-zinc-500 hover:text-zinc-400">Maybe later</button>
+            <button onClick={dismissPromo} className="w-full text-center text-[13px] mt-4" style={{ color: THEME.textMuted }}>Maybe later</button>
           </div>
         </div>
       )}
-
     </div>
   );
 }

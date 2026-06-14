@@ -66,8 +66,10 @@ const gate = (name: string, Page: React.ComponentType<any>) =>
     );
   };
 
-const ChatGated = gate("AI Chat", Chat);
-const AISettingsGated = gate("AI Settings", AISettings);
+// AI Chat + AI Settings are intentionally NOT gated on native: the Play
+// compliance issue was only a broken account-deletion URL, not AI features.
+const ChatGated = Chat;
+const AISettingsGated = AISettings;
 const CrisisSupportGated = gate("Crisis Support", CrisisSupport);
 const ImageStudioGated = gate("Image Studio", ImageStudio);
 const PhotoEditorGated = gate("Photo Editor", PhotoEditor);
