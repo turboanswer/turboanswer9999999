@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import turboLogo from "@assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509.png";
 
-const WEB_URL = "https://turboanswer.app";
+const WEB_URL = "https://turboanswer.it.com";
 
 const isNativeMobile = !!(window as any).Capacitor?.isNativePlatform?.();
 
@@ -75,7 +75,7 @@ export function WebOnlyGate({
           style={{ color: "#6b8aa8" }}
         >
           Our AI features need the full GPU-powered web experience. Open{" "}
-          <span style={{ color: "#e8f1ff" }}>turboanswer.app</span> in your
+          <span style={{ color: "#e8f1ff" }}>turboanswer.it.com</span> in your
           browser to chat with Turbo, generate images, or write code.
         </p>
 
@@ -89,7 +89,7 @@ export function WebOnlyGate({
             boxShadow: "0 0 30px rgba(0,212,255,0.45)",
           }}
         >
-          Open turboanswer.app →
+          Open turboanswer.it.com →
         </button>
 
         <div className="mt-10 grid grid-cols-1 gap-2 w-full text-xs font-mono">

@@ -516,7 +516,7 @@ function ArchSection() {
                 "✗ throttle paying tiers silently",
               ]} />
               <div className="mt-4 text-[11px]" style={{ color: MUTED }}>
-                <span style={{ color: ACCENT }}>$</span> echo "questions? we're at hello@turboanswer.app — a human replies."
+                <span style={{ color: ACCENT }}>$</span> echo "questions? we're at hello@turboanswer.it.com — a human replies."
               </div>
             </div>
           </div>
