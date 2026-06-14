@@ -17,8 +17,9 @@ const ASPECT_OPTIONS = [
 ];
 
 const DURATION_OPTIONS = [
-  { label: "5 seconds", value: 5, icon: <Zap className="h-3.5 w-3.5" /> },
+  { label: "4 seconds", value: 4, icon: <Zap className="h-3.5 w-3.5" /> },
   { label: "8 seconds", value: 8, icon: <Clock className="h-3.5 w-3.5" /> },
+  { label: "12 seconds", value: 12, icon: <Film className="h-3.5 w-3.5" /> },
 ];
 
 const PROMPT_IDEAS = [
@@ -57,7 +58,7 @@ let histCounter = 0;
 export default function VideoStudio() {
   const [prompt, setPrompt] = useState("");
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16">("16:9");
-  const [duration, setDuration] = useState<5 | 8>(5);
+  const [duration, setDuration] = useState<4 | 8 | 12>(8);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -76,7 +77,8 @@ export default function VideoStudio() {
     queryKey: ["/api/subscription-status"],
   });
 
-  const isResearch = ['research', 'enterprise'].includes(subscriptionData?.tier || '');
+  const isPro = ['pro', 'research', 'enterprise', 'owner'].includes(subscriptionData?.tier || '')
+    || (user as any)?.isEmployee === true;
 
   useEffect(() => {
     return () => {
@@ -123,7 +125,7 @@ export default function VideoStudio() {
         };
         setCurrentVideo(item);
         setHistory(prev => [item, ...prev.slice(0, 9)]);
-        toast({ title: "Video ready!", description: `Generated with ${data.model || 'Luma'}` });
+        toast({ title: "Video ready!", description: `Generated with ${data.model || 'Matrix Video'}` });
       } else if (data.status === 'failed') {
         stopTimer();
         setIsGenerating(false);
@@ -221,7 +223,7 @@ export default function VideoStudio() {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `turbo-video-${item.id}.mp4`;
+      a.download = `matrix-video-${item.id}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -247,9 +249,9 @@ export default function VideoStudio() {
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-600 to-pink-600 flex items-center justify-center">
               <Film className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-sm">Video Studio</span>
+            <span className="font-bold text-sm">Matrix Video</span>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${isDark ? 'bg-violet-500/20 text-violet-400' : 'bg-violet-100 text-violet-700'}`}>
-              Luma Dream Machine
+              AI Video Engine
             </span>
           </div>
         </div>
@@ -262,33 +264,41 @@ export default function VideoStudio() {
         </div>
       )}
 
-      {/* Coming Soon — full studio is built but disabled while we finalize billing setup */}
-      {!subLoading && (
+      {/* Pro upgrade lock — video generation requires a Pro subscription */}
+      {!subLoading && !isPro && (
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <div className={`rounded-3xl border-2 p-10 ${isDark ? 'border-violet-500/30 bg-gradient-to-b from-violet-950/40 to-slate-950/60' : 'border-violet-300 bg-gradient-to-b from-violet-50 to-white shadow-2xl shadow-violet-100'}`}>
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-pink-600 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-violet-500/30">
-              <Film className="h-8 w-8 text-white" />
+              <Lock className="h-8 w-8 text-white" />
             </div>
             <h2 className={`text-2xl font-black mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Video Generation<br />
-              <span className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">Coming Soon</span>
+              Matrix Video is a<br />
+              <span className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">Pro feature</span>
             </h2>
             <p className={`text-sm mb-8 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              AI video generation is launching soon as part of the Research plan. We're putting the finishing touches on it — check back shortly!
+              Generate cinematic AI videos with Matrix Video. Image generation is free for everyone — video generation requires a Pro subscription or higher.
             </p>
 
-            <Link href="/chat">
-              <Button variant="outline" size="sm" className={`h-10 rounded-xl ${isDark ? 'border-white/10 text-gray-300 hover:bg-white/[0.05]' : ''}`}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Chat
-              </Button>
-            </Link>
+            <div className="flex items-center justify-center gap-2">
+              <Link href="/subscribe">
+                <Button size="sm" className="h-10 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 text-white font-bold">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Upgrade to Pro
+                </Button>
+              </Link>
+              <Link href="/chat">
+                <Button variant="outline" size="sm" className={`h-10 rounded-xl ${isDark ? 'border-white/10 text-gray-300 hover:bg-white/[0.05]' : ''}`}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Chat
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Main studio — kept in code but disabled until video generation is enabled */}
-      {false && !subLoading && isResearch && <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6">
+      {/* Main studio — available to Pro and above */}
+      {!subLoading && isPro && <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6">
 
         {/* Left: controls */}
         <div className="space-y-4">
@@ -387,7 +397,7 @@ export default function VideoStudio() {
           <div className={`flex items-start gap-2.5 px-4 py-3 rounded-xl border ${isDark ? 'bg-violet-500/10 border-violet-500/30' : 'bg-violet-50 border-violet-300'}`}>
             <Sparkles className="h-4 w-4 text-violet-400 mt-0.5 shrink-0" />
             <div>
-              <div className={`text-xs font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>Powered by Luma Dream Machine</div>
+              <div className={`text-xs font-semibold ${isDark ? 'text-violet-300' : 'text-violet-700'}`}>Powered by Matrix Video</div>
               <div className={`text-[10px] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                 Cinematic AI video. Be vivid in your prompt — describe motion, lighting, mood, and camera angle.
               </div>
@@ -418,7 +428,7 @@ export default function VideoStudio() {
             <div className={`rounded-xl p-3 border text-xs ${isDark ? 'bg-violet-500/10 border-violet-500/20 text-violet-300' : 'bg-violet-50 border-violet-200 text-violet-700'}`}>
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
-                <span className="font-semibold">{pollModel || 'Luma'} is generating your video…</span>
+                <span className="font-semibold">{pollModel || 'Matrix Video'} is generating your video…</span>
               </div>
               <p className="opacity-70">Video generation takes 30–120 seconds. You can wait here or come back.</p>
             </div>

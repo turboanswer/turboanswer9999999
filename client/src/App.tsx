@@ -71,10 +71,10 @@ const gate = (name: string, Page: React.ComponentType<any>) =>
 const ChatGated = Chat;
 const AISettingsGated = AISettings;
 const CrisisSupportGated = gate("Crisis Support", CrisisSupport);
-const ImageStudioGated = gate("Image Studio", ImageStudio);
+const ImageStudioGated = gate("Matrix Imagine", ImageStudio);
 const PhotoEditorGated = gate("Photo Editor", PhotoEditor);
 const MediaEditorGated = gate("Media Editor", MediaEditor);
-const VideoStudioGated = gate("Video Studio", VideoStudio);
+const VideoStudioGated = gate("Matrix Video", VideoStudio);
 const WorkgroupsGated = gate("Workgroups", Workgroups);
 const CollabRoomsGated = gate("Collab Rooms", CollabRooms);
 const StackTraceGated = gate("Stack Trace Surgeon", StackTraceSurgeon);

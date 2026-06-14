@@ -4579,43 +4579,70 @@ How to answer:
   });
 
 
-  // ── Luma Dream Machine Video Generation ──────────────────────────────────
+  // ── Matrix Video Generation (OpenAI Sora, with Luma fallback) ─────────────
   app.post('/api/video/generate', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
       const user   = await storage.getUser(userId);
       const tier   = user?.subscriptionTier || 'free';
-      if (!['research', 'enterprise'].includes(tier)) {
-        return res.status(403).json({ error: 'Video generation requires a Research or Enterprise subscription.' });
+      const allowed = ['pro', 'research', 'enterprise'].includes(tier)
+        || isOwnerAccount(user) || (user as any)?.isEmployee === true;
+      if (!allowed) {
+        return res.status(403).json({ error: 'Video generation requires a Pro subscription.' });
       }
 
-      const { prompt, aspectRatio = '16:9', durationSeconds = 5 } = req.body;
+      const { prompt, aspectRatio = '16:9', durationSeconds = 8 } = req.body;
       if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5) {
         return res.status(400).json({ error: 'A descriptive prompt is required.' });
       }
 
-      const { startLumaGeneration } = await import('./services/luma-video-generation');
-      const result = await startLumaGeneration({
-        prompt: prompt.trim(),
-        aspectRatio: ['16:9', '9:16'].includes(aspectRatio) ? aspectRatio : '16:9',
-        durationSeconds: [5, 8].includes(durationSeconds) ? durationSeconds : 5,
-      });
+      const ar = ['16:9', '9:16'].includes(aspectRatio) ? aspectRatio : '16:9';
+      const secs = typeof durationSeconds === 'number' ? durationSeconds : 8;
 
-      // Veo 3.1 always generates audio from the prompt — no separate flag needed
-      res.json({ jobId: result.jobId, model: result.model, hasAudio: true });
+      // Primary: OpenAI Sora. Fallback to Luma if Sora can't start.
+      let result: { jobId: string; model: string; hasAudio?: boolean };
+      try {
+        const { startSoraGeneration } = await import('./services/openai-video-generation');
+        result = await startSoraGeneration({ prompt: prompt.trim(), aspectRatio: ar, durationSeconds: secs });
+      } catch (soraErr: any) {
+        console.warn('[Matrix Video] Sora start failed, falling back to Luma:', soraErr.message);
+        const { startLumaGeneration } = await import('./services/luma-video-generation');
+        result = await startLumaGeneration({
+          prompt: prompt.trim(),
+          aspectRatio: ar,
+          durationSeconds: secs >= 8 ? 8 : 5,
+        });
+      }
+
+      res.json({ jobId: result.jobId, model: result.model, hasAudio: result.hasAudio ?? true });
     } catch (e: any) {
-      console.error('[Veo] start error:', e.message);
-      res.status(502).json({ error: e.message });
+      // Log the real (provider-specific) error, but never surface provider names to the user.
+      console.error('[Matrix Video] start error:', e.message);
+      res.status(502).json({ error: 'Matrix Video is temporarily unavailable. Please try again in a moment.' });
     }
   });
 
   app.get('/api/video/status/:jobId', isAuthenticated, async (req: any, res) => {
     try {
-      const { pollLumaStatus } = await import('./services/luma-video-generation');
-      const result = await pollLumaStatus(req.params.jobId);
+      const jobId = req.params.jobId;
+      // Sora jobs are prefixed "sora_"; everything else is a Luma job.
+      let result: any;
+      if (jobId.startsWith('sora_')) {
+        const { pollSoraStatus } = await import('./services/openai-video-generation');
+        result = await pollSoraStatus(jobId);
+      } else {
+        const { pollLumaStatus } = await import('./services/luma-video-generation');
+        result = await pollLumaStatus(jobId);
+      }
+      // Neutralize provider-specific failure text before returning to the client.
+      if (result?.status === 'failed') {
+        console.warn('[Matrix Video] job failed:', result.error);
+        result = { ...result, error: "Matrix Video couldn't finish this video. Please try again." };
+      }
       res.json(result);
     } catch (e: any) {
-      res.status(500).json({ status: 'failed', error: e.message });
+      console.error('[Matrix Video] status error:', e.message);
+      res.status(500).json({ status: 'failed', error: "Matrix Video couldn't finish this video. Please try again." });
     }
   });
 

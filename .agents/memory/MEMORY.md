@@ -12,6 +12,7 @@
 - [AI response language](ai-response-language.md) — "wrong language" is usually the Google Translate DOM widget, not the model; require explicit-choice flag, default English; server must always pin language incl. deep mode.
 - [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.
 - [Prod data provisioning](prod-data-provisioning.md) — prod DB is unreachable from dev + read-only; seed privileged roles via login-time app grant (allowlist), not manual SQL.
+- [OpenAI Sora video](openai-sora-video.md) — SDK has no `videos` resource so call Sora REST directly; API shuts down 2026-09-24; brand "Matrix Video", never leak provider names.
 - [Native app vs website identity](native-vs-website-identity.md) — Capacitor app is a separate "division" (dark futuristic "Matrix AI"); native must never land on website LandingPage; web keeps its own look.
 - [Azure Infra Control Center](azure-infra-control-center.md) — owner-only Azure admin dashboard; SP secret ID-vs-value gotcha + the RBAC roles its data planes need (403/404 = missing roles, not code).
 - [Cookie SameSite dual-origin](cookie-samesite-dual-origin.md) — web is same-origin (Lax) but native app is cross-origin localhost→Azure (needs None;Secure); pick SameSite per req.origin or login breaks in app only.

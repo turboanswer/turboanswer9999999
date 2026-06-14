@@ -177,8 +177,8 @@ export default function ImageStudio() {
               <Wand2 size={16} className="text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-sm text-white leading-none">Image Studio</h1>
-              <p className="text-[10px] text-gray-400 leading-none mt-0.5">Powered by Google AI</p>
+              <h1 className="font-bold text-sm text-white leading-none">Matrix Imagine</h1>
+              <p className="text-[10px] text-gray-400 leading-none mt-0.5">AI image generation</p>
             </div>
           </div>
         </div>
