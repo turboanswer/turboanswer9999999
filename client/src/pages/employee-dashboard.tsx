@@ -15,7 +15,7 @@ import {
   Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick, ShieldCheck, Siren, Unlock, Loader2,
   ShieldOff, ShieldPlus, KeyRound, Ticket, Globe, GitBranch, BarChart2, Network, Box,
   Lock, MapPin, Tag, Cloud, Lightbulb, FileCode, Inbox, ClipboardList, Star, Pin, MoreHorizontal,
-  Phone, Briefcase
+  Phone, Briefcase, Power, Square, Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -3749,7 +3749,7 @@ interface RuntimeInfo {
   network: { virtualIp: string; outboundIps: string; additionalOutboundIps: string; vnet: string };
 }
 
-type HubSubTab = 'properties' | 'monitoring' | 'logs' | 'capabilities' | 'notifications' | 'recommendations';
+type HubSubTab = 'properties' | 'monitoring' | 'azureops' | 'logs' | 'capabilities' | 'notifications' | 'recommendations';
 
 function CommandCenterAzure({
   stats, systemHealth, users, notifications, unreadCount, onTabChange, onMarkRead
@@ -3825,11 +3825,6 @@ function CommandCenterAzure({
     if (overallHealth === 'healthy' && recommendations.length === 0) recommendations.push({ severity: 'info', title: 'All systems healthy', body: 'No recommendations at this time. Nice work!' });
   }
 
-  const restartWorkflowMut = useMutation({
-    mutationFn: async () => { await refetchRuntime(); return true; },
-    onSuccess: () => toast({ title: 'Refreshed', description: 'Latest runtime data loaded.' }),
-  });
-
   const exportSnapshotMut = useMutation({
     mutationFn: async () => {
       const snapshot = { timestamp: new Date().toISOString(), runtime, stats, systemHealth, errorStats: errorLog?.stats, ticketCounts: { total: tickets.length, open: tickets.filter(t => t.status === 'open').length, urgent: tickets.filter(t => t.priority === 'urgent').length } };
@@ -3848,6 +3843,7 @@ function CommandCenterAzure({
   const subTabs: Array<{ id: HubSubTab; label: string; badge?: number }> = [
     { id: 'properties', label: 'Properties' },
     { id: 'monitoring', label: 'Monitoring' },
+    { id: 'azureops', label: 'Azure Ops' },
     { id: 'logs', label: 'Logs' },
     { id: 'capabilities', label: 'Capabilities' },
     { id: 'notifications', label: 'Notifications', badge: unreadCount },
@@ -3890,7 +3886,7 @@ function CommandCenterAzure({
       <div className="rounded-lg p-2 flex items-center gap-1 flex-wrap" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
         {[
           { icon: Globe, label: 'Open Site', onClick: () => window.open('/', '_blank'), color: '#22d3ee' },
-          { icon: RefreshCw, label: 'Restart Server', onClick: () => restartWorkflowMut.mutate(), color: '#fb923c' },
+          { icon: Power, label: 'Server Controls', onClick: () => setSubTab('azureops'), color: '#fb923c' },
           { icon: RefreshCw, label: 'Refresh Data', onClick: () => { queryClient.invalidateQueries({ queryKey: ['/api/admin/runtime-info'] }); queryClient.invalidateQueries({ queryKey: ['/api/admin/system-health'] }); }, color: '#22d3ee' },
           { icon: FileCode, label: 'Export Snapshot', onClick: () => exportSnapshotMut.mutate(), color: '#a78bfa' },
           { icon: GitBranch, label: 'View on GitHub', onClick: () => window.open(runtime?.host.githubRepo || 'https://github.com/turboanswer/turboanswer9999999', '_blank'), color: '#a78bfa' },
@@ -4179,6 +4175,9 @@ function CommandCenterAzure({
         </div>
       )}
 
+      {/* ────────────── AZURE OPS TAB ────────────── */}
+      {subTab === 'azureops' && <AzureOpsPanel />}
+
       {/* ────────────── LOGS TAB ────────────── */}
       {subTab === 'logs' && (
         <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
@@ -4382,6 +4381,214 @@ function PropRow({ label, value, valueColor, link, mono, href, onClick }: {
     <div className="flex items-center justify-between gap-3 text-[11px] py-0.5">
       <span className="text-slate-500 flex-shrink-0">{label}</span>
       <span className="text-slate-300 text-right truncate">{content}</span>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// AZURE OPS — live App Service control, cost/budget guard, Azure activity log.
+// Owner-only; wired to the /api/infra/* service-principal proxy.
+// ════════════════════════════════════════════════════════════════════════════
+interface InfraConfigStatus {
+  configured: boolean;
+  missing: string[];
+  present: Record<string, boolean>;
+  target?: { subscriptionId?: string | null; resourceGroup?: string | null; appServiceName?: string | null };
+}
+interface InfraStatus {
+  name: string; state: string; enabled: boolean | null; defaultHostName: string | null;
+  location: string | null; alwaysOn: boolean | null; availabilityState: string | null;
+}
+interface InfraCost {
+  currency: string; monthToDate: number; forecast: number;
+  byService: { service: string; cost: number }[];
+}
+interface AzureLogRow {
+  TimeGenerated?: string; OperationNameValue?: string; Caller?: string;
+  ActivityStatusValue?: string; ResourceGroup?: string;
+}
+
+function AzureOpsPanel() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [budgetInput, setBudgetInput] = useState('');
+
+  const cleanErr = (e: any) => String(e?.message || 'Unknown error').replace(/^\d+:\s*/, '').slice(0, 240);
+
+  const { data: config, isLoading: configLoading, isError: configFailed, error: configError } = useQuery<InfraConfigStatus>({
+    queryKey: ['/api/infra/config-status'],
+    retry: false,
+  });
+  const forbidden = configFailed && /^(401|403)\b/.test(String((configError as any)?.message || ''));
+  const configured = !!config?.configured;
+  const liveEnabled = !!config && configured;
+
+  const { data: status } = useQuery<InfraStatus>({
+    queryKey: ['/api/infra/status'], refetchInterval: 15000, enabled: liveEnabled, retry: false,
+  });
+  const { data: cost } = useQuery<InfraCost>({
+    queryKey: ['/api/infra/cost'], refetchInterval: 60000, enabled: liveEnabled, retry: false,
+  });
+  const { data: logs } = useQuery<{ rows: AzureLogRow[] }>({
+    queryKey: ['/api/infra/logs'], refetchInterval: 30000, enabled: liveEnabled, retry: false,
+  });
+
+  const refreshLive = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/infra/status'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/infra/cost'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/infra/logs'] });
+  };
+
+  const controlMut = useMutation({
+    mutationFn: async (action: string) => (await apiRequest('POST', `/api/infra/control/${action}`)).json(),
+    onSuccess: (data: any) => { toast({ title: 'Request sent', description: data?.result || 'Azure is applying the change.' }); setTimeout(refreshLive, 2000); },
+    onError: (e: any) => toast({ title: 'Action failed', description: cleanErr(e), variant: 'destructive' }),
+  });
+  const budgetMut = useMutation({
+    mutationFn: async (amount: number) => (await apiRequest('POST', '/api/infra/cost/limit', { amount })).json(),
+    onSuccess: (data: any) => { toast({ title: 'Budget saved', description: data?.result }); setBudgetInput(''); },
+    onError: (e: any) => toast({ title: 'Could not save budget', description: cleanErr(e), variant: 'destructive' }),
+  });
+  const suspendMut = useMutation({
+    mutationFn: async () => (await apiRequest('POST', '/api/infra/cost/suspend')).json(),
+    onSuccess: (data: any) => { toast({ title: 'Server stopped', description: data?.result }); setTimeout(refreshLive, 2000); },
+    onError: (e: any) => toast({ title: 'Failed', description: cleanErr(e), variant: 'destructive' }),
+  });
+
+  const busy = controlMut.isPending || suspendMut.isPending;
+  const confirmThen = (msg: string, fn: () => void) => { if (window.confirm(msg)) fn(); };
+  const running = status?.state === 'Running';
+  const statusKnown = status !== undefined;
+
+  if (configLoading) {
+    return <div className="flex items-center justify-center h-32 text-slate-500 text-xs gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Checking Azure connection…</div>;
+  }
+  if (forbidden) {
+    return (
+      <div className="rounded-lg p-6 text-center" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>
+        <Lock className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+        <div className="text-sm text-slate-300 font-semibold mb-1">Owner-only controls</div>
+        <div className="text-[11px] text-slate-500 max-w-md mx-auto">Live Azure server controls and budget monitoring are restricted to the owner account. Sign in as the owner to start/stop the server and manage the cost cap.</div>
+      </div>
+    );
+  }
+  if (configFailed) {
+    return (
+      <div className="rounded-lg p-6 text-center" style={{ background: '#080808', border: '1px solid rgba(248,113,113,0.3)' }}>
+        <WifiOff className="w-6 h-6 mx-auto mb-2 text-red-400" />
+        <div className="text-sm text-slate-300 font-semibold mb-1">Couldn’t reach the server</div>
+        <div className="text-[11px] text-slate-500 max-w-md mx-auto mb-3">{cleanErr(configError) || 'The Azure status check failed. This is usually a temporary connection issue.'}</div>
+        <Button size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/infra/config-status'] })} className="bg-zinc-800 hover:bg-zinc-700 text-white">
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Try again
+        </Button>
+      </div>
+    );
+  }
+  if (!configured) {
+    return (
+      <div className="rounded-lg p-5" style={{ background: '#080808', border: '1px solid rgba(251,146,60,0.3)' }}>
+        <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-orange-400" /><span className="text-sm font-semibold text-orange-300">Azure not connected yet</span></div>
+        <div className="text-[11px] text-slate-400 mb-3">To switch on live server start/stop and budget monitoring, these Azure settings need to be added (as secrets here in dev, and as App Service settings in production):</div>
+        <div className="flex flex-wrap gap-1.5">
+          {(config?.missing || []).map(k => (
+            <span key={k} className="px-2 py-1 rounded text-[10px] font-mono" style={{ background: 'rgba(251,146,60,0.1)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}>{k}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Server status + controls */}
+      <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
+        <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: '#1a1a1a' }}>
+          <div className="flex items-center gap-2"><Server className="w-3.5 h-3.5 text-cyan-400" /><span className="text-xs font-bold text-slate-300 font-mono">APP SERVICE CONTROL</span></div>
+          <button onClick={refreshLive} className="text-[10px] font-mono text-cyan-600 hover:text-cyan-400 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Refresh</button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: running ? '#4ade80' : '#f87171' }}>
+              <Circle className="w-2.5 h-2.5" style={{ fill: running ? '#4ade80' : '#f87171' }} />
+              {status?.state || 'Unknown'}
+            </span>
+            {status?.defaultHostName && <span className="text-[11px] text-slate-500 font-mono truncate">{status.defaultHostName}</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={busy || !statusKnown || running}
+              onClick={() => confirmThen('Start the LIVE Azure App Service?', () => controlMut.mutate('start'))}
+              className="bg-green-600 hover:bg-green-500 text-white">
+              <Play className="w-3.5 h-3.5 mr-1.5" /> Start
+            </Button>
+            <Button size="sm" disabled={busy || !statusKnown || !running}
+              onClick={() => confirmThen('Stop the LIVE Azure App Service? Your site will go OFFLINE until you start it again.', () => controlMut.mutate('stop'))}
+              className="bg-red-600 hover:bg-red-500 text-white">
+              <Square className="w-3.5 h-3.5 mr-1.5" /> Stop
+            </Button>
+            <Button size="sm" disabled={busy}
+              onClick={() => confirmThen('Restart the LIVE Azure App Service? The site will be briefly unavailable.', () => controlMut.mutate('restart'))}
+              className="bg-orange-600 hover:bg-orange-500 text-white">
+              {controlMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />} Restart
+            </Button>
+          </div>
+          <div className="text-[10px] text-slate-600">These act on your real Azure App Service. Stop halts all compute (and billing); Start brings it back online.</div>
+        </div>
+      </div>
+
+      {/* Cost / budget */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <HubPanel icon={DollarSign} title="Azure Cost (this month)" iconColor="#4ade80">
+          <PropRow label="Spent so far" value={cost ? `${cost.currency} ${cost.monthToDate.toFixed(2)}` : '—'} valueColor="#4ade80" mono />
+          <PropRow label="Projected month-end" value={cost ? `${cost.currency} ${cost.forecast.toFixed(2)}` : '—'} valueColor="#fbbf24" mono />
+          <div className="border-t my-2" style={{ borderColor: '#1a1a1a' }} />
+          {(cost?.byService || []).slice(0, 6).map(s => (
+            <PropRow key={s.service} label={s.service} value={`${cost?.currency} ${s.cost.toFixed(2)}`} mono />
+          ))}
+          {(!cost || cost.byService.length === 0) && <div className="text-[10px] text-slate-600">No cost data yet for this month.</div>}
+        </HubPanel>
+
+        <HubPanel icon={Wallet} title="Budget Guard" iconColor="#a78bfa">
+          <div className="text-[11px] text-slate-400 mb-2">Set a monthly spending cap. Azure emails the owner at 80% of this amount.</div>
+          <div className="flex items-center gap-2 mb-3">
+            <Input value={budgetInput} onChange={e => setBudgetInput(e.target.value)} placeholder="e.g. 100" inputMode="decimal"
+              className="h-8 text-xs bg-black/40 border-zinc-800" />
+            <Button size="sm" disabled={budgetMut.isPending || !(Number(budgetInput) > 0)}
+              onClick={() => budgetMut.mutate(Number(budgetInput))}
+              className="bg-violet-600 hover:bg-violet-500 text-white whitespace-nowrap">
+              {budgetMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Set Cap'}
+            </Button>
+          </div>
+          <div className="border-t my-2" style={{ borderColor: '#1a1a1a' }} />
+          <div className="text-[11px] text-slate-400 mb-2">Over budget? Stop compute instantly to halt all spending.</div>
+          <Button size="sm" disabled={suspendMut.isPending}
+            onClick={() => confirmThen('EMERGENCY: stop the App Service now to halt all Azure compute spending? Your site will go OFFLINE.', () => suspendMut.mutate())}
+            className="bg-red-700 hover:bg-red-600 text-white w-full">
+            {suspendMut.isPending ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Siren className="w-3.5 h-3.5 mr-1.5" />} Emergency Stop
+          </Button>
+        </HubPanel>
+      </div>
+
+      {/* Azure activity log */}
+      <div className="rounded-lg overflow-hidden" style={{ background: '#080808', border: '1px solid #0d1e30' }}>
+        <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: '#1a1a1a' }}>
+          <Radio className="w-3.5 h-3.5 text-green-400 animate-pulse" />
+          <span className="text-xs font-bold text-slate-300 font-mono">AZURE ACTIVITY LOG (last hour)</span>
+        </div>
+        <div className="overflow-y-auto font-mono text-[11px]" style={{ maxHeight: '40vh' }}>
+          {!logs || logs.rows.length === 0 ? (
+            <div className="flex items-center justify-center h-20 text-slate-600 text-xs">No Azure activity in the last hour.</div>
+          ) : logs.rows.map((r, i) => {
+            const ok = (r.ActivityStatusValue || '').toLowerCase().includes('succ');
+            return (
+              <div key={i} className="flex items-center gap-2 px-3 py-1.5 border-b" style={{ borderColor: '#111111' }}>
+                <span className="text-[9px] text-slate-600 w-28 flex-shrink-0">{r.TimeGenerated ? new Date(r.TimeGenerated).toLocaleString('en-US', { hour12: false }) : '—'}</span>
+                <span className="flex-1 truncate text-slate-400">{r.OperationNameValue || '—'}</span>
+                <span className="w-20 flex-shrink-0 text-right truncate" style={{ color: ok ? '#4ade80' : '#fb923c' }}>{r.ActivityStatusValue || '—'}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
