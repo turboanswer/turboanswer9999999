@@ -103,7 +103,7 @@ function AuthenticatedRouter() {
 
   return (
     <Switch>
-      <Route path="/" component={isNativeMobile ? LandingPage : LandingPage} />
+      <Route path="/" component={isNativeMobile ? ChatGated : LandingPage} />
       <Route path="/home" component={LandingPage} />
       <Route path="/chat" component={ChatGated} />
       <Route path="/ai-settings" component={AISettingsGated} />

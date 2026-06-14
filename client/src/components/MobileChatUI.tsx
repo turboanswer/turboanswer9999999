@@ -443,10 +443,10 @@ export default function MobileChatUI({
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-border/50 shadow-xl">
-              <SelectItem value="gemini-flash" className="rounded-xl my-1">Turbo Free</SelectItem>
-              <SelectItem value="gemini-pro" className="rounded-xl my-1 text-indigo-500 font-semibold">Turbo Pro</SelectItem>
-              <SelectItem value="claude-research" className="rounded-xl my-1 font-semibold">Matrix Research</SelectItem>
-              <SelectItem value="enterprise-research" className="rounded-xl my-1 font-semibold">Enterprise</SelectItem>
+              <SelectItem value="gemini-flash" className="rounded-xl my-1">Matrix AI</SelectItem>
+              <SelectItem value="gemini-pro" className="rounded-xl my-1 text-indigo-500 font-semibold">Matrix AI Pro</SelectItem>
+              <SelectItem value="claude-research" className="rounded-xl my-1 font-semibold">Matrix AI Research</SelectItem>
+              <SelectItem value="enterprise-research" className="rounded-xl my-1 font-semibold">Matrix AI Enterprise</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -658,7 +658,7 @@ export default function MobileChatUI({
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: THEME.primaryGradient }}>
                 <Crown className="text-white h-8 w-8" />
               </div>
-              <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Turbo Pro</h2>
+              <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Matrix AI Pro</h2>
               <p className="text-[14px]" style={{ color: THEME.textMuted }}>Unlock Advanced Intelligence</p>
             </div>
             <div className="text-center mb-6">
@@ -811,7 +811,7 @@ export default function MobileChatUI({
               <Crown className="text-white h-10 w-10" />
             </div>
             <h2 className="text-[26px] font-bold mb-3" style={{ color: THEME.text }}>
-              Welcome to {welcomeTier === 'enterprise' ? 'Enterprise' : welcomeTier === 'research' ? 'Matrix Research' : 'Turbo Pro'}!
+              Welcome to {welcomeTier === 'enterprise' ? 'Matrix AI Enterprise' : welcomeTier === 'research' ? 'Matrix AI Research' : 'Matrix AI Pro'}!
             </h2>
             <p className="text-[15px] mb-8 leading-relaxed" style={{ color: THEME.textDim }}>
               Your account has been upgraded. You now have access to our most advanced AI models and premium features.
@@ -861,7 +861,7 @@ export default function MobileChatUI({
               <Rocket className="text-white h-10 w-10" />
             </div>
             <h2 className="text-[26px] font-bold mb-2" style={{ color: THEME.text }}>Supercharge Your Experience</h2>
-            <p className="text-[15px] mb-6 leading-relaxed" style={{ color: THEME.textDim }}>Unlock Turbo Pro for smarter, faster answers and advanced reasoning.</p>
+            <p className="text-[15px] mb-6 leading-relaxed" style={{ color: THEME.textDim }}>Unlock Matrix AI Pro for smarter, faster answers and advanced reasoning.</p>
             <div className="mb-8">
               <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$6.99</span>
               <span className="text-[16px]" style={{ color: THEME.textMuted }}>/month</span>
