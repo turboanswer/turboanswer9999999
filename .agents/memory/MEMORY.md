@@ -1,5 +1,6 @@
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
 - [Azure runtime DB vs Neon](azure-runtime-db.md) — runtime DB is Azure; new tables/columns must go in server/db-migrations.ts (db:push only hits Neon, not runtime).
+- [Prod-only file-not-found (unbundled assets)](prod-unbundled-assets.md) — esbuild→dist/ shifts __dirname; readFile of standalone *.html works in dev, 500s in prod; fix with cwd-relative candidate paths.
 - [Azure Foundry GPT-5 params](azure-foundry-gpt5.md) — GPT-5.x needs max_completion_tokens (not max_tokens) and default temperature; mini/nano live, pro unsupported in this resource.
 - [Android build env & AAB bloat](android-build-env.md) — rebuild recipe + traps: users see Azure-served site (server.url) not APK assets so must redeploy web; client/index.html ships a replit dev-banner; client/public binaries bloat the AAB; SDK gets wiped between sessions.
 - [CI npm install fails — Replit firewall URLs in lock](ci-npm-exit-handler.md) — adding a dep in Replit bakes package-firewall.replit.local URLs into package-lock; external CI can't resolve host (EAI_AGAIN, hidden behind "Exit handler never called"); fix = sed those URLs to registry.npmjs.org. Recurs on every dep add.

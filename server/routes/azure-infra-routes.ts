@@ -33,7 +33,41 @@ import {
 const OWNER_EMAIL = "support@turboanswer.it.com";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DASHBOARD_HTML = path.resolve(__dirname, "..", "azure-infra", "dashboard.html");
+
+// dashboard.html is a standalone asset that esbuild does NOT bundle. The build
+// emits dist/index.js, so at runtime __dirname differs between dev
+// (server/routes/) and production (dist/). The whole repo is deployed to Azure,
+// so resolve against the known locations and serve the first that exists. The
+// working path is cached after the first successful read.
+const DASHBOARD_HTML_CANDIDATES = [
+  path.resolve(__dirname, "..", "azure-infra", "dashboard.html"),
+  path.resolve(process.cwd(), "server", "azure-infra", "dashboard.html"),
+  path.resolve(__dirname, "azure-infra", "dashboard.html"),
+  path.resolve(process.cwd(), "azure-infra", "dashboard.html"),
+];
+let resolvedDashboardPath: string | null = null;
+
+async function loadDashboardHtml(): Promise<string> {
+  if (resolvedDashboardPath) {
+    try {
+      return await fs.readFile(resolvedDashboardPath, "utf8");
+    } catch {
+      resolvedDashboardPath = null; // cached path vanished — rescan candidates
+    }
+  }
+  for (const candidate of DASHBOARD_HTML_CANDIDATES) {
+    try {
+      const html = await fs.readFile(candidate, "utf8");
+      resolvedDashboardPath = candidate;
+      return html;
+    } catch {
+      // not at this location — try the next candidate
+    }
+  }
+  throw new Error(
+    `dashboard.html not found. Looked in: ${DASHBOARD_HTML_CANDIDATES.join(", ")}`,
+  );
+}
 
 /** Combined gate: valid session + owner email. */
 async function resolveOwner(req: Request): Promise<boolean> {
@@ -154,7 +188,7 @@ export function registerAzureInfraRoutes(app: Express) {
       return res.redirect("/login");
     }
     try {
-      const html = await fs.readFile(DASHBOARD_HTML, "utf8");
+      const html = await loadDashboardHtml();
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader("Cache-Control", "no-store");
       // Page-scoped CSP: the dashboard loads the Tailwind Play CDN (needs
@@ -177,7 +211,8 @@ export function registerAzureInfraRoutes(app: Express) {
         ].join("; "),
       );
       res.send(html);
-    } catch {
+    } catch (err) {
+      console.error("[azure-infra] failed to load dashboard.html:", err);
       res.status(500).send("Dashboard unavailable.");
     }
   });
