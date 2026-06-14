@@ -157,6 +157,25 @@ export function registerAzureInfraRoutes(app: Express) {
       const html = await fs.readFile(DASHBOARD_HTML, "utf8");
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader("Cache-Control", "no-store");
+      // Page-scoped CSP: the dashboard loads the Tailwind Play CDN (needs
+      // 'unsafe-eval' for its in-browser JIT) and Chart.js from jsDelivr.
+      // Scoping it here keeps the global app CSP strict (this overrides the
+      // global header set earlier in the middleware chain for this owner-only
+      // page only).
+      res.setHeader(
+        "Content-Security-Policy",
+        [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "font-src 'self' data: https://fonts.gstatic.com",
+          "img-src 'self' data: blob:",
+          "connect-src 'self'",
+          "object-src 'none'",
+          "base-uri 'self'",
+          "frame-ancestors 'none'",
+        ].join("; "),
+      );
       res.send(html);
     } catch {
       res.status(500).send("Dashboard unavailable.");
@@ -213,19 +232,20 @@ export function registerAzureInfraRoutes(app: Express) {
   app.get("/api/infra/cost", ownerOnly, handle(async () => getCost()));
 
   // --- App Service control (writes; CSRF enforced globally on /api) ------
-  app.post(
-    "/api/control/:action",
-    ownerOnly,
-    handle(async (req) => {
-      const action = req.params.action as ControlAction;
-      const allowed: ControlAction[] = ["start", "stop", "restart", "deepsleep", "slotswap"];
-      if (!allowed.includes(action)) {
-        throw new AzureApiError(`Unknown control action: ${action}`, 400);
-      }
-      const out = await controlAppService(action);
-      return { ok: true, ...out };
-    }),
-  );
+  // Registered on both paths: legacy `/api/control/:action` and the
+  // dashboard-consistent `/api/infra/control/:action` (the dashboard posts
+  // every action under the `/api/infra/` prefix).
+  const controlHandler = handle(async (req) => {
+    const action = req.params.action as ControlAction;
+    const allowed: ControlAction[] = ["start", "stop", "restart", "deepsleep", "slotswap"];
+    if (!allowed.includes(action)) {
+      throw new AzureApiError(`Unknown control action: ${action}`, 400);
+    }
+    const out = await controlAppService(action);
+    return { ok: true, ...out };
+  });
+  app.post("/api/control/:action", ownerOnly, controlHandler);
+  app.post("/api/infra/control/:action", ownerOnly, controlHandler);
 
   // --- Cost guard actions -----------------------------------------------
   app.post(
