@@ -4,7 +4,7 @@ import { getDeviceContacts, contactsToContext } from "./contacts";
 import { getDeviceCalendarEvents, eventsToContext } from "./calendar";
 import { addReminder, remindersAvailable } from "./reminders";
 
-const REMINDER_RE = /\b(remind me|set (an?|the )?(reminder|alarm)|wake me|alert me)\b/i;
+const REMINDER_RE = /\b(remind me|set (?:a |an |the )?(?:reminder|alarm)|wake me|alert me)\b/i;
 const CONTACTS_RE = /\b(my contacts?|phone number|address book|contact list|number for|number of|email (for|of)|who('?s| is) in my contacts)\b/i;
 const CALENDAR_RE = /\b(my calendar|my schedule|my agenda|my events?|appointments?|am i (free|busy)|free time|what('?s| is| do i have).{0,20}(schedule|calendar|agenda|today|tomorrow|week))\b/i;
 

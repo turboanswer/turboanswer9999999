@@ -2156,7 +2156,84 @@ Formatting rules:
         const { listConnectionStatuses } = await import('./services/connected-accounts/oauth');
         const statuses = await listConnectionStatuses(userId);
         const connectedMap = { google: !!statuses.google?.connected, microsoft: !!statuses.microsoft?.connected };
-        if (connectedMap.google || connectedMap.microsoft) {
+
+        // ── Reminder fallback (Task #19) ──────────────────────────────────────
+        // On builds without native notifications (web, or an older Android build
+        // without the local-notifications plugin) a request like "remind me at
+        // 5pm" can't set a real device alarm. When the device hasn't already
+        // scheduled it, save a real timed event on the user's connected calendar
+        // so the reminder still happens. A reminder is the user's own explicit,
+        // self-only, no-attendee request, so it's created directly (no separate
+        // confirm step like other write-actions) — the AI just confirms it back.
+        // Degrades to a friendly note when no calendar is linked.
+        let reminderHandled = false;
+        const REMINDER_RE = /\b(remind me|set (?:a |an |the )?(?:reminder|alarm)|wake me|alert me)\b/i;
+        // Don't treat calendar/email READ questions ("remind me what's on my
+        // calendar tomorrow") as a reminder to CREATE — let the generic
+        // classifier route those instead.
+        const READ_QUESTION_RE = /\b(what'?s?|when'?s?|where'?s?|who'?s?|which|do i have|am i (free|busy)|is there|are there|show me|list|tell me about)\b/i;
+        if (REMINDER_RE.test(content) && !READ_QUESTION_RE.test(content)) {
+          reminderHandled = true; // genuine "set a reminder" — own this turn, skip generic routing
+          const deviceAlreadyScheduled = /device reminder was just scheduled/i.test(safeDeviceContext);
+          if (!deviceAlreadyScheduled) {
+            try {
+              const chrono = await import('chrono-node');
+              // Parse "5pm" / "tomorrow 9am" in the USER's timezone (server runs
+              // in UTC) so the absolute instant is correct. Derive the offset from
+              // the IANA zone via longOffset — robust across DST and day boundaries
+              // (a naive Date.UTC diff mis-reports zones near midnight).
+              const tzOffsetMinutes = (tz: string): number => {
+                try {
+                  const s = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' })
+                    .formatToParts(new Date()).find(p => p.type === 'timeZoneName')?.value || 'GMT';
+                  const m = s.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/);
+                  if (!m) return 0; // plain "GMT" / "UTC"
+                  return (m[1] === '-' ? -1 : 1) * (parseInt(m[2], 10) * 60 + parseInt(m[3] || '0', 10));
+                } catch { return 0; }
+              };
+              const offset = tzOffsetMinutes(user?.timezone || 'UTC');
+              const parsed = chrono.parse(content, { instant: new Date(), timezone: offset }, { forwardDate: true });
+              const when = parsed[0]?.start?.date();
+              if (when && when.getTime() > Date.now() + 5000) {
+                let title = content.replace(parsed[0].text, ' ').replace(REMINDER_RE, ' ').replace(/\s+/g, ' ').trim();
+                title = title
+                  .replace(/^(to|that|about|for|me to|i need to|i have to|i should|i want to|i wanna)\s+/i, '')
+                  .replace(/[.,;:!?]+$/g, '')
+                  .replace(/\s*\b(for|at|on|to|about|in|by)$/i, '')
+                  .trim() || 'Reminder';
+                const provider = connectedMap.google ? 'google' : (connectedMap.microsoft ? 'microsoft' : null);
+                if (provider) {
+                  const { executeAction } = await import('./services/connected-accounts/tools');
+                  const startIso = when.toISOString();
+                  const endIso = new Date(when.getTime() + 30 * 60000).toISOString();
+                  const action = provider === 'google' ? 'calendar_create_event' : 'ms_calendar_create_event';
+                  // Google takes a full ISO (with Z); the Microsoft path tags the
+                  // value as timeZone:"UTC", so give it a UTC-naive datetime.
+                  const args = provider === 'google'
+                    ? { summary: title, description: 'Reminder created by TurboAnswer.', start: startIso, end: endIso }
+                    : { subject: title, description: 'Reminder created by TurboAnswer.', start: startIso.slice(0, 19), end: endIso.slice(0, 19) };
+                  const r = await executeAction(userId, { provider: provider as 'google' | 'microsoft', action, args, summary: '' });
+                  const label = provider === 'google' ? 'Google' : 'Outlook';
+                  const whenStr = when.toLocaleString('en-US', { timeZone: user?.timezone || 'UTC', dateStyle: 'medium', timeStyle: 'short' });
+                  if (r.ok) {
+                    connectedContext = `\n\nA reminder was just saved to the user's connected ${label} Calendar: "${title}" on ${whenStr}. Confirm this to the user in one short, friendly sentence (mention it's on their ${label} Calendar and the time).`;
+                  } else {
+                    connectedContext = `\n\nThe user asked for a reminder but saving it to their ${label} Calendar failed (${r.message}). Apologize in one short sentence and suggest reconnecting their calendar in Settings → Connections.`;
+                  }
+                } else {
+                  connectedContext = `\n\nThe user wants a reminder but this app version can't set a device alarm and no calendar is connected. In ONE short, friendly sentence, suggest they connect their Google or Outlook calendar in Settings → Connections so reminders can be saved there (or update the app for on-device alarms).`;
+                }
+              } else {
+                connectedContext = `\n\nThe user appears to want a reminder but no clear future time was found. Ask them in one short sentence what date and time to set it for.`;
+              }
+            } catch (re: any) {
+              console.error('[Reminder fallback] error:', re?.message || re);
+              connectedContext = `\n\nThe user wants a reminder but it couldn't be set automatically. In one short sentence, suggest connecting a calendar in Settings → Connections, or trying again with a clear time.`;
+            }
+          }
+        }
+
+        if (!reminderHandled && (connectedMap.google || connectedMap.microsoft)) {
           const { classifyIntent, runReadTool, describeAction, signActionProposal } = await import('./services/connected-accounts/tools');
           const intent = await classifyIntent(content, connectedMap);
           if (intent.kind === 'action') {
