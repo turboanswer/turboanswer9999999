@@ -12,6 +12,18 @@ const SMS_MAX_ATTEMPTS = 5;
 const SMS_SEND_LIMIT = 3;
 const SMS_SEND_WINDOW = 15 * 60 * 1000;
 
+// Email sign-up verification (replaces SMS for registration — carrier delivery of
+// SMS was unreliable). Mirrors the SMS code-store safeguards: expiry, max verify
+// attempts, and a per-email send rate limit. Keyed by lowercased email.
+const emailVerificationCodes = new Map<string, { code: string; expiresAt: number; verified: boolean; attempts: number }>();
+const emailSendLimits = new Map<string, { count: number; windowStart: number }>();
+const EMAIL_MAX_ATTEMPTS = 5;
+const EMAIL_SEND_LIMIT = 5;
+const EMAIL_SEND_WINDOW = 15 * 60 * 1000;
+const EMAIL_CODE_TTL = 10 * 60 * 1000;
+const EMAIL_RESEND_COOLDOWN = 60 * 1000;
+const normalizeEmail = (e: string) => e.trim().toLowerCase();
+
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   if (digits.length === 10) return `+1${digits}`;
@@ -100,6 +112,56 @@ async function sendBrevoOtpEmail(recipientEmail: string, recipientName: string, 
     return result.messageId;
   } catch (err: any) {
     console.error('[Email] OTP send failed:', err.message);
+    return null;
+  }
+}
+
+async function sendBrevoSignupVerificationEmail(recipientEmail: string, otp: string) {
+  const brevoApiKey = process.env.BREVO_API_KEY;
+  if (!brevoApiKey) {
+    console.warn('[Email] BREVO_API_KEY not configured');
+    return null;
+  }
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#ffffff;max-width:600px;margin:0 auto;padding:0;background-color:#000000;">
+<div style="background-color:#000000;padding:32px;">
+<div style="text-align:center;margin-bottom:24px;">
+  <h2 style="color:#a78bfa;margin:0;font-size:24px;">Verify your TurboAnswer email</h2>
+</div>
+<p style="color:#e2e2e2;margin:0 0 12px;">Welcome to TurboAnswer! Use the verification code below to finish creating your account. This code expires in <strong style="color:#ffffff;">10 minutes</strong>.</p>
+<div style="text-align:center;margin:32px 0;">
+  <div style="display:inline-block;background-color:#1a1a2e;border:1px solid #333;border-radius:12px;padding:24px 40px;">
+    <p style="margin:0 0 8px;color:#a5b4fc;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Your verification code</p>
+    <p style="margin:0;color:#ffffff;font-size:40px;font-weight:bold;letter-spacing:12px;">${otp}</p>
+  </div>
+</div>
+<p style="color:#e2e2e2;margin:0 0 12px;">If you didn't try to sign up for TurboAnswer, you can safely ignore this email.</p>
+<hr style="border:none;border-top:1px solid #333;margin:24px 0;">
+<p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com | Support tickets: https://turboanswer.it.com/support</p>
+</div>
+</body>
+</html>`;
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept': 'application/json', 'api-key': brevoApiKey, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        sender: { name: 'TurboAnswer', email: 'support@turboanswer.it.com' },
+        to: [{ email: recipientEmail }],
+        subject: `${otp} is your TurboAnswer verification code`,
+        htmlContent: html,
+        textContent: `Your TurboAnswer verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't try to sign up, ignore this email.`,
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) { console.error('[Email] Brevo signup verification error:', result); return null; }
+    console.log(`[Email] Signup verification code sent to ${recipientEmail}`);
+    return result.messageId;
+  } catch (err: any) {
+    console.error('[Email] Signup verification send failed:', err.message);
     return null;
   }
 }
@@ -234,6 +296,94 @@ export async function setupAuth(app: Express) {
       req.session.cookie.secure = true;
     }
     next();
+  });
+
+  app.post("/api/email/send-verification", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || !email.trim()) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      const normalized = normalizeEmail(email);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalized)) {
+        return res.status(400).json({ message: "Please enter a valid email address" });
+      }
+
+      // Don't waste a code on an email that already has an account.
+      const existingUser = await authStorage.getUserByEmail(normalized);
+      if (existingUser) {
+        return res.status(400).json({ message: "An account with this email already exists" });
+      }
+
+      const sendLimit = emailSendLimits.get(normalized);
+      if (sendLimit) {
+        if (Date.now() - sendLimit.windowStart < EMAIL_SEND_WINDOW) {
+          if (sendLimit.count >= EMAIL_SEND_LIMIT) {
+            return res.status(429).json({ message: "Too many code requests. Please wait 15 minutes before trying again." });
+          }
+        } else {
+          emailSendLimits.set(normalized, { count: 0, windowStart: Date.now() });
+        }
+      }
+
+      const existing = emailVerificationCodes.get(normalized);
+      if (existing && existing.expiresAt > Date.now() && (existing.expiresAt - Date.now()) > (EMAIL_CODE_TTL - EMAIL_RESEND_COOLDOWN)) {
+        return res.status(429).json({ message: "A code was just sent. Please wait a moment before requesting another." });
+      }
+
+      const code = crypto.randomInt(100000, 999999).toString();
+      emailVerificationCodes.set(normalized, { code, expiresAt: Date.now() + EMAIL_CODE_TTL, verified: false, attempts: 0 });
+
+      const limit = emailSendLimits.get(normalized);
+      if (limit) { limit.count++; } else { emailSendLimits.set(normalized, { count: 1, windowStart: Date.now() }); }
+
+      const sent = await sendBrevoSignupVerificationEmail(normalized, code);
+      if (!sent) {
+        emailVerificationCodes.delete(normalized);
+        return res.status(500).json({ message: "Failed to send verification code. Please try again in a moment." });
+      }
+
+      res.json({ message: "Verification code sent", expiresIn: Math.floor(EMAIL_CODE_TTL / 1000) });
+    } catch (error: any) {
+      console.error("[Email] Send verification error:", error);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
+  });
+
+  app.post("/api/email/verify", async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({ message: "Email and code are required" });
+      }
+      const normalized = normalizeEmail(email);
+      const entry = emailVerificationCodes.get(normalized);
+
+      if (!entry) {
+        return res.status(400).json({ message: "No verification code found. Please request a new one." });
+      }
+      if (Date.now() > entry.expiresAt) {
+        emailVerificationCodes.delete(normalized);
+        return res.status(400).json({ message: "Code has expired. Please request a new one." });
+      }
+      if (entry.attempts >= EMAIL_MAX_ATTEMPTS) {
+        emailVerificationCodes.delete(normalized);
+        return res.status(429).json({ message: "Too many failed attempts. Please request a new code." });
+      }
+      if (entry.code !== String(code).trim()) {
+        entry.attempts++;
+        const remaining = EMAIL_MAX_ATTEMPTS - entry.attempts;
+        return res.status(400).json({ message: `Incorrect code. ${remaining > 0 ? `${remaining} attempt${remaining > 1 ? 's' : ''} remaining.` : 'Please request a new code.'}` });
+      }
+
+      entry.verified = true;
+      entry.expiresAt = Date.now() + 15 * 60 * 1000;
+      res.json({ success: true, message: "Email verified" });
+    } catch (error: any) {
+      console.error("[Email] Verify error:", error);
+      res.status(500).json({ message: "Verification failed" });
+    }
   });
 
   app.post("/api/sms/send-verification", async (req, res) => {
@@ -375,6 +525,14 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "An account with this email already exists" });
       }
 
+      // Require a successfully verified email code (matching this email) before
+      // creating the account. Replaces the old SMS phone-verification gate.
+      const emailKey = normalizeEmail(email);
+      const emailVerification = emailVerificationCodes.get(emailKey);
+      if (!emailVerification || !emailVerification.verified || Date.now() > emailVerification.expiresAt) {
+        return res.status(400).json({ message: "Please verify your email with the code we sent before creating your account." });
+      }
+
       // Receptionist accounts are pre-provisioned, not self-registered. Reject any attempt
       // to claim a reserved receptionist email so the login-time role grant can never be
       // captured by a newly self-registered account.
@@ -495,6 +653,9 @@ export async function setupAuth(app: Express) {
           console.error('Failed to increment invite token use:', e);
         }
       }
+
+      // Consume the verification code so it can't be reused.
+      emailVerificationCodes.delete(emailKey);
 
       sendBrevoWelcomeEmail(user.email!, user.firstName || '').catch(() => {});
 

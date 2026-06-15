@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { Loader2, Shield, AlertCircle, ArrowRight, Gift } from "lucide-react";
+import { Loader2, Shield, AlertCircle, ArrowRight, Gift, Mail, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,18 @@ export default function Register() {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
 
+  // Email verification step
+  const [step, setStep] = useState<"details" | "verify">("details");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
+
   useEffect(() => {
     const params = new URLSearchParams(search);
     const token = params.get("invite");
@@ -55,7 +67,8 @@ export default function Register() {
     }
   }, [search]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Step 1: validate the form, then email a 6-digit verification code.
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
@@ -78,9 +91,77 @@ export default function Register() {
       return;
     }
 
-    setIsLoading(true);
-
+    setSendingCode(true);
     try {
+      const response = await fetch("/api/email/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: formData.email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setStep("verify");
+        setVerificationCode("");
+        setResendCooldown(60);
+        toast({ title: "Code sent", description: `We emailed a 6-digit code to ${formData.email}.` });
+      } else {
+        toast({ title: "Error", description: data.message || "Failed to send verification code", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to send verification code. Please try again.", variant: "destructive" });
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0 || sendingCode) return;
+    setSendingCode(true);
+    try {
+      const response = await fetch("/api/email/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: formData.email }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setResendCooldown(60);
+        toast({ title: "Code resent", description: `A new code was emailed to ${formData.email}.` });
+      } else {
+        toast({ title: "Error", description: data.message || "Failed to resend code", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to resend code. Please try again.", variant: "destructive" });
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  // Step 2: verify the emailed code, then create the account.
+  const handleVerifyAndCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!/^\d{6}$/.test(verificationCode.trim())) {
+      toast({ title: "Error", description: "Enter the 6-digit code from your email", variant: "destructive" });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const verifyRes = await fetch("/api/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email: formData.email, code: verificationCode.trim() }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) {
+        toast({ title: "Error", description: verifyData.message || "Verification failed", variant: "destructive" });
+        return;
+      }
+
       const response = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,7 +237,8 @@ export default function Register() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {step === "details" ? (
+          <form onSubmit={handleSendCode} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Input
                 id="firstName"
@@ -241,17 +323,73 @@ export default function Register() {
               </Link>
               <Button
                 type="submit"
-                disabled={isLoading || !ageConfirmed || !termsAgreed}
+                disabled={sendingCode || !ageConfirmed || !termsAgreed}
+                className="h-10 px-6 rounded-full bg-[#d97757] hover:bg-[#e8a085] text-[#1e1d1a] font-medium text-sm disabled:opacity-50 transition-colors"
+              >
+                {sendingCode ? (
+                  <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Sending</span>
+                ) : (
+                  <span className="flex items-center gap-1.5">Send code <ArrowRight className="h-3.5 w-3.5" /></span>
+                )}
+              </Button>
+            </div>
+          </form>
+          ) : (
+          <form onSubmit={handleVerifyAndCreate} className="space-y-5">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-[#d97757]/15 flex items-center justify-center mb-3">
+                <Mail size={22} className="text-[#d97757]" />
+              </div>
+              <p className="text-sm text-white">Enter the 6-digit code</p>
+              <p className="text-xs text-[#a39e94] mt-1">We sent it to <strong className="text-[#c9c3b8]">{formData.email}</strong></p>
+            </div>
+
+            <Input
+              id="verificationCode"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              placeholder="000000"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              required
+              className="bg-transparent border-[#3a372f] text-white text-center tracking-[0.5em] text-xl placeholder-[#5a564d] rounded-lg h-14 focus:border-[#d97757] focus:ring-0 focus:ring-offset-0 transition-colors"
+            />
+
+            <div className="text-center text-xs text-[#a39e94]">
+              Didn't get it?{" "}
+              {resendCooldown > 0 ? (
+                <span className="text-[#5a564d]">Resend in {resendCooldown}s</span>
+              ) : (
+                <button type="button" onClick={handleResendCode} disabled={sendingCode} className="text-[#d97757] hover:text-[#e8a085] font-medium transition-colors disabled:opacity-50">
+                  Resend code
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                onClick={() => { setStep("details"); setVerificationCode(""); }}
+                className="flex items-center gap-1 text-sm text-[#d97757] hover:text-[#e8a085] font-medium transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Change email
+              </button>
+              <Button
+                type="submit"
+                disabled={isLoading || verificationCode.length !== 6}
                 className="h-10 px-6 rounded-full bg-[#d97757] hover:bg-[#e8a085] text-[#1e1d1a] font-medium text-sm disabled:opacity-50 transition-colors"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Creating</span>
                 ) : (
-                  <span className="flex items-center gap-1.5">{inviteValid ? "Create Admin" : "Next"} <ArrowRight className="h-3.5 w-3.5" /></span>
+                  <span className="flex items-center gap-1.5">{inviteValid ? "Create Admin" : "Verify & create"} <ArrowRight className="h-3.5 w-3.5" /></span>
                 )}
               </Button>
             </div>
           </form>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#a39e94]">
