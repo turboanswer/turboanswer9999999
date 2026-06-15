@@ -356,10 +356,10 @@ export default function Landing() {
             <span className="font-medium text-[15px] tracking-tight text-[#666]">TurboAnswer</span>
           </div>
           <div className="flex gap-8 text-[15px] text-[#666]">
-            <a href="#" className="hover:text-white transition-colors">Privacy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms</a>
-            <a href="#" className="hover:text-white transition-colors">Status</a>
-            <a href="#" className="hover:text-white transition-colors">Contact</a>
+            <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/terms-conditions" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
+            <Link href="/support" className="hover:text-white transition-colors">Contact</Link>
           </div>
         </div>
       </footer>
