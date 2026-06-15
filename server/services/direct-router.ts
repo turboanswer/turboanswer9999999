@@ -58,31 +58,60 @@ function isAzureFoundry(): boolean {
 function useAzureForAnthropic(): boolean {
   return process.env.AZURE_HOSTED_ANTHROPIC === '1' || process.env.AZURE_HOSTED_ANTHROPIC === 'true';
 }
-// Map a dated Claude model ID back to its Azure deployment name.
-// Override per-model with AZURE_DEPLOYMENT_CLAUDE_* env vars if your
+// Map a Claude model ID to its Azure AI Foundry deployment name. The three live
+// Claude deployments on this resource are the entire text engine:
+//   Haiku  → free tier (Turbo)
+//   Sonnet → pro tier  (Turbo Pro)
+//   Opus   → research / enterprise / owner (Matrix AI, top tier)
+// Override the defaults with AZURE_DEPLOYMENT_CLAUDE_{HAIKU,SONNET,OPUS} if your
 // deployment names differ.
 function claudeAzureDeployment(modelName: string): string {
   const m = modelName.toLowerCase();
-  if (m.includes('opus-4-1') || m.includes('opus')) {
-    return process.env.AZURE_DEPLOYMENT_CLAUDE_OPUS_4_1 || 'claude-opus-4-1';
-  }
-  if (m.includes('sonnet-4-5')) {
-    return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_4_5 || 'claude-sonnet-4-5';
-  }
-  if (m.includes('sonnet-4')) {
-    return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_4 || 'claude-sonnet-4';
-  }
-  if (m.includes('3-7-sonnet') || m.includes('sonnet-3-7')) {
-    return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_3_7 || 'claude-sonnet-3-7';
-  }
-  return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET_4_5 || 'claude-sonnet-4-5';
+  if (m.includes('haiku')) return process.env.AZURE_DEPLOYMENT_CLAUDE_HAIKU || 'claude-haiku-4-5';
+  if (m.includes('opus')) return process.env.AZURE_DEPLOYMENT_CLAUDE_OPUS || 'claude-opus-4-8';
+  return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET || 'claude-sonnet-4-5';
 }
-// Azure Foundry MaaS endpoint for non-OpenAI models (Anthropic, Mistral, etc.)
-function azureModelsUrl(): string {
+// Azure AI Foundry Responses API endpoint. Claude deployments on this
+// services.ai.azure.com resource reject /chat/completions ("api_not_supported")
+// and are served ONLY via /openai/v1/responses.
+function azureResponsesUrl(): string {
   const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
-  const apiVer = process.env.AZURE_MAAS_API_VERSION || '2024-05-01-preview';
-  // Foundry hosts: use /models/ path. Legacy hosts don't support MaaS.
-  return `${ep}/models/chat/completions?api-version=${apiVer}`;
+  return `${ep}/openai/v1/responses`;
+}
+// Build a Responses-API request body from OpenAI-style messages. System turns
+// become `instructions`; user/assistant turns become the `input` array.
+function buildResponsesBody(deployment: string, messages: Message[], opts: CallOpts, stream: boolean): any {
+  let instructions = '';
+  const input: { role: string; content: any }[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') {
+      const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      instructions += (instructions ? '\n\n' : '') + c;
+    } else {
+      input.push({ role: m.role, content: m.content });
+    }
+  }
+  const body: any = { model: deployment, input, max_output_tokens: opts.maxTokens ?? 1500 };
+  if (instructions) body.instructions = instructions;
+  if (opts.temperature != null) body.temperature = opts.temperature;
+  if (opts.jsonMode) body.text = { format: { type: 'json_object' } };
+  if (stream) body.stream = true;
+  return body;
+}
+// Pull the assistant text out of a non-streamed Responses-API payload.
+function extractResponsesText(data: any): string | null {
+  if (!data) return null;
+  if (typeof data.output_text === 'string' && data.output_text) return data.output_text;
+  if (Array.isArray(data.output)) {
+    const text = data.output
+      .map((o: any) => (Array.isArray(o?.content) ? o.content.map((c: any) => c?.text || '').join('') : ''))
+      .join('');
+    if (text) return text;
+  }
+  return null;
+}
+function stripJsonFences(s: string): string {
+  return s.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 }
 
 function resolveModel(orId: string): Resolved | null {
@@ -154,24 +183,28 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
       return data.choices?.[0]?.message?.content || null;
     }
     if (r.provider === 'anthropic') {
-      // Path 1: Azure-hosted Claude (billed to Azure via Foundry MaaS).
+      // Path 1: Azure-hosted Claude via the Foundry Responses API
+      // (services.ai.azure.com/openai/v1/responses). Billed to Azure.
       if (useAzureForAnthropic()) {
         const key = process.env.AZURE_OPENAI_API_KEY;
         const ep = process.env.AZURE_OPENAI_ENDPOINT;
         if (key && ep) {
           const deployment = claudeAzureDeployment(r.modelName);
-          const body: any = { model: deployment, messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3 };
-          if (opts.jsonMode) body.response_format = { type: 'json_object' };
-          const res = await fetch(azureModelsUrl(), {
+          const res = await fetch(azureResponsesUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'api-key': key, 'Authorization': `Bearer ${key}` },
-            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json', 'api-key': key },
+            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, false)),
             signal: ctrl.signal,
           });
-          clearTimeout(t);
-          if (res.ok) { const data: any = await res.json(); return data.choices?.[0]?.message?.content || null; }
-          const txt = await res.text().catch(() => '');
-          console.warn(`[Router/Azure-Claude] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`);
+          if (res.ok) {
+            const data: any = await res.json();
+            let text = extractResponsesText(data);
+            if (text && opts.jsonMode) text = stripJsonFences(text);
+            if (text) { clearTimeout(t); return text; }
+          } else {
+            const txt = await res.text().catch(() => '');
+            console.warn(`[Router/Azure-Claude] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`);
+          }
           // Fall through to direct Anthropic if Azure deployment fails.
         }
       }
@@ -285,16 +318,16 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
       return acc || null;
     }
     if (r.provider === 'anthropic') {
-      // Azure-hosted Claude streaming: use OpenAI-compatible SSE format.
+      // Azure-hosted Claude streaming via the Foundry Responses API (SSE).
       if (useAzureForAnthropic()) {
         const akey = process.env.AZURE_OPENAI_API_KEY;
         const aep = process.env.AZURE_OPENAI_ENDPOINT;
         if (akey && aep) {
           const deployment = claudeAzureDeployment(r.modelName);
-          const res = await fetch(azureModelsUrl(), {
+          const res = await fetch(azureResponsesUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'api-key': akey, 'Authorization': `Bearer ${akey}` },
-            body: JSON.stringify({ model: deployment, messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, stream: true }),
+            headers: { 'Content-Type': 'application/json', 'api-key': akey },
+            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, true)),
             signal: ctrl.signal,
           });
           if (res.ok && res.body) {
@@ -313,15 +346,17 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
                 if (data === '[DONE]') { done = true; break; }
                 try {
                   const p = JSON.parse(data);
-                  const delta = p?.choices?.[0]?.delta?.content;
-                  if (delta) { acc += delta; onChunk(delta); }
+                  if (p.type === 'response.output_text.delta' && typeof p.delta === 'string') { acc += p.delta; onChunk(p.delta); }
+                  else if (p.type === 'response.completed' || p.type === 'response.failed' || p.type === 'error') { done = true; }
                 } catch {}
               }
             }
-            clearTimeout(t);
-            return acc || null;
+            if (acc) { clearTimeout(t); return acc; }
+          } else {
+            const txt = await res.text().catch(() => '');
+            console.warn(`[Router/Azure-Claude-stream] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`);
           }
-          // Fall through to direct Anthropic on Azure failure.
+          // Fall through to direct Anthropic only if nothing was emitted.
         }
       }
       const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
