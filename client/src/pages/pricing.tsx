@@ -42,7 +42,7 @@ const plans: PricingPlan[] = [
       'Auto-fallback to Google Gemini 2.5 Pro',
       'Faster, longer, more nuanced answers',
       'Superior code & writing quality',
-      'Phone support — call (866) 320-6042',
+      'Priority email & support ticket help',
       'Everything in Free'
     ],
     popular: true,
@@ -70,7 +70,7 @@ const plans: PricingPlan[] = [
       'Priority queue · fastest response times',
       'Early access to new Matrix AI features',
       'All Pro features included',
-      'Phone support — call (866) 320-6042'
+      'Priority email & support ticket help'
     ],
     apiPlan: 'research'
   },

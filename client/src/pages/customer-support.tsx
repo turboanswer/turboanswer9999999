@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import {
   ArrowLeft,
-  PhoneCall,
   Headphones,
   Clock,
   Award,
@@ -14,8 +13,6 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-const PHONE_DISPLAY = "(866) 320-6042";
-const PHONE_TEL = "+18663206042";
 const SUPPORT_EMAIL = "support@turboanswer.it.com";
 
 const PILLARS = [
@@ -32,7 +29,7 @@ const PILLARS = [
   {
     icon: <Zap className="h-6 w-6" />,
     title: "Fast answers",
-    body: "Most calls are answered in under a minute and most issues are solved on the first contact. We respect your time.",
+    body: "Most messages get a reply within minutes and most issues are solved on the first reply. We respect your time.",
   },
   {
     icon: <ShieldCheck className="h-6 w-6" />,
@@ -81,11 +78,11 @@ export default function CustomerSupport() {
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-base text-zinc-400 sm:text-lg">
-            Real people, around the clock, who actually solve your problem. When you need us, we pick up —
+            Real people, around the clock, who actually solve your problem. When you need us, we’re here —
             day, night, weekend, or holiday. That’s a promise, not a slogan.
           </p>
 
-          {/* Phone card */}
+          {/* Contact card */}
           <div className="mx-auto mt-9 max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur">
             <div className="mb-3 flex items-center justify-center gap-2 text-xs font-medium text-emerald-400">
               <span className="relative flex h-2 w-2">
@@ -94,21 +91,21 @@ export default function CustomerSupport() {
               </span>
               Live now — agents standing by
             </div>
-            <p className="text-sm text-zinc-400">Call us any time</p>
+            <p className="text-sm text-zinc-400">Reach us any time</p>
             <a
-              href={`tel:${PHONE_TEL}`}
-              className="mt-1 block bg-gradient-to-r from-purple-300 to-cyan-300 bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl"
-              data-testid="link-support-phone"
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="mt-1 block bg-gradient-to-r from-purple-300 to-cyan-300 bg-clip-text text-2xl font-bold tracking-tight text-transparent sm:text-3xl"
+              data-testid="link-support-email"
             >
-              {PHONE_DISPLAY}
+              {SUPPORT_EMAIL}
             </a>
-            <a
-              href={`tel:${PHONE_TEL}`}
+            <Link
+              href="/support"
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 font-semibold text-white transition-transform hover:scale-[1.02]"
-              data-testid="button-call-now"
+              data-testid="button-open-ticket"
             >
-              <PhoneCall className="h-5 w-5" /> Call now — 24/7
-            </a>
+              <MessageSquare className="h-5 w-5" /> Open a support ticket
+            </Link>
           </div>
         </section>
 
@@ -197,15 +194,8 @@ export default function CustomerSupport() {
           </p>
           <div className="mx-auto mt-7 flex max-w-2xl flex-col items-stretch justify-center gap-3 sm:flex-row">
             <a
-              href={`tel:${PHONE_TEL}`}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.02]"
-              data-testid="button-call-cta"
-            >
-              <PhoneCall className="h-5 w-5" /> {PHONE_DISPLAY}
-            </a>
-            <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-6 py-3.5 font-semibold text-white transition-colors hover:bg-white/[0.07]"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3.5 font-semibold text-white transition-transform hover:scale-[1.02]"
               data-testid="button-email-cta"
             >
               <Mail className="h-5 w-5" /> Email us
@@ -218,7 +208,7 @@ export default function CustomerSupport() {
             </Link>
           </div>
           <p className="mt-6 text-xs text-zinc-600">
-            TurboAnswer Inc. · {SUPPORT_EMAIL} · {PHONE_DISPLAY} · Available 24/7
+            TurboAnswer Inc. · {SUPPORT_EMAIL} · Available 24/7
           </p>
         </section>
       </div>

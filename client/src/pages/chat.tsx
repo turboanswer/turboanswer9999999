@@ -1388,13 +1388,13 @@ export default function Chat() {
                           <p className="text-xs text-blue-400">support@turboanswer.it.com</p>
                         </div>
                       </a>
-                      <a href="tel:8663206042" className={`flex items-center gap-3 p-2.5 rounded-xl transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-50'}`}>
+                      <a href="/support" className={`flex items-center gap-3 p-2.5 rounded-xl transition-colors ${isDark ? 'hover:bg-zinc-800' : 'hover:bg-gray-50'}`}>
                         <div className="w-8 h-8 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
-                          <Phone className="h-4 w-4 text-blue-400" />
+                          <MessageSquare className="h-4 w-4 text-blue-400" />
                         </div>
                         <div>
-                          <p className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Phone</p>
-                          <p className="text-xs text-blue-400">866-320-6042</p>
+                          <p className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Support ticket</p>
+                          <p className="text-xs text-blue-400">Open a ticket</p>
                         </div>
                       </a>
                       <div className={`flex items-center gap-3 p-2.5 rounded-xl ${isDark ? 'bg-zinc-800/50' : 'bg-gray-50'}`}>

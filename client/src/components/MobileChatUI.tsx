@@ -609,9 +609,9 @@ export default function MobileChatUI({
                 <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center"><Mail className="h-4 w-4 text-blue-500" /></div>
                 <span className="text-[14px] font-medium text-blue-500">support@turboanswer.it.com</span>
               </a>
-              <a href="tel:8663206042" className="flex items-center gap-3 py-2.5 px-3 rounded-xl active:bg-black/5">
-                <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center"><Phone className="h-4 w-4 text-indigo-500" /></div>
-                <span className="text-[14px] font-medium text-indigo-500">866-320-6042</span>
+              <a href="/support" className="flex items-center gap-3 py-2.5 px-3 rounded-xl active:bg-black/5">
+                <div className="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center"><MessageSquare className="h-4 w-4 text-indigo-500" /></div>
+                <span className="text-[14px] font-medium text-indigo-500">Open a support ticket</span>
               </a>
             </div>
           </div>

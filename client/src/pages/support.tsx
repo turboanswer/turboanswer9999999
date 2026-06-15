@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Mail, Phone, Clock, HelpCircle, Ticket, Send, Loader2, CheckCircle2, MessageCircle, Plus, X } from "lucide-react";
+import { ArrowLeft, Mail, Clock, HelpCircle, Ticket, Send, Loader2, CheckCircle2, MessageCircle, Plus, X } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -479,13 +479,13 @@ export default function Support() {
 
           <div style={{ ...card, textAlign: 'center' }}>
             <div style={{ width: '56px', height: '56px', backgroundColor: '#10b981', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Phone size={28} color="white" />
+              <Ticket size={28} color="white" />
             </div>
-            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', color: 'white' }}>Phone Support</h3>
-            <p style={{ color: '#9ca3af', marginBottom: '14px', fontSize: '14px' }}>Call us anytime — real people, around the clock.</p>
-            <a href="tel:+18663206042" style={{ display: 'inline-block', padding: '10px 18px', backgroundColor: '#10b981', color: 'white', textDecoration: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}>
-              (866) 320-6042
-            </a>
+            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px', color: 'white' }}>Support Tickets</h3>
+            <p style={{ color: '#9ca3af', marginBottom: '14px', fontSize: '14px' }}>Open a ticket below — real people, around the clock.</p>
+            <div style={{ display: 'inline-block', padding: '10px 18px', backgroundColor: '#10b981', color: 'white', borderRadius: '8px', fontSize: '14px', fontWeight: 600 }}>
+              Submit a ticket below
+            </div>
           </div>
         </div>
 
@@ -497,7 +497,7 @@ export default function Support() {
           <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '14px', lineHeight: 1.6 }}>
             <p style={{ margin: '4px 0' }}><strong style={{ color: 'white' }}>Every day:</strong> 24 hours a day, 7 days a week</p>
             <p style={{ marginTop: '12px', fontSize: '13px' }}>
-              Phone, tickets, and email are all available 24/7 — we'll respond as soon as possible.
+              Tickets and email are both available 24/7 — we'll respond as soon as possible.
             </p>
           </div>
         </div>

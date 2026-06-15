@@ -92,7 +92,7 @@ export default function DataDeletion() {
             <a href="mailto:support@turboanswer.it.com" className="text-blue-400 hover:underline">
               support@turboanswer.it.com
             </a>{" "}
-            or call <strong className="text-gray-300">(866) 320-6042</strong>, any time, 24/7.
+            or open a <a href="/support" className="text-blue-400 hover:underline">support ticket</a>, any time, 24/7.
           </p>
         </div>
       </div>
