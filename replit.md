@@ -5,7 +5,7 @@ Turbo Answer is a sophisticated AI assistant application combining a React (Type
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
-Design preference: Clean, modern interface with dark/light theme switcher, TurboAnswer robot logo branding, floating bubble backgrounds, chat bubble message styling.
+Design preference: Clean, professional, Gemini-style minimal interface — blue-forward palette (Google blue → violet → magenta spark gradient), airy whitespace with real depth (soft shadows, not flat), dark/light theme switcher, TurboAnswer robot logo branding. Custom, not a copy of Gemini.
 Layout preference: Bigger layout showing all options in one screen for better accessibility.
 Theme preference: Dark and white themes selectable by user via sun/moon toggle button in header.
 Intelligence preference: AI should give simple, clear, direct answers without complex explanations. For simple questions, keep responses short and conversational.

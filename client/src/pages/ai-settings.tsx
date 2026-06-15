@@ -107,7 +107,7 @@ export default function AISettings() {
   const [fontSize, setFontSize] = usePref<"small"|"medium"|"large">("pref_fontSize", "medium");
   const [chatDensity, setChatDensity] = usePref<"compact"|"comfortable"|"spacious">("pref_chatDensity", "comfortable");
   const [bubbleStyle, setBubbleStyle] = usePref<"bubbles"|"flat"|"minimal">("pref_bubbleStyle", "bubbles");
-  const [accentColor, setAccentColor] = usePref("pref_accentColor", "#c96442");
+  const [accentColor, setAccentColor] = usePref("pref_accentColor", "#1a73e8");
   const [showTimestamps, setShowTimestamps] = usePref("pref_showTimestamps", true);
   const [animationsEnabled, setAnimationsEnabled] = usePref("pref_animations", true);
   const [sidebarCollapsed, setSidebarCollapsed] = usePref("pref_sidebarCollapsed", false);
@@ -248,16 +248,16 @@ export default function AISettings() {
   const initials = (user?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase();
   const memberSince = user?.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "—";
 
-  const accentColors = ["#c96442","#4285F4","#8b5cf6","#34A853","#EA4335","#06b6d4","#f97316","#ec4899"];
+  const accentColors = ["#1a73e8","#4285F4","#8b5cf6","#34A853","#EA4335","#06b6d4","#f97316","#ec4899"];
 
   // ── Styles ──
   const C = {
-    bg: isDark ? "#1e1d1a" : "#f3efe6",
-    panel: isDark ? "#26241f" : "#fffdf8",
-    border: isDark ? "rgba(255,255,255,0.07)" : "rgba(60,50,30,0.10)",
-    text: isDark ? "#ece8e0" : "#2a2824",
-    muted: isDark ? "#a39e94" : "#6b6760",
-    accent: "#c96442",
+    bg: isDark ? "#131314" : "#f0f4f9",
+    panel: isDark ? "#1e1f20" : "#f0f4f9",
+    border: isDark ? "rgba(255,255,255,0.07)" : "rgba(20,40,80,0.10)",
+    text: isDark ? "#e3e3e3" : "#1f1f1f",
+    muted: isDark ? "#9aa0a6" : "#5f6368",
+    accent: "#1a73e8",
   };
 
   const tabStyle = (id: string) => ({

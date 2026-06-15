@@ -13,82 +13,82 @@ input, textarea, form {
   pointer-events: auto !important;
 }
 
-/* ── "Warm paper, clean glass" — warm Claude calm + Gemini polish ── */
+/* ── "Clear Blue" — clean, minimal, Gemini-grade light with real depth ── */
 :root {
-  --background: hsl(43, 38%, 97%);
-  --foreground: hsl(40, 9%, 15%);
-  --muted: hsl(42, 25%, 93%);
-  --muted-foreground: hsl(40, 6%, 42%);
-  --popover: hsl(43, 42%, 98%);
-  --popover-foreground: hsl(40, 9%, 15%);
-  --card: hsl(45, 50%, 99%);
-  --card-foreground: hsl(40, 9%, 15%);
-  --border: hsl(40, 18%, 87%);
-  --input: hsl(42, 22%, 92%);
-  --primary: hsl(16, 55%, 52%);
-  --primary-foreground: hsl(40, 40%, 98%);
-  --secondary: hsl(42, 25%, 93%);
-  --secondary-foreground: hsl(40, 9%, 20%);
-  --accent: hsl(16, 55%, 52%);
-  --accent-foreground: hsl(40, 40%, 98%);
-  --destructive: hsl(2, 66%, 52%);
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(0, 0%, 12%);
+  --muted: hsl(213, 33%, 96%);
+  --muted-foreground: hsl(213, 6%, 39%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(0, 0%, 12%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(0, 0%, 12%);
+  --border: hsl(214, 22%, 91%);
+  --input: hsl(213, 33%, 96%);
+  --primary: hsl(217, 89%, 51%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(213, 33%, 96%);
+  --secondary-foreground: hsl(0, 0%, 14%);
+  --accent: hsl(217, 89%, 51%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(4, 70%, 53%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(16, 55%, 52%);
+  --ring: hsl(217, 89%, 51%);
   --radius: 1rem;
-  /* Signature spark — Gemini blue → violet → Claude clay (fuses both identities) */
-  --ai-gradient: linear-gradient(120deg, #4285F4 0%, #8b7cf0 45%, #c96442 100%);
-  --spark-glow: 0 0 0 1px rgba(201,100,66,0.12), 0 20px 55px -14px rgba(66,100,180,0.20), 0 10px 22px -10px rgba(201,100,66,0.14);
-  --card-shadow: 0 1px 2px rgba(60,50,30,0.04), 0 10px 28px -14px rgba(60,50,30,0.12);
+  /* Signature spark — Gemini blue → violet → magenta (custom angle/stops) */
+  --ai-gradient: linear-gradient(105deg, #1a73e8 0%, #8e5ad4 50%, #e0608a 100%);
+  --spark-glow: 0 0 0 1px rgba(26,115,232,0.10), 0 18px 45px -16px rgba(26,115,232,0.28), 0 8px 18px -10px rgba(142,90,212,0.18);
+  --card-shadow: 0 1px 2px rgba(20,40,80,0.05), 0 8px 24px -16px rgba(20,40,80,0.14);
   /* Chat page */
-  --chat-outer-bg: #faf8f3;
-  --chat-header-bg: rgba(250, 248, 243, 0.8);
-  --chat-header-border: #e9e3d6;
-  --chat-msg-bg: #faf8f3;
-  --chat-input-bg: #fffdf8;
-  --chat-input-border: #e3dccd;
-  --chat-text: #2a2824;
-  --chat-text-muted: #6b6760;
+  --chat-outer-bg: #ffffff;
+  --chat-header-bg: rgba(255, 255, 255, 0.85);
+  --chat-header-border: #e8eaed;
+  --chat-msg-bg: #ffffff;
+  --chat-input-bg: #f0f4f9;
+  --chat-input-border: #e1e7ef;
+  --chat-text: #1f1f1f;
+  --chat-text-muted: #5f6368;
   --chat-bubble-ai-bg: transparent;
   --chat-bubble-ai-border: transparent;
-  --chat-bubble-ai-text: #2a2824;
+  --chat-bubble-ai-text: #1f1f1f;
 }
 
 .dark {
-  --background: hsl(40, 7%, 11%);
-  --foreground: hsl(43, 18%, 89%);
-  --muted: hsl(40, 6%, 17%);
-  --muted-foreground: hsl(42, 8%, 62%);
-  --popover: hsl(40, 7%, 14%);
-  --popover-foreground: hsl(43, 18%, 89%);
-  --card: hsl(40, 6%, 15%);
-  --card-foreground: hsl(43, 18%, 89%);
-  --border: hsl(40, 6%, 23%);
-  --input: hsl(40, 6%, 18%);
-  --primary: hsl(16, 62%, 61%);
-  --primary-foreground: hsl(40, 10%, 10%);
-  --secondary: hsl(40, 6%, 18%);
-  --secondary-foreground: hsl(43, 18%, 89%);
-  --accent: hsl(16, 62%, 61%);
-  --accent-foreground: hsl(40, 10%, 10%);
-  --destructive: hsl(2, 55%, 45%);
+  --background: hsl(240, 3%, 8%);
+  --foreground: hsl(0, 0%, 89%);
+  --muted: hsl(210, 3%, 13%);
+  --muted-foreground: hsl(213, 5%, 65%);
+  --popover: hsl(220, 3%, 12%);
+  --popover-foreground: hsl(0, 0%, 89%);
+  --card: hsl(220, 3%, 12%);
+  --card-foreground: hsl(0, 0%, 89%);
+  --border: hsl(210, 4%, 20%);
+  --input: hsl(210, 3%, 13%);
+  --primary: hsl(217, 90%, 76%);
+  --primary-foreground: hsl(220, 30%, 12%);
+  --secondary: hsl(210, 3%, 16%);
+  --secondary-foreground: hsl(0, 0%, 89%);
+  --accent: hsl(217, 90%, 76%);
+  --accent-foreground: hsl(220, 30%, 12%);
+  --destructive: hsl(4, 60%, 50%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(16, 62%, 61%);
+  --ring: hsl(217, 90%, 76%);
   --radius: 1rem;
-  --ai-gradient: linear-gradient(120deg, #5b9bff 0%, #a78bff 45%, #e0825c 100%);
-  --spark-glow: 0 0 0 1px rgba(224,130,92,0.16), 0 20px 55px -14px rgba(91,155,255,0.22), 0 10px 22px -10px rgba(224,130,92,0.16);
-  --card-shadow: 0 1px 2px rgba(0,0,0,0.30), 0 12px 32px -16px rgba(0,0,0,0.55);
-  /* Chat page — warm charcoal */
-  --chat-outer-bg: #1e1d1a;
-  --chat-header-bg: rgba(30, 29, 26, 0.82);
-  --chat-header-border: #34322d;
-  --chat-msg-bg: #1e1d1a;
-  --chat-input-bg: #2a2824;
-  --chat-input-border: #3a372f;
-  --chat-text: #ece8e0;
-  --chat-text-muted: #a39e94;
+  --ai-gradient: linear-gradient(105deg, #5b9bff 0%, #b58bf0 50%, #f291b0 100%);
+  --spark-glow: 0 0 0 1px rgba(138,180,248,0.18), 0 18px 45px -16px rgba(91,155,255,0.30), 0 8px 18px -10px rgba(181,139,240,0.22);
+  --card-shadow: 0 1px 2px rgba(0,0,0,0.40), 0 12px 30px -18px rgba(0,0,0,0.6);
+  /* Chat page — Gemini dark */
+  --chat-outer-bg: #131314;
+  --chat-header-bg: rgba(19, 19, 20, 0.85);
+  --chat-header-border: #2d2e30;
+  --chat-msg-bg: #131314;
+  --chat-input-bg: #1e1f20;
+  --chat-input-border: #2d2f31;
+  --chat-text: #e3e3e3;
+  --chat-text-muted: #9aa0a6;
   --chat-bubble-ai-bg: transparent;
   --chat-bubble-ai-border: transparent;
-  --chat-bubble-ai-text: #ece8e0;
+  --chat-bubble-ai-text: #e3e3e3;
 }
 
 body {
@@ -157,44 +157,44 @@ input, textarea, select, button {
 
 .dark body,
 body.dark-body {
-  background-color: #1e1d1a;
-  color: #ece8e0;
+  background-color: #131314;
+  color: #e3e3e3;
 }
 
 /* Settings page theme variables */
 :root {
-  --s-bg: #f3efe6;
-  --s-panel: #fffdf8;
-  --s-border: rgba(60, 50, 30, 0.10);
-  --s-text: #2a2824;
-  --s-muted: #6b6760;
-  --s-row-border: rgba(60, 50, 30, 0.07);
-  --s-input-bg: rgba(60, 50, 30, 0.05);
-  --s-input-border: rgba(60, 50, 30, 0.12);
-  --s-input-text: #2a2824;
-  --s-toggle-off: rgba(60, 50, 30, 0.15);
-  --s-pill-border: rgba(60, 50, 30, 0.12);
-  --s-option-bg: #f3efe6;
+  --s-bg: #f0f4f9;
+  --s-panel: #f0f4f9;
+  --s-border: rgba(20, 40, 80, 0.10);
+  --s-text: #1f1f1f;
+  --s-muted: #5f6368;
+  --s-row-border: rgba(20, 40, 80, 0.07);
+  --s-input-bg: rgba(20, 40, 80, 0.05);
+  --s-input-border: rgba(20, 40, 80, 0.12);
+  --s-input-text: #1f1f1f;
+  --s-toggle-off: rgba(20, 40, 80, 0.15);
+  --s-pill-border: rgba(20, 40, 80, 0.12);
+  --s-option-bg: #f0f4f9;
 }
 .dark {
-  --s-bg: #1e1d1a;
-  --s-panel: #26241f;
-  --s-border: #34322d;
-  --s-text: #ece8e0;
-  --s-muted: #a39e94;
-  --s-row-border: #34322d;
-  --s-input-bg: #26241f;
-  --s-input-border: #3a372f;
-  --s-input-text: #ece8e0;
-  --s-toggle-off: #3a372f;
-  --s-pill-border: #3a372f;
-  --s-option-bg: #26241f;
+  --s-bg: #131314;
+  --s-panel: #1e1f20;
+  --s-border: #2d2e30;
+  --s-text: #e3e3e3;
+  --s-muted: #9aa0a6;
+  --s-row-border: #2d2e30;
+  --s-input-bg: #1e1f20;
+  --s-input-border: #2d2f31;
+  --s-input-text: #e3e3e3;
+  --s-toggle-off: #2d2f31;
+  --s-pill-border: #2d2f31;
+  --s-option-bg: #1e1f20;
 }
 
 .light body,
 body.light-body {
-  background-color: #faf8f3;
-  color: #2a2824;
+  background-color: #ffffff;
+  color: #1f1f1f;
 }
 
 ::-webkit-scrollbar {
@@ -204,7 +204,7 @@ body.light-body {
   background: transparent;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #3a372f;
+  background: #2d2f31;
   border-radius: 3px;
 }
 .light ::-webkit-scrollbar-thumb {
@@ -235,11 +235,11 @@ body.light-body {
 
 /* Quiet, warm ambient glow instead of the old busy blue bubbles */
 .dark .bubble {
-  background: radial-gradient(circle, rgba(207, 100, 66, 0.10), transparent);
+  background: radial-gradient(circle, rgba(26, 115, 232, 0.10), transparent);
 }
 
 .light .bubble {
-  background: radial-gradient(circle, rgba(201, 100, 66, 0.06), transparent);
+  background: radial-gradient(circle, rgba(26, 115, 232, 0.06), transparent);
 }
 
 .bubble:nth-child(1) { width: 220px; height: 220px; top: 8%; left: 4%; animation-delay: 0s; }

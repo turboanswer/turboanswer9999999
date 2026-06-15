@@ -1,4 +1,4 @@
-- [Design language "Warm Intelligence"](design-language.md) — Claude calm × Gemini spark fused via ONE shared --ai-gradient (blue→violet→clay); reuse it, keep spark disciplined, update desktop chat.tsx + mobile MobileChatUI THEME together.
+- [Design language "Clear Blue"](design-language.md) — clean Gemini-grade blue minimal; ONE shared --ai-gradient (blue→violet→magenta), reuse it, keep spark disciplined, update desktop chat.tsx + mobile MobileChatUI THEME together; never claim "ten models" (one per tier).
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
 - [Azure runtime DB vs Neon](azure-runtime-db.md) — runtime DB is Azure; new tables/columns must go in server/db-migrations.ts (db:push only hits Neon, not runtime).
 - [Prod-only file-not-found (unbundled assets)](prod-unbundled-assets.md) — esbuild→dist/ shifts __dirname; readFile of standalone *.html works in dev, 500s in prod; fix with cwd-relative candidate paths.
@@ -15,7 +15,7 @@
 - [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.
 - [Prod data provisioning](prod-data-provisioning.md) — prod DB is unreachable from dev + read-only; seed privileged roles via login-time app grant (allowlist), not manual SQL.
 - [Reminder calendar fallback](reminder-calendar-fallback.md) — "remind me" with no native alarm auto-creates a self-only calendar event (no confirm step); parse time via Intl longOffset, never hour12:false.
-- [Theme system & CSS vars](theme-system.md) — index.css tokens are full `hsl(...)` strings: use `var(--x)` directly, never `hsl(var(--x))`; landing is an intentional separate black theme, app is warm.
+- [Theme system & CSS vars](theme-system.md) — index.css tokens are full `hsl(...)` strings: use `var(--x)` directly, never `hsl(var(--x))`; landing is an intentional separate black theme, app is clean blue (Gemini-style).
 - [OpenAI Sora video](openai-sora-video.md) — SDK has no `videos` resource so call Sora REST directly; API shuts down 2026-09-24; brand "Matrix Video", never leak provider names.
 - [Native app vs website identity](native-vs-website-identity.md) — Capacitor app is a separate "division" (dark futuristic "Matrix AI"); native must never land on website LandingPage; web keeps its own look.
 - [Azure Infra Control Center](azure-infra-control-center.md) — owner-only Azure admin dashboard; SP secret ID-vs-value gotcha + the RBAC roles its data planes need (403/404 = missing roles, not code).

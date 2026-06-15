@@ -101,22 +101,22 @@ export default function MobileChatUI({
 
   const msgFontSize = fontSizePref === "small" ? "14px" : fontSizePref === "large" ? "18px" : "16px";
 
-  // "Warm paper, clean glass" — warm Claude calm + Gemini spark
+  // "Clear Blue" — clean, minimal, Gemini-grade with real depth
   const THEME = {
-    bg: isDark ? "#1e1d1a" : "#faf8f3",
-    surface: isDark ? "#26241f" : "#fffdf8",
-    surfaceHover: isDark ? "#2f2c27" : "#f1ece1",
-    border: isDark ? "rgba(255,255,255,0.08)" : "rgba(60,50,30,0.10)",
-    text: isDark ? "#ece8e0" : "#2a2824",
-    textMuted: isDark ? "rgba(236,232,224,0.5)" : "rgba(42,40,36,0.5)",
-    textDim: isDark ? "rgba(236,232,224,0.72)" : "rgba(42,40,36,0.72)",
+    bg: isDark ? "#131314" : "#ffffff",
+    surface: isDark ? "#1e1f20" : "#f0f4f9",
+    surfaceHover: isDark ? "#282a2c" : "#e9eef6",
+    border: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,40,80,0.10)",
+    text: isDark ? "#e3e3e3" : "#1f1f1f",
+    textMuted: isDark ? "rgba(227,227,227,0.5)" : "rgba(95,99,104,0.85)",
+    textDim: isDark ? "rgba(227,227,227,0.72)" : "rgba(31,31,31,0.72)",
     // Gemini spark — reserved for AI moments + primary send
     primaryGradient: isDark
-      ? "linear-gradient(120deg, #5b9bff 0%, #a78bff 45%, #e0825c 100%)"
-      : "linear-gradient(120deg, #4285F4 0%, #8b7cf0 45%, #c96442 100%)",
+      ? "linear-gradient(105deg, #5b9bff 0%, #b58bf0 50%, #f291b0 100%)"
+      : "linear-gradient(105deg, #1a73e8 0%, #8e5ad4 50%, #e0608a 100%)",
     aiBubble: "transparent",
-    userBubble: isDark ? "rgba(216,119,87,0.16)" : "rgba(201,100,66,0.10)",
-    userText: isDark ? "#ece8e0" : "#2a2824",
+    userBubble: isDark ? "rgba(138,180,248,0.16)" : "rgba(26,115,232,0.08)",
+    userText: isDark ? "#e3e3e3" : "#1f1f1f",
   };
 
   const [showDrawer, setShowDrawer] = useState(false);
@@ -473,15 +473,12 @@ export default function MobileChatUI({
                <img src={turboLogo} alt="Turbo Answer" className="w-10 h-10 object-contain relative z-10" />
             </div>
             
-            <h1 className="font-display text-[34px] font-medium text-center leading-tight tracking-tight mb-2" style={{ color: THEME.text }}>
-              {getGreeting()}, <br/>
-              <span style={{ 
-                background: THEME.primaryGradient, 
-                WebkitBackgroundClip: "text", 
-                WebkitTextFillColor: "transparent" 
-              }}>
-                {firstName}
-              </span>
+            <h1 className="text-[34px] font-normal text-center leading-tight tracking-tight mb-2" style={{
+              background: THEME.primaryGradient,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent"
+            }}>
+              {getGreeting()}, {firstName}
             </h1>
             <p className="text-[15px] text-center mb-10 max-w-[280px]" style={{ color: THEME.textMuted }}>
               I'm ready to help. What's on your mind?
@@ -706,7 +703,7 @@ export default function MobileChatUI({
           <div className="bg-surface border border-border rounded-[2rem] max-w-sm w-full p-8 relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowResearchPopup(false)} className="absolute top-4 right-4 p-2 bg-background rounded-full"><X className="h-5 w-5" style={{ color: THEME.textDim }} /></button>
             <div className="text-center mb-6 mt-2">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-[#c96442] to-[#d97757]">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-[#1a73e8] to-[#8e5ad4]">
                 <Brain className="text-white h-8 w-8" />
               </div>
               <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Matrix Research</h2>
@@ -727,7 +724,7 @@ export default function MobileChatUI({
                 </li>
               ))}
             </ul>
-            <Button className="w-full font-bold py-6 rounded-[1rem] text-[16px] shadow-lg bg-[#c96442] hover:bg-[#b5573a] text-white border-0" disabled={checkoutLoading}
+            <Button className="w-full font-bold py-6 rounded-[1rem] text-[16px] shadow-lg bg-[#1a73e8] hover:bg-[#1557b0] text-white border-0" disabled={checkoutLoading}
               onClick={async () => {
                 setCheckoutLoading(true);
                 try {
