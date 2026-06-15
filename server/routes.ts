@@ -646,7 +646,8 @@ function downloadAAB(){
 
       // Give trial users the full Research-grade experience (multi-model panel + verification).
       const { runReasoning } = await import('./services/reasoning-engine.js');
-      const systemPrompt = `You are Matrix AI — a warm, premium intelligence. Give a thorough, well-reasoned answer.`;
+      const { IDENTITY_RULE } = await import('./services/multi-ai.js');
+      const systemPrompt = `${IDENTITY_RULE}\n\nYou are Matrix AI — a warm, premium intelligence. Give a thorough, well-reasoned answer.`;
 
       const result = await runReasoning({
         question: question.trim(),
@@ -2142,9 +2143,9 @@ Formatting rules:
 
       // ALWAYS pin the response language — including English — so the model
       // never drifts to a wrong language (e.g. Filipino input -> Indonesian).
-      const { getLanguageName } = await import('./services/multi-ai.js');
+      const { getLanguageName, IDENTITY_RULE } = await import('./services/multi-ai.js');
       const languageName = getLanguageName(language || 'en');
-      const systemPrompt = `Respond in a ${responseTone || 'casual'} tone with a ${responseStyle || 'balanced'} level of detail. CRITICAL: You MUST write your entire response in ${languageName}. Do not switch to any other language, even if the user's message appears to be in a different language.`;
+      const systemPrompt = `${IDENTITY_RULE}\n\nRespond in a ${responseTone || 'casual'} tone with a ${responseStyle || 'balanced'} level of detail. CRITICAL: You MUST write your entire response in ${languageName}. Do not switch to any other language, even if the user's message appears to be in a different language.`;
 
       // ── Connected Accounts pre-flight (Task #16) ──────────────────────────
       // If the user has linked Google/Microsoft, classify whether this message
@@ -5586,7 +5587,8 @@ The Matrix AI Team`
         userMessageId = userMsg.id;
       }
 
-      const systemPrompt = `You are Turbo Answer Research. You provide thorough, well-structured, deeply researched answers. Always:
+      const { IDENTITY_RULE } = await import('./services/multi-ai.js');
+      const systemPrompt = `${IDENTITY_RULE}\n\nYou are Turbo Answer Research. You provide thorough, well-structured, deeply researched answers. Always:
 - Give comprehensive, detailed responses with clear structure
 - Use headings and bullet points for complex topics
 - Include relevant context, nuances, and examples

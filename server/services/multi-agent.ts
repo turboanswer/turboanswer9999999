@@ -196,7 +196,8 @@ export async function runMultiAgentResearch(question: string, languageInstructio
     ? `\nVERIFIED ARITHMETIC RESULT (computed exactly with arbitrary-precision math — this is the authoritative answer; quote it verbatim, do NOT recompute, round, or contradict it): ${verifiedAnswer}\n`
     : '';
 
-  const synthesisPrompt = `You are the Lead Synthesizer for TurboAnswer Research. You have received analysis from ${agentResponses.length} expert agents, each powered by a different AI model and examining the same question from a different perspective.
+  const { IDENTITY_RULE } = await import('./multi-ai.js');
+  const synthesisPrompt = `${IDENTITY_RULE}\n\nYou are the Lead Synthesizer for Matrix AI Research. You have received analysis from ${agentResponses.length} expert agents examining the same question from different perspectives.
 
 QUESTION: ${question}
 ${verifiedBlock}

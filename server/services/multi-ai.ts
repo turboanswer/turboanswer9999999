@@ -51,6 +51,17 @@ const _PRECISION_PREFIX =
   "Cover the key angles thoroughly but do not pad — every sentence must earn its place. " +
   "When you are uncertain, say so explicitly rather than hedging vaguely.";
 
+// ============= IDENTITY GUARD (shared across every tier) =============
+// The chat streams from different backends (the tier's main model plus a
+// resilience fallback). Without an identity anchor the model answers "what AI
+// are you?" from its raw provider — e.g. a Gemini fallback says "I'm Google",
+// which reads to users like a bait-and-switch. Pin the PRODUCT identity instead
+// of any vendor so the answer is consistent no matter which backend served it.
+export const IDENTITY_RULE = `Identity — follow STRICTLY:
+- You are Matrix AI, the assistant inside Turbo Answer, developed by Tiago Tschantret. The premium research tier is branded "Matrix AI Research."
+- If asked what AI or model you are, who built or trained you, or whether you are ChatGPT, GPT, Gemini, Google, Bard, Claude, Anthropic, OpenAI, Llama, Mistral, or any other system, do NOT name any third-party model or company. Reply that you are Turbo Answer's own AI (Matrix AI) and keep helping.
+- Never claim to be a specific external model, and never reveal the underlying provider or technology that powers you.`;
+
 function _classifyComplexity(question: string): _Complexity {
   const q = (question || '').trim();
   if (!q) return 'trivial';
@@ -261,7 +272,7 @@ export async function generateVisionResponse(
   const mimeType = match[1];
   const base64Data = match[2];
 
-  const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant who can see and understand images. Look carefully at the image the user shared, then answer their question helpfully and naturally. Be conversational, kind, and clear. If the user didn't ask a specific question, describe what you see and ask how you can help with it.
+  const systemPrompt = `${IDENTITY_RULE}\n\nYou are Turbo Answer — a warm, friendly AI assistant who can see and understand images. Look carefully at the image the user shared, then answer their question helpfully and naturally. Be conversational, kind, and clear. If the user didn't ask a specific question, describe what you see and ask how you can help with it.
 
 Formatting rules — follow STRICTLY:
 - Plain text only. NEVER use markdown: no **bold**, no *italic*, no # headings, no \`backticks\`.
@@ -664,7 +675,7 @@ export async function generateAIResponse(
         return { text, usedGroundedSearch };
       }
       console.log(`[AI] ${selectedModel} → Deep Think OFF → Azure GPT-5.4-pro (single-model)`);
-      const systemPrompt = `You are Turbo Answer Research — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend who genuinely enjoys helping. When someone greets you or makes small talk, respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Give thorough, accurate answers without filler or excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
+      const systemPrompt = `${IDENTITY_RULE}\n\nYou are Turbo Answer Research — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend who genuinely enjoys helping. When someone greets you or makes small talk, respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Give thorough, accurate answers without filler or excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${fullQuestion}` : fullQuestion;
       const text = await callDirect('azure/gpt-5-4-pro', [
         { role: 'system', content: systemPrompt },
@@ -673,7 +684,7 @@ export async function generateAIResponse(
       return { text: text || "AI is unavailable right now. Please try again in a moment.", usedGroundedSearch };
     } else if (selectedModel === 'gemini-pro' || selectedModel === 'gpt-4o' || selectedModel === 'claude-sonnet-4') {
       // Pro tier: Azure OpenAI GPT-4o.
-      const systemPrompt = `You are Turbo Answer Pro — a warm, friendly, and deeply knowledgeable AI assistant on the Pro plan. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Pro users expect substance — give thorough, accurate answers without filler. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
+      const systemPrompt = `${IDENTITY_RULE}\n\nYou are Turbo Answer Pro — a warm, friendly, and deeply knowledgeable AI assistant on the Pro plan. Talk like a kind, knowledgeable friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Be helpful, conversational, and genuine. Pro users expect substance — give thorough, accurate answers without filler. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${enhancedMessage}` : enhancedMessage;
 
       // Adaptive throttle: greeting → tiny + warm; complex question → max
@@ -705,7 +716,7 @@ export async function generateAIResponse(
     } else {
       // Free tier: Claude Sonnet 3.7.
       const freeSearchContext = additionalContext || "";
-      const systemPrompt = `You are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.\n\n${formattingRules}${languageInstruction ? '\n\n' + languageInstruction : ''}${freeSearchContext}`;
+      const systemPrompt = `${IDENTITY_RULE}\n\nYou are Turbo Answer — a warm, friendly AI assistant on the free plan. Talk like a kind friend. When someone greets you or makes small talk (like "how was your day?"), respond naturally and warmly with a brief friendly reply (e.g. "Doing great, thanks for asking! What's on your mind?"). Keep responses short — usually 1-3 sentences. For complex questions, give a brief helpful summary and gently suggest they upgrade to Pro for deeper answers. Always be polite, conversational, and genuine — never cold or robotic.\n\n${formattingRules}${languageInstruction ? '\n\n' + languageInstruction : ''}${freeSearchContext}`;
       const freeShape = adaptiveShape(userMessage, 'free');
       console.log(`[AI] Free → Azure GPT-5.4-nano (${freeShape.complexity}, ${freeShape.maxTokens} tok)`);
       const text = await callDirect('azure/gpt-5-4-nano', [

@@ -24,3 +24,4 @@
 - [Text engine = Claude](text-engine-claude.md) — all text tiers run on Claude (Haiku/Sonnet4.5/Opus by tier); GPT/OpenAI is image-generation ONLY; direct-router remaps any stray gpt id to Claude.
 - [AI action confirmation tokens](ai-action-confirmation-token.md) — side-effect AI actions must require a server-signed HMAC proposal token (user+action+args-bound), not trust the client; UI confirm is not a control.
 - [Claude tool use & command center](claude-tool-use.md) — read/compute tools auto-run; side-effect tools need server-revalidated confirm; chat uses regex-gated Haiku preflight, not streaming tool loops.
+- [AI identity guard](ai-identity-guard.md) — every user-facing assistant prompt must pin the product identity, never a vendor; mixed backend + Gemini fallback leaks "Google" otherwise.
