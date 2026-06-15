@@ -32,7 +32,7 @@ const plans: PricingPlan[] = [
   },
   {
     id: 'pro',
-    name: 'Turbo Pro',
+    name: 'Turbo AI Pro',
     price: '$10',
     period: 'per month',
     description: 'Powered by Claude Sonnet 4.6',
@@ -68,7 +68,7 @@ const plans: PricingPlan[] = [
       'Export answers to PDF, Word & Markdown',
       'Priority queue · fastest response times',
       'Early access to new Matrix AI features',
-      'All Turbo Pro features included',
+      'All Turbo AI Pro features included',
       'Priority email & support ticket help'
     ],
     apiPlan: 'research'

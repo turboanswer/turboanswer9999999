@@ -298,7 +298,7 @@ export default function Landing() {
           <div className="grid md:grid-cols-4 gap-6 md:gap-8">
             {[
               { name: "Turbo", price: "$0", desc: "For individuals", features: ["Claude Haiku 5.5", "Fast answers", "Voice commands", "Document analysis"] },
-              { name: "Turbo Pro", price: "$10", desc: "For professionals", features: ["Claude Sonnet 4.6", "Priority routing", "Unlimited queries", "Email support"], featured: true },
+              { name: "Turbo AI Pro", price: "$10", desc: "For professionals", features: ["Claude Sonnet 4.6", "Priority routing", "Unlimited queries", "Email support"], featured: true },
               { name: "Matrix AI", price: "$35", desc: "Maximum intelligence", features: ["Claude Opus 4.8 + Sonnet 4.6 panel", "Citation enforcement", "Unlimited everything", "Priority support"] },
               { name: "Enterprise", price: "$100", desc: "For teams", features: ["Up to 5 members", "Shareable team code", "Zero data retention", "Dedicated support"] }
             ].map((plan, i) => (

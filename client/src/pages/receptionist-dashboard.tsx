@@ -51,7 +51,7 @@ const TIERS = ["free", "pro", "research", "enterprise"] as const;
 
 const TIER_LABEL: Record<string, string> = {
   free: "Turbo",
-  pro: "Turbo Pro",
+  pro: "Turbo AI Pro",
   research: "Matrix AI",
   enterprise: "Enterprise",
 };

@@ -40,8 +40,8 @@ function isFoundryEndpoint(ep: string): boolean {
 }
 // Map a Claude model ID to its Azure AI Foundry deployment name. The three live
 // Claude deployments on this resource are the entire text engine:
-//   Haiku  → free tier (Turbo)
-//   Sonnet → pro tier  (Turbo Pro)
+//   Haiku  → free tier (Turbo AI)
+//   Sonnet → pro tier  (Turbo AI Pro)
 //   Opus   → research / enterprise / owner (Matrix AI, top tier)
 // Override the defaults with AZURE_DEPLOYMENT_CLAUDE_{HAIKU,SONNET,OPUS} if your
 // deployment names differ.

@@ -451,8 +451,8 @@ export default function MobileChatUI({
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-border/50 shadow-xl">
-              <SelectItem value="gemini-flash" className="rounded-xl my-1">Matrix AI</SelectItem>
-              <SelectItem value="gemini-pro" className="rounded-xl my-1 text-indigo-500 font-semibold">Turbo Pro</SelectItem>
+              <SelectItem value="gemini-flash" className="rounded-xl my-1">Turbo AI</SelectItem>
+              <SelectItem value="gemini-pro" className="rounded-xl my-1 text-indigo-500 font-semibold">Turbo AI Pro</SelectItem>
               <SelectItem value="claude-research" className="rounded-xl my-1 font-semibold">Matrix AI</SelectItem>
               <SelectItem value="enterprise-research" className="rounded-xl my-1 font-semibold">Enterprise</SelectItem>
             </SelectContent>
@@ -663,7 +663,7 @@ export default function MobileChatUI({
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: THEME.primaryGradient }}>
                 <Crown className="text-white h-8 w-8" />
               </div>
-              <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Turbo Pro</h2>
+              <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Turbo AI Pro</h2>
               <p className="text-[14px]" style={{ color: THEME.textMuted }}>Unlock Advanced Intelligence</p>
             </div>
             <div className="text-center mb-6">
@@ -816,7 +816,7 @@ export default function MobileChatUI({
               <Crown className="text-white h-10 w-10" />
             </div>
             <h2 className="text-[26px] font-bold mb-3" style={{ color: THEME.text }}>
-              Welcome to {welcomeTier === 'enterprise' ? 'Enterprise' : welcomeTier === 'research' ? 'Matrix AI' : 'Turbo Pro'}!
+              Welcome to {welcomeTier === 'enterprise' ? 'Enterprise' : welcomeTier === 'research' ? 'Matrix AI' : 'Turbo AI Pro'}!
             </h2>
             <p className="text-[15px] mb-8 leading-relaxed" style={{ color: THEME.textDim }}>
               Your account has been upgraded. You now have access to our most advanced AI models and premium features.
@@ -843,11 +843,11 @@ export default function MobileChatUI({
             </div>
             <h2 className="text-[22px] font-bold mb-3" style={{ color: THEME.text }}>Daily Limit Reached</h2>
             <p className="text-[15px] mb-8 leading-relaxed" style={{ color: THEME.textDim }}>
-              You've reached your free message limit for today. Upgrade to Turbo Pro for unlimited access and advanced reasoning.
+              You've reached your free message limit for today. Upgrade to Turbo AI Pro for unlimited access and advanced reasoning.
             </p>
             <div className="flex flex-col gap-3">
               <Button onClick={() => { setShowDailyLimitModal(false); setShowProPopup(true); }} className="w-full py-6 rounded-[1rem] font-bold text-[16px]" style={{ background: THEME.primaryGradient, color: '#fff' }}>
-                Upgrade to Turbo Pro
+                Upgrade to Turbo AI Pro
               </Button>
               <Button onClick={() => setShowDailyLimitModal(false)} variant="ghost" className="w-full py-6 rounded-[1rem] font-bold text-[16px]" style={{ color: THEME.textDim }}>
                 Maybe Later
@@ -866,7 +866,7 @@ export default function MobileChatUI({
               <Rocket className="text-white h-10 w-10" />
             </div>
             <h2 className="text-[26px] font-bold mb-2" style={{ color: THEME.text }}>Supercharge Your Experience</h2>
-            <p className="text-[15px] mb-6 leading-relaxed" style={{ color: THEME.textDim }}>Unlock Turbo Pro for smarter, faster answers and advanced reasoning.</p>
+            <p className="text-[15px] mb-6 leading-relaxed" style={{ color: THEME.textDim }}>Unlock Turbo AI Pro for smarter, faster answers and advanced reasoning.</p>
             <div className="mb-8">
               <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$10</span>
               <span className="text-[16px]" style={{ color: THEME.textMuted }}>/month</span>
@@ -882,7 +882,7 @@ export default function MobileChatUI({
                 } catch { toast({ title: "Error", description: "Could not start checkout.", variant: "destructive" }); }
                 finally { setCheckoutLoading(false); }
               }}>
-              {checkoutLoading ? "Loading..." : "Upgrade to Turbo Pro"}
+              {checkoutLoading ? "Loading..." : "Upgrade to Turbo AI Pro"}
             </Button>
             <button onClick={dismissPromo} className="w-full text-center text-[13px] mt-4" style={{ color: THEME.textMuted }}>Maybe later</button>
           </div>

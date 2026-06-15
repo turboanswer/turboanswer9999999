@@ -49,9 +49,9 @@ const AI_MODELS = {
     badgeColor: "bg-green-500/10 text-green-400 border-green-500/20",
   },
   "gemini-pro": {
-    name: "Turbo Pro",
+    name: "Turbo AI Pro",
     description: "Our smartest single-shot engine — deeper reasoning, longer answers, image generation, and live web search.",
-    tier: "Turbo Pro · $10/mo", icon: Star,
+    tier: "Turbo AI Pro · $10/mo", icon: Star,
     color: "from-purple-500 to-pink-600", borderColor: "border-purple-500",
     badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   },
@@ -243,7 +243,7 @@ export default function AISettings() {
   const deleteAllMutation = useMutation({ mutationFn: async () => (await apiRequest("DELETE", "/api/conversations")).json(), onSuccess: () => { refetchConversations(); setShowDeleteAllConfirm(false); toast({ title: "All history cleared" }); } });
 
   const hasPaidSub = ["pro","research","enterprise"].includes(subscriptionData?.tier || "");
-  const tierLabel = subscriptionData?.tier === "enterprise" ? "Enterprise · $100/mo" : subscriptionData?.tier === "research" ? "Matrix AI · $35/mo" : subscriptionData?.tier === "pro" ? "Turbo Pro · $10/mo" : "Turbo";
+  const tierLabel = subscriptionData?.tier === "enterprise" ? "Enterprise · $100/mo" : subscriptionData?.tier === "research" ? "Matrix AI · $35/mo" : subscriptionData?.tier === "pro" ? "Turbo AI Pro · $10/mo" : "Turbo";
   const displayEmail = user?.email || "—";
   const initials = (user?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase();
   const memberSince = user?.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "—";

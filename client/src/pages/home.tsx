@@ -93,7 +93,7 @@ export default function Home() {
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Free tier runs on <span className="text-white font-semibold">Claude Haiku 5.5</span>. Upgrade to Turbo Pro for <span className="text-white font-semibold">Claude Sonnet 4.6</span>, image generation, and 4× longer answers.<br />
+            Free tier runs on <span className="text-white font-semibold">Claude Haiku 5.5</span>. Upgrade to Turbo AI Pro for <span className="text-white font-semibold">Claude Sonnet 4.6</span>, image generation, and 4× longer answers.<br />
             Chat naturally. Analyze documents. 100+ languages. Any device.
           </p>
 
@@ -139,7 +139,7 @@ export default function Home() {
             {
               icon: <MessageSquare className="w-8 h-8" />,
               title: "AI Chat",
-              desc: "Free runs on Claude Haiku 5.5. Turbo Pro upgrades to Claude Sonnet 4.6 with 4× longer answers and image generation. Matrix AI runs Claude Opus 4.8 + Claude Sonnet 4.6 in parallel and judges the best answer.",
+              desc: "Free runs on Claude Haiku 5.5. Turbo AI Pro upgrades to Claude Sonnet 4.6 with 4× longer answers and image generation. Matrix AI runs Claude Opus 4.8 + Claude Sonnet 4.6 in parallel and judges the best answer.",
               href: "/chat",
               gradient: "linear-gradient(135deg, #1a1a2e, #16213e)",
               iconBg: "rgba(59,130,246,0.12)",

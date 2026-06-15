@@ -102,7 +102,7 @@ export function adaptiveShape(question: string, tier: 'free' | 'pro' | 'research
 export const AI_MODELS: Record<string, Record<string, any>> = {
   pro: {
     "claude-sonnet-4": {
-      name: "Turbo Pro",
+      name: "Turbo AI Pro",
       provider: "anthropic",
       description: "Powered by Claude Sonnet 4.6 — top-tier reasoning, coding, and writing in one fast shot",
       maxTokens: 4096,
@@ -129,7 +129,7 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   },
   free: {
     "claude-sonnet-3-7": {
-      name: "Turbo",
+      name: "Turbo AI",
       provider: "anthropic",
       description: "Powered by Claude Haiku 5.5 — fast, smart answers for everyday questions",
       maxTokens: 2048,

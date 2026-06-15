@@ -767,19 +767,21 @@ export default function Chat() {
   };
 
   const renderMessageContent = (content: string, role: string) => {
-    // Only clean assistant output — user messages are shown verbatim.
-    const cleaned = role === 'assistant' ? cleanMarkdown(content) : content;
-    const mediaRegex = /!\[([^\]]*)\]\((data:image\/[^)]+)\)|\[AUDIO:(data:audio\/[^\]]+)\]/g;
+    // Extract media from the RAW text FIRST, then clean ONLY the text segments.
+    // cleanMarkdown must never run over an image/audio data URL — doing so can
+    // shatter the markdown and dump a giant wall of base64 as plain text.
+    const cleanText = (t: string) => (role === 'assistant' ? cleanMarkdown(t) : t);
+    const mediaRegex = /!\[([^\]]*)\]\((data:image\/[^)]+|https?:\/\/[^)\s]+)\)|\[AUDIO:(data:audio\/[^\]]+)\]/g;
     const parts: Array<{ type: 'text' | 'image' | 'audio'; value: string; alt?: string }> = [];
     let lastIndex = 0;
     let match;
-    while ((match = mediaRegex.exec(cleaned)) !== null) {
-      if (match.index > lastIndex) parts.push({ type: 'text', value: cleaned.slice(lastIndex, match.index) });
+    while ((match = mediaRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) parts.push({ type: 'text', value: cleanText(content.slice(lastIndex, match.index)) });
       if (match[2]) parts.push({ type: 'image', value: match[2], alt: match[1] });
       else if (match[3]) parts.push({ type: 'audio', value: match[3] });
       lastIndex = match.index + match[0].length;
     }
-    if (lastIndex < cleaned.length) parts.push({ type: 'text', value: cleaned.slice(lastIndex) });
+    if (lastIndex < content.length) parts.push({ type: 'text', value: cleanText(content.slice(lastIndex)) });
     const renderTextWithTags = (text: string) => {
       // Highlight [unverified]…[/unverified] / [contested]…[/contested] / [unverified] sentence / [contested] sentence
       const tagRegex = /\[(unverified|contested)\](?:\s*([\s\S]*?)(?:\s*\[\/(?:unverified|contested)\])|([^[\n.!?]*[.!?]?))/g;
@@ -804,8 +806,11 @@ export default function Chat() {
       if (last < text.length) out.push(<span key={`t${i++}`}>{text.slice(last)}</span>);
       return out.length ? out : text;
     };
-    if (parts.length === 0 || (parts.length === 1 && parts[0].type === 'text')) {
-      return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(content)}</span>;
+    if (parts.length === 0) {
+      return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(cleanText(content))}</span>;
+    }
+    if (parts.length === 1 && parts[0].type === 'text') {
+      return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(parts[0].value)}</span>;
     }
     return (
       <div className="space-y-3">
@@ -827,7 +832,7 @@ export default function Chat() {
               </div>
             );
           }
-          return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part.value}</span>;
+          return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(part.value)}</span>;
         })}
       </div>
     );
@@ -965,9 +970,18 @@ export default function Chat() {
         body: JSON.stringify({ prompt, count: 1, size: "1024x1024" }),
       });
       const data = await r.json();
-      const dataUrl = data?.images?.[0]?.url || (data?.images?.[0]?.b64_json ? `data:image/png;base64,${data.images[0].b64_json}` : null);
+      // Prefer a real data:image/ URL from the provider (preserves the true MIME,
+      // e.g. Pollinations JPEG); fall back to b64_json (PNG); never raw base64.
+      const img = data?.images?.[0];
+      const dataUrl = (typeof img?.url === 'string' && /^data:image\//.test(img.url))
+        ? img.url
+        : (img?.b64_json
+            ? `data:image/png;base64,${img.b64_json}`
+            : (typeof img?.url === 'string' && /^https?:\/\//.test(img.url) ? img.url : null));
       if (!dataUrl) throw new Error(data?.error || "Image generation failed");
-      const aiContent = `Here's your image of ${prompt}:\n\n![${prompt}](${dataUrl})`;
+      // Constant safe alt text: a prompt containing "]" would otherwise break the
+      // image markdown and dump the whole data URL as text. Prompt stays in the caption.
+      const aiContent = `Here's your image of ${prompt}:\n\n![Generated image](${dataUrl})`;
       await fetch(`/api/conversations/${convId}/append`, {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ role: "assistant", content: aiContent }),
@@ -2142,7 +2156,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "Everything in Turbo Pro included"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "Everything in Turbo AI Pro included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2367,7 +2381,7 @@ export default function Chat() {
                     <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><Brain className="w-4 h-4 text-purple-400" /></div>
                     <div>
                       <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Advanced Pro AI Model</p>
-                      <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Turbo Pro $10" from the model dropdown for smarter answers</p>
+                      <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Turbo AI Pro $10" from the model dropdown for smarter answers</p>
                     </div>
                   </div>
                 </div>
@@ -2455,7 +2469,7 @@ export default function Chat() {
                 finally { setCheckoutLoading(false); }
               }}>
               <Crown className="w-4 h-4 mr-2" />
-              {checkoutLoading ? "Loading..." : "Upgrade to Turbo Pro — Unlimited"}
+              {checkoutLoading ? "Loading..." : "Upgrade to Turbo AI Pro — Unlimited"}
             </Button>
             <button
               onClick={() => setShowDailyLimitModal(false)}

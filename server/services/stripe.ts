@@ -13,7 +13,7 @@ export type Tier = "pro" | "research" | "enterprise";
 
 const TIER_CONFIG: Record<Tier, { name: string; description: string; amountCents: number }> = {
   pro: {
-    name: "Turbo Pro",
+    name: "Turbo AI Pro",
     description: "Claude Sonnet 4.6, image generation, longer answers, priority support.",
     amountCents: 1000,
   },

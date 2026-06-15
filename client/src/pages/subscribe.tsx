@@ -30,7 +30,7 @@ const PLANS = [
   },
   {
     id: 'pro',
-    name: 'Turbo Pro',
+    name: 'Turbo AI Pro',
     price: '$10',
     period: '/month',
     badge: null,
@@ -62,7 +62,7 @@ const PLANS = [
       'Judged & synthesized by Claude Opus 4.8',
       'Deep expert-level responses',
       'Image Studio',
-      'Everything in Turbo Pro',
+      'Everything in Turbo AI Pro',
     ],
     cta: 'Subscribe — $35/mo',
     note: '7-day free trial · Cancel anytime',

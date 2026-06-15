@@ -1252,7 +1252,7 @@ export default function EmployeeDashboard() {
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
                   >
                     {subModalAction === 'modify' && <option value="free">Free</option>}
-                    <option value="pro">Turbo Pro ($10/mo)</option>
+                    <option value="pro">Turbo AI Pro ($10/mo)</option>
                     <option value="research">Matrix AI ($35/mo)</option>
                     <option value="enterprise">Enterprise ($100/mo)</option>
                   </select>
@@ -1790,7 +1790,7 @@ function SubscriptionsTab({ users, searchTerm, setSearchTerm, onModify, onCancel
         <Card className="bg-gray-900 border-gray-800">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-blue-400">{adminStats?.subscriptions?.pro || 0}</div>
-            <div className="text-xs text-gray-400">Turbo Pro ($10/mo)</div>
+            <div className="text-xs text-gray-400">Turbo AI Pro ($10/mo)</div>
           </CardContent>
         </Card>
         <Card className="bg-gray-900 border-gray-800">
@@ -3137,7 +3137,7 @@ function PromoCodesTab() {
 
   const PRODUCTS = [
     { value: 'code_studio', label: 'Code Studio ($15/mo)' },
-    { value: 'pro', label: 'Turbo Pro ($10/mo)' },
+    { value: 'pro', label: 'Turbo AI Pro ($10/mo)' },
     { value: 'research', label: 'Matrix AI ($35/mo)' },
     { value: 'enterprise', label: 'Enterprise ($100/mo)' },
     { value: 'all', label: 'All products' },
