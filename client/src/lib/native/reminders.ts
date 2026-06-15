@@ -1,6 +1,10 @@
-import { IS_NATIVE } from "@/lib/api-base";
-import { fail, type NativeResult } from "./types";
+import { fail, nativePluginAvailable, PLUGIN, type NativeResult } from "./types";
 import { scheduleNotification, cancelNotification } from "./notifications";
+
+/** True when reminders backed by real device notifications are usable. */
+export function remindersAvailable(): boolean {
+  return nativePluginAvailable(PLUGIN.notifications);
+}
 
 export type Reminder = {
   id: number; // also the native notification id
@@ -49,7 +53,7 @@ export async function addReminder(opts: {
   body?: string;
   fireAt: number;
 }): Promise<NativeResult<Reminder>> {
-  if (!IS_NATIVE) return fail("unavailable", "Reminders with real device alerts work in the installed mobile app.");
+  if (!remindersAvailable()) return fail("unavailable", "Reminders with real device alerts work in the installed mobile app.");
   if (opts.fireAt <= Date.now()) return fail("error", "Please pick a time in the future.");
   const reminder: Reminder = {
     id: newId(),
@@ -82,7 +86,7 @@ export async function removeReminder(id: number): Promise<void> {
  * reminders survive restarts even if the OS dropped the scheduled alarms.
  */
 export async function rescheduleStoredReminders(): Promise<void> {
-  if (!IS_NATIVE) return;
+  if (!remindersAvailable()) return;
   const now = Date.now();
   const list = load();
   const upcoming = list.filter((r) => r.fireAt > now);

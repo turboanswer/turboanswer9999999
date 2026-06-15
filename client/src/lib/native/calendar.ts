@@ -1,5 +1,4 @@
-import { IS_NATIVE } from "@/lib/api-base";
-import { fail, WEB_FALLBACK_MESSAGE, type NativeResult } from "./types";
+import { fail, WEB_FALLBACK_MESSAGE, nativePluginAvailable, PLUGIN, type NativeResult } from "./types";
 
 export type SimpleEvent = {
   id: string;
@@ -21,7 +20,7 @@ async function ensureReadAccess(): Promise<{ ok: true } | { ok: false; message: 
 
 /** Reads upcoming device calendar events within the next `daysAhead` days. */
 export async function getDeviceCalendarEvents(daysAhead = 14): Promise<NativeResult<SimpleEvent[]>> {
-  if (!IS_NATIVE) return fail("unavailable", WEB_FALLBACK_MESSAGE);
+  if (!nativePluginAvailable(PLUGIN.calendar)) return fail("unavailable", WEB_FALLBACK_MESSAGE);
   try {
     const { CapacitorCalendar } = await import("@ebarooni/capacitor-calendar");
     const access = await ensureReadAccess();
@@ -53,7 +52,7 @@ export async function createDeviceCalendarEvent(opts: {
   location?: string;
   description?: string;
 }): Promise<NativeResult<{ id: string }>> {
-  if (!IS_NATIVE) return fail("unavailable", WEB_FALLBACK_MESSAGE);
+  if (!nativePluginAvailable(PLUGIN.calendar)) return fail("unavailable", WEB_FALLBACK_MESSAGE);
   try {
     const { CapacitorCalendar } = await import("@ebarooni/capacitor-calendar");
     const req = await CapacitorCalendar.requestFullCalendarAccess();

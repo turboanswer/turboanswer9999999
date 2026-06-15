@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   ArrowRight, ChevronRight, Sparkles, Zap, ShieldCheck, Layers, Gauge,
-  BarChart3, Globe, Cpu, Check,
+  BarChart3, Globe, Cpu, Check, Smartphone,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,6 +62,19 @@ const SLIDES: Slide[] = [
       "End-to-end private conversations",
       "Background fact-check on every reply",
       "Built for speed — no waiting, no lag",
+    ],
+  },
+  {
+    kind: "feature",
+    eyebrow: "Only on the app",
+    title: "Connected to your phone.",
+    body: "On the mobile app, Matrix AI works with what's already on your device — just ask in plain words. (These features are exclusive to the installed app.)",
+    icon: <Smartphone size={18} />,
+    points: [
+      "“What do I have planned today?” — reads your calendar",
+      "“Remind me to call Mom at 6pm” — sets real alarms",
+      "Find a contact's number or email, hands-free",
+      "Reply to and find your emails once you connect an account",
     ],
   },
   {

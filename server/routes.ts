@@ -2011,6 +2011,10 @@ Formatting rules:
     const { content, deepThink: manualDeepThink, language, responseStyle, responseTone, deviceContext } = req.body || {};
     const userId = req.user?.claims?.sub;
 
+    // On-device context is supplied by the client; cap it so a malformed or
+    // oversized payload can't bloat the system prompt.
+    const safeDeviceContext = typeof deviceContext === 'string' ? deviceContext.slice(0, 6000) : '';
+
     if (!content || typeof content !== 'string') {
       return res.status(400).json({ message: "Message content is required" });
     }
@@ -2185,7 +2189,7 @@ Formatting rules:
           hasImage: false,
           manualDeepThink: !!manualDeepThink && allowDeep,
           forceFastMode: !allowDeep,
-          systemPrompt: systemPrompt + connectedContext + (typeof deviceContext === 'string' ? deviceContext : ''),
+          systemPrompt: systemPrompt + connectedContext + safeDeviceContext,
           tier: effectiveTier,
           history,
           onEvent: (e) => send(e.type, e),

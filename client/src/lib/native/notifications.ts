@@ -1,5 +1,4 @@
-import { IS_NATIVE } from "@/lib/api-base";
-import { fail, WEB_FALLBACK_MESSAGE, type NativeResult } from "./types";
+import { fail, WEB_FALLBACK_MESSAGE, nativePluginAvailable, PLUGIN, type NativeResult } from "./types";
 
 const CHANNEL_ID = "reminders";
 let channelEnsured = false;
@@ -25,7 +24,7 @@ async function ensureChannel(): Promise<void> {
 
 /** Ensures the OS notification permission is granted (prompts once if needed). */
 export async function ensureNotificationPermission(): Promise<NativeResult<true>> {
-  if (!IS_NATIVE) return fail("unavailable", WEB_FALLBACK_MESSAGE);
+  if (!nativePluginAvailable(PLUGIN.notifications)) return fail("unavailable", WEB_FALLBACK_MESSAGE);
   try {
     const { LocalNotifications } = await import("@capacitor/local-notifications");
     let perm = await LocalNotifications.checkPermissions();
@@ -49,7 +48,7 @@ export async function scheduleNotification(opts: {
   body?: string;
   fireAt: number;
 }): Promise<NativeResult<true>> {
-  if (!IS_NATIVE) return fail("unavailable", WEB_FALLBACK_MESSAGE);
+  if (!nativePluginAvailable(PLUGIN.notifications)) return fail("unavailable", WEB_FALLBACK_MESSAGE);
   if (opts.fireAt <= Date.now()) return fail("error", "That time is in the past.");
   const perm = await ensureNotificationPermission();
   if (!perm.ok) return perm;
@@ -74,7 +73,7 @@ export async function scheduleNotification(opts: {
 
 /** Cancels a previously scheduled notification by id. */
 export async function cancelNotification(id: number): Promise<void> {
-  if (!IS_NATIVE) return;
+  if (!nativePluginAvailable(PLUGIN.notifications)) return;
   try {
     const { LocalNotifications } = await import("@capacitor/local-notifications");
     await LocalNotifications.cancel({ notifications: [{ id }] });

@@ -7,9 +7,9 @@ import {
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { IS_NATIVE } from "@/lib/api-base";
+import { nativePluginAvailable, PLUGIN } from "@/lib/native/types";
 import {
-  listReminders, addReminder, removeReminder, rescheduleStoredReminders, type Reminder,
+  listReminders, addReminder, removeReminder, rescheduleStoredReminders, remindersAvailable, type Reminder,
 } from "@/lib/native/reminders";
 import { getDeviceContacts } from "@/lib/native/contacts";
 import { getDeviceCalendarEvents } from "@/lib/native/calendar";
@@ -40,6 +40,12 @@ export default function DeviceTools() {
   const heading = isDark ? "text-white" : "text-slate-900";
   const muted = isDark ? "text-slate-400" : "text-slate-500";
   const inputCls = `w-full rounded-xl px-3 py-2.5 text-sm outline-none border ${isDark ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`;
+
+  // Capability flags — true only when the native plugin is actually in this app
+  // build. The current installed app (no native rebuild) reports false, so we
+  // show the cloud-connector path instead of dead buttons.
+  const remindersOn = remindersAvailable();
+  const deviceDataOn = nativePluginAvailable(PLUGIN.contacts) || nativePluginAvailable(PLUGIN.calendar);
 
   // ── World clock ──────────────────────────────────────────────
   const [now, setNow] = useState(new Date());
@@ -93,8 +99,8 @@ export default function DeviceTools() {
   const refreshReminders = useCallback(() => setReminders(listReminders()), []);
   useEffect(() => {
     refreshReminders();
-    if (IS_NATIVE) rescheduleStoredReminders().then(refreshReminders);
-  }, [refreshReminders]);
+    if (remindersOn) rescheduleStoredReminders().then(refreshReminders);
+  }, [refreshReminders, remindersOn]);
 
   const onAddReminder = async () => {
     if (!remTitle.trim()) { toast({ title: "Add a title", variant: "destructive" }); return; }
@@ -189,12 +195,12 @@ export default function DeviceTools() {
         <section className={`rounded-2xl border p-5 mb-6 ${card}`}>
           <h2 className={`text-lg font-semibold mb-1 flex items-center gap-2 ${heading}`}><BellRing className="h-5 w-5 text-indigo-500" /> Reminders & Alarms</h2>
           <p className={`text-sm mb-4 ${muted}`}>
-            {IS_NATIVE ? "These fire as real device notifications and survive app restarts." : "Open the mobile app to set reminders that fire as real device notifications."}
+            {remindersOn ? "These fire as real device notifications and survive app restarts." : "Reminders with real device alarms need the latest mobile app build. Until then, use your connected calendar for time-based events."}
           </p>
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input value={remTitle} onChange={(e) => setRemTitle(e.target.value)} placeholder="Remind me to…" className={inputCls} />
             <input type="datetime-local" value={remWhen} onChange={(e) => setRemWhen(e.target.value)} className={`${inputCls} sm:w-56`} />
-            <Button onClick={onAddReminder} disabled={!IS_NATIVE} className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"><Plus className="h-4 w-4 mr-1" /> Set</Button>
+            <Button onClick={onAddReminder} disabled={!remindersOn} className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0"><Plus className="h-4 w-4 mr-1" /> Set</Button>
           </div>
           {reminders.length === 0 ? (
             <p className={`text-sm ${muted}`}>No reminders yet.</p>
@@ -216,7 +222,7 @@ export default function DeviceTools() {
         {/* On-device contacts & calendar */}
         <section className={`rounded-2xl border p-5 mb-10 ${card}`}>
           <h2 className={`text-lg font-semibold mb-1 flex items-center gap-2 ${heading}`}><CalendarDays className="h-5 w-5 text-indigo-500" /> Phone Contacts & Calendar</h2>
-          {IS_NATIVE ? (
+          {deviceDataOn ? (
             <>
               <p className={`text-sm mb-4 ${muted}`}>Grant access so the assistant can use what’s on your phone. You can also ask in chat, e.g. “what’s on my calendar this week?”.</p>
               <div className="flex gap-2 mb-4">

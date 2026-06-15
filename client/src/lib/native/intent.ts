@@ -2,7 +2,7 @@ import * as chrono from "chrono-node";
 import { IS_NATIVE } from "@/lib/api-base";
 import { getDeviceContacts, contactsToContext } from "./contacts";
 import { getDeviceCalendarEvents, eventsToContext } from "./calendar";
-import { addReminder } from "./reminders";
+import { addReminder, remindersAvailable } from "./reminders";
 
 const REMINDER_RE = /\b(remind me|set (an?|the )?(reminder|alarm)|wake me|alert me)\b/i;
 const CONTACTS_RE = /\b(my contacts?|phone number|address book|contact list|number for|number of|email (for|of)|who('?s| is) in my contacts)\b/i;
@@ -31,36 +31,47 @@ export async function prepareDeviceContext(content: string): Promise<DevicePrep>
   let toast: DevicePrep["toast"];
 
   if (REMINDER_RE.test(content)) {
-    try {
-      const results = chrono.parse(content, new Date(), { forwardDate: true });
-      const when = results[0]?.start?.date();
-      if (when && when.getTime() > Date.now() + 5000) {
-        const title = extractTitle(content, results[0].text);
-        const res = await addReminder({ title, fireAt: when.getTime() });
-        if (res.ok) {
-          toast = { title: "Reminder set", description: `“${title}” · ${when.toLocaleString()}` };
-          parts.push(`A device reminder was just scheduled on the user's phone: "${title}" at ${when.toLocaleString()}. Confirm this to the user.`);
+    if (remindersAvailable()) {
+      // Real device notifications are in this build — schedule a persisted alarm.
+      try {
+        const results = chrono.parse(content, new Date(), { forwardDate: true });
+        const when = results[0]?.start?.date();
+        if (when && when.getTime() > Date.now() + 5000) {
+          const title = extractTitle(content, results[0].text);
+          const res = await addReminder({ title, fireAt: when.getTime() });
+          if (res.ok) {
+            toast = { title: "Reminder set", description: `“${title}” · ${when.toLocaleString()}` };
+            parts.push(`A device reminder was just scheduled on the user's phone: "${title}" at ${when.toLocaleString()}. Confirm this to the user.`);
+          } else if (res.reason !== "unavailable") {
+            parts.push(`The user asked to set a reminder but it could not be scheduled (${res.message}). Let them know.`);
+          }
         } else {
-          parts.push(`The user asked to set a reminder but it could not be scheduled (${res.message}). Let them know.`);
+          parts.push(`The user seems to want a reminder, but no clear future time was found. Ask them what time to set it for, or point them to Device Tools.`);
         }
-      } else {
-        parts.push(`The user seems to want a reminder, but no clear future time was found. Ask them what time to set it for, or point them to Device Tools.`);
+      } catch {
+        /* ignore parse errors */
       }
-    } catch {
-      /* ignore parse errors */
+    } else {
+      // Older app build without the native notifications plugin: don't pretend to
+      // schedule. Briefly steer the user to their connected calendar instead.
+      parts.push(`The user appears to want a reminder/alarm, but on-device alarms aren't available in this app version. Briefly offer to add it to their connected calendar (Google/Outlook) if linked, or suggest they update the app for real device reminders. Keep it to one short sentence.`);
     }
   }
 
+  // Contacts/calendar: only inject when we actually got data or hit a real
+  // permission/runtime error. When the native plugin isn't in this build the
+  // result is "unavailable" — skip silently so the server's cloud-connector
+  // path (Google/Outlook) handles the request instead.
   if (CONTACTS_RE.test(content)) {
     const res = await getDeviceContacts();
     if (res.ok) parts.push(contactsToContext(res.data));
-    else parts.push(`An attempt to read the user's phone contacts failed (${res.message}).`);
+    else if (res.reason !== "unavailable") parts.push(`An attempt to read the user's phone contacts failed (${res.message}).`);
   }
 
   if (CALENDAR_RE.test(content)) {
     const res = await getDeviceCalendarEvents(21);
     if (res.ok) parts.push(eventsToContext(res.data));
-    else parts.push(`An attempt to read the user's device calendar failed (${res.message}).`);
+    else if (res.reason !== "unavailable") parts.push(`An attempt to read the user's device calendar failed (${res.message}).`);
   }
 
   if (!parts.length) return { toast };

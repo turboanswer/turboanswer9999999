@@ -1,5 +1,4 @@
-import { IS_NATIVE } from "@/lib/api-base";
-import { fail, WEB_FALLBACK_MESSAGE, type NativeResult } from "./types";
+import { fail, WEB_FALLBACK_MESSAGE, nativePluginAvailable, PLUGIN, type NativeResult } from "./types";
 
 export type SimpleContact = {
   id: string;
@@ -14,7 +13,7 @@ export type SimpleContact = {
  * cloud connectors instead.
  */
 export async function getDeviceContacts(): Promise<NativeResult<SimpleContact[]>> {
-  if (!IS_NATIVE) return fail("unavailable", WEB_FALLBACK_MESSAGE);
+  if (!nativePluginAvailable(PLUGIN.contacts)) return fail("unavailable", WEB_FALLBACK_MESSAGE);
   try {
     const { Contacts } = await import("@capacitor-community/contacts");
     const perm = await Contacts.requestPermissions();
