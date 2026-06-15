@@ -60,7 +60,7 @@ function azureResponsesUrl(): string {
 }
 // Build a Responses-API request body from OpenAI-style messages. System turns
 // become `instructions`; user/assistant turns become the `input` array.
-function buildResponsesBody(deployment: string, messages: Message[], opts: CallOpts, stream: boolean): any {
+function buildResponsesBody(deployment: string, messages: Message[], opts: CallOpts, stream: boolean, isOpus: boolean): any {
   let instructions = '';
   const input: { role: string; content: any }[] = [];
   for (const m of messages) {
@@ -73,7 +73,14 @@ function buildResponsesBody(deployment: string, messages: Message[], opts: CallO
   }
   const body: any = { model: deployment, input, max_output_tokens: opts.maxTokens ?? 1500 };
   if (instructions) body.instructions = instructions;
-  if (opts.temperature != null) body.temperature = opts.temperature;
+  // Claude Opus 4.x on Azure Foundry only accepts the DEFAULT temperature (1) and
+  // returns HTTP 400 ("invalid_request_error") for any NON-default temperature
+  // (e.g. 0 or 0.3). Haiku/Sonnet accept any value. Omitting it for Opus lets it
+  // fall back to the default so top-tier (Matrix AI) calls don't fail. `isOpus` is
+  // derived from the resolved model name (not the deployment string) so a custom
+  // AZURE_DEPLOYMENT_CLAUDE_OPUS name can't silently regress this. Other models
+  // keep the requested temperature.
+  if (opts.temperature != null && !isOpus) body.temperature = opts.temperature;
   if (opts.jsonMode) body.text = { format: { type: 'json_object' } };
   if (stream) body.stream = true;
   return body;
@@ -134,10 +141,11 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
         const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
         if (key && ep && (useAzureForAnthropic() || isFoundryEndpoint(ep))) {
           const deployment = claudeAzureDeployment(r.modelName);
+          const isOpus = r.modelName.toLowerCase().includes('opus');
           const res = await fetch(azureResponsesUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'api-key': key },
-            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, false)),
+            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, false, isOpus)),
             signal: ctrl.signal,
           });
           if (res.ok) {
@@ -194,10 +202,11 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
         const aep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
         if (akey && aep && (useAzureForAnthropic() || isFoundryEndpoint(aep))) {
           const deployment = claudeAzureDeployment(r.modelName);
+          const isOpus = r.modelName.toLowerCase().includes('opus');
           const res = await fetch(azureResponsesUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'api-key': akey },
-            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, true)),
+            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, true, isOpus)),
             signal: ctrl.signal,
           });
           if (res.ok && res.body) {

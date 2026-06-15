@@ -22,6 +22,15 @@ different surfaces on one endpoint.
 - Non-stream: read `output_text`, else join `output[].content[].text`.
 - Stream (SSE): accumulate `response.output_text.delta` events' `.delta`; stop on
   `response.completed`/`response.failed`. Do NOT also add `response.output_text.done` (duplicate).
+- Temperature: Opus 4.x (`claude-opus-4-8`) rejects any NON-default `temperature` (e.g. 0 or 0.3)
+  with HTTP 400 "invalid_request_error" — only the default (1) is accepted, whether sent
+  explicitly as `temperature:1` or by omitting the field (verified by probing the Responses API
+  directly). Haiku/Sonnet accept any value. So OMIT `temperature` for Opus deployments. Detect
+  Opus from the resolved MODEL NAME (which always contains "opus"), not the deployment string, so
+  a custom `AZURE_DEPLOYMENT_CLAUDE_OPUS` name can't silently regress it. Symptom if you forget:
+  free+pro tiers work, top tier (Matrix AI) silently 400s and — with no Anthropic fallback key in
+  any env — fails loud as "providers unavailable"; this is the recurring ProactiveDiag
+  "Failures: 1". Same family of quirk as the GPT-5 reasoning deployments (default-temperature-only).
 
 # Tier → Claude deployment (live names, confirmed working)
 - Free  ("Turbo")      → `claude-haiku-4-5`
