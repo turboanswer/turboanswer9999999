@@ -212,11 +212,11 @@ function WorldGlobe({ size = 520 }: { size?: number }) {
 /* ─────────── BOOT TERMINAL ─────────── */
 function BootTerminal() {
   const lines = [
-    { p: "$", t: "turbo --boot --stack=gpt5.4 --region=azure-eastus" },
+    { p: "$", t: "turbo --boot --stack=claude --region=azure-eastus" },
     { p: ">", t: "init router ............ ok" },
-    { p: ">", t: "warm gpt-5.4-pro ....... 287ms" },
-    { p: ">", t: "warm gpt-5.4-mini ...... 142ms" },
-    { p: ">", t: "warm codex-max ......... 198ms" },
+    { p: ">", t: "warm claude-opus-4.1 ... 287ms" },
+    { p: ">", t: "warm claude-sonnet-4.5 . 142ms" },
+    { p: ">", t: "warm claude-opus ....... 198ms" },
     { p: ">", t: "fact-check chain ....... online" },
     { p: ">", t: "10 regions ............. connected" },
     { p: "$", t: "ready. ask anything._" },
@@ -291,13 +291,13 @@ const HOPS: Hop[] = [
     techs: ["L7 load balancing", "5s active health checks", "Geo + latency steering", "Automatic failover"],
   },
   {
-    n: "05", title: "Azure OpenAI region", badge: "~50ms", icon: Server, color: "#0078d4",
+    n: "05", title: "Azure AI region", badge: "~50ms", icon: Server, color: "#0078d4",
     desc: "One of 10 GPU regions — east-us, west-eu, japan-east, uae-north, brazil-south, africa-north, australia-east, korea-c, south-asia, uk-south. Warm GPU pool, no spin-up.",
     techs: ["NVIDIA H100 / A100 pools", "Pre-warmed PTU (provisioned throughput)", "Multi-AZ redundancy", "Private VNet peering"],
   },
   {
-    n: "06", title: "GPT-5.4 inference", badge: "TTFT ~150ms", icon: Cpu, color: "#00ffaa",
-    desc: "The router picked the right size: Nano for greetings, Mini for daily work, Pro for reasoning, Codex Max for code. First token streams back the moment it exists — no batching delay.",
+    n: "06", title: "Claude inference", badge: "TTFT ~150ms", icon: Cpu, color: "#00ffaa",
+    desc: "The router picked the right size: Claude Haiku for greetings, Claude Sonnet 4.5 for daily work, Claude Opus 4.1 for reasoning, Claude Opus for code. First token streams back the moment it exists — no batching delay.",
     techs: ["Token-by-token streaming (SSE)", "Speculative decoding", "KV-cache reuse across turns", "Adaptive model routing"],
   },
   {
@@ -329,7 +329,7 @@ function ArchSection() {
             8 hops. <span className="shimmer-text">287 milliseconds.</span>
           </h2>
           <p className="max-w-2xl mx-auto text-base mono" style={{ color: MUTED }}>
-            <span style={{ color: NEON }}>{">"}</span> from your fingertip to GPT-5.4 and back. every hop accounted for.
+            <span style={{ color: NEON }}>{">"}</span> from your fingertip to Claude and back. every hop accounted for.
           </p>
         </div>
 
@@ -473,20 +473,20 @@ function ArchSection() {
                 "→ no cold-start tax. ever. that's the whole reason we don't use Lambda.",
               ]} />
               <NerdBlock title="# 3. AZURE FRONT DOOR — picking the warm GPU" lines={[
-                "Front Door pings each of the 10 Azure OpenAI regions every 5 seconds.",
+                "Front Door pings each of the 10 Azure AI regions every 5 seconds.",
                 "Failed health-check → instant traffic shift, no manual intervention.",
                 "Region pick is weighted: latency (60%) + queue depth (25%) + cost (15%).",
-                "Private VNet peering between Front Door and OpenAI — never touches public net.",
+                "Private VNet peering between Front Door and the model host — never touches public net.",
                 "→ if east-us-2 melts, you don't notice. you might land in north-europe; same answer.",
               ]} />
               <NerdBlock title="# 4. INFERENCE — provisioned throughput, no shared queue" lines={[
                 "We buy PTUs (Provisioned Throughput Units) from Azure — dedicated GPU slots.",
                 "Translation: no waiting behind some other startup's batch job. Token 1 ASAP.",
                 "Adaptive routing picks model size before the prompt hits the GPU:",
-                "  - <20 tokens, no code, no math       → gpt-5.4-nano  (40ms TTFT)",
-                "  - daily questions, light reasoning    → gpt-5.4-mini  (110ms TTFT)",
-                "  - long context, heavy reasoning       → gpt-5.4-pro   (180ms TTFT)",
-                "  - code / refactor / repo aware        → codex-max     (220ms TTFT)",
+                "  - <20 tokens, no code, no math       → claude-haiku       (40ms TTFT)",
+                "  - daily questions, light reasoning    → claude-sonnet-4.5  (110ms TTFT)",
+                "  - long context, heavy reasoning       → claude-opus-4.1    (180ms TTFT)",
+                "  - code / refactor / repo aware        → claude-opus        (220ms TTFT)",
                 "Streaming is Server-Sent Events over HTTP/3, multiplexed with the response.",
               ]} />
               <NerdBlock title="# 5. FACT-CHECK — verification runs in parallel, not after" lines={[
@@ -584,7 +584,7 @@ const OP_QUERIES = [
   "fact-check: 'cold fusion was solved in 2024'",
   "outline a 90-day product launch plan",
 ];
-const OP_MODELS = ["gpt-5.4-pro", "gpt-5.4-mini", "gpt-5.4-nano", "codex-max"];
+const OP_MODELS = ["claude-opus-4.1", "claude-sonnet-4.5", "claude-haiku", "claude-opus"];
 
 function LiveOpsSection() {
   const [rows, setRows] = useState<OpRow[]>([]);
@@ -644,8 +644,8 @@ function LiveOpsSection() {
             Watch the router <span className="shimmer-text">pick a model.</span>
           </h2>
           <p className="mt-4 text-sm max-w-2xl mx-auto" style={{ color: MUTED }}>
-            Sample prompts showing which GPT-5.4 variant the router would dial — Nano for quick stuff,
-            Mini for daily work, Pro for reasoning, Codex Max for code. <span style={{ color: TEXT }}>Example data, not real user traffic.</span>
+            Sample prompts showing which Claude variant the router would dial — Haiku for quick stuff,
+            Sonnet 4.5 for daily work, Opus 4.1 for reasoning, Opus for code. <span style={{ color: TEXT }}>Example data, not real user traffic.</span>
           </p>
         </div>
 
@@ -976,7 +976,7 @@ export default function LandingPage() {
                 className="fade-up fade-up-3 max-w-xl mx-auto lg:mx-0 mb-8 text-base sm:text-lg"
                 style={{ color: MUTED, lineHeight: 1.6 }}
               >
-                Stacked on <span style={{ color: "#fff", fontWeight: 600 }}>Microsoft Azure OpenAI</span> across{" "}
+                Stacked on <span style={{ color: "#fff", fontWeight: 600 }}>Microsoft Azure AI</span> across{" "}
                 <span style={{ color: ACCENT }}>10 GPU regions</span>, fronted by{" "}
                 <span style={{ color: "#fff", fontWeight: 600 }}>Cloudflare's 310+ city edge network</span>.
                 Your packets hop to the nearest PoP in <span style={{ color: NEON }}>under 20ms</span>, your
@@ -1033,14 +1033,14 @@ export default function LandingPage() {
             10 Azure regions. <span style={{ color: ACCENT }}>310 Cloudflare cities.</span> One brain.
           </h2>
           <p className="max-w-3xl mx-auto text-base mb-6" style={{ color: MUTED }}>
-            We don't rent inference from a reseller. We're plugged <span style={{ color: "#fff" }}>directly into Azure OpenAI</span>{" "}
+            We don't rent inference from a reseller. We're plugged <span style={{ color: "#fff" }}>directly into Azure AI</span>{" "}
             in 10 GPU regions, with <span style={{ color: "#fff" }}>Cloudflare Workers + anycast</span> grabbing your
             request at the closest of 310+ edge cities and steering it to the nearest warm GPU. The whole round-trip
             happens in fewer hops than most apps' login flow.
           </p>
           <div className="flex flex-wrap justify-center gap-2 mb-10 mono text-[11px]" style={{ color: MUTED }}>
             <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,212,255,0.06)", border: `1px solid ${LINE}` }}>
-              <span style={{ color: NEON }}>●</span> azure openai · enterprise tier
+              <span style={{ color: NEON }}>●</span> azure ai · enterprise tier
             </span>
             <span className="px-2.5 py-1 rounded" style={{ background: "rgba(0,212,255,0.06)", border: `1px solid ${LINE}` }}>
               <span style={{ color: NEON }}>●</span> cloudflare anycast · ddos-shielded
@@ -1085,16 +1085,16 @@ export default function LandingPage() {
               Four blades. One handle. <span style={{ color: ACCENT }}>Cut clean.</span>
             </h2>
             <p className="mt-4 text-sm max-w-2xl mx-auto" style={{ color: MUTED }}>
-              The GPT-5.4 family, billed direct through Azure. No middleman, no markup, no quota games.
+              The Claude family, billed direct through Azure. No middleman, no markup, no quota games.
             </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { name: "GPT-5.4 Nano",     note: "free tier · 287ms · routing brain" },
-              { name: "GPT-5.4 Mini",     note: "pro daily driver · adaptive" },
-              { name: "GPT-5.4 Pro",      note: "research · 1M context · the heavy" },
-              { name: "GPT-5.1 Codex Max",note: "code surgeon · refactor & PR" },
+              { name: "Claude Haiku",      note: "free tier · 287ms · routing brain" },
+              { name: "Claude Sonnet 4.5", note: "pro daily driver · adaptive" },
+              { name: "Claude Opus 4.1",   note: "research · 1M context · the heavy" },
+              { name: "Claude Opus",       note: "code surgeon · refactor & PR" },
             ].map((m) => (
               <div key={m.name} className="card rounded-lg p-5">
                 <div className="text-[10px] mono mb-2" style={{ color: NEON }}>▸ active</div>
@@ -1145,7 +1145,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: Code2, title: "Code Surgeon",        desc: "Drops Codex Max into your codebase, hunts race conditions, security holes, and perf traps. Reads your repo, ships a patch, opens a PR — one tool, one click." },
+              { icon: Code2, title: "Code Surgeon",        desc: "Drops Claude Opus into your codebase, hunts race conditions, security holes, and perf traps. Reads your repo, ships a patch, opens a PR — one tool, one click." },
               { icon: Brain, title: "Verified Chat",        desc: "Every factual claim gets a confidence score. A second pass independently grades the answer. We show low scores too." },
               { icon: Mic,   title: "Voice Turbo",          desc: "Real-time voice. Streaming token-by-token. Wake-word optional. Sounds like a person, not a kiosk." },
               { icon: Database, title: "Deep Research",     desc: "Twenty-plus sources synthesised through a multi-agent chain. Citations on every claim. Disagrees with itself in public." },
@@ -1194,7 +1194,7 @@ export default function LandingPage() {
                 <span className="text-sm" style={{ color: MUTED }}>forever</span>
               </div>
               <ul className="space-y-2.5 mb-7 flex-1 text-sm" style={{ color: TEXT }}>
-                {["GPT-5.4 Nano routing","15 queries per day","Code Surgeon (paste mode)","Document analysis"].map((i) => (
+                {["Claude Haiku routing","15 queries per day","Code Surgeon (paste mode)","Document analysis"].map((i) => (
                   <li key={i} className="flex items-start gap-2"><Check size={14} className="mt-1 flex-shrink-0" style={{ color: NEON }} /><span>{i}</span></li>
                 ))}
               </ul>
@@ -1225,7 +1225,7 @@ export default function LandingPage() {
                 <span className="text-sm" style={{ color: MUTED }}>/month</span>
               </div>
               <ul className="space-y-2.5 mb-7 flex-1 text-sm" style={{ color: TEXT }}>
-                {["GPT-5.4 Mini (adaptive throttle)","Unlimited messages","Live web search (grounded)","AI image generation","Voice Turbo streaming","Verified-answer badges"].map((i) => (
+                {["Claude Sonnet 4.5 (adaptive throttle)","Unlimited messages","Live web search (grounded)","AI image generation","Voice Turbo streaming","Verified-answer badges"].map((i) => (
                   <li key={i} className="flex items-start gap-2"><Check size={14} className="mt-1 flex-shrink-0" style={{ color: NEON }} /><span>{i}</span></li>
                 ))}
               </ul>
@@ -1243,7 +1243,7 @@ export default function LandingPage() {
                 <span className="text-sm" style={{ color: MUTED }}>/month</span>
               </div>
               <ul className="space-y-2.5 mb-7 flex-1 text-sm" style={{ color: TEXT }}>
-                {["GPT-5.4 Pro + Codex Max","Stack Trace Surgeon (auto-PRs)","Deep Research (20+ sources)","AI Video Studio (Veo 3.1)","1M-token long context","Priority sub-300ms routing"].map((i) => (
+                {["Claude Opus 4.1 + Claude Opus","Stack Trace Surgeon (auto-PRs)","Deep Research (20+ sources)","1M-token long context","Priority sub-300ms routing"].map((i) => (
                   <li key={i} className="flex items-start gap-2"><Check size={14} className="mt-1 flex-shrink-0" style={{ color: NEON }} /><span>{i}</span></li>
                 ))}
               </ul>

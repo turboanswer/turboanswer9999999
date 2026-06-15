@@ -1,25 +1,25 @@
-// 3 expert perspectives on Azure GPT-5.4 tiers for voice diversity within
-// one provider (speed + Azure billing). Synthesis uses gpt-5.4-pro.
+// 3 expert perspectives, each on a different Claude model for genuine voice
+// diversity (Opus = deepest, Sonnet = balanced, Haiku = fast). Synthesis uses Opus.
 const AGENT_PERSPECTIVES = [
   {
     id: 'architect',
     name: 'Technical Architect',
     prompt: 'You are a senior technical architect. Analyze this from a technical implementation perspective — focus on architecture, systems design, performance, scalability, and technical trade-offs. Be specific and practical.',
-    model: 'azure/gpt-5-4-pro',
+    model: 'anthropic/claude-opus-4-1',
     modelLabel: 'Matrix Architect',
   },
   {
     id: 'strategist',
     name: 'Business Strategist',
     prompt: 'You are a business strategist. Analyze this from a business perspective — focus on ROI, market positioning, competitive advantage, cost-benefit analysis, and business impact. Think like a CEO.',
-    model: 'azure/gpt-5-4-mini',
+    model: 'anthropic/claude-sonnet-4.5',
     modelLabel: 'Matrix Strategist',
   },
   {
     id: 'skeptic',
     name: 'Devil\'s Advocate',
     prompt: 'You are a critical thinker and devil\'s advocate. Challenge the obvious answer. Find flaws in popular assumptions, present alternative viewpoints, and highlight what others might miss or get wrong.',
-    model: 'azure/gpt-5-4-nano',
+    model: 'anthropic/claude-haiku',
     modelLabel: 'Matrix Skeptic',
   },
 ];
@@ -225,14 +225,14 @@ Write the synthesized response now:`;
 
   let synthesis: string | null = null;
 
-  synthesis = await callOpenRouter('azure/gpt-5-4-pro', synthesisPrompt, 4096, 0.15);
+  synthesis = await callOpenRouter('anthropic/claude-opus-4-1', synthesisPrompt, 4096, 0.15);
   if (synthesis) {
-    console.log(`[Multi-Agent] Synthesis by Azure GPT-5.4-pro`);
+    console.log(`[Multi-Agent] Synthesis by Claude Opus`);
   }
 
   if (!synthesis) {
-    synthesis = await callOpenRouter('azure/gpt-5-4-mini', synthesisPrompt, 4096, 0.15);
-    if (synthesis) console.log(`[Multi-Agent] Synthesis by Azure GPT-5.4-mini (fallback)`);
+    synthesis = await callOpenRouter('anthropic/claude-sonnet-4.5', synthesisPrompt, 4096, 0.15);
+    if (synthesis) console.log(`[Multi-Agent] Synthesis by Claude Sonnet (fallback)`);
   }
 
   if (!synthesis) {

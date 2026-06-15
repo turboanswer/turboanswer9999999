@@ -19,7 +19,7 @@ const TIER_CONFIG: Record<Tier, { name: string; description: string; amountCents
   },
   research: {
     name: "TurboAnswer Research",
-    description: "Multi-model AI panel (Claude + GPT-4o + Gemini Pro) synthesized for the most accurate answer. Includes AI Video Studio.",
+    description: "Multi-model AI panel (Claude Opus 4.1 + Claude Sonnet 4.5 + Gemini Pro) synthesized for the most accurate answer.",
     amountCents: 3000,
   },
   enterprise: {

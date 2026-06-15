@@ -8,7 +8,7 @@ import {
   Shield, Bell, CreditCard, Sun, Moon, SlidersHorizontal, Globe,
   Download, Eye, EyeOff, ChevronRight, Lock, Volume2, VolumeX, Type,
   Smartphone, Info, RefreshCw, LogOut, Save, Check, X, Settings, Sparkles,
-  HelpCircle, Mail, Clock, BarChart3, Languages, Wand2, FileText, Bot, Film
+  HelpCircle, Mail, Clock, BarChart3, Languages, Wand2, FileText, Bot
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -358,7 +358,6 @@ export default function AISettings() {
                   {[
                     { href: "/pricing", icon: CreditCard, label: "Upgrade Plan", color: "#4285F4" },
                     { href: "/support", icon: HelpCircle, label: "Get Support", color: "#34A853" },
-                    { href: "/video-studio", icon: Film, label: "Video Studio", color: "#8b5cf6" },
                     { href: "/beta", icon: FlaskConical, label: "Beta Program", color: "#EA4335" },
                   ].map(({ href, icon: Icon, label, color }) => (
                     <Link key={href} href={href}>

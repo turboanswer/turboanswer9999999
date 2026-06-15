@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Film, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic } from "lucide-react";
+import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic } from "lucide-react";
 import { VoiceTalkModal } from "@/components/VoiceTalkModal";
 import { TTS_ENABLED, VOICE_TALK_ENABLED } from "@/lib/feature-flags";
 import CodeAnalyzerModal from "@/components/CodeAnalyzerModal";
@@ -1174,11 +1174,6 @@ export default function Chat() {
                   <Camera className="h-4 w-4" />
                 </Button>
               </Link>
-              <Link href="/video-studio">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Video Studio">
-                  <Film className="h-4 w-4" />
-                </Button>
-              </Link>
               <Link href="/code-customizer">
                 <Button
                   variant="ghost"
@@ -1997,7 +1992,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "Advanced AI (Claude Sonnet 4.5 vs basic GPT-4o mini)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation (DALL-E 3)", "Unlimited questions (vs 15/day free)"].map((text, i) => (
+              {["7 days free — cancel anytime", "Advanced AI (Claude Sonnet 4.5 vs Claude Haiku)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation", "Unlimited questions (vs 15/day free)"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className={`w-4 h-4 flex-shrink-0 ${i === 0 ? 'text-blue-400' : 'text-blue-400'}`} />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2043,7 +2038,7 @@ export default function Chat() {
                 <Brain className="text-white h-7 w-7" />
               </div>
               <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade to Research</h2>
-              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI Research · Maximum Intelligence · Video Studio</p>
+              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI Research · Maximum Intelligence</p>
             </div>
             {/* Google color bar */}
             <div className="flex h-1 rounded-full overflow-hidden mb-4">
@@ -2060,7 +2055,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "Everything in Pro + Free included"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "Everything in Pro + Free included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2162,7 +2157,7 @@ export default function Chat() {
               </div>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "🎬 AI Video Studio", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>

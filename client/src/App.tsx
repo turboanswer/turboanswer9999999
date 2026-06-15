@@ -33,7 +33,6 @@ import ForgotPassword from "@/pages/forgot-password";
 import ImageStudio from "@/pages/image-studio";
 import PhotoEditor from "@/pages/photo-editor";
 import MediaEditor from "@/pages/media-editor";
-import VideoStudio from "@/pages/video-studio";
 import BetaApply from "@/pages/beta-apply";
 import BetaFeedback from "@/pages/beta-feedback";
 import Workgroups from "@/pages/workgroups";
@@ -74,7 +73,6 @@ const CrisisSupportGated = gate("Crisis Support", CrisisSupport);
 const ImageStudioGated = gate("Matrix Imagine", ImageStudio);
 const PhotoEditorGated = gate("Photo Editor", PhotoEditor);
 const MediaEditorGated = gate("Media Editor", MediaEditor);
-const VideoStudioGated = gate("Matrix Video", VideoStudio);
 const WorkgroupsGated = gate("Workgroups", Workgroups);
 const CollabRoomsGated = gate("Collab Rooms", CollabRooms);
 const StackTraceGated = gate("Stack Trace Surgeon", StackTraceSurgeon);
@@ -128,7 +126,6 @@ function AuthenticatedRouter() {
       <Route path="/image-studio" component={ImageStudioGated} />
       <Route path="/photo-editor" component={PhotoEditorGated} />
       <Route path="/media-editor" component={MediaEditorGated} />
-      <Route path="/video-studio" component={VideoStudioGated} />
       <Route path="/workgroups" component={WorkgroupsGated} />
       <Route path="/collab" component={CollabRoomsGated} />
       <Route path="/stack-trace-surgeon" component={CodeCustomizerGated} />

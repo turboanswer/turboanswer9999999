@@ -4040,7 +4040,7 @@ function CommandCenterAzure({
           {/* AI Models */}
           <HubPanel icon={Brain} title="AI Models" iconColor="#a78bfa">
             <PropRow label="Status" value={svc?.ai || 'unknown'} valueColor={statusColor(svc?.ai)} />
-            <PropRow label="OpenAI (GPT)" value={runtime?.integrations.ai.openai ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openai ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Azure AI" value={runtime?.integrations.ai.openai ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openai ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Anthropic (Claude)" value={runtime?.integrations.ai.anthropic ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.anthropic ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Google Gemini" value={runtime?.integrations.ai.gemini ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.gemini ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Gemini Pro" value={runtime?.integrations.ai.geminiPro ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.geminiPro ? '#4ade80' : '#94a3b8'} />

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import {
-  CheckCircle, Zap, Bot, Star, Loader2, Film, Sparkles, Users, ArrowLeft
+  CheckCircle, Zap, Bot, Star, Loader2, Sparkles, Users, ArrowLeft
 } from "lucide-react";
 
 const PLANS = [
@@ -19,7 +19,7 @@ const PLANS = [
     border: 'border-zinc-700',
     icon: <Bot className="h-5 w-5 text-zinc-400" />,
     features: [
-      '⚡ OpenAI GPT-4o mini',
+      '⚡ Claude Haiku',
       'Sub-300ms answers',
       'Voice commands',
       'Unlimited conversations',
@@ -59,14 +59,12 @@ const PLANS = [
     border: 'border-indigo-400/50',
     icon: <Sparkles className="h-5 w-5 text-indigo-300" />,
     features: [
-      '🔬 Matrix AI Panel: Claude + GPT-4o + Gemini Pro in parallel',
+      '🔬 Matrix AI Panel: Claude Opus 4.1 + Claude Sonnet 4.5 + Gemini Pro in parallel',
       'Judged & synthesized by Claude Sonnet 4.5',
-      'AI Video Studio — powered by Google Veo',
       'Deep expert-level responses',
       'Image Studio (Google AI)',
       'Everything in Pro',
     ],
-    videoFeature: true,
     cta: 'Subscribe — $30/mo',
     note: '7-day free trial · Cancel anytime',
     highlight: true,
@@ -141,20 +139,6 @@ export default function Subscribe() {
           </p>
         </div>
 
-        {/* Video Studio spotlight banner */}
-        <div className="mb-10 rounded-2xl bg-gradient-to-r from-indigo-900/50 via-violet-900/50 to-cyan-900/50 border border-indigo-500/30 p-5 flex flex-col sm:flex-row items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/30">
-            <Film className="h-6 w-6 text-white" />
-          </div>
-          <div className="text-center sm:text-left">
-            <div className="flex items-center gap-2 justify-center sm:justify-start mb-0.5">
-              <span className="font-bold text-white text-sm">AI Video Studio — exclusive to Research & Enterprise</span>
-              <Badge className="bg-indigo-500/25 text-indigo-300 border-indigo-500/30 text-[10px] font-bold px-1.5">NEW</Badge>
-            </div>
-            <p className="text-zinc-400 text-xs">Generate AI videos from text prompts using Google Veo. Up to 8 seconds, multiple styles, landscape & portrait formats.</p>
-          </div>
-        </div>
-
         {/* Plan cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {PLANS.map((plan) => (
@@ -183,12 +167,8 @@ export default function Subscribe() {
               <ul className="space-y-2 mb-6 flex-1">
                 {plan.features.map((feat, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    {feat.includes('Video Studio') ? (
-                      <Film className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                    )}
-                    <span className={`text-xs leading-snug ${feat.includes('Video Studio') ? 'text-violet-300 font-semibold' : 'text-zinc-300'}`}>
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-xs leading-snug text-zinc-300">
                       {feat}
                     </span>
                   </li>

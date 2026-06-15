@@ -19,11 +19,11 @@ const MODEL_PLANNER = 'google/gemini-2.5-flash';
 // Three independent models is enough for quorum-of-2 verification while halving
 // panel latency vs the old 5-model setup.
 const MODEL_PANEL = [
-  { id: 'anthropic/claude-sonnet-4.5', name: 'Matrix Core α', costPer1k: 0.015 },
-  { id: 'openai/gpt-4o', name: 'Matrix Core β', costPer1k: 0.015 },
-  { id: 'google/gemini-2.5-pro', name: 'Matrix Core γ', costPer1k: 0.005 },
+  { id: 'anthropic/claude-opus-4-1', name: 'Matrix Core α', costPer1k: 0.015 },
+  { id: 'anthropic/claude-sonnet-4.5', name: 'Matrix Core β', costPer1k: 0.015 },
+  { id: 'anthropic/claude-haiku', name: 'Matrix Core γ', costPer1k: 0.005 },
 ];
-const MODEL_JUDGE = 'anthropic/claude-sonnet-4.5';
+const MODEL_JUDGE = 'anthropic/claude-opus-4-1';
 const MODEL_VERIFIER = 'google/gemini-2.5-flash';
 const MODEL_DEBATE = 'google/gemini-2.5-flash';
 
@@ -688,10 +688,10 @@ function modelsForTier(tier?: string): string[] {
   // LOCKED per product spec:
   //   Pro  → Gemini 3.1 Pro only.
   //   Free → Gemini 3.1 Flash, with Gemini 3.1 Pro as emergency fallback only.
-  if (t === 'pro') return ['google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'openai/gpt-4.1-mini'];
-  // Free tier: GPT-4.1 nano (cheapest + fastest OpenAI model, ~$0.000005/msg)
-  // with Gemini Flash as fallback so chat never goes silent.
-  return ['openai/gpt-4.1-nano', 'google/gemini-2.0-flash-001', 'google/gemini-2.5-flash'];
+  if (t === 'pro') return ['anthropic/claude-sonnet-4.5', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
+  // Free tier: Claude Haiku (fast + cheap) with Gemini Flash as fallback so chat
+  // never goes silent.
+  return ['anthropic/claude-haiku', 'google/gemini-2.0-flash-001', 'google/gemini-2.5-flash'];
 }
 
 async function callORWithFallback(
@@ -836,23 +836,29 @@ async function callAzureFoundryStream(
   }
 }
 
-// All tiers go through Azure AI Foundry. Deployment chosen by tier (nano / mini / pro).
+// Tier → Claude model. Free = Haiku (fast), Pro = Sonnet 4.5, Research /
+// Enterprise / Owner = Opus (deepest). These three Claude models are the whole
+// text engine; GPT/OpenAI is reserved strictly for image generation.
+function claudeModelForTier(tier?: string): string {
+  const t = (tier || 'free').toLowerCase();
+  if (t === 'research' || t === 'enterprise' || t === 'owner') return 'anthropic/claude-opus-4-1';
+  if (t === 'pro') return 'anthropic/claude-sonnet-4.5';
+  return 'anthropic/claude-haiku';
+}
+
+// All text tiers answer on Claude. Gemini is the resilience fallback (never GPT)
+// so chat never goes silent if Anthropic has a transient hiccup.
 async function answerForTier(
   prompt: string,
   tier: string | undefined,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
-  const primary = deploymentForTier(tier);
-  const out = await callAzureFoundry(primary, prompt, opts);
+  const out = await callOR(claudeModelForTier(tier), prompt, opts);
   if (out) return out;
-  // Single in-family fallback so a transient hiccup on (say) the pro deployment
-  // still gets answered by mini → nano before we give up.
-  const cascade = [AZURE_DEPLOY.mini(), AZURE_DEPLOY.nano()].filter(d => d !== primary);
-  for (const d of cascade) {
-    const fb = await callAzureFoundry(d, prompt, opts);
-    if (fb) return fb;
-  }
-  return null;
+  const proTier = (tier || 'free').toLowerCase() !== 'free';
+  const key = proTier ? (GEMINI_PRO_KEY() || GEMINI_FREE_KEY()) : (GEMINI_FREE_KEY() || GEMINI_PRO_KEY());
+  const gmodels = proTier ? GEMINI_PRO_MODELS : GEMINI_FREE_MODELS;
+  return await callGeminiWithFallback(prompt, gmodels, key, opts);
 }
 
 // ============= TIER-BASED RESPONSE SHAPING =============
@@ -1060,20 +1066,22 @@ async function answerForTierStream(
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
   onChunk: (text: string) => void,
 ): Promise<string | null> {
-  // Azure AI Foundry only. Same nano/mini/pro mapping as the non-streaming path.
-  const primary = deploymentForTier(tier);
-  // Track whether ANY chunk has reached the client. Once it has, we must NOT
-  // cascade to another deployment — a second stream would re-emit tokens and
-  // garble the live output. In that case fail (return null) and let the caller
-  // keep the partial text it already received.
+  // Stream from the tier's Claude model. Same emit-guard discipline as before:
+  // once ANY chunk has reached the client we must NOT cascade to another model
+  // (a second stream would re-emit tokens and garble the live output) — instead
+  // fail (return null) and let the caller keep the partial text it received.
+  const model = claudeModelForTier(tier);
   let emitted = false;
   const guarded = (text: string) => { emitted = true; onChunk(text); };
-  const out = await callAzureFoundryStream(primary, prompt, opts, guarded);
+  const out = await callORStream(model, prompt, opts, guarded);
   if (out) return out;
   if (emitted) return null;
-  const cascade = [AZURE_DEPLOY.mini(), AZURE_DEPLOY.nano()].filter(d => d !== primary);
-  for (const d of cascade) {
-    const fb = await callAzureFoundryStream(d, prompt, opts, guarded);
+  // Resilience fallback: Gemini stream (never GPT — that's image-only).
+  const proTier = (tier || 'free').toLowerCase() !== 'free';
+  const key = proTier ? (GEMINI_PRO_KEY() || GEMINI_FREE_KEY()) : (GEMINI_FREE_KEY() || GEMINI_PRO_KEY());
+  const gmodels = proTier ? GEMINI_PRO_MODELS : GEMINI_FREE_MODELS;
+  for (const gm of gmodels) {
+    const fb = await callGeminiStream(gm, prompt, key, opts, guarded);
     if (fb) return fb;
     if (emitted) return null;
   }

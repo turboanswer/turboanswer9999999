@@ -95,7 +95,7 @@ const TIER_LABELS: Record<string, string> = { free: 'Free', pro: 'Pro', research
 const TIER_PRICES: Record<string, string> = { pro: '$6.99/mo', research: '$30.00/mo', enterprise: '$100.00/mo' };
 const TIER_PERKS: Record<string, string[]> = {
   pro:        ['Unlimited daily questions', 'Advanced Pro AI model', 'Priority response speed', 'Full Code Studio access'],
-  research:   ['Everything in Pro', 'Matrix AI Research engine', 'AI Video Generation', 'Cited & verified answers with confidence scores'],
+  research:   ['Everything in Pro', 'Matrix AI Research engine', 'Cited & verified answers with confidence scores'],
   enterprise: ['Everything in Research', 'Team access with shared enterprise code', 'Dedicated support', 'Highest priority processing'],
 };
 
@@ -736,16 +736,10 @@ function downloadAAB(){
           if (text) break;
         } catch (e: any) { lastErr = e; }
       }
-      if (!text && process.env.OPENAI_API_KEY) {
+      if (!text) {
         try {
-          const OpenAI = (await import("openai")).default;
-          const oai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-          const r = await oai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 1200,
-          });
-          text = r.choices[0]?.message?.content || "";
+          const { callDirect } = await import('./services/direct-router.js');
+          text = (await callDirect('anthropic/claude-haiku', [{ role: 'user', content: prompt }], { maxTokens: 1200 })) || "";
         } catch (e: any) { lastErr = e; }
       }
       if (!text) {
@@ -1454,11 +1448,9 @@ Formatting rules:
       const userMsg = `Language: ${lang}\n\nTask: ${q}\n\nCode:\n\n${code}`;
 
       const candidates = [
-        'openai/gpt-5.1-codex-max',
-        'openai/gpt-5.1-codex',
-        'openai/gpt-5-codex',
-        'openai/gpt-4.1',
-        'openai/gpt-4o',
+        'anthropic/claude-opus-4-1',
+        'anthropic/claude-sonnet-4.5',
+        'anthropic/claude-haiku',
       ];
 
       let analysis: string | null = null;
@@ -3975,11 +3967,11 @@ You know the TurboAnswer system end to end:
 - Frontend: React 18 + TypeScript + Vite, Tailwind + shadcn/ui, TanStack Query, Wouter routing. Mobile app via Capacitor (Android).
 - Backend: Express.js + TypeScript (Node ES modules), RESTful API.
 - Database: PostgreSQL hosted on Azure, Drizzle ORM, schema in shared/schema.ts.
-- AI: multi-model system routed through Azure Foundry (GPT-5.4 family), with Gemini, Anthropic and others for synthesis/fallback. Streaming responses.
+- AI: text answers run on Anthropic Claude (Haiku / Sonnet 4.5 / Opus by tier), with Gemini as resilience fallback. Streaming responses.
 - Payments: PayPal Subscriptions API and Stripe. Tiers: Free, Pro, Research, Enterprise, plus promo codes and enterprise team codes.
 - Email: Brevo (transactional). SMS verification: Twilio.
 - Security: bcrypt passwords, CSRF protection, tiered rate limiting, HTTP security headers, intrusion detection, conversation ownership enforcement, AES-256-GCM encryption for the Crisis Support Bot.
-- Features: multi-model chat, voice assistant "Turbo", AI Scanner (vision), AI Video (Veo), Code Studio IDE, Media Studio, Collaborative AI Rooms, Enterprise Workgroups, embeddable widget, support tickets, fact-check chain.
+- Features: multi-model chat, voice assistant "Turbo", AI Scanner (vision), Code Studio IDE, Media Studio, Collaborative AI Rooms, Enterprise Workgroups, embeddable widget, support tickets, fact-check chain.
 
 How to answer:
 - If a procedure in the candidate list matches the issue, pick the 1-3 best ids so the receptionist can open the exact steps.
@@ -4578,132 +4570,6 @@ How to answer:
     }
   });
 
-
-  // ── Matrix Video Generation (OpenAI Sora, with Luma fallback) ─────────────
-  app.post('/api/video/generate', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.claims?.sub;
-      const user   = await storage.getUser(userId);
-      const tier   = user?.subscriptionTier || 'free';
-      const allowed = ['pro', 'research', 'enterprise'].includes(tier)
-        || isOwnerAccount(user) || (user as any)?.isEmployee === true;
-      if (!allowed) {
-        return res.status(403).json({ error: 'Video generation requires a Pro subscription.' });
-      }
-
-      const { prompt, aspectRatio = '16:9', durationSeconds = 8 } = req.body;
-      if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5) {
-        return res.status(400).json({ error: 'A descriptive prompt is required.' });
-      }
-
-      const ar = ['16:9', '9:16'].includes(aspectRatio) ? aspectRatio : '16:9';
-      const secs = typeof durationSeconds === 'number' ? durationSeconds : 8;
-
-      // Primary: OpenAI Sora. Fallback to Luma if Sora can't start.
-      let result: { jobId: string; model: string; hasAudio?: boolean };
-      try {
-        const { startSoraGeneration } = await import('./services/openai-video-generation');
-        result = await startSoraGeneration({ prompt: prompt.trim(), aspectRatio: ar, durationSeconds: secs });
-      } catch (soraErr: any) {
-        console.warn('[Matrix Video] Sora start failed, falling back to Luma:', soraErr.message);
-        const { startLumaGeneration } = await import('./services/luma-video-generation');
-        result = await startLumaGeneration({
-          prompt: prompt.trim(),
-          aspectRatio: ar,
-          durationSeconds: secs >= 8 ? 8 : 5,
-        });
-      }
-
-      res.json({ jobId: result.jobId, model: result.model, hasAudio: result.hasAudio ?? true });
-    } catch (e: any) {
-      // Log the real (provider-specific) error, but never surface provider names to the user.
-      console.error('[Matrix Video] start error:', e.message);
-      res.status(502).json({ error: 'Matrix Video is temporarily unavailable. Please try again in a moment.' });
-    }
-  });
-
-  app.get('/api/video/status/:jobId', isAuthenticated, async (req: any, res) => {
-    try {
-      const jobId = req.params.jobId;
-      // Sora jobs are prefixed "sora_"; everything else is a Luma job.
-      let result: any;
-      if (jobId.startsWith('sora_')) {
-        const { pollSoraStatus } = await import('./services/openai-video-generation');
-        result = await pollSoraStatus(jobId);
-      } else {
-        const { pollLumaStatus } = await import('./services/luma-video-generation');
-        result = await pollLumaStatus(jobId);
-      }
-      // Neutralize provider-specific failure text before returning to the client.
-      if (result?.status === 'failed') {
-        console.warn('[Matrix Video] job failed:', result.error);
-        result = { ...result, error: "Matrix Video couldn't finish this video. Please try again." };
-      }
-      res.json(result);
-    } catch (e: any) {
-      console.error('[Matrix Video] status error:', e.message);
-      res.status(500).json({ status: 'failed', error: "Matrix Video couldn't finish this video. Please try again." });
-    }
-  });
-
-  // Stream a completed video file by its file ID
-  app.get('/api/video/file/:fileId', isAuthenticated, async (req: any, res) => {
-    try {
-      const { videoFiles } = await import('./services/luma-video-generation');
-      const file = videoFiles.get(req.params.fileId);
-      if (!file) return res.status(404).json({ error: 'Video not found or expired' });
-      res.setHeader('Content-Type', 'video/mp4');
-      res.setHeader('Content-Length', file.buffer.length);
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'private, max-age=7200');
-      res.end(file.buffer);
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  // Alternative video generation endpoint (legacy stub)
-  app.post("/api/generate-video", isAuthenticated, async (req: any, res) => {
-    try {
-      const { prompt, duration = 5, resolution = "1080p", style = "realistic" } = req.body;
-      
-      if (!prompt) {
-        return res.status(400).json({ error: "Video prompt is required" });
-      }
-
-      const { alternativeVideoGeneration } = await import("./services/alternative-video-generation");
-      
-      const result = await alternativeVideoGeneration.generateVideo({
-        prompt,
-        duration,
-        resolution,
-        style
-      });
-
-      if (result.success) {
-        res.json({
-          success: true,
-          videoUrl: result.videoUrl,
-          thumbnailUrl: result.thumbnailUrl,
-          duration: result.duration,
-          originalPrompt: prompt,
-          provider: result.provider
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          error: result.error,
-          provider: result.provider
-        });
-      }
-    } catch (error: any) {
-      console.error("Alternative video generation API error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Video generation failed: " + error.message
-      });
-    }
-  });
 
   const httpServer = createServer(app);
   // Widget API endpoints for business integration

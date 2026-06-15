@@ -5,7 +5,7 @@ import { cleanMarkdown } from "@/lib/clean-markdown";
 import { 
   X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, 
   Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, 
-  ClipboardCheck, ArrowUp, Film, Phone, Mail, Clock, ImagePlus, Loader2, Plus, 
+  ClipboardCheck, ArrowUp, Phone, Mail, Clock, ImagePlus, Loader2, Plus, 
   Pencil, Trash2, Check, Stethoscope, Lightbulb, PenSquare, Telescope, Activity, Send
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -712,7 +712,7 @@ export default function MobileChatUI({
               </div>
             </div>
             <ul className="space-y-4 mb-8">
-              {["Matrix AI Deep Research", "AI Video Studio (Veo 3.1)", "Unlimited image & doc analysis", "Live citations & confidence"].map((text, i) => (
+              {["Matrix AI Deep Research", "Unlimited image & doc analysis", "Live citations & confidence"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
                   <span className="text-[14px] font-medium" style={{ color: THEME.text }}>{text}</span>

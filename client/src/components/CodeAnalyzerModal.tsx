@@ -64,7 +64,7 @@ export default function CodeAnalyzerModal({ isDark, onClose }: CodeAnalyzerModal
         <div className="flex items-center gap-2 text-white">
           <Code2 className="h-5 w-5" />
           <div>
-            <div className="font-bold">Code Surgeon — GPT-5.1 Codex Max</div>
+            <div className="font-bold">Code Surgeon — Claude Opus 4.1</div>
             <div className="text-xs opacity-80">Deep code analysis, line-by-line</div>
           </div>
         </div>
@@ -137,7 +137,7 @@ export default function CodeAnalyzerModal({ isDark, onClose }: CodeAnalyzerModal
             {error && <div className="text-red-500">⚠️ {error}</div>}
             {!error && !analysis && !loading && (
               <div className={isDark ? 'text-zinc-500' : 'text-zinc-400'}>
-                Paste code on the left, pick a preset, and tap "Analyze Code."{"\n\n"}Runs on GPT-5.1 Codex Max with up to 4,000 tokens of deep analysis.
+                Paste code on the left, pick a preset, and tap "Analyze Code."{"\n\n"}Runs on Claude Opus 4.1 with up to 4,000 tokens of deep analysis.
               </div>
             )}
             {loading && !analysis && (

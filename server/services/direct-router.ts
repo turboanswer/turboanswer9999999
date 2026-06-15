@@ -86,6 +86,18 @@ function azureModelsUrl(): string {
 }
 
 function resolveModel(orId: string): Resolved | null {
+  // Text generation runs EXCLUSIVELY on Claude. OpenAI/GPT is reserved for photo
+  // (image) generation, which uses a separate image API — not this router. So any
+  // GPT text model that reaches the router (incl. legacy fallback chains and the
+  // Azure gpt-5.4 deployments) is transparently redirected to a Claude equivalent.
+  {
+    const lc = orId.toLowerCase();
+    if (lc.includes('gpt')) {
+      orId = (lc.includes('nano') || lc.includes('mini'))
+        ? 'anthropic/claude-haiku'
+        : 'anthropic/claude-sonnet-4.5';
+    }
+  }
   if (orId.startsWith('azure/')) return { provider: 'azure', modelName: orId.slice(6) };
   if (orId.startsWith('anthropic/')) {
     const lower = orId.toLowerCase();

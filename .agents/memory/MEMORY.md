@@ -16,3 +16,4 @@
 - [Native app vs website identity](native-vs-website-identity.md) — Capacitor app is a separate "division" (dark futuristic "Matrix AI"); native must never land on website LandingPage; web keeps its own look.
 - [Azure Infra Control Center](azure-infra-control-center.md) — owner-only Azure admin dashboard; SP secret ID-vs-value gotcha + the RBAC roles its data planes need (403/404 = missing roles, not code).
 - [Cookie SameSite dual-origin](cookie-samesite-dual-origin.md) — web is same-origin (Lax) but native app is cross-origin localhost→Azure (needs None;Secure); pick SameSite per req.origin or login breaks in app only.
+- [Text engine = Claude](text-engine-claude.md) — all text tiers run on Claude (Haiku/Sonnet4.5/Opus by tier); GPT/OpenAI is image-generation ONLY; direct-router remaps any stray gpt id to Claude.
