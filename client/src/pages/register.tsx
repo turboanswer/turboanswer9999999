@@ -118,7 +118,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-[#131314] text-white flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-[#1e1d1a] text-white flex items-center justify-center px-4 py-8">
       <style>{`
         @keyframes gemini-fade-up { 0% { opacity: 0; transform: translateY(16px); } 100% { opacity: 1; transform: translateY(0); } }
       `}</style>
@@ -127,10 +127,10 @@ export default function Register() {
         <div className="flex flex-col items-center mb-8">
           <img src={turboLogo} alt="TurboAnswer" className="w-12 h-12 rounded-2xl object-cover mb-5" />
           <h1 className="text-2xl font-normal text-white mb-1">Create your account</h1>
-          <p className="text-sm text-[#8e918f]">to start using TurboAnswer</p>
+          <p className="text-sm text-[#a39e94]">to start using TurboAnswer</p>
         </div>
 
-        <div className="rounded-2xl border border-[#3c4043] bg-[#1e1f20] p-8">
+        <div className="rounded-2xl border border-[#3a372f] bg-[#26241f] p-8">
           {inviteToken && inviteValid === true && (
             <div className="mb-5 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2.5 text-sm text-red-300">
               <Shield size={16} className="flex-shrink-0 text-red-400" />
@@ -165,7 +165,7 @@ export default function Register() {
                 value={formData.firstName}
                 onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
                 required
-                className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
+                className="bg-transparent border-[#3a372f] text-white placeholder-[#a39e94] rounded-lg h-12 text-sm focus:border-[#d97757] focus:ring-0 focus:ring-offset-0 transition-colors"
               />
               <Input
                 id="lastName"
@@ -174,7 +174,7 @@ export default function Register() {
                 value={formData.lastName}
                 onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
                 required
-                className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
+                className="bg-transparent border-[#3a372f] text-white placeholder-[#a39e94] rounded-lg h-12 text-sm focus:border-[#d97757] focus:ring-0 focus:ring-offset-0 transition-colors"
               />
             </div>
 
@@ -185,7 +185,7 @@ export default function Register() {
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
               required
-              className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
+              className="bg-transparent border-[#3a372f] text-white placeholder-[#a39e94] rounded-lg h-12 text-sm focus:border-[#d97757] focus:ring-0 focus:ring-offset-0 transition-colors"
             />
 
             <Input
@@ -196,7 +196,7 @@ export default function Register() {
               onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
               required
               minLength={6}
-              className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
+              className="bg-transparent border-[#3a372f] text-white placeholder-[#a39e94] rounded-lg h-12 text-sm focus:border-[#d97757] focus:ring-0 focus:ring-offset-0 transition-colors"
             />
 
             <Input
@@ -207,7 +207,7 @@ export default function Register() {
               onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
               required
               minLength={6}
-              className="bg-transparent border-[#3c4043] text-white placeholder-[#8e918f] rounded-lg h-12 text-sm focus:border-[#8ab4f8] focus:ring-0 focus:ring-offset-0 transition-colors"
+              className="bg-transparent border-[#3a372f] text-white placeholder-[#a39e94] rounded-lg h-12 text-sm focus:border-[#d97757] focus:ring-0 focus:ring-offset-0 transition-colors"
             />
 
             <div className="pt-2 space-y-2.5">
@@ -216,9 +216,9 @@ export default function Register() {
                   type="checkbox"
                   checked={ageConfirmed}
                   onChange={(e) => setAgeConfirmed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-[#3c4043] bg-transparent accent-[#8ab4f8] cursor-pointer flex-shrink-0"
+                  className="mt-0.5 h-4 w-4 rounded border-[#3a372f] bg-transparent accent-[#d97757] cursor-pointer flex-shrink-0"
                 />
-                <span className="text-xs text-[#c4c7c5] leading-relaxed group-hover:text-white transition-colors">
+                <span className="text-xs text-[#c9c3b8] leading-relaxed group-hover:text-white transition-colors">
                   I confirm I am <strong>at least 13 years old</strong>. TurboAnswer is not intended for children under 13 (COPPA).
                 </span>
               </label>
@@ -227,22 +227,22 @@ export default function Register() {
                   type="checkbox"
                   checked={termsAgreed}
                   onChange={(e) => setTermsAgreed(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-[#3c4043] bg-transparent accent-[#8ab4f8] cursor-pointer flex-shrink-0"
+                  className="mt-0.5 h-4 w-4 rounded border-[#3a372f] bg-transparent accent-[#d97757] cursor-pointer flex-shrink-0"
                 />
-                <span className="text-xs text-[#c4c7c5] leading-relaxed group-hover:text-white transition-colors">
-                  I agree to the <Link href="/terms-conditions" className="text-[#8ab4f8] hover:text-[#aecbfa] underline">Terms</Link> and <Link href="/privacy-policy" className="text-[#8ab4f8] hover:text-[#aecbfa] underline">Privacy Policy</Link>.
+                <span className="text-xs text-[#c9c3b8] leading-relaxed group-hover:text-white transition-colors">
+                  I agree to the <Link href="/terms-conditions" className="text-[#d97757] hover:text-[#e8a085] underline">Terms</Link> and <Link href="/privacy-policy" className="text-[#d97757] hover:text-[#e8a085] underline">Privacy Policy</Link>.
                 </span>
               </label>
             </div>
 
             <div className="flex items-center justify-between pt-3">
-              <Link href="/login" className="text-sm text-[#8ab4f8] hover:text-[#aecbfa] font-medium transition-colors">
+              <Link href="/login" className="text-sm text-[#d97757] hover:text-[#e8a085] font-medium transition-colors">
                 Sign in instead
               </Link>
               <Button
                 type="submit"
                 disabled={isLoading || !ageConfirmed || !termsAgreed}
-                className="h-10 px-6 rounded-full bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#131314] font-medium text-sm disabled:opacity-50 transition-colors"
+                className="h-10 px-6 rounded-full bg-[#d97757] hover:bg-[#e8a085] text-[#1e1d1a] font-medium text-sm disabled:opacity-50 transition-colors"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Creating</span>
@@ -254,12 +254,12 @@ export default function Register() {
           </form>
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#8e918f]">
-          <Link href="/privacy-policy" className="hover:text-[#aecbfa] transition-colors">Privacy</Link>
+        <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#a39e94]">
+          <Link href="/privacy-policy" className="hover:text-[#e8a085] transition-colors">Privacy</Link>
           <span>·</span>
-          <Link href="/terms-conditions" className="hover:text-[#aecbfa] transition-colors">Terms</Link>
+          <Link href="/terms-conditions" className="hover:text-[#e8a085] transition-colors">Terms</Link>
           <span>·</span>
-          <Link href="/support" className="hover:text-[#aecbfa] transition-colors">Help</Link>
+          <Link href="/support" className="hover:text-[#e8a085] transition-colors">Help</Link>
         </div>
       </div>
     </div>

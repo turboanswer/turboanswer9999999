@@ -115,17 +115,17 @@ export default function Chat() {
   const getBubbleClass = (role: string) => {
     if (bubbleStylePref === "flat") {
       return role === "user"
-        ? "px-4 py-2.5 rounded-lg border border-blue-400/40 bg-blue-500/80 text-white"
-        : "px-4 py-2.5 rounded-lg";
+        ? "px-4 py-2.5 rounded-2xl border border-primary/20 bg-primary/10 text-foreground"
+        : "px-4 py-2.5 rounded-2xl";
     }
     if (bubbleStylePref === "minimal") {
       return role === "user"
-        ? "px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-400/20 text-blue-100"
+        ? "px-3 py-2 rounded-2xl bg-primary/10 text-foreground"
         : "px-0 py-1";
     }
     return role === "user"
-      ? "px-4 py-3 rounded-2xl rounded-br-md bg-blue-500 text-white"
-      : "px-4 py-3 rounded-2xl rounded-bl-md";
+      ? "px-4 py-3 rounded-3xl rounded-br-lg bg-primary/12 text-foreground border border-primary/15"
+      : "px-4 py-3 rounded-3xl rounded-bl-lg";
   };
 
   const { user, logout } = useAuth();
@@ -1101,13 +1101,13 @@ export default function Chat() {
           <Link href="/">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 cursor-pointer group">
               <img src={turboLogo} alt="TurboAnswer" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-cover group-hover:opacity-80 transition-opacity" />
-              <h1 className={`text-base sm:text-lg font-medium truncate ${isDark ? 'text-[#e3e3e3]' : 'text-gray-900'} group-hover:opacity-80 transition-opacity`}>TurboAnswer</h1>
+              <h1 className={`text-base sm:text-lg font-medium truncate ${isDark ? 'text-[#ece8e0]' : 'text-gray-900'} group-hover:opacity-80 transition-opacity`}>TurboAnswer</h1>
             </div>
           </Link>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <Select value={selectedAIModel} onValueChange={handleModelChange}>
-              <SelectTrigger className={`w-24 sm:w-32 h-8 text-[10px] sm:text-xs rounded-full ${isDark ? 'bg-[#1e1f20] border-[#3c4043] text-[#c4c7c5]' : 'bg-gray-100 border-gray-300 text-gray-900'}`}>
+              <SelectTrigger className={`w-24 sm:w-32 h-8 text-[10px] sm:text-xs rounded-full ${isDark ? 'bg-[#26241f] border-[#3a372f] text-[#c4c7c5]' : 'bg-gray-100 border-gray-300 text-gray-900'}`}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1128,7 +1128,7 @@ export default function Chat() {
                 className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
                   deepThink
                     ? (isDark ? 'bg-blue-600/30 border border-blue-500 text-blue-200' : 'bg-blue-100 border border-blue-400 text-blue-700')
-                    : (isDark ? 'bg-[#1e1f20] border border-[#3c4043] text-[#8e918f] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
+                    : (isDark ? 'bg-[#26241f] border border-[#3a372f] text-[#a39e94] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
                 }`}
                 data-testid="button-deep-think"
               >
@@ -1159,18 +1159,18 @@ export default function Chat() {
               </Button>
             </Link>
 
-            <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#1e1f20]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
+            <button onClick={toggleTheme} className={`h-8 w-8 flex items-center justify-center rounded-full ${isDark ? 'text-[#c4c7c5] hover:bg-[#26241f]' : 'text-gray-600 hover:bg-gray-200'}`} title="Toggle theme">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
 
             <div className="hidden sm:flex items-center gap-0.5">
               <Link href="/media-editor">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Media Editor">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#a39e94] hover:text-[#ece8e0] hover:bg-[#26241f]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Media Editor">
                   <Scissors className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/photo-editor">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="AI Scanner">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#a39e94] hover:text-[#ece8e0] hover:bg-[#26241f]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="AI Scanner">
                   <Camera className="h-4 w-4" />
                 </Button>
               </Link>
@@ -1178,7 +1178,7 @@ export default function Chat() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`h-8 w-8 p-0 rounded-full relative ${isDark ? 'text-purple-300 hover:text-purple-200 hover:bg-[#1e1f20]' : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'}`}
+                  className={`h-8 w-8 p-0 rounded-full relative ${isDark ? 'text-purple-300 hover:text-purple-200 hover:bg-[#26241f]' : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'}`}
                   title="Code Surgeon — repo-aware diagnoses and one-click PRs"
                   data-testid="button-code-surgeon-secondary"
                 >
@@ -1186,35 +1186,35 @@ export default function Chat() {
                 </Button>
               </Link>
               <Link href="/workgroups">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Workgroups">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#a39e94] hover:text-[#ece8e0] hover:bg-[#26241f]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Workgroups">
                   <Users className="h-4 w-4" />
                 </Button>
               </Link>
               <Link href="/collab">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Collab AI Rooms">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#a39e94] hover:text-[#ece8e0] hover:bg-[#26241f]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Collab AI Rooms">
                   <MessageSquare className="h-4 w-4" />
                 </Button>
               </Link>
 
-              <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${showQR ? 'text-[#8ab4f8]' : isDark ? 'text-[#8e918f]' : 'text-gray-500'} ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="QR Code">
+              <Button onClick={() => setShowQR(!showQR)} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${showQR ? 'text-[#d97757]' : isDark ? 'text-[#a39e94]' : 'text-gray-500'} ${isDark ? 'hover:bg-[#26241f]' : 'hover:bg-gray-100'}`} title="QR Code">
                 <QrCode className="h-4 w-4" />
               </Button>
               {user?.isEmployee && (
                 <Link href="/employee/dashboard">
-                  <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="Admin Panel">
+                  <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-300 ${isDark ? 'hover:bg-[#26241f]' : 'hover:bg-gray-100'}`} title="Admin Panel">
                     <Shield className="h-4 w-4" />
                   </Button>
                 </Link>
               )}
               {user?.isBetaTester && (
                 <Link href="/beta-feedback">
-                  <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-blue-400 hover:text-blue-300 ${isDark ? 'hover:bg-[#1e1f20]' : 'hover:bg-gray-100'}`} title="Beta Feedback (3 questions)" data-testid="link-beta-feedback">
+                  <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full text-blue-400 hover:text-blue-300 ${isDark ? 'hover:bg-[#26241f]' : 'hover:bg-gray-100'}`} title="Beta Feedback (3 questions)" data-testid="link-beta-feedback">
                     <ClipboardCheck className="h-4 w-4" />
                   </Button>
                 </Link>
               )}
               <Link href="/crisis-support">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Crisis Support">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#a39e94] hover:text-[#ece8e0] hover:bg-[#26241f]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Crisis Support">
                   <Heart className="h-4 w-4" />
                 </Button>
               </Link>
@@ -1226,11 +1226,11 @@ export default function Chat() {
                 </Link>
               )}
               <Link href="/ai-settings">
-                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Settings">
+                <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#a39e94] hover:text-[#ece8e0] hover:bg-[#26241f]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Settings">
                   <Settings className="h-4 w-4" />
                 </Button>
               </Link>
-              <Button onClick={() => logout()} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#8e918f] hover:text-red-400 hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-red-400 hover:bg-gray-100'}`} title="Logout">
+              <Button onClick={() => logout()} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#a39e94] hover:text-red-400 hover:bg-[#26241f]' : 'text-gray-500 hover:text-red-400 hover:bg-gray-100'}`} title="Logout">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
@@ -1487,9 +1487,9 @@ export default function Chat() {
                     <button
                       key={i}
                       onClick={() => setMessageContent(s.prompt)}
-                      className={`group relative rounded-2xl p-4 text-left transition-all duration-200 hover:shadow-lg ${isDark ? 'bg-[#1e1f20] border border-[#3c4043] hover:bg-[#282a2c]' : 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                      className={`group relative rounded-2xl p-4 text-left transition-all duration-200 hover:shadow-lg ${isDark ? 'bg-[#26241f] border border-[#3a372f] hover:bg-[#282a2c]' : 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-gray-300'}`}
                     >
-                      <div className={`mb-3 ${isDark ? 'text-[#8e918f]' : 'text-gray-400'}`}>
+                      <div className={`mb-3 ${isDark ? 'text-[#a39e94]' : 'text-gray-400'}`}>
                         {s.icon}
                       </div>
                       <p className={`text-sm ${isDark ? 'text-[#c4c7c5]' : 'text-gray-700'}`}>{s.text}</p>
@@ -1586,7 +1586,7 @@ export default function Chat() {
                         setShowShareModal({ question: q, answer: message.content });
                         setShareWgId(userWorkgroups[0]?.id || null);
                       }}
-                      className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${isDark ? 'text-zinc-500 hover:text-[#8ab4f8] hover:bg-white/5' : 'text-gray-400 hover:text-blue-500 hover:bg-gray-100'}`}
+                      className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${isDark ? 'text-zinc-500 hover:text-[#d97757] hover:bg-white/5' : 'text-gray-400 hover:text-blue-500 hover:bg-gray-100'}`}
                       title="Send to Workgroup"
                     >
                       <Users className="h-3 w-3" />
@@ -1870,11 +1870,11 @@ export default function Chat() {
                 <img
                   src={attachedImage}
                   alt="Attached"
-                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 ${isDark ? 'border-[#3c4043]' : 'border-gray-200'}`}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 ${isDark ? 'border-[#3a372f]' : 'border-gray-200'}`}
                 />
                 <button
                   onClick={() => setAttachedImage(null)}
-                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-zinc-900/90 hover:bg-zinc-900 text-white flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-[#1e1f20]"
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-zinc-900/90 hover:bg-zinc-900 text-white flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-[#26241f]"
                   aria-label="Remove image"
                   data-testid="button-remove-image"
                 >
@@ -1918,7 +1918,7 @@ export default function Chat() {
                 placeholder={attachedImage ? "Ask about this image..." : "Enter a prompt here"}
                 className={`w-full pl-[5.5rem] pr-14 py-3.5 rounded-3xl text-sm sm:text-base resize-none min-h-[52px] max-h-28 transition-colors ${
                   isDark
-                    ? 'bg-[#1e1f20] border-[#3c4043] text-[#e3e3e3] placeholder-[#8e918f] focus:ring-1 focus:ring-[#8ab4f8]/40 focus:border-[#8ab4f8]/50'
+                    ? 'bg-[#26241f] border-[#3a372f] text-[#ece8e0] placeholder-[#a39e94] focus:ring-1 focus:ring-[#d97757]/40 focus:border-[#d97757]/50'
                     : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-400'
                 }`}
                 rows={1}
@@ -1952,7 +1952,7 @@ export default function Chat() {
                 disabled={(!messageContent.trim() && !attachedImage) || sendMessageMutation.isPending}
                 className={`absolute right-2.5 bottom-2.5 h-9 w-9 p-0 rounded-full disabled:opacity-30 transition-colors ${
                   isDark
-                    ? 'bg-[#8ab4f8] text-[#131314] hover:bg-[#aecbfa]'
+                    ? 'bg-[#d97757] text-[#131314] hover:bg-[#aecbfa]'
                     : 'bg-blue-500 text-white hover:bg-blue-600'
                 }`}
                 title="Send message"
@@ -1961,7 +1961,7 @@ export default function Chat() {
               </Button>
             </div>
           </div>
-          <div className={`flex items-center justify-center mt-2 text-[11px] ${isDark ? 'text-[#8e918f]' : 'text-gray-400'}`}>
+          <div className={`flex items-center justify-center mt-2 text-[11px] ${isDark ? 'text-[#a39e94]' : 'text-gray-400'}`}>
             <span>TurboAnswer may display inaccurate info, including about people, so double-check its responses.</span>
           </div>
         </div>
@@ -2456,7 +2456,7 @@ export default function Chat() {
               <X className="h-5 w-5" />
             </button>
             <div className="flex items-center gap-2 mb-4">
-              <Users className={`h-5 w-5 ${isDark ? 'text-[#8ab4f8]' : 'text-blue-500'}`} />
+              <Users className={`h-5 w-5 ${isDark ? 'text-[#d97757]' : 'text-blue-500'}`} />
               <h3 className={`font-bold text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>Send to Workgroup</h3>
             </div>
 
@@ -2483,13 +2483,13 @@ export default function Chat() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShareMode('message')}
-                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'message' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'message' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#d97757]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
                 >
                   Message
                 </button>
                 <button
                   onClick={() => setShareMode('approval')}
-                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'approval' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#8ab4f8]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'approval' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#d97757]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
                 >
                   Approval
                 </button>

@@ -101,19 +101,22 @@ export default function MobileChatUI({
 
   const msgFontSize = fontSizePref === "small" ? "14px" : fontSizePref === "large" ? "18px" : "16px";
 
-  // Flagship Turbo Identity Palette
+  // "Warm paper, clean glass" — warm Claude calm + Gemini spark
   const THEME = {
-    bg: isDark ? "#0A0A0F" : "#FFFFFF",
-    surface: isDark ? "#13131A" : "#F4F5F8",
-    surfaceHover: isDark ? "#1C1C26" : "#E5E7EB",
-    border: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
-    text: isDark ? "#FFFFFF" : "#0F0F14",
-    textMuted: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
-    textDim: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)",
-    primaryGradient: "linear-gradient(135deg, #4F46E5 0%, #3B82F6 100%)",
-    aiBubble: isDark ? "#13131A" : "#F4F5F8",
-    userBubble: isDark ? "#2D2B4A" : "#E0E7FF",
-    userText: isDark ? "#E0E7FF" : "#1E3A8A",
+    bg: isDark ? "#1e1d1a" : "#faf8f3",
+    surface: isDark ? "#26241f" : "#fffdf8",
+    surfaceHover: isDark ? "#2f2c27" : "#f1ece1",
+    border: isDark ? "rgba(255,255,255,0.08)" : "rgba(60,50,30,0.10)",
+    text: isDark ? "#ece8e0" : "#2a2824",
+    textMuted: isDark ? "rgba(236,232,224,0.5)" : "rgba(42,40,36,0.5)",
+    textDim: isDark ? "rgba(236,232,224,0.72)" : "rgba(42,40,36,0.72)",
+    // Gemini spark — reserved for AI moments + primary send
+    primaryGradient: isDark
+      ? "linear-gradient(135deg, #5b9bff 0%, #9b8cff 50%, #e07ab0 100%)"
+      : "linear-gradient(135deg, #4285F4 0%, #7c6cf0 50%, #cf6aa0 100%)",
+    aiBubble: "transparent",
+    userBubble: isDark ? "rgba(216,119,87,0.16)" : "rgba(201,100,66,0.10)",
+    userText: isDark ? "#ece8e0" : "#2a2824",
   };
 
   const [showDrawer, setShowDrawer] = useState(false);
