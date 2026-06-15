@@ -401,7 +401,7 @@ MICROSOFT (only if microsoft connected):
 `;
 
 export async function classifyIntent(message: string, connected: ConnectedMap): Promise<Classification> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY;
   const available = Object.entries(connected)
     .filter(([, v]) => v)
     .map(([k]) => k);
@@ -424,20 +424,9 @@ JSON shape: {"kind":"none"} OR {"kind":"read","provider":"google|microsoft","too
 User message: """${message.slice(0, 1500)}"""`;
 
   try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0, responseMimeType: "application/json", maxOutputTokens: 500 },
-        }),
-      }
-    );
-    if (!r.ok) return { kind: "none" };
-    const d: any = await r.json();
-    const text = d.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const { callDirect } = await import("../direct-router.js");
+    const raw = await callDirect("anthropic/claude-haiku", [{ role: "user", content: prompt }], { temperature: 0, maxTokens: 500, jsonMode: true });
+    const text = (raw || "{}").replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim() || "{}";
     const parsed = JSON.parse(text);
     if (parsed?.kind === "read" && isProviderConnected(parsed.provider, connected) && parsed.tool) {
       return { kind: "read", provider: parsed.provider, tool: parsed.tool, args: parsed.args || {} };

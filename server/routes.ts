@@ -725,27 +725,14 @@ function downloadAAB(){
       }
 
       let text = "";
-      const geminiKeys = [process.env.GEMINI_PRO_API_KEY, process.env.GEMINI_API_KEY].filter(Boolean) as string[];
       let lastErr: any = null;
-      for (const k of geminiKeys) {
-        try {
-          const { GoogleGenerativeAI } = await import("@google/generative-ai");
-          const ai = new GoogleGenerativeAI(k);
-          const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-          const result = await model.generateContent(prompt);
-          text = result.response.text();
-          if (text) break;
-        } catch (e: any) { lastErr = e; }
-      }
+      try {
+        const { callDirect } = await import('./services/direct-router.js');
+        text = (await callDirect('anthropic/claude-haiku', [{ role: 'user', content: prompt }], { maxTokens: 1200 })) || "";
+      } catch (e: any) { lastErr = e; }
       if (!text) {
-        try {
-          const { callDirect } = await import('./services/direct-router.js');
-          text = (await callDirect('anthropic/claude-haiku', [{ role: 'user', content: prompt }], { maxTokens: 1200 })) || "";
-        } catch (e: any) { lastErr = e; }
-      }
-      if (!text) {
-        console.error("[DevTools AI] all providers failed:", lastErr?.message);
-        return res.status(503).json({ error: "AI providers unavailable. Try again later." });
+        console.error("[DevTools AI] Claude engine failed:", lastErr?.message);
+        return res.status(503).json({ error: "AI engine unavailable. Try again later." });
       }
       current.count += 1;
       devtoolsAiUsage.set(ip, current);
@@ -1885,43 +1872,10 @@ Formatting rules:
         }
       }
 
-      const imageNouns = /\b(image|picture|photo|illustration|artwork|drawing|painting|visual|icon|logo|graphic|poster|banner|wallpaper|avatar|portrait|diagram|infographic|meme|thumbnail|cover)\b/i;
-      const imageVerbs = /\b(generate|create|make|draw|paint|design|sketch|render|produce|show|give|build|craft)\b/i;
-      const imageIntent = /\b(can you|could you|please|i want|i need|i'd like|give me|show me|let me see|make me)\b/i;
-      const isImageRequest = (imageVerbs.test(content) && imageNouns.test(content)) || (imageIntent.test(content) && imageNouns.test(content));
-
       let aiResponseContent: string;
       let responseUsedGroundedSearch = false;
 
-      if (isImageRequest) {
-        try {
-          const imagePrompt = content
-            .replace(/^(can you|could you|please|i want to|i need|i'd like to|give me|show me|let me see|make me)\s*/i, '')
-            .replace(/^(generate|create|make|draw|paint|design|sketch|render|produce)\s+(an?|the|me\s+an?|me\s+the|me\s+a)?\s*/i, '')
-            .replace(/\b(image|picture|photo|illustration|artwork|drawing|painting|visual)\s*(of|about|showing|depicting|with|for)?\s*/i, '')
-            .replace(/\s+/g, ' ')
-            .trim() || content;
-
-          const geminiKey = process.env.GEMINI_API_KEY;
-          if (!geminiKey) throw new Error('Gemini API key not configured');
-          const { GoogleGenAI } = await import('@google/genai');
-          const ai = new GoogleGenAI({ apiKey: geminiKey });
-          const imgResp = await ai.models.generateContent({
-            model: 'gemini-2.0-flash-exp-image-generation',
-            contents: [{ role: 'user', parts: [{ text: `${imagePrompt}. High quality, photorealistic, sharp.` }] }],
-            config: { responseModalities: ['TEXT', 'IMAGE'], temperature: 1 },
-          });
-          const imgParts = imgResp.candidates?.[0]?.content?.parts || [];
-          const imgPart = imgParts.find((p: any) => p.inlineData?.mimeType?.startsWith('image'));
-          if (!imgPart?.inlineData?.data) throw new Error('No image returned');
-          const imageDataUrl = `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-
-          aiResponseContent = `Here's the image I generated for you:\n\n![Generated Image](${imageDataUrl})\n\n*Prompt: "${imagePrompt}"*`;
-        } catch (imageError: any) {
-          console.error("Image generation failed in chat:", imageError);
-          aiResponseContent = `I tried to generate that image but ran into an issue: ${imageError.message}. You can also try using the Image button in the toolbar to generate images directly.`;
-        }
-      } else {
+      {
         const existingMessages = await storage.getMessagesByConversation(conversationId);
         const conversationHistory = existingMessages.map(msg => ({
           role: msg.role,
@@ -1954,7 +1908,7 @@ Formatting rules:
           const proModels = ['gemini-pro', 'gpt-4o', 'claude-sonnet-4'];
           let requestedModel = req.body.selectedModel || "auto-select";
           if (researchModels.includes(requestedModel) && !canResearch) {
-            requestedModel = canPro ? 'gemini-pro' : 'auto-select';
+            requestedModel = canPro ? 'claude-sonnet-4' : 'auto-select';
           }
           if (proModels.includes(requestedModel) && !canPro) {
             requestedModel = 'auto-select';
@@ -1984,9 +1938,8 @@ Formatting rules:
         try {
           const { verifyAIResponse } = await import('./services/multi-ai.js');
           if (responseUsedGroundedSearch) return "verified";
-          const geminiKey = process.env.GEMINI_API_KEY;
-          if (geminiKey && aiResponseContent.length > 30) {
-            return await verifyAIResponse(aiResponseContent, content, geminiKey);
+          if (aiResponseContent.length > 30) {
+            return await verifyAIResponse(aiResponseContent, content);
           }
           return "unknown";
         } catch {
@@ -4392,7 +4345,7 @@ How to answer:
 
       let aiStatus = 'healthy';
       try {
-        if (!process.env.GEMINI_API_KEY) {
+        if (!process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.AZURE_OPENAI_API_KEY) {
           aiStatus = 'error';
         }
       } catch {
@@ -4475,7 +4428,7 @@ How to answer:
       }
 
       try {
-        if (!process.env.GEMINI_API_KEY) throw new Error('Not configured');
+        if (!process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.AZURE_OPENAI_API_KEY) throw new Error('Not configured');
         results.push({ check: 'AI API Key', status: 'pass', details: 'Configured' });
       } catch (e: any) {
         results.push({ check: 'AI API Key', status: 'fail', details: 'Not configured' });
@@ -4847,7 +4800,7 @@ How to answer:
       
       User message: ${message}`;
       
-      const aiRaw = await generateAIResponse(businessPrompt, [], 'free', 'gemini-pro');
+      const aiRaw = await generateAIResponse(businessPrompt, [], 'free', 'auto-select');
       const aiResponse = typeof aiRaw === 'object' ? aiRaw.text : aiRaw;
       
       await storage.createMessage({
@@ -5559,10 +5512,7 @@ The Matrix AI Team`
     }
   });
 
-  // ── Deep Research (Gemini 3.1 Pro — direct synchronous call) ─────────────
-  const GEMINI_PRO_RESEARCH_MODEL = 'gemini-2.5-pro';
-  const GEMINI_GENERATE_BASE      = 'https://generativelanguage.googleapis.com/v1beta/models';
-
+  // ── Deep Research (Claude — direct synchronous call) ─────────────────────
   app.post('/api/deep-research/start', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
@@ -5576,9 +5526,6 @@ The Matrix AI Team`
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: 'message is required' });
       }
-
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
 
       // Save the user message immediately so it appears in the chat
       let userMessageId: number | undefined;
@@ -5599,28 +5546,17 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
 
       const prompt = `${systemPrompt}\n\nUser: ${message}`;
 
-      const resp = await fetch(
-        `${GEMINI_GENERATE_BASE}/${GEMINI_PRO_RESEARCH_MODEL}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-          }),
-          signal: AbortSignal.timeout(60000),
-        }
-      );
-
-      if (!resp.ok) {
-        const err = await resp.text();
-        console.error('[DeepResearch] Gemini error:', err);
-        return res.status(502).json({ error: 'Deep Research request failed', detail: err });
+      let text: string;
+      try {
+        const { callDirect } = await import('./services/direct-router.js');
+        text = (await callDirect('anthropic/claude-opus-4-1', [{ role: 'user', content: prompt }], { maxTokens: 8192 })) || '';
+      } catch (e: any) {
+        console.error('[DeepResearch] Claude error:', e.message);
+        return res.status(502).json({ error: 'Deep Research request failed', detail: e.message });
       }
-
-      const data: any = await resp.json();
-      const text: string =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response generated.';
+      if (!text) {
+        return res.status(502).json({ error: 'Deep Research request failed', detail: 'Empty response' });
+      }
 
       // Save the AI response to the conversation
       let aiMessageId: number | undefined;
@@ -5740,14 +5676,8 @@ Only mention that TurboAnswer was developed by Tiago Tschantret if directly aske
     };
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error('No API key');
-
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: `Classify this web app build complexity. Reply with ONLY one word.
+      const { callDirect } = await import('./services/direct-router.js');
+      const classifyPrompt = `Classify this web app build complexity. Reply with ONLY one word.
 
 TIERS:
 - micro: Single widget (clock, counter, color picker, basic animation, single button)
@@ -5758,14 +5688,9 @@ TIERS:
 
 Build request: "${prompt.trim().slice(0, 300)}"
 
-Reply with exactly one word (micro/simple/standard/complex/advanced):` }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 10 },
-        }),
-        signal: AbortSignal.timeout(8000),
-      });
-
-      const d: any = await r.json();
-      const raw = d.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase().replace(/[^a-z]/g, '') || 'standard';
+Reply with exactly one word (micro/simple/standard/complex/advanced):`;
+      const out = await callDirect('anthropic/claude-haiku', [{ role: 'user', content: classifyPrompt }], { maxTokens: 10 });
+      const raw = (out || '').trim().toLowerCase().replace(/[^a-z]/g, '') || 'standard';
       const tierKey = TIERS[raw] ? raw : 'standard';
       const tier = TIERS[tierKey];
 
@@ -5826,26 +5751,15 @@ Reply with exactly one word (micro/simple/standard/complex/advanced):` }] }],
         await storage.updateCodeStudioCredits(userId, availableCents - agreedCostCents);
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
+      const anthropicKeyAvail = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+      if (!anthropicKeyAvail) return res.status(500).json({ error: 'AI not configured' });
 
-      // ── PHASE 1: Web research — find real apps, copy their features ──────────
+      // ── PHASE 1: Feature brainstorm (Claude, no live web search) ────────────
       async function researchAppFeatures(userPrompt: string): Promise<{ summary: string; features: string[] }> {
         try {
           const searchQuery = `What are all the features, UI components, and best practices in a professional "${userPrompt}" web app? List every feature from popular apps like this. Be very specific and comprehensive.`;
-          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tools: [{ google_search: {} }],
-              contents: [{ role: 'user', parts: [{ text: searchQuery }] }],
-              generationConfig: { temperature: 0.2, maxOutputTokens: 1200 },
-            }),
-            signal: AbortSignal.timeout(20000),
-          });
-          if (!r.ok) throw new Error(`Research HTTP ${r.status}`);
-          const d: any = await r.json();
-          const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const { callDirect } = await import('./services/direct-router.js');
+          const raw = (await callDirect('anthropic/claude-haiku', [{ role: 'user', content: searchQuery }], { maxTokens: 1200 })) || '';
           if (!raw) throw new Error('Empty research response');
 
           // Extract bullet-point features
@@ -6035,65 +5949,11 @@ IMPORTANT:
         } catch (e: any) { console.error('[CodeAI] Claude exception:', e.message); return null; }
       }
 
-      async function callGemini(model: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
-        const geminiPrompt = `You are Turbo Code, a world-class senior UI engineer. Build a complete, FULLY FUNCTIONAL web app as a single self-contained HTML file.
-
-Output ONLY raw HTML starting with <!DOCTYPE html>. No markdown fences, no explanation.
-
-The HTML MUST include this exact CSS at the top of the <style> tag:
-<style>
-${CSS_FOUNDATION}
-/* APP-SPECIFIC STYLES BELOW */
-</style>
-
-Build this: ${prompt.trim()}${featureContext}${designContext}
-
-MANDATORY ARCHITECTURE — use this exact pattern:
-const App = {
-  state: { /* all data */ },
-  init() { this.load(); this.bind(); this.render(); },
-  load() { const s = localStorage.getItem('appData'); if(s) this.state = JSON.parse(s); },
-  save() { localStorage.setItem('appData', JSON.stringify(this.state)); },
-  bind() { /* ALL addEventListener calls here — NO inline onclick in HTML */ },
-  render() { /* rebuild ALL dynamic content from this.state */ },
-};
-document.addEventListener('DOMContentLoaded', () => App.init());
-
-RULES:
-1. Use addEventListener in bind() — NEVER inline onclick/onsubmit in HTML
-2. Every action: update state → save() → render()
-3. render() rebuilds all dynamic DOM from state every time
-4. Keep scope realistic: 3-5 core features that work perfectly
-5. Forms validate and show feedback, lists support CRUD, modals toggle with class
-6. Charts use canvas with real data, no placeholder images
-7. NO "TODO", NO stubs, NO empty handlers
-8. Start output with <!DOCTYPE html>`;
-
-        try {
-          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: geminiPrompt }] }],
-              generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens },
-            }),
-            signal: AbortSignal.timeout(timeoutMs),
-          });
-          if (!r.ok) return null;
-          const d: any = await r.json();
-          return d.candidates?.[0]?.content?.parts?.[0]?.text || null;
-        } catch { return null; }
-      }
-
-      // Claude first (prefill technique forces correct output), then Gemini fallbacks
+      // Claude only — fail loud if it cannot produce output (no provider switch)
       const initialTimeout = 120000;
-      let rawText = await callClaude(10000, initialTimeout)
-        ?? await callGemini('gemini-2.5-pro', 8192, 95000)
-        ?? await callGemini('gemini-2.0-flash', 8192, 45000)
-        ?? await callGemini('gemini-2.0-flash-lite', 4096, 30000)
-        ?? '';
+      let rawText = await callClaude(10000, initialTimeout) ?? '';
 
-      if (!rawText) return res.status(502).json({ error: 'AI timed out. Please try a shorter description.' });
+      if (!rawText) return res.status(502).json({ error: 'AI engine unavailable. Please try again.' });
 
       // Strip any markdown fences
       let htmlContent = rawText
@@ -6184,40 +6044,13 @@ ${currentHtml}`;
                   console.log(`[LongBuild] Pass ${passNum} Claude succeeded — ${cleaned.length} chars (was ${currentHtml.length})`);
                   return cleaned.slice(idx);
                 }
-                console.log(`[LongBuild] Pass ${passNum} Claude output too short or missing DOCTYPE, trying Gemini`);
+                console.log(`[LongBuild] Pass ${passNum} Claude output too short or missing DOCTYPE, keeping current`);
               } else {
-                console.log(`[LongBuild] Pass ${passNum} Claude HTTP ${r.status}, trying Gemini`);
+                console.log(`[LongBuild] Pass ${passNum} Claude HTTP ${r.status}, keeping current`);
               }
             } catch (e: any) {
-              console.log(`[LongBuild] Pass ${passNum} Claude failed: ${e.message}, trying Gemini`);
+              console.log(`[LongBuild] Pass ${passNum} Claude failed: ${e.message}, keeping current`);
             }
-          }
-
-          try {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 60000);
-            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: improvePrompt }] }],
-                generationConfig: { temperature: 0.3, maxOutputTokens: 10000 },
-              }),
-              signal: controller.signal,
-            });
-            clearTimeout(timer);
-            if (r.ok) {
-              const d: any = await r.json();
-              const improved = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
-              const cleaned = improved.replace(/^```(?:html)?\s*/im, '').replace(/\s*```\s*$/im, '').trim();
-              const idx = cleaned.indexOf('<!DOCTYPE html>');
-              if (idx >= 0 && cleaned.length > currentHtml.length * 0.5) {
-                console.log(`[LongBuild] Pass ${passNum} Gemini succeeded — ${cleaned.length} chars`);
-                return cleaned.slice(idx);
-              }
-            }
-          } catch (e: any) {
-            console.log(`[LongBuild] Pass ${passNum} Gemini failed: ${e.message}`);
           }
 
           console.log(`[LongBuild] Pass ${passNum} — keeping current version (${currentHtml.length} chars)`);
@@ -6272,22 +6105,6 @@ ${currentHtml}`;
               fixed = fixData.content?.[0]?.text || '';
             }
           }
-          if (!fixed) {
-            const fixRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: fixPrompt }] }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 32768 },
-              }),
-              signal: AbortSignal.timeout(60000),
-            });
-            if (fixRes.ok) {
-              const fixData: any = await fixRes.json();
-              fixed = fixData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            }
-          }
-
           if (fixed) {
             fixed = fixed.replace(/^```(?:html|HTML)?\s*\n?/g, '').replace(/\n?```\s*$/g, '').trim();
             if (fixed.length > 500 && /<!DOCTYPE/i.test(fixed) && /<\/html>/i.test(fixed)) {
@@ -6654,23 +6471,13 @@ ${currentHtml}`;
       const CHAT_COST_CENTS = 5;
       const EDIT_COST_CENTS = 15;
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
+      const anthropicKeyAvail = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+      if (!anthropicKeyAvail) return res.status(500).json({ error: 'AI not configured' });
 
-      async function callModel(model: string, prompt: string, maxTokens: number, timeoutMs: number): Promise<string | null> {
+      async function callModel(_model: string, prompt: string, maxTokens: number, _timeoutMs: number): Promise<string | null> {
         try {
-          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.2, maxOutputTokens: maxTokens },
-            }),
-            signal: AbortSignal.timeout(timeoutMs),
-          });
-          if (!r.ok) return null;
-          const d: any = await r.json();
-          return d.candidates?.[0]?.content?.parts?.[0]?.text || null;
+          const { callDirect } = await import('./services/direct-router.js');
+          return (await callDirect('anthropic/claude-haiku', [{ role: 'user', content: prompt }], { maxTokens })) || null;
         } catch { return null; }
       }
 
@@ -6717,8 +6524,7 @@ Respond ONLY with valid JSON (no markdown):
 For BUILD/UPDATE: {"intent":"build","buildPrompt":"concise description of what to build or modify","reply":"On it! [brief description of what you're doing]..."}
 For CHAT/QUESTION: {"intent":"chat"}`;
 
-      const intentRaw = await callModel('gemini-2.0-flash-lite', intentPrompt, 256, 8000)
-        ?? await callModel('gemini-2.0-flash', intentPrompt, 256, 8000);
+      const intentRaw = await callModel('claude-haiku', intentPrompt, 256, 8000);
 
       if (intentRaw) {
         try {
@@ -6776,9 +6582,7 @@ Rules:
 
 User: ${message}`;
 
-      let reply = await callModel('gemini-2.0-flash', chatPrompt, 4096, 20000)
-        ?? await callModel('gemini-2.5-pro', chatPrompt, 8192, 45000)
-        ?? await callModel('gemini-2.0-flash-lite', chatPrompt, 4096, 12000);
+      let reply = await callModel('claude-haiku', chatPrompt, 4096, 20000);
 
       if (!reply) {
         const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
@@ -7078,8 +6882,8 @@ console.log(\`Welcome, \${user.name}!\`);` },
       }
       const { imageData, mimeType = 'image/jpeg', context = '' } = req.body;
       if (!imageData) return res.status(400).json({ error: 'imageData required' });
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return res.status(500).json({ error: 'AI not configured' });
+      const anthropicKeyAvail = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+      if (!anthropicKeyAvail) return res.status(500).json({ error: 'AI not configured' });
 
       const prompt = `You are a professional video/photo editor AI. Analyze this image and provide creative editing suggestions.${context ? ` Context: ${context}` : ''}
 
@@ -7092,35 +6896,28 @@ Return ONLY valid JSON (no markdown):
   "mood": "The overall mood/feel of this image."
 }`;
 
-      const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }, { inlineData: { mimeType, data: imageData } }] }],
-          generationConfig: { temperature: 0.8, maxOutputTokens: 512 },
-        }),
-      });
-      const aiData = await aiRes.json();
-      const rawText = aiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const dataUrl = imageData.startsWith('data:') ? imageData : `data:${mimeType};base64,${imageData}`;
+      const { generateVisionResponse } = await import('./services/multi-ai.js');
+      const rawText = await generateVisionResponse(prompt, dataUrl, []);
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) return res.status(500).json({ error: 'Could not parse AI response' });
       res.json(JSON.parse(jsonMatch[0]));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // ─── Photo Editor — Gemini Imagen 3 (free for all) ───────────────────────
+  // ─── Photo Editor — AI image generation (Azure image model + Pollinations) ──
+  // The text engine is Claude-only; Claude cannot draw pixels, so image
+  // generation/editing runs on the Azure image model (with a free Pollinations
+  // fallback). The "describe" step of editing uses Claude vision.
   app.post('/api/photo-editor/generate', isAuthenticated, async (req: any, res) => {
     try {
       const { prompt, aspectRatio = '1:1', negativePrompt = 'blurry, low quality, distorted, watermark, text, ugly' } = req.body;
       if (!prompt) return res.status(400).json({ error: 'prompt required' });
 
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (!geminiKey) return res.status(500).json({ error: 'Gemini API key not configured' });
-
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-
-      // Embed aspect ratio guidance into the prompt since generateContent doesn't have an aspect param
+      const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
+        '1:1': '1024x1024', '9:16': '1024x1536', '3:4': '1024x1536', '16:9': '1536x1024', '4:3': '1536x1024',
+      };
+      const size = sizeMap[aspectRatio] || '1024x1024';
       const aspectGuide: Record<string, string> = {
         '9:16': 'vertical portrait orientation (9:16 aspect ratio)',
         '16:9': 'wide landscape orientation (16:9 aspect ratio)',
@@ -7128,28 +6925,40 @@ Return ONLY valid JSON (no markdown):
         '4:3': 'landscape orientation (4:3 aspect ratio)',
         '1:1': 'square composition (1:1 aspect ratio)',
       };
-      const fullPrompt = `${prompt}. Compose this as a ${aspectGuide[aspectRatio] || 'square'}. High quality, sharp, photorealistic. Avoid: ${negativePrompt}.`;
+      const fullPrompt = `${prompt}. Compose this as a ${aspectGuide[aspectRatio] || 'square composition'}. High quality, sharp, photorealistic. Avoid: ${negativePrompt}.`;
 
-      console.log(`[PhotoEditor] Generating with Gemini Flash Image, aspect ${aspectRatio}: "${prompt.slice(0, 80)}"`);
+      console.log(`[PhotoEditor] Generating image, aspect ${aspectRatio}: "${prompt.slice(0, 80)}"`);
       const start = Date.now();
 
-      let imgPart: any = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash-exp-image-generation',
-          contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-          config: { responseModalities: ['TEXT', 'IMAGE'], temperature: 1 },
-        });
-        const parts = response.candidates?.[0]?.content?.parts || [];
-        imgPart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image'));
-        if (imgPart?.inlineData?.data) break;
-        console.log(`[PhotoEditor] Attempt ${attempt}: no image returned, retrying...`);
-        if (attempt < 3) await new Promise(r => setTimeout(r, 800));
-      }
-      if (!imgPart?.inlineData?.data) return res.status(500).json({ error: 'Image generation failed after 3 attempts. Please try again.' });
+      const { azureGenerateImage } = await import('./services/azure-media.js');
+      let dataUrl = await azureGenerateImage(fullPrompt, size);
 
-      console.log(`[PhotoEditor] Gemini image generated in ${Date.now() - start}ms`);
-      res.json({ imageData: imgPart.inlineData.data, mimeType: imgPart.inlineData.mimeType || 'image/png' });
+      if (!dataUrl) {
+        const dims: Record<string, [number, number]> = {
+          '1024x1024': [1024, 1024], '1024x1536': [1024, 1536], '1536x1024': [1536, 1024],
+        };
+        const [w, h] = dims[size] || [1024, 1024];
+        const seed = Math.floor(Math.random() * 1_000_000);
+        const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=${w}&height=${h}&nologo=true&enhance=true&seed=${seed}&model=flux`;
+        try {
+          const r = await fetch(pollUrl, { signal: AbortSignal.timeout(60000) });
+          if (r.ok) {
+            const buf = Buffer.from(await r.arrayBuffer());
+            const ct = r.headers.get('content-type') || 'image/jpeg';
+            dataUrl = `data:${ct};base64,${buf.toString('base64')}`;
+          }
+        } catch (err: any) {
+          console.error('[PhotoEditor] Pollinations fallback failed:', err?.message || err);
+        }
+      }
+
+      if (!dataUrl) return res.status(500).json({ error: 'Image generation failed. Please try again.' });
+
+      const m = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+      const mimeType = m?.[1] || 'image/png';
+      const imageData = m?.[2] || dataUrl.replace(/^data:image\/[^;]+;base64,/, '');
+      console.log(`[PhotoEditor] Image generated in ${Date.now() - start}ms`);
+      res.json({ imageData, mimeType });
     } catch (e: any) {
       console.error('[PhotoEditor] Generate error:', e.message);
       res.status(500).json({ error: e.message || 'Image generation failed' });
@@ -7161,50 +6970,46 @@ Return ONLY valid JSON (no markdown):
       const { instruction, imageData, mimeType = 'image/jpeg' } = req.body;
       if (!instruction || !imageData) return res.status(400).json({ error: 'instruction and imageData required' });
 
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (!geminiKey) return res.status(500).json({ error: 'Gemini API key not configured' });
-
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-
-      console.log(`[PhotoEditor] Editing image with Gemini: "${instruction.slice(0, 80)}"`);
+      console.log(`[PhotoEditor] Editing image: "${instruction.slice(0, 80)}"`);
       const start = Date.now();
 
-      // Step 1: Use Gemini Vision to describe the image in detail
-      console.log(`[PhotoEditor] Step 1 — analyzing image with Gemini Vision...`);
-      const describeResp = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: [{
-          role: 'user',
-          parts: [
-            { inlineData: { mimeType: mimeType || 'image/jpeg', data: imageData } },
-            { text: 'Describe this image in extreme detail: every person (appearance, clothing, pose, expression), objects, colors, lighting, background, textures, composition, and atmosphere. Be very specific and thorough.' },
-          ],
-        }],
-      });
-      const imageDescription = describeResp.candidates?.[0]?.content?.parts?.[0]?.text || 'A photo';
-      console.log(`[PhotoEditor] Image described (${imageDescription.length} chars). Step 2 — generating edited version...`);
+      // Step 1: describe the source image with Claude vision.
+      const dataUrl = `data:${mimeType || 'image/jpeg'};base64,${imageData}`;
+      const { generateVisionResponse } = await import('./services/multi-ai.js');
+      const imageDescription = await generateVisionResponse(
+        'Describe this image in extreme detail: every person (appearance, clothing, pose, expression), objects, colors, lighting, background, textures, composition, and atmosphere. Be very specific and thorough.',
+        dataUrl,
+        [],
+      );
+      console.log(`[PhotoEditor] Image described (${(imageDescription || '').length} chars). Generating edited version...`);
 
-      // Step 2: Generate a new image applying the edit instruction to the description
+      // Step 2: regenerate the scene with the edit applied, via the Azure image model.
       const editPrompt = `Create a photorealistic image based on this scene: ${imageDescription}\n\nNow apply this change: ${instruction}\n\nMake it look completely natural and photorealistic. High quality, sharp, 4K.`;
+      const { azureGenerateImage } = await import('./services/azure-media.js');
+      let outUrl = await azureGenerateImage(editPrompt, '1024x1024');
 
-      let imgPart: any = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.0-flash-exp-image-generation',
-          contents: [{ role: 'user', parts: [{ text: editPrompt }] }],
-          config: { responseModalities: ['TEXT', 'IMAGE'], temperature: 1 },
-        });
-        const parts = response.candidates?.[0]?.content?.parts || [];
-        imgPart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith('image'));
-        if (imgPart?.inlineData?.data) break;
-        console.log(`[PhotoEditor] Edit attempt ${attempt}: no image returned, retrying...`);
-        if (attempt < 3) await new Promise(r => setTimeout(r, 800));
+      if (!outUrl) {
+        const seed = Math.floor(Math.random() * 1_000_000);
+        const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(editPrompt)}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}&model=flux`;
+        try {
+          const r = await fetch(pollUrl, { signal: AbortSignal.timeout(60000) });
+          if (r.ok) {
+            const buf = Buffer.from(await r.arrayBuffer());
+            const ct = r.headers.get('content-type') || 'image/jpeg';
+            outUrl = `data:${ct};base64,${buf.toString('base64')}`;
+          }
+        } catch (err: any) {
+          console.error('[PhotoEditor] Pollinations edit fallback failed:', err?.message || err);
+        }
       }
-      if (!imgPart?.inlineData?.data) return res.status(500).json({ error: 'Image edit failed. Please try again with a different instruction.' });
 
+      if (!outUrl) return res.status(500).json({ error: 'Image edit failed. Please try again with a different instruction.' });
+
+      const m = outUrl.match(/^data:([^;]+);base64,(.*)$/);
+      const outMime = m?.[1] || 'image/png';
+      const outData = m?.[2] || outUrl.replace(/^data:image\/[^;]+;base64,/, '');
       console.log(`[PhotoEditor] Edit complete in ${Date.now() - start}ms`);
-      res.json({ imageData: imgPart.inlineData.data, mimeType: imgPart.inlineData.mimeType || 'image/png' });
+      res.json({ imageData: outData, mimeType: outMime });
     } catch (e: any) {
       console.error('[PhotoEditor] Edit error:', e.message);
       res.status(500).json({ error: e.message || 'Image edit failed' });
@@ -7234,27 +7039,14 @@ Return ONLY valid JSON (no markdown):
       const { imageData, question } = req.body;
       if (!imageData) return res.status(400).json({ error: 'imageData required' });
 
-      const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (!geminiKey) return res.status(503).json({ error: 'AI service unavailable' });
-
-      const ai = new GoogleGenerativeAI(geminiKey);
-      const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-      const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-      const mimeMatch = imageData.match(/^data:(image\/[a-z]+);base64,/);
-      const mimeType = (mimeMatch?.[1] || 'image/jpeg') as any;
+      const dataUrl = imageData.startsWith('data:') ? imageData : `data:image/jpeg;base64,${imageData}`;
 
       const prompt = question
         ? `The user asks: "${question}"\n\nLook at this image carefully and answer the question directly and clearly. If the image contains text, read it exactly. Be thorough and helpful.`
         : `Analyze this image thoroughly. If it contains text (document, receipt, sign, note, whiteboard, book, label, etc.), transcribe all the text you can see and summarize the key information. If it's a photo or scene, describe what you see in detail and highlight anything important or useful. Be clear, organized, and complete.`;
 
-      const result = await model.generateContent([
-        prompt,
-        { inlineData: { mimeType, data: base64Data } }
-      ]);
-
-      const text = result.response.text();
+      const { generateVisionResponse } = await import('./services/multi-ai.js');
+      const text = await generateVisionResponse(prompt, dataUrl, []);
       res.json({ result: text });
     } catch (e: any) {
       console.error('[Camera Analyze]', e.message);
@@ -7646,19 +7438,13 @@ Return ONLY valid JSON (no markdown):
       if (recentMsgs.length === 0) return res.json({ summary: 'No messages to summarize yet.' });
 
       const chatText = recentMsgs.reverse().map(m => `${m.senderName}: ${m.content}`).join('\n');
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (!geminiKey) return res.status(500).json({ error: 'AI not configured' });
+      const anthropicKeyAvail = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+      if (!anthropicKeyAvail) return res.status(500).json({ error: 'AI not configured' });
 
       const prompt = `You are a helpful team assistant. Below is a recent group chat conversation from a workgroup. Summarize what the team is planning, key decisions made, action items, and important topics discussed. Be concise and organized.\n\nChat:\n${chatText}\n\nProvide:\n1. Summary of discussion\n2. Key decisions\n3. Action items\n4. What the company/team appears to be planning`;
 
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 2000 } }),
-      });
-      if (!r.ok) return res.status(500).json({ error: 'AI summary failed' });
-      const data: any = await r.json();
-      const summary = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not generate summary.';
+      const { callDirect } = await import('./services/direct-router.js');
+      const summary = (await callDirect('anthropic/claude-haiku', [{ role: 'user', content: prompt }], { maxTokens: 2000 })) || 'Could not generate summary.';
       res.json({ summary });
     } catch (e: any) { res.status(500).json({ error: 'Failed to generate summary' }); }
   });
@@ -7676,19 +7462,13 @@ Return ONLY valid JSON (no markdown):
       const recentMsgs = await db.select().from(workgroupMessages).where(and(eq(workgroupMessages.workgroupId, wgId), eq(workgroupMessages.messageType, 'group'))).orderBy(desc(workgroupMessages.createdAt)).limit(100);
 
       const chatText = recentMsgs.reverse().map(m => `${m.senderName}: ${m.content}`).join('\n');
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (!geminiKey) return res.status(500).json({ error: 'AI not configured' });
+      const anthropicKeyAvail = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+      if (!anthropicKeyAvail) return res.status(500).json({ error: 'AI not configured' });
 
       const prompt = `You are a helpful assistant for a team workgroup. Here is the recent group conversation:\n\n${chatText}\n\nThe user asks: ${question}\n\nAnswer based on the conversation context. If the answer isn't in the conversation, say so.`;
 
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 1500 } }),
-      });
-      if (!r.ok) return res.status(500).json({ error: 'AI query failed' });
-      const data: any = await r.json();
-      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not answer.';
+      const { callDirect } = await import('./services/direct-router.js');
+      const answer = (await callDirect('anthropic/claude-haiku', [{ role: 'user', content: prompt }], { maxTokens: 1500 })) || 'Could not answer.';
       res.json({ answer });
     } catch (e: any) { res.status(500).json({ error: 'Failed to ask AI' }); }
   });
@@ -8520,11 +8300,8 @@ Rules:
         },
         integrations: {
           ai: {
-            openai: !!process.env.OPENAI_API_KEY,
-            anthropic: !!process.env.ANTHROPIC_API_KEY,
-            gemini: !!process.env.GEMINI_API_KEY,
-            geminiPro: !!process.env.GEMINI_PRO_API_KEY,
-            groq: !!process.env.GROQ_API_KEY,
+            anthropic: !!(process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY),
+            azureClaude: !!process.env.AZURE_OPENAI_API_KEY,
             replicate: !!process.env.REPLICATE_API_TOKEN,
           },
           payments: {
@@ -8808,7 +8585,7 @@ Rules:
 - Be conservative with confidence scores
 - The overall verdict should reflect the majority of claims`;
 
-      const result = await generateAIResponse(factCheckPrompt, [], 'research', 'gemini-2.0-flash');
+      const result = await generateAIResponse(factCheckPrompt, [], 'research', 'claude-research');
       const resultText = typeof result === 'object' ? result.text : result;
       const cleaned = resultText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
 
@@ -8834,7 +8611,7 @@ Rules:
         verdict,
         confidenceScore: confidence,
         claims: parsed.claims || [],
-        checkedBy: 'gemini',
+        checkedBy: 'claude',
       }).returning();
 
       res.json({ ...factCheck, summary: parsed.summary });

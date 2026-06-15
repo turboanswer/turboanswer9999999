@@ -56,32 +56,21 @@ function fp(err: TrackedError): string {
   return `${err.type}::${err.message.substring(0, 120)}`;
 }
 
-function getGeminiKey(): string | null {
-  return process.env.AI_INTEGRATIONS_GOOGLE_GEMINI_KEY
-    || process.env.GEMINI_API_KEY
-    || process.env.GOOGLE_AI_API_KEY
+function getAIKey(): string | null {
+  return process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY
+    || process.env.ANTHROPIC_API_KEY
+    || process.env.AZURE_OPENAI_API_KEY
     || null;
 }
 
-async function callGeminiForDebug(prompt: string, apiKey: string): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 800, responseMimeType: 'application/json' },
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
-  const data: any = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+async function callClaudeForDebug(prompt: string): Promise<string> {
+  const { callDirect } = await import('./direct-router.js');
+  const text = await callDirect('anthropic/claude-haiku', [{ role: 'user', content: prompt }], { temperature: 0.2, maxTokens: 800, jsonMode: true });
+  return text || '';
 }
 
 async function runDiagnosis(err: TrackedError): Promise<AutoDebugDiagnosis | null> {
-  const apiKey = getGeminiKey();
-  if (!apiKey) return null;
+  if (!getAIKey()) return null;
 
   const start = Date.now();
   const prompt = `You are TurboAnswer's autonomous production debugger. A live error just occurred in a Node.js / Express / TypeScript / React app. Analyze it and respond with STRICT JSON only.
@@ -104,7 +93,7 @@ Respond with ONLY this JSON shape:
 }`;
 
   try {
-    const raw = await callGeminiForDebug(prompt, apiKey);
+    const raw = await callClaudeForDebug(prompt);
     const cleaned = String(raw).replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
@@ -161,8 +150,8 @@ export function installAutoDebugger() {
   if (installed) return;
   installed = true;
   onErrorTracked((e) => { void maybeDiagnose(e); });
-  const hasKey = !!getGeminiKey();
-  console.log(`[AutoDebug] Real-time AI debugger installed (Gemini Flash) — API key: ${hasKey ? 'present' : 'MISSING'}`);
+  const hasKey = !!getAIKey();
+  console.log(`[AutoDebug] Real-time AI debugger installed (Claude) — API key: ${hasKey ? 'present' : 'MISSING'}`);
 }
 
 export type { AutoDebugDiagnosis };

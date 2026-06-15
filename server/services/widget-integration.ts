@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { conversationalAI } from './conversational-ai';
 
 export interface WidgetConfig {
@@ -79,34 +78,7 @@ export class WidgetService {
       return response;
     } catch (error) {
       console.error('Widget AI error:', error);
-      
-      try {
-        const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-        const model = gemini.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        
-        const result = await model.generateContent({
-          contents: [{
-            role: 'user',
-            parts: [{ text: message }]
-          }],
-          generationConfig: {
-            maxOutputTokens: 200,
-            temperature: 0.7,
-          }
-        });
-        
-        const response = result.response.text();
-        
-        conversation.push({
-          role: 'assistant',
-          content: response,
-          timestamp: new Date()
-        });
-        
-        return response;
-      } catch (fallbackError) {
-        return "I'm here to help! Please try rephrasing your question.";
-      }
+      return "I'm here to help! Please try rephrasing your question.";
     }
   }
   

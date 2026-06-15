@@ -1,5 +1,3 @@
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-
 export const SUPPORTED_FILE_TYPES: Record<string, string> = {
   'text/plain': 'txt',
   'application/pdf': 'pdf',
@@ -25,13 +23,11 @@ const TEXT_MIME_TYPES = new Set([
   'text/html', 'text/xml', 'application/xml', 'application/rtf'
 ]);
 
-const GEMINI_INLINE_TYPES = new Set([
-  'application/pdf',
+// Claude can read PDFs (document block) and images (image block) inline. Office
+// binary formats (docx/xlsx/pptx/doc) are NOT readable by Claude's API, so they
+// fail loud rather than silently degrading to another provider.
+const CLAUDE_IMAGE_TYPES = new Set([
   'image/png', 'image/jpeg', 'image/webp', 'image/gif',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'application/msword',
 ]);
 
 export async function extractTextFromFile(fileBuffer: Buffer, mimeType: string, filename: string): Promise<string> {
@@ -71,25 +67,16 @@ export async function analyzeDocument(
 
   const isBinary = fileContent === '__BINARY_FILE__' && fileBuffer && mimeType;
 
-  // PDFs: prefer Claude native document reading (stronger reasoning over the
-  // document). This runs BEFORE the Gemini key check so a missing Gemini key
-  // doesn't block the Claude path; Gemini is only the fallback.
-  if (isBinary && mimeType === 'application/pdf') {
-    try {
+  // Claude-only engine. PDFs and images are read inline via Claude's native
+  // document/image blocks. Office binary formats can't be read by Claude, so
+  // they fail loud rather than silently degrading to another provider.
+  if (isBinary) {
+    if (mimeType === 'application/pdf' || CLAUDE_IMAGE_TYPES.has(mimeType!)) {
       return await analyzeWithClaudeInline(analysisPrompt, fileBuffer!, mimeType!, conversationHistory, tier);
-    } catch (e: any) {
-      console.log(`[DocAnalysis] Claude PDF path failed (${e?.message || e}); falling back to Gemini.`);
     }
-  }
-
-  // Everything else (and the PDF fallback) uses Gemini, which needs its key.
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Document analysis is not configured. Please try again later.");
-  }
-
-  if (isBinary && GEMINI_INLINE_TYPES.has(mimeType!)) {
-    return await analyzeWithGeminiInline(analysisPrompt, fileBuffer!, mimeType!, apiKey, conversationHistory);
+    throw new Error(
+      'AI_ENGINE_UNAVAILABLE: This binary file type cannot be read by the Claude engine. Supported binary types are PDF and images (PNG, JPEG, WebP, GIF).'
+    );
   }
 
   const truncatedContent = fileContent.length > 30000
@@ -98,84 +85,7 @@ export async function analyzeDocument(
 
   const fullPrompt = `${analysisPrompt}\n\nDocument Content:\n${truncatedContent}`;
 
-  return await callGeminiForDoc(fullPrompt, apiKey);
-}
-
-async function analyzeWithGeminiInline(
-  prompt: string,
-  fileBuffer: Buffer,
-  mimeType: string,
-  apiKey: string,
-  conversationHistory: Array<{role: string, content: string}> = []
-): Promise<string> {
-  const base64Data = fileBuffer.toString('base64');
-
-  const contextParts = conversationHistory.length > 0
-    ? `\n\nRecent conversation context:\n${conversationHistory.slice(-2).map(m => `${m.role}: ${m.content.slice(0, 300)}`).join('\n')}\n\n`
-    : '';
-
-  const requestBody = {
-    contents: [{
-      parts: [
-        {
-          inline_data: {
-            mime_type: mimeType,
-            data: base64Data
-          }
-        },
-        {
-          text: `${contextParts}${prompt}\n\nIMPORTANT: Read and analyze the ACTUAL content of this uploaded file. Extract real text, data, and information from it. Do NOT say you cannot read it.`
-        }
-      ]
-    }],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 8000,
-    }
-  };
-
-  const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
-
-  for (const model of models) {
-    try {
-      const start = Date.now();
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
-        }
-      );
-      clearTimeout(timeout);
-
-      if (response.status === 429 || response.status === 503) {
-        console.log(`[DocAnalysis] ${model} unavailable (${response.status}), trying next...`);
-        continue;
-      }
-
-      const data = await response.json();
-      if (data.error) {
-        console.error(`[DocAnalysis] ${model} error:`, data.error.message);
-        continue;
-      }
-
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!content) continue;
-
-      console.log(`[DocAnalysis] ${model} inline analysis completed in ${Date.now() - start}ms`);
-      return content;
-    } catch (error: any) {
-      console.log(`[DocAnalysis] ${model} failed: ${error.message}`);
-      continue;
-    }
-  }
-
-  throw new Error('Document analysis temporarily unavailable. Please try again.');
+  return await analyzeTextWithClaude(fullPrompt, conversationHistory, tier);
 }
 
 // Pick the Claude model by the user's tier so PDF cost matches the rest of the
@@ -199,10 +109,17 @@ async function analyzeWithClaudeInline(
   if (!key) throw new Error('Anthropic API key not configured');
 
   const base64Data = fileBuffer.toString('base64');
+  const isImage = mimeType.startsWith('image/');
   const contextParts = conversationHistory.length > 0
     ? `Recent conversation context:\n${conversationHistory.slice(-2).map(m => `${m.role}: ${m.content.slice(0, 300)}`).join('\n')}\n\n`
     : '';
-  const userText = `${contextParts}${prompt}\n\nRead and analyze the ACTUAL content of the attached PDF. Use real text, data, and figures from it. Answer in plain text — no markdown, no asterisks for bold or italic, no headings, no backticks.`;
+  const kind = isImage ? 'image' : 'PDF';
+  const userText = `${contextParts}${prompt}\n\nRead and analyze the ACTUAL content of the attached ${kind}. Use real text, data, and figures from it. Answer in plain text — no markdown, no asterisks for bold or italic, no headings, no backticks.`;
+
+  // Claude uses an image block for images and a document block for PDFs.
+  const mediaBlock = isImage
+    ? { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Data } }
+    : { type: 'document', source: { type: 'base64', media_type: mimeType, data: base64Data } };
 
   const models = claudeModelsForTier(tier);
   for (const model of models) {
@@ -220,7 +137,7 @@ async function analyzeWithClaudeInline(
           messages: [{
             role: 'user',
             content: [
-              { type: 'document', source: { type: 'base64', media_type: mimeType, data: base64Data } },
+              mediaBlock,
               { type: 'text', text: userText },
             ],
           }],
@@ -237,7 +154,7 @@ async function analyzeWithClaudeInline(
       const data: any = await res.json();
       const text = data?.content?.find((b: any) => b.type === 'text')?.text || data?.content?.[0]?.text;
       if (text && String(text).trim()) {
-        console.log(`[DocAnalysis] Claude ${model} PDF analysis completed in ${Date.now() - start}ms`);
+        console.log(`[DocAnalysis] Claude ${model} ${kind} analysis completed in ${Date.now() - start}ms`);
         return String(text);
       }
     } catch (error: any) {
@@ -245,50 +162,62 @@ async function analyzeWithClaudeInline(
       continue;
     }
   }
-  throw new Error('Claude PDF analysis unavailable.');
+  // Fail loud — no fallback to any other provider.
+  throw new Error('AI_ENGINE_UNAVAILABLE: Claude document analysis is unavailable.');
 }
 
-async function callGeminiForDoc(prompt: string, apiKey: string): Promise<string> {
-  const requestBody = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 8000 }
-  });
+// Plain-text document analysis via Claude (no other provider).
+async function analyzeTextWithClaude(
+  prompt: string,
+  conversationHistory: Array<{role: string, content: string}> = [],
+  tier?: string
+): Promise<string> {
+  const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+  if (!key) throw new Error('AI_ENGINE_UNAVAILABLE: Anthropic API key not configured');
 
-  const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+  const contextParts = conversationHistory.length > 0
+    ? `Recent conversation context:\n${conversationHistory.slice(-2).map(m => `${m.role}: ${m.content.slice(0, 300)}`).join('\n')}\n\n`
+    : '';
+  const userText = `${contextParts}${prompt}\n\nAnswer in plain text — no markdown, no asterisks for bold or italic, no headings, no backticks.`;
 
+  const models = claudeModelsForTier(tier);
   for (const model of models) {
     try {
       const start = Date.now();
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: requestBody,
-          signal: controller.signal
-        }
-      );
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(`${base.replace(/\/$/, '')}/v1/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4000,
+          temperature: 0.2,
+          messages: [{ role: 'user', content: userText }],
+        }),
+        signal: controller.signal,
+      });
       clearTimeout(timeout);
-
-      if (response.status === 429 || response.status === 503) continue;
-
-      const data = await response.json();
-      if (data.error) continue;
-
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!content) continue;
-
-      console.log(`[DocAnalysis] ${model} text analysis completed in ${Date.now() - start}ms`);
-      return content;
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.error(`[DocAnalysis] Claude ${model} text error ${res.status}: ${errText.slice(0, 200)}`);
+        if (res.status === 401 || res.status === 403) break;
+        continue;
+      }
+      const data: any = await res.json();
+      const text = data?.content?.find((b: any) => b.type === 'text')?.text || data?.content?.[0]?.text;
+      if (text && String(text).trim()) {
+        console.log(`[DocAnalysis] Claude ${model} text analysis completed in ${Date.now() - start}ms`);
+        return String(text);
+      }
     } catch (error: any) {
+      console.log(`[DocAnalysis] Claude ${model} text failed: ${error.message}`);
       continue;
     }
   }
-
-  throw new Error('Document analysis temporarily unavailable. Please try again.');
+  // Fail loud — no fallback to any other provider.
+  throw new Error('AI_ENGINE_UNAVAILABLE: Claude document analysis is unavailable.');
 }
 
 export function validateFile(fileSize: number, mimeType: string, isPremiumUser: boolean = false): { valid: boolean; error?: string } {

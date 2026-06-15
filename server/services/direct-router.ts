@@ -18,41 +18,8 @@ export type CallOpts = {
   timeoutMs?: number;
 };
 
-type Resolved = { provider: 'anthropic' | 'openai' | 'google' | 'groq' | 'azure'; modelName: string };
+type Resolved = { provider: 'anthropic'; modelName: string };
 
-// Azure OpenAI defaults. Deployment names default to the model name; override via env if you named your Azure deployments differently.
-const AZURE_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-10-21';
-function azureDeployment(modelName: string): string {
-  const lower = modelName.toLowerCase();
-  // GPT-5.4 family (current tier ladder). Code refers to models with dashes
-  // (gpt-5-4-nano) but Azure deployments are named with dots (gpt-5.4-nano).
-  if (lower.includes('5-4-nano') || lower.includes('5.4-nano')) {
-    return process.env.AZURE_DEPLOYMENT_GPT54_NANO || 'gpt-5.4-nano';
-  }
-  if (lower.includes('5-4-mini') || lower.includes('5.4-mini')) {
-    return process.env.AZURE_DEPLOYMENT_GPT54_MINI || 'gpt-5.4-mini';
-  }
-  if (lower.includes('5-4-pro') || lower.includes('5.4-pro')) {
-    return process.env.AZURE_DEPLOYMENT_GPT54_PRO || 'gpt-5.4-pro';
-  }
-  // Legacy GPT-4 family fallbacks.
-  if (lower.includes('mini')) return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O_MINI || 'gpt-4o-mini';
-  if (lower.includes('turbo')) return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4_TURBO || 'gpt-4-turbo';
-  return process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O || 'gpt-4o';
-}
-function azureUrl(deployment: string, path: 'chat/completions'): string {
-  const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
-  // Newer Azure AI Foundry endpoints (services.ai.azure.com) use the v1 path
-  // with model in the body. Older Azure OpenAI endpoints (openai.azure.com)
-  // use deployment-in-URL with api-version. We detect which to use by host.
-  if (ep.includes('services.ai.azure.com')) {
-    return `${ep}/openai/v1/${path}`;
-  }
-  return `${ep}/openai/deployments/${encodeURIComponent(deployment)}/${path}?api-version=${AZURE_API_VERSION}`;
-}
-function isAzureFoundry(): boolean {
-  return (process.env.AZURE_OPENAI_ENDPOINT || '').includes('services.ai.azure.com');
-}
 // When set, Claude calls are billed to Azure (routed through Foundry MaaS)
 // instead of api.anthropic.com.
 function useAzureForAnthropic(): boolean {
@@ -114,75 +81,36 @@ function stripJsonFences(s: string): string {
   return s.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 }
 
-function resolveModel(orId: string): Resolved | null {
-  // Text generation runs EXCLUSIVELY on Claude. OpenAI/GPT is reserved for photo
-  // (image) generation, which uses a separate image API — not this router. So any
-  // GPT text model that reaches the router (incl. legacy fallback chains and the
-  // Azure gpt-5.4 deployments) is transparently redirected to a Claude equivalent.
-  {
-    const lc = orId.toLowerCase();
-    if (lc.includes('gpt')) {
-      orId = (lc.includes('nano') || lc.includes('mini'))
-        ? 'anthropic/claude-haiku'
-        : 'anthropic/claude-sonnet-4.5';
-    }
+function resolveModel(orId: string): Resolved {
+  // The entire text engine runs EXCLUSIVELY on Anthropic Claude. There is no
+  // non-Claude path. Any model ID that reaches the router — including legacy
+  // Gemini/Google, OpenAI/GPT, Groq/Llama, Mistral or Azure-GPT ids still passed
+  // by older call sites — is transparently mapped to a Claude equivalent by tier.
+  // Already-dated Anthropic ids are preserved as-is.
+  const lower = orId.toLowerCase();
+  if (lower.includes('anthropic/') && /\d{8}/.test(lower)) {
+    return { provider: 'anthropic', modelName: orId.slice(orId.indexOf('/') + 1) };
   }
-  if (orId.startsWith('azure/')) return { provider: 'azure', modelName: orId.slice(6) };
-  if (orId.startsWith('anthropic/')) {
-    const lower = orId.toLowerCase();
-    // Specific model IDs win first, then family tags.
-    const name =
-      /\d{8}/.test(lower) ? orId.slice('anthropic/'.length) : // already a dated ID
-      lower.includes('opus-4-1') || (lower.includes('opus') && lower.includes('4.1')) ? 'claude-opus-4-1-20250805' :
-      lower.includes('opus') ? 'claude-opus-4-1-20250805' :
-      lower.includes('sonnet-4-5') || lower.includes('sonnet-4.5') ? 'claude-sonnet-4-5-20250929' :
-      lower.includes('sonnet-4') || lower.includes('sonnet4') ? 'claude-sonnet-4-20250514' :
-      lower.includes('sonnet-3-7') || lower.includes('sonnet-3.7') || lower.includes('3-7-sonnet') ? 'claude-3-7-sonnet-20250219' :
-      lower.includes('haiku') ? 'claude-3-5-haiku-20241022' :
-      'claude-sonnet-4-5-20250929';
-    return { provider: 'anthropic', modelName: name };
-  }
-  if (orId.startsWith('openai/')) return { provider: 'openai', modelName: orId.slice(7) };
-  if (orId.startsWith('google/')) return { provider: 'google', modelName: orId.slice(7) };
-  if (orId.startsWith('groq/')) return { provider: 'groq', modelName: orId.slice(5) };
-  return null;
+  // Tier mapping by capability hint in the id. "Small/fast" ids (haiku, nano,
+  // mini, flash, lite, small) → Haiku; "opus" → Opus; everything else → Sonnet.
+  const name =
+    lower.includes('opus') ? 'claude-opus-4-1-20250805' :
+    (lower.includes('haiku') || lower.includes('nano') || lower.includes('mini') ||
+     lower.includes('flash') || lower.includes('lite') || lower.includes('small'))
+      ? 'claude-3-5-haiku-20241022' :
+    (lower.includes('sonnet-4-5') || lower.includes('sonnet-4.5')) ? 'claude-sonnet-4-5-20250929' :
+    (lower.includes('sonnet-4') || lower.includes('sonnet4')) ? 'claude-sonnet-4-20250514' :
+    (lower.includes('sonnet-3-7') || lower.includes('sonnet-3.7') || lower.includes('3-7-sonnet')) ? 'claude-3-7-sonnet-20250219' :
+    'claude-sonnet-4-5-20250929';
+  return { provider: 'anthropic', modelName: name };
 }
 
 export async function callDirect(orModelId: string, messages: Message[], opts: CallOpts = {}): Promise<string | null> {
   const r = resolveModel(orModelId);
-  if (!r) { console.warn(`[Router] No direct provider for ${orModelId}`); return null; }
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
-    if (r.provider === 'azure') {
-      const key = process.env.AZURE_OPENAI_API_KEY;
-      const ep = process.env.AZURE_OPENAI_ENDPOINT;
-      if (!key || !ep) { console.warn('[Router/Azure] missing AZURE_OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT'); return null; }
-      const deployment = azureDeployment(r.modelName);
-      // GPT-5 family (reasoning models) require `max_completion_tokens` instead
-      // of `max_tokens` and only support the default temperature.
-      const isReasoning = /gpt-5/.test(r.modelName.toLowerCase());
-      const body: any = { messages };
-      if (isAzureFoundry()) body.model = deployment;
-      if (isReasoning) {
-        body.max_completion_tokens = opts.maxTokens ?? 1500;
-      } else {
-        body.max_tokens = opts.maxTokens ?? 1500;
-        body.temperature = opts.temperature ?? 0.3;
-      }
-      if (opts.jsonMode) body.response_format = { type: 'json_object' };
-      const res = await fetch(azureUrl(deployment, 'chat/completions'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': key },
-        body: JSON.stringify(body),
-        signal: ctrl.signal,
-      });
-      clearTimeout(t);
-      if (!res.ok) { const txt = await res.text().catch(() => ''); console.warn(`[Router/Azure] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`); return null; }
-      const data: any = await res.json();
-      return data.choices?.[0]?.message?.content || null;
-    }
-    if (r.provider === 'anthropic') {
+    {
       // Path 1: Azure-hosted Claude via the Foundry Responses API
       // (services.ai.azure.com/openai/v1/responses). Billed to Azure.
       if (useAzureForAnthropic()) {
@@ -229,36 +157,6 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
       const data: any = await res.json();
       return data.content?.[0]?.text || null;
     }
-    if (r.provider === 'openai' || r.provider === 'groq') {
-      const key = r.provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.GROQ_API_KEY;
-      if (!key) return null;
-      const url = r.provider === 'openai' ? 'https://api.openai.com/v1/chat/completions' : 'https://api.groq.com/openai/v1/chat/completions';
-      const body: any = { model: r.modelName, messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3 };
-      if (opts.jsonMode) body.response_format = { type: 'json_object' };
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(body), signal: ctrl.signal });
-      clearTimeout(t);
-      if (!res.ok) { const txt = await res.text().catch(() => ''); console.warn(`[Router/${r.provider}] ${r.modelName} HTTP ${res.status}: ${txt.slice(0, 200)}`); return null; }
-      const data: any = await res.json();
-      return data.choices?.[0]?.message?.content || null;
-    }
-    if (r.provider === 'google') {
-      const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-      if (!key) return null;
-      let sys = '';
-      const contents: any[] = [];
-      for (const m of messages) {
-        if (m.role === 'system') sys += (sys ? '\n\n' : '') + m.content;
-        else contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] });
-      }
-      const body: any = { contents, generationConfig: { temperature: opts.temperature ?? 0.3, maxOutputTokens: opts.maxTokens ?? 1500, ...(opts.jsonMode ? { responseMimeType: 'application/json' } : {}) } };
-      if (sys) body.systemInstruction = { parts: [{ text: sys }] };
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${r.modelName}:generateContent?key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
-      clearTimeout(t);
-      if (!res.ok) { const txt = await res.text().catch(() => ''); console.warn(`[Router/Gemini] ${r.modelName} HTTP ${res.status}: ${txt.slice(0, 200)}`); return null; }
-      const data: any = await res.json();
-      return data.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || null;
-    }
-    return null;
   } catch (err: any) {
     clearTimeout(t);
     console.warn(`[Router] ${orModelId} failed: ${err?.message || err}`);
@@ -268,56 +166,10 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
 
 export async function callDirectStream(orModelId: string, messages: Message[], opts: CallOpts, onChunk: (text: string) => void): Promise<string | null> {
   const r = resolveModel(orModelId);
-  if (!r) return null;
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
   try {
-    if (r.provider === 'azure') {
-      const key = process.env.AZURE_OPENAI_API_KEY;
-      const ep = process.env.AZURE_OPENAI_ENDPOINT;
-      if (!key || !ep) return null;
-      const deployment = azureDeployment(r.modelName);
-      // GPT-5 family: use max_completion_tokens and the default temperature.
-      const isReasoning = /gpt-5/.test(r.modelName.toLowerCase());
-      const body: any = { messages, stream: true };
-      if (isAzureFoundry()) body.model = deployment;
-      if (isReasoning) {
-        body.max_completion_tokens = opts.maxTokens ?? 1500;
-      } else {
-        body.max_tokens = opts.maxTokens ?? 1500;
-        body.temperature = opts.temperature ?? 0.3;
-      }
-      const res = await fetch(azureUrl(deployment, 'chat/completions'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': key },
-        body: JSON.stringify(body),
-        signal: ctrl.signal,
-      });
-      if (!res.ok || !res.body) { clearTimeout(t); return null; }
-      const reader = (res.body as any).getReader();
-      const dec = new TextDecoder();
-      let buf = '', acc = '', done = false;
-      while (!done) {
-        const { done: rd, value } = await reader.read();
-        if (rd) break;
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while ((i = buf.indexOf('\n')) !== -1) {
-          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-          if (!line.startsWith('data:')) continue;
-          const data = line.slice(5).trim(); if (!data) continue;
-          if (data === '[DONE]') { done = true; break; }
-          try {
-            const p = JSON.parse(data);
-            const delta = p?.choices?.[0]?.delta?.content;
-            if (delta) { acc += delta; onChunk(delta); }
-          } catch {}
-        }
-      }
-      clearTimeout(t);
-      return acc || null;
-    }
-    if (r.provider === 'anthropic') {
+    {
       // Azure-hosted Claude streaming via the Foundry Responses API (SSE).
       if (useAzureForAnthropic()) {
         const akey = process.env.AZURE_OPENAI_API_KEY;
@@ -392,71 +244,6 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
       clearTimeout(t);
       return acc || null;
     }
-    if (r.provider === 'openai' || r.provider === 'groq') {
-      const key = r.provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.GROQ_API_KEY;
-      if (!key) return null;
-      const url = r.provider === 'openai' ? 'https://api.openai.com/v1/chat/completions' : 'https://api.groq.com/openai/v1/chat/completions';
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ model: r.modelName, messages, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, stream: true }), signal: ctrl.signal });
-      if (!res.ok || !res.body) { clearTimeout(t); return null; }
-      const reader = (res.body as any).getReader();
-      const dec = new TextDecoder();
-      let buf = '', acc = '', done = false;
-      while (!done) {
-        const { done: rd, value } = await reader.read();
-        if (rd) break;
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while ((i = buf.indexOf('\n')) !== -1) {
-          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-          if (!line.startsWith('data:')) continue;
-          const data = line.slice(5).trim(); if (!data) continue;
-          if (data === '[DONE]') { done = true; break; }
-          try {
-            const p = JSON.parse(data);
-            const delta = p?.choices?.[0]?.delta?.content;
-            if (delta) { acc += delta; onChunk(delta); }
-          } catch {}
-        }
-      }
-      clearTimeout(t);
-      return acc || null;
-    }
-    if (r.provider === 'google') {
-      const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-      if (!key) return null;
-      let sys = '';
-      const contents: any[] = [];
-      for (const m of messages) {
-        if (m.role === 'system') sys += (sys ? '\n\n' : '') + m.content;
-        else contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] });
-      }
-      const body: any = { contents, generationConfig: { temperature: opts.temperature ?? 0.3, maxOutputTokens: opts.maxTokens ?? 1500 } };
-      if (sys) body.systemInstruction = { parts: [{ text: sys }] };
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${r.modelName}:streamGenerateContent?alt=sse&key=${key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
-      if (!res.ok || !res.body) { clearTimeout(t); return null; }
-      const reader = (res.body as any).getReader();
-      const dec = new TextDecoder();
-      let buf = '', acc = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while ((i = buf.indexOf('\n')) !== -1) {
-          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-          if (!line.startsWith('data:')) continue;
-          const data = line.slice(5).trim(); if (!data) continue;
-          try {
-            const p = JSON.parse(data);
-            const text = p?.candidates?.[0]?.content?.parts?.map((x: any) => x.text).filter(Boolean).join('');
-            if (text) { acc += text; onChunk(text); }
-          } catch {}
-        }
-      }
-      clearTimeout(t);
-      return acc || null;
-    }
-    return null;
   } catch (err: any) {
     clearTimeout(t);
     console.warn(`[Router-stream] ${orModelId} failed: ${err?.message || err}`);

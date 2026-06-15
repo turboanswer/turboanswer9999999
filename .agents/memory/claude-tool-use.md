@@ -17,5 +17,5 @@ The consumer chat injects exact tool results via a regex-gated, Haiku-powered pr
 **How to apply:** add new first-party chat tools to `server/services/claude-tools.ts` (tool def + executor + a gate regex). Keep executors deterministic and bounded (e.g. calculator caps input length + exponent-chain count; uses `new Function` only on a strict arithmetic whitelist).
 
 ## PDF/document chat
-PDFs prefer Claude native document reading (base64 `document` content block, `anthropic-version: 2023-06-01`) and fall back to Gemini. The Claude path runs BEFORE the Gemini-key check so a missing Gemini key never blocks it. Claude model is picked by tier (free=Haiku, pro=Sonnet 4, research/enterprise/owner=Sonnet 4.5) so PDF cost matches the rest of the stack.
-**Why:** earlier ordering bug required a Gemini key before Claude could run, defeating the Claude-native path; and routing all PDFs to a fixed top model would break per-tier cost policy.
+PDFs use Claude native document reading (base64 `document` content block, `anthropic-version: 2023-06-01`) — Claude-only now, no Gemini fallback (fails loud on Claude failure). Claude model is picked by tier (free=Haiku, pro=Sonnet 4, research/enterprise/owner=Sonnet 4.5) so PDF cost matches the rest of the stack.
+**Why:** the whole text/vision/document stack was unified on Claude (June 2026); routing all PDFs to a fixed top model would break per-tier cost policy, so keep the tier map.

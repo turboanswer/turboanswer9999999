@@ -1,9 +1,7 @@
 // Visual AI service for camera-based image analysis
 // Analyzes images from camera feed in real-time
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { generateVisionResponse } from './multi-ai.js';
 
 export interface VisualAnalysis {
   description: string;
@@ -17,29 +15,15 @@ export interface VisualAnalysis {
 
 export async function analyzeImage(imageData: string, userQuery?: string): Promise<VisualAnalysis> {
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-    
-    // Convert base64 to proper format
-    const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-    
+    const dataUrl = imageData.startsWith('data:') ? imageData : `data:image/jpeg;base64,${imageData}`;
+
     const prompt = userQuery 
       ? `Look at this image and answer simply and directly: ${userQuery}
 
 Keep your answer short - 1-3 sentences max. Be clear and conversational. If there's text visible, read it out. No bullet points or lists.`
       : `What's in this image? Give a simple, clear answer in 1-3 sentences. If there's text, read it. Be direct.`;
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: base64Data
-        }
-      }
-    ]);
-
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateVisionResponse(prompt, dataUrl, []);
     
     // Parse response into structured format
     const analysis: VisualAnalysis = {
@@ -61,28 +45,15 @@ Keep your answer short - 1-3 sentences max. Be clear and conversational. If ther
 
 export async function analyzeImageStream(imageData: string, context: string[]): Promise<string> {
   try {
-    const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-    
-    const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-    
+    const dataUrl = imageData.startsWith('data:') ? imageData : `data:image/jpeg;base64,${imageData}`;
+
     const contextText = context.length > 0 
       ? `Previous conversation context: ${context.join('. ')}\n\n`
       : '';
     
     const prompt = `${contextText}I'm looking at this image through my camera. Tell me what you see and provide helpful insights. Be conversational and friendly. If I've asked about something specific in our conversation, focus on that.`;
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: base64Data
-        }
-      }
-    ]);
-
-    const response = await result.response;
-    return response.text();
+    return await generateVisionResponse(prompt, dataUrl, []);
   } catch (error) {
     console.error('Visual AI stream analysis error:', error);
     return 'I\'m having trouble analyzing the image right now. Please ensure your camera is working and try again.';

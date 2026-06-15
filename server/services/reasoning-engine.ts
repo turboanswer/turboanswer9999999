@@ -3,17 +3,17 @@
  * Auto-routes between fast / retrieval-only / deep multi-model reasoning.
  * Streams progress via onEvent callback.
  *
- * As of May 2026, all model calls go DIRECT to provider APIs (Anthropic /
- * OpenAI / Google / Groq) via direct-router.ts — OpenRouter has been removed
- * to cut ~15% markup, remove a network hop (~150-300ms faster), and improve
- * reliability. Model IDs keep their OR-style "provider/model" prefix for
- * backwards compatibility with existing call sites.
+ * The entire text engine runs EXCLUSIVELY on Anthropic Claude (direct API, or
+ * Azure-hosted Claude) via direct-router.ts. There are NO non-Claude fallbacks:
+ * if Claude fails, calls fail loudly. Model IDs keep their "provider/model"
+ * prefix for backwards compatibility — the router maps every id to a Claude
+ * model by tier.
  */
 import { retrieveSources as retrieveSourcesMulti } from './retrievers';
 import { callDirect, callDirectStream, type Message } from './direct-router';
 
-const MODEL_ROUTER = 'google/gemini-2.5-flash';
-const MODEL_PLANNER = 'google/gemini-2.5-flash';
+const MODEL_ROUTER = 'anthropic/claude-haiku';
+const MODEL_PLANNER = 'anthropic/claude-haiku';
 // Verification panel: 3 strongest brands, all routed direct. Dropped x-ai/grok-4
 // and deepseek/deepseek-r1 (no direct keys + DeepSeek R1 was the slow link).
 // Three independent models is enough for quorum-of-2 verification while halving
@@ -24,8 +24,8 @@ const MODEL_PANEL = [
   { id: 'anthropic/claude-haiku', name: 'Matrix Core γ', costPer1k: 0.005 },
 ];
 const MODEL_JUDGE = 'anthropic/claude-opus-4-1';
-const MODEL_VERIFIER = 'google/gemini-2.5-flash';
-const MODEL_DEBATE = 'google/gemini-2.5-flash';
+const MODEL_VERIFIER = 'anthropic/claude-haiku';
+const MODEL_DEBATE = 'anthropic/claude-haiku';
 
 const COST_CEILING_USD = 0.30;
 
@@ -58,8 +58,8 @@ export type RouteDecision = {
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
-// Thin wrapper that builds the OpenAI-style messages array and dispatches via
-// the direct router (no more OpenRouter HTTP hop).
+// Thin wrapper that builds the messages array and dispatches via the direct
+// router, which always resolves to a Claude model.
 async function callOR(
   model: string,
   prompt: string,
@@ -484,358 +484,6 @@ Output STRICT JSON:
   return { verdict, claims, markedAnswer, confidence };
 }
 
-// ============= REPLIT-MANAGED OPENAI (free tier primary) =============
-// The free Lite plan answers via Replit's hosted OpenAI proxy (gpt-4o-mini).
-// Replit covers the API cost out of the integration's free credits, so the
-// app does NOT burn the founder's personal OPENAI_API_KEY for free traffic.
-// Falls through to direct Gemini if the proxy is unavailable.
-const REPLIT_OPENAI_KEY = () => process.env.AI_INTEGRATIONS_OPENAI_API_KEY || '';
-const REPLIT_OPENAI_BASE = () => process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || '';
-const REPLIT_FREE_MODEL = 'gpt-4o-mini';
-
-function buildOpenAIMessages(prompt: string, system?: string, history?: ChatTurn[]): any[] {
-  const msgs: any[] = [];
-  if (system) msgs.push({ role: 'system', content: system });
-  if (history?.length) {
-    for (const h of history) {
-      if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
-        msgs.push({ role: h.role, content: h.content });
-      }
-    }
-  }
-  msgs.push({ role: 'user', content: prompt });
-  return msgs;
-}
-
-async function callReplitOpenAI(
-  prompt: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {},
-): Promise<string | null> {
-  const key = REPLIT_OPENAI_KEY(); const base = REPLIT_OPENAI_BASE();
-  if (!key || !base) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 25000);
-  try {
-    const res = await fetch(`${base.replace(/\/+$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: REPLIT_FREE_MODEL,
-        messages: buildOpenAIMessages(prompt, opts.system, opts.history),
-        max_tokens: opts.maxTokens ?? 800,
-        temperature: opts.temperature ?? 0.4,
-      }),
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      console.warn(`[ReplitOpenAI] HTTP ${res.status}: ${txt.slice(0, 200)}`);
-      return null;
-    }
-    const data: any = await res.json();
-    return data?.choices?.[0]?.message?.content || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[ReplitOpenAI] failed: ${err?.message || err}`);
-    return null;
-  }
-}
-
-async function callReplitOpenAIStream(
-  prompt: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
-  onChunk: (text: string) => void,
-): Promise<string | null> {
-  const key = REPLIT_OPENAI_KEY(); const base = REPLIT_OPENAI_BASE();
-  if (!key || !base) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
-  try {
-    const res = await fetch(`${base.replace(/\/+$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: REPLIT_FREE_MODEL,
-        messages: buildOpenAIMessages(prompt, opts.system, opts.history),
-        max_tokens: opts.maxTokens ?? 800,
-        temperature: opts.temperature ?? 0.4,
-        stream: true,
-      }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok || !res.body) {
-      clearTimeout(t);
-      const txt = res.body ? '' : await res.text().catch(() => '');
-      // (body case will already have been parsed if !res.ok with a body — best effort log)
-      const errBody = !res.ok ? await res.text().catch(() => '') : '';
-      console.warn(`[ReplitOpenAI-stream] HTTP ${res.status}: ${(errBody || txt).slice(0, 200)}`);
-      return null;
-    }
-    const reader = (res.body as any).getReader();
-    const dec = new TextDecoder();
-    let buf = '', acc = '', done = false;
-    while (!done) {
-      const { done: rd, value } = await reader.read();
-      if (rd) break;
-      buf += dec.decode(value, { stream: true });
-      let i;
-      while ((i = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-        if (!line.startsWith('data:')) continue;
-        const data = line.slice(5).trim(); if (!data) continue;
-        if (data === '[DONE]') { done = true; break; }
-        try {
-          const p = JSON.parse(data);
-          const delta = p?.choices?.[0]?.delta?.content;
-          if (delta) { acc += delta; onChunk(delta); }
-        } catch {}
-      }
-    }
-    clearTimeout(t);
-    return acc || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[ReplitOpenAI-stream] failed: ${err?.message || err}`);
-    return null;
-  }
-}
-
-// ============= DIRECT GEMINI (Google AI Studio) =============
-// Free tier uses GEMINI_API_KEY (gemini-3.1-flash chain).
-// Pro tier uses GEMINI_PRO_API_KEY (gemini-3.1-pro chain).
-// Keys are kept separate so quota and billing can be tracked independently.
-const GEMINI_FREE_KEY = () => process.env.GEMINI_API_KEY || '';
-const GEMINI_PRO_KEY = () => process.env.GEMINI_PRO_API_KEY || '';
-// LOCKED per product spec:
-//   Free → Gemini 3.1 Flash (primary). Falls back to Gemini 3.1 Pro ONLY if
-//          Flash errors/quotas — never used for normal traffic.
-//   Pro  → Gemini 3.1 Pro only.
-// No fall-through to older Gemini generations (2.x).
-// Free tier fallback chain: try Gemini 3.1 first (newest, fastest), then fall
-// back to the rock-solid 2.5/2.0 models. Without these fallbacks, a single
-// transient 3.1 error makes the free chat appear broken.
-const GEMINI_FREE_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
-const GEMINI_PRO_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash'];
-
-async function callGeminiDirect(
-  model: string,
-  prompt: string,
-  apiKey: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
-): Promise<string | null> {
-  const key = apiKey;
-  if (!key) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 25000);
-  try {
-    const contents: any[] = [];
-    if (opts.history && opts.history.length) {
-      for (const h of opts.history) {
-        if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
-          contents.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] });
-        }
-      }
-    }
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
-    const body: any = {
-      contents,
-      generationConfig: {
-        temperature: opts.temperature ?? 0.4,
-        maxOutputTokens: opts.maxTokens ?? 1500,
-      },
-    };
-    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal }
-    );
-    clearTimeout(t);
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      console.warn(`[Gemini] ${model} HTTP ${res.status}: ${txt.slice(0, 200)}`);
-      return null;
-    }
-    const data: any = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('') || null;
-    return text || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[Gemini] ${model} failed: ${err.message}`);
-    return null;
-  }
-}
-
-async function callGeminiWithFallback(
-  prompt: string,
-  models: string[],
-  apiKey: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
-): Promise<string | null> {
-  if (!apiKey) return null;
-  for (const model of models) {
-    const out = await callGeminiDirect(model, prompt, apiKey, opts);
-    if (out) return out;
-  }
-  return null;
-}
-
-// ============= TIER-AWARE MODEL SELECTION (OpenRouter fallback chain) =============
-// Pro → Gemini Pro. Research/Enterprise → Matrix AI panel (handled elsewhere).
-// Free is handled directly via callGeminiWithFallback above (no OpenRouter cost).
-function modelsForTier(tier?: string): string[] {
-  const t = (tier || 'free').toLowerCase();
-  // LOCKED per product spec:
-  //   Pro  → Gemini 3.1 Pro only.
-  //   Free → Gemini 3.1 Flash, with Gemini 3.1 Pro as emergency fallback only.
-  if (t === 'pro') return ['anthropic/claude-sonnet-4.5', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash'];
-  // Free tier: Claude Haiku (fast + cheap) with Gemini Flash as fallback so chat
-  // never goes silent.
-  return ['anthropic/claude-haiku', 'google/gemini-2.0-flash-001', 'google/gemini-2.5-flash'];
-}
-
-async function callORWithFallback(
-  models: string[],
-  prompt: string,
-  opts: { maxTokens?: number; temperature?: number; jsonMode?: boolean; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
-): Promise<string | null> {
-  for (const model of models) {
-    const out = await callOR(model, prompt, opts);
-    if (out) return out;
-  }
-  return null;
-}
-
-// ============= AZURE AI FOUNDRY (Microsoft) — SOLE PROVIDER =============
-// All chat tiers route through deployments on the user's Azure AI Foundry
-// resource. No OpenRouter, no Google Gemini, no direct OpenAI. The deployment
-// names are read from env, with sensible defaults matching the current
-// Foundry inventory (gpt-5.4-nano / -mini / -pro).
-const AZURE_API_VERSION = '2024-08-01-preview';
-const AZURE_ENDPOINT_BASE = () => {
-  const raw = process.env.AZURE_OPENAI_ENDPOINT || '';
-  // Strip the /api/projects/<project> suffix — chat completions live at the
-  // resource root under /openai/deployments/<name>/chat/completions.
-  return raw.replace(/\/+$/, '').replace(/\/api\/projects\/[^/]+$/, '');
-};
-const AZURE_KEY = () => process.env.AZURE_OPENAI_API_KEY || '';
-const AZURE_DEPLOY = {
-  nano: () => process.env.AZURE_OPENAI_DEPLOYMENT_NANO || 'gpt-5.4-nano',
-  mini: () => process.env.AZURE_OPENAI_DEPLOYMENT_MINI || 'gpt-5.4-mini',
-  pro:  () => process.env.AZURE_OPENAI_DEPLOYMENT_PRO  || 'gpt-5.4-pro',
-};
-function deploymentForTier(tier?: string): string {
-  const t = (tier || 'free').toLowerCase();
-  if (t === 'research' || t === 'enterprise' || t === 'owner') return AZURE_DEPLOY.pro();
-  if (t === 'pro') return AZURE_DEPLOY.mini();
-  return AZURE_DEPLOY.nano();
-}
-
-async function callAzureFoundry(
-  deployment: string,
-  prompt: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {},
-): Promise<string | null> {
-  const base = AZURE_ENDPOINT_BASE(); const key = AZURE_KEY();
-  if (!base || !key) { console.warn('[AzureFoundry] Missing AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY'); return null; }
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
-  try {
-    const res = await fetch(
-      `${base}/openai/deployments/${deployment}/chat/completions?api-version=${AZURE_API_VERSION}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': key },
-        body: JSON.stringify({
-          messages: buildOpenAIMessages(prompt, opts.system, opts.history),
-          // gpt-5.x deployments use max_completion_tokens (not max_tokens) and
-          // ignore custom temperature (only the default value is supported).
-          max_completion_tokens: opts.maxTokens ?? 800,
-        }),
-        signal: ctrl.signal,
-      }
-    );
-    clearTimeout(t);
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      console.warn(`[AzureFoundry] ${deployment} HTTP ${res.status}: ${txt.slice(0, 240)}`);
-      return null;
-    }
-    const data: any = await res.json();
-    return data?.choices?.[0]?.message?.content || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[AzureFoundry] ${deployment} failed: ${err?.message || err}`);
-    return null;
-  }
-}
-
-async function callAzureFoundryStream(
-  deployment: string,
-  prompt: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
-  onChunk: (text: string) => void,
-): Promise<string | null> {
-  const base = AZURE_ENDPOINT_BASE(); const key = AZURE_KEY();
-  if (!base || !key) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 60000);
-  try {
-    const res = await fetch(
-      `${base}/openai/deployments/${deployment}/chat/completions?api-version=${AZURE_API_VERSION}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': key, 'Accept': 'text/event-stream' },
-        body: JSON.stringify({
-          messages: buildOpenAIMessages(prompt, opts.system, opts.history),
-          max_completion_tokens: opts.maxTokens ?? 800,
-          stream: true,
-        }),
-        signal: ctrl.signal,
-      }
-    );
-    if (!res.ok || !res.body) {
-      clearTimeout(t);
-      const txt = await res.text().catch(() => '');
-      console.warn(`[AzureFoundry-stream] ${deployment} HTTP ${res.status}${txt ? `: ${txt.slice(0, 240)}` : ''}`);
-      return null;
-    }
-    const reader = (res.body as any).getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let acc = '';
-    const handleLine = (raw: string) => {
-      const line = raw.trim();
-      if (!line.startsWith('data:')) return;
-      const data = line.slice(5).trim();
-      if (!data || data === '[DONE]') return;
-      try {
-        const parsed = JSON.parse(data);
-        const delta = parsed?.choices?.[0]?.delta?.content || '';
-        if (delta) { acc += delta; onChunk(delta); }
-      } catch {}
-    };
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        handleLine(line);
-      }
-    }
-    if (buffer.length) handleLine(buffer);
-    clearTimeout(t);
-    return acc || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[AzureFoundry-stream] ${deployment} failed: ${err?.message || err}`);
-    return null;
-  }
-}
-
 // Tier → Claude model. Free = Haiku (fast), Pro = Sonnet 4.5, Research /
 // Enterprise / Owner = Opus (deepest). These three Claude models are the whole
 // text engine; GPT/OpenAI is reserved strictly for image generation.
@@ -846,19 +494,15 @@ function claudeModelForTier(tier?: string): string {
   return 'anthropic/claude-haiku';
 }
 
-// All text tiers answer on Claude. Gemini is the resilience fallback (never GPT)
-// so chat never goes silent if Anthropic has a transient hiccup.
+// All text tiers answer EXCLUSIVELY on Claude (via the direct router). There is
+// no non-Claude fallback: if Anthropic fails, this returns null and the caller
+// fails loudly rather than silently switching providers.
 async function answerForTier(
   prompt: string,
   tier: string | undefined,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
 ): Promise<string | null> {
-  const out = await callOR(claudeModelForTier(tier), prompt, opts);
-  if (out) return out;
-  const proTier = (tier || 'free').toLowerCase() !== 'free';
-  const key = proTier ? (GEMINI_PRO_KEY() || GEMINI_FREE_KEY()) : (GEMINI_FREE_KEY() || GEMINI_PRO_KEY());
-  const gmodels = proTier ? GEMINI_PRO_MODELS : GEMINI_FREE_MODELS;
-  return await callGeminiWithFallback(prompt, gmodels, key, opts);
+  return await callOR(claudeModelForTier(tier), prompt, opts);
 }
 
 // ============= TIER-BASED RESPONSE SHAPING =============
@@ -948,15 +592,14 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
   // No silent fallback — surface the failure so the route returns a real HTTP
   // error and the UI can offer a retry instead of persisting a fake assistant
   // message in chat history.
-  throw new Error('AI_PROVIDERS_UNAVAILABLE: All upstream AI providers failed or returned empty. Check provider keys (Replit OpenAI proxy, GEMINI_API_KEY, OPENROUTER_API_KEY).');
+  throw new Error('AI_ENGINE_UNAVAILABLE: The Claude engine failed or returned empty. Check the Anthropic API key / Azure Claude deployment.');
 }
 
 // ============= STREAMING (token-by-token) FAST PATH =============
 // Used by the SSE endpoint so the user sees the first words within ~1s instead
 // of waiting for the entire answer to be generated server-side.
 
-// Streaming variant — also dispatched via direct router (Anthropic / OpenAI /
-// Google / Groq all support native SSE).
+// Streaming variant — also dispatched via the direct router (Claude SSE).
 async function callORStream(
   model: string,
   prompt: string,
@@ -980,112 +623,20 @@ async function callORStream(
   }, onChunk);
 }
 
-async function callGeminiStream(
-  model: string,
-  prompt: string,
-  apiKey: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
-  onChunk: (text: string) => void,
-): Promise<string | null> {
-  if (!apiKey) return null;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
-  try {
-    const contents: any[] = [];
-    if (opts.history?.length) {
-      for (const h of opts.history) {
-        if (h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string' && h.content.trim()) {
-          contents.push({ role: h.role === 'assistant' ? 'model' : 'user', parts: [{ text: h.content }] });
-        }
-      }
-    }
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
-    const body: any = {
-      contents,
-      generationConfig: {
-        temperature: opts.temperature ?? 0.4,
-        maxOutputTokens: opts.maxTokens ?? 1500,
-      },
-    };
-    if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal }
-    );
-    if (!res.ok || !res.body) {
-      clearTimeout(t);
-      // Read the error body when present so we actually see WHY Gemini rejected
-      // the request (model not found, quota, safety, etc).
-      const txt = await res.text().catch(() => '');
-      console.warn(`[Gemini-stream] ${model} HTTP ${res.status}${txt ? `: ${txt.slice(0, 300)}` : ''}`);
-      return null;
-    }
-    const reader = (res.body as any).getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let acc = '';
-    const handleLine = (raw: string) => {
-      const line = raw.trim();
-      if (!line.startsWith('data:')) return;
-      const data = line.slice(5).trim();
-      if (!data || data === '[DONE]') return;
-      try {
-        const parsed = JSON.parse(data);
-        const parts = parsed?.candidates?.[0]?.content?.parts;
-        const delta = Array.isArray(parts) ? parts.map((p: any) => p?.text || '').join('') : '';
-        if (delta.length) {
-          acc += delta;
-          onChunk(delta);
-        }
-      } catch {}
-    };
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        handleLine(line);
-      }
-    }
-    if (buffer.length) handleLine(buffer);
-    clearTimeout(t);
-    return acc || null;
-  } catch (err: any) {
-    clearTimeout(t);
-    console.warn(`[Gemini-stream] ${model} failed: ${err.message}`);
-    return null;
-  }
-}
-
 async function answerForTierStream(
   prompt: string,
   tier: string | undefined,
   opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
   onChunk: (text: string) => void,
 ): Promise<string | null> {
-  // Stream from the tier's Claude model. Same emit-guard discipline as before:
-  // once ANY chunk has reached the client we must NOT cascade to another model
-  // (a second stream would re-emit tokens and garble the live output) — instead
-  // fail (return null) and let the caller keep the partial text it received.
+  // Stream from the tier's Claude model. There is NO non-Claude fallback: if
+  // Anthropic fails this returns null and the caller fails loudly. Once ANY
+  // chunk has reached the client we must never cascade to another stream (it
+  // would re-emit tokens and garble the live output).
   const model = claudeModelForTier(tier);
   let emitted = false;
   const guarded = (text: string) => { emitted = true; onChunk(text); };
-  const out = await callORStream(model, prompt, opts, guarded);
-  if (out) return out;
-  if (emitted) return null;
-  // Resilience fallback: Gemini stream (never GPT — that's image-only).
-  const proTier = (tier || 'free').toLowerCase() !== 'free';
-  const key = proTier ? (GEMINI_PRO_KEY() || GEMINI_FREE_KEY()) : (GEMINI_FREE_KEY() || GEMINI_PRO_KEY());
-  const gmodels = proTier ? GEMINI_PRO_MODELS : GEMINI_FREE_MODELS;
-  for (const gm of gmodels) {
-    const fb = await callGeminiStream(gm, prompt, key, opts, guarded);
-    if (fb) return fb;
-    if (emitted) return null;
-  }
-  return null;
+  return await callORStream(model, prompt, opts, guarded);
 }
 
 export async function fastAnswerStream(

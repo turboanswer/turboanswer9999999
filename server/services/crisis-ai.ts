@@ -101,8 +101,8 @@ export async function generateCrisisResponse(
   userLanguage: string = "en"
 ): Promise<string> {
   try {
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    if (!geminiApiKey) {
+    const anthropicKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY;
+    if (!anthropicKey) {
       return getConversationalFallback();
     }
 
@@ -115,69 +115,25 @@ export async function generateCrisisResponse(
       `${m.role === 'user' ? 'Person' : 'Supporter'}: ${m.content.slice(0, 800)}`
     ).join('\n');
 
-    const fullPrompt = recentHistory
-      ? `${systemPrompt}\n\nConversation so far:\n${recentHistory}\n\nPerson: ${userMessage}\n\nRespond as Supporter. Be conversational, warm, and engage with what they actually said. Do NOT list hotline numbers unless they express active suicidal intent. Have a real conversation.`
-      : `${systemPrompt}\n\nPerson: ${userMessage}\n\nRespond as Supporter. Be conversational, warm, and engage with what they actually said. Do NOT list hotline numbers unless they express active suicidal intent. Have a real conversation.`;
+    const userPrompt = recentHistory
+      ? `Conversation so far:\n${recentHistory}\n\nPerson: ${userMessage}\n\nRespond as Supporter. Be conversational, warm, and engage with what they actually said. Do NOT list hotline numbers unless they express active suicidal intent. Have a real conversation.`
+      : `Person: ${userMessage}\n\nRespond as Supporter. Be conversational, warm, and engage with what they actually said. Do NOT list hotline numbers unless they express active suicidal intent. Have a real conversation.`;
 
-    const requestBody = JSON.stringify({
-      contents: [{ parts: [{ text: fullPrompt }] }],
-      generationConfig: { 
-        temperature: 0.8,
-        maxOutputTokens: 1500
-      },
-      safetySettings: [
-        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-      ]
-    });
+    try {
+      const { callDirect } = await import('./direct-router.js');
+      const content = await callDirect('anthropic/claude-haiku', [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ], { maxTokens: 1500, temperature: 0.8 });
 
-    const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
-    
-    for (const model of models) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
-        
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody, signal: controller.signal }
-        );
-        clearTimeout(timeout);
-
-        if (response.status === 429) continue;
-
-        const data = await response.json();
-        if (data.error) {
-          console.log(`[CrisisAI] ${model} API error:`, data.error.message);
-          continue;
-        }
-
-        if (data.promptFeedback?.blockReason) {
-          console.log(`[CrisisAI] ${model} prompt blocked: ${data.promptFeedback.blockReason}, providing conversational fallback`);
-          return getConversationalFallback();
-        }
-
-        const candidate = data.candidates?.[0];
-        const finishReason = candidate?.finishReason;
-
-        if (finishReason === 'SAFETY' || finishReason === 'BLOCKED' || finishReason === 'OTHER') {
-          console.log(`[CrisisAI] ${model} blocked by safety filter (${finishReason}), providing conversational fallback`);
-          return getConversationalFallback();
-        }
-
-        const content = candidate?.content?.parts?.[0]?.text;
-        if (content) {
-          console.log(`[CrisisAI] ${model} responded successfully`);
-          return content;
-        }
-
-        console.log(`[CrisisAI] ${model} returned empty content, finishReason: ${finishReason}`);
-      } catch (error: any) {
-        console.log(`[CrisisAI] ${model} failed: ${error.message}`);
-        continue;
+      if (content && content.trim()) {
+        console.log('[CrisisAI] Claude responded successfully');
+        return content;
       }
+
+      console.log('[CrisisAI] Claude returned empty content, providing conversational fallback');
+    } catch (error: any) {
+      console.log(`[CrisisAI] Claude failed: ${error.message}, providing conversational fallback`);
     }
 
     return getConversationalFallback();

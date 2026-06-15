@@ -21,7 +21,7 @@
 - [Native app vs website identity](native-vs-website-identity.md) — Capacitor app is a separate "division" (dark futuristic "Matrix AI"); native must never land on website LandingPage; web keeps its own look.
 - [Azure Infra Control Center](azure-infra-control-center.md) — owner-only Azure admin dashboard; SP secret ID-vs-value gotcha + the RBAC roles its data planes need (403/404 = missing roles, not code).
 - [Cookie SameSite dual-origin](cookie-samesite-dual-origin.md) — web is same-origin (Lax) but native app is cross-origin localhost→Azure (needs None;Secure); pick SameSite per req.origin or login breaks in app only.
-- [Text engine = Claude](text-engine-claude.md) — all text tiers run on Claude (Haiku/Sonnet4.5/Opus by tier); GPT/OpenAI is image-generation ONLY; direct-router remaps any stray gpt id to Claude.
+- [Text engine = Claude](text-engine-claude.md) — all text/vision/doc on Claude, no fallback (fail loud); image gen/edit + TTS are the deliberate non-Claude carve-out kept per user; direct-router remaps stray ids to Claude.
 - [AI action confirmation tokens](ai-action-confirmation-token.md) — side-effect AI actions must require a server-signed HMAC proposal token (user+action+args-bound), not trust the client; UI confirm is not a control.
 - [Claude tool use & command center](claude-tool-use.md) — read/compute tools auto-run; side-effect tools need server-revalidated confirm; chat uses regex-gated Haiku preflight, not streaming tool loops.
 - [AI identity guard](ai-identity-guard.md) — every user-facing assistant prompt must pin the product identity, never a vendor; mixed backend + Gemini fallback leaks "Google" otherwise.

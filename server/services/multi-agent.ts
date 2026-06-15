@@ -78,56 +78,11 @@ function tryComputeArithmetic(question: string): string | null {
   return null;
 }
 
-// All 5 perspective models (Anthropic / OpenAI / Google / OpenAI-mini / Google-flash)
-// dispatch via the shared direct-router. OpenRouter has been removed.
+// Every perspective model is a Claude model, dispatched via the shared
+// direct-router (which always resolves to Claude). There is no non-Claude path.
 async function callOpenRouter(model: string, prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
   const { callDirect } = await import('./direct-router.js');
   return callDirect(model, [{ role: 'user', content: prompt }], { maxTokens, temperature, timeoutMs: 45000 });
-}
-
-async function callClaude(_prompt: string, _maxTokens: number, _temperature: number): Promise<string | null> {
-  // DISABLED per product decision: GPT-only stack. Agents fall through to Gemini
-  // (and ultimately fail-soft) instead of routing to Claude.
-  return null;
-}
-
-async function callGemini(prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-
-  const { isModelDowned } = await import('./auto-remediation.js');
-  if (isModelDowned('gemini')) {
-    console.log(`[Gemini] Skipped — provider marked downed by auto-remediation`);
-    return null;
-  }
-
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash'];
-  for (const model of models) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature, maxOutputTokens: maxTokens },
-          }),
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeout);
-      if (!response.ok) continue;
-      const data: any = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
-    } catch {
-      continue;
-    }
-  }
-  return null;
 }
 
 async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: string, verifiedAnswer?: string | null): Promise<{ id: string; name: string; model: string; response: string } | null> {
@@ -136,30 +91,15 @@ async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: st
     : '';
   const prompt = `${perspective.prompt}\n\nQuestion: ${question}${groundTruth}\nGive a focused analysis in 2-4 paragraphs. Be specific, not generic. No preamble — go straight into your analysis.`;
 
-  let response: string | null = null;
-  let actualModel = perspective.modelLabel;
-
-  response = await callOpenRouter(perspective.model, prompt, 1500, 0.3);
-
-  if (response) {
-    console.log(`[Multi-Agent] ${perspective.name} → ${perspective.modelLabel} ✓`);
-  }
-
+  // Claude only — no fallback to any other provider. If this perspective's
+  // Claude model fails, the agent simply drops out (returns null).
+  const response = await callOpenRouter(perspective.model, prompt, 1500, 0.3);
   if (!response) {
-    console.log(`[Multi-Agent] ${perspective.name} → ${perspective.modelLabel} failed, falling back to Claude`);
-    response = await callClaude(prompt, 1500, 0.2);
-    if (response) actualModel = 'Claude Sonnet 4 (fallback)';
+    console.log(`[Multi-Agent] ${perspective.name} → ${perspective.modelLabel} failed (no fallback)`);
+    return null;
   }
-
-  if (!response) {
-    console.log(`[Multi-Agent] ${perspective.name} → Claude failed, falling back to Gemini`);
-    response = await callGemini(prompt, 1500, 0.3);
-    if (response) actualModel = 'Gemini (fallback)';
-  }
-
-  if (!response) return null;
-
-  return { id: perspective.id, name: perspective.name, model: actualModel, response };
+  console.log(`[Multi-Agent] ${perspective.name} → ${perspective.modelLabel} ✓`);
+  return { id: perspective.id, name: perspective.name, model: perspective.modelLabel, response };
 }
 
 export async function runMultiAgentResearch(question: string, languageInstruction: string = '', behaviorInstruction: string = ''): Promise<string> {
@@ -181,7 +121,7 @@ export async function runMultiAgentResearch(question: string, languageInstructio
     .filter(Boolean) as { id: string; name: string; model: string; response: string }[];
 
   const modelsUsed = [...new Set(agentResponses.map(a => a.model))];
-  console.log(`[Multi-Agent] ${agentResponses.length}/10 agents responded in ${Date.now() - startTime}ms`);
+  console.log(`[Multi-Agent] ${agentResponses.length}/${AGENT_PERSPECTIVES.length} agents responded in ${Date.now() - startTime}ms`);
   console.log(`[Multi-Agent] Models used: ${modelsUsed.join(', ')}`);
 
   if (agentResponses.length === 0) {
@@ -224,6 +164,9 @@ ${behaviorInstruction ? behaviorInstruction : ''}
 
 Write the synthesized response now:`;
 
+  // Synthesis runs on Claude only: Opus first, Sonnet as the secondary Claude
+  // model. No non-Claude emergency fallback and no raw-join — if both Claude
+  // syntheses fail we throw so the failure is surfaced loudly.
   let synthesis: string | null = null;
 
   synthesis = await callOpenRouter('anthropic/claude-opus-4-1', synthesisPrompt, 4096, 0.15);
@@ -237,17 +180,7 @@ Write the synthesized response now:`;
   }
 
   if (!synthesis) {
-    synthesis = await callClaude(synthesisPrompt, 4096, 0.15);
-    if (synthesis) console.log(`[Multi-Agent] Synthesis by Claude (emergency fallback)`);
-  }
-
-  if (!synthesis) {
-    synthesis = await callGemini(synthesisPrompt, 4096, 0.2);
-    if (synthesis) console.log(`[Multi-Agent] Synthesis by Gemini (emergency fallback)`);
-  }
-
-  if (!synthesis) {
-    synthesis = agentResponses.map(a => `## ${a.name}\n\n${a.response}`).join('\n\n---\n\n');
+    throw new Error('AI_ENGINE_UNAVAILABLE: Claude synthesis failed. Check the Anthropic API key / Azure Claude deployment.');
   }
 
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);

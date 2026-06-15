@@ -21,13 +21,10 @@ export async function analyzeLiveCamera(request: LiveCameraAnalysisRequest): Pro
   const { imageData, question, language, context } = request;
   
   try {
-    // Check for available AI services
-    const hasGemini = !!process.env.GEMINI_API_KEY;
-    const hasOpenAI = !!process.env.OPENAI_API_KEY;
-    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-    
-    if (!hasGemini && !hasOpenAI && !hasAnthropic) {
-      throw new Error("No AI API keys configured for visual analysis");
+    // Claude-only: the live-camera engine uses Claude vision exclusively.
+    const hasClaude = !!(process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY);
+    if (!hasClaude) {
+      throw new Error("AI_ENGINE_UNAVAILABLE: Claude vision is not configured for live camera analysis.");
     }
     
     // Language-specific instructions
@@ -63,19 +60,9 @@ USER QUESTION: ${question}
 
 Analyze the live camera feed and provide a helpful response.`;
 
-    let analysis: string;
-    
-    // Try Gemini first for best vision capabilities
-    if (hasGemini) {
-      analysis = await analyzeWithGemini(imageData, systemPrompt);
-    } else if (hasOpenAI) {
-      analysis = await analyzeWithOpenAI(imageData, systemPrompt);
-    } else if (hasAnthropic) {
-      analysis = await analyzeWithAnthropic(imageData, systemPrompt);
-    } else {
-      throw new Error("No suitable AI service available for vision analysis");
-    }
-    
+    // Claude only — no fallback to any other provider.
+    const analysis = await analyzeWithClaude(imageData, systemPrompt);
+
     return {
       analysis,
       confidence: 0.9,
@@ -88,168 +75,65 @@ Analyze the live camera feed and provide a helpful response.`;
   }
 }
 
-// Gemini Vision Analysis
-async function analyzeWithGemini(imageData: string, prompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("Gemini API key not configured");
-  
-  try {
-    // Remove data URL prefix
-    const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-    
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
+// Claude Vision Analysis — the only vision provider for live camera.
+async function analyzeWithClaude(imageData: string, prompt: string): Promise<string> {
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+  if (!apiKey) throw new Error("AI_ENGINE_UNAVAILABLE: Anthropic API key not configured");
+
+  // Remove data URL prefix and get mime type
+  const matches = imageData.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,(.*)$/);
+  if (!matches) throw new Error('Invalid image data format');
+
+  const mimeType = matches[1];
+  const base64Image = matches[2];
+
+  const models = ['claude-sonnet-4-5-20250929', 'claude-3-5-haiku-20241022'];
+  for (const model of models) {
+    try {
+      const response = await fetch(`${base.replace(/\/$/, '')}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 300,
+          temperature: 0.4,
+          messages: [
             {
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: base64Image
-              }
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                {
+                  type: 'image',
+                  source: { type: 'base64', media_type: mimeType, data: base64Image }
+                }
+              ]
             }
           ]
-        }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 300, // Concise responses for live feed
-          topP: 0.8,
-          topK: 40
-        }
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      console.error('[Gemini Vision] Error:', data.error);
-      throw new Error(`Gemini Vision Error: ${data.error.message}`);
-    }
-    
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) {
-      throw new Error('No content received from Gemini Vision');
-    }
-    
-    return content;
-    
-  } catch (error) {
-    console.error('[Gemini Vision] Error:', error);
-    throw error;
-  }
-}
+        })
+      });
 
-// OpenAI Vision Analysis
-async function analyzeWithOpenAI(imageData: string, prompt: string): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OpenAI API key not configured");
-  
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o', // GPT-4 with vision
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: imageData } }
-            ]
-          }
-        ],
-        max_tokens: 300,
-        temperature: 0.4
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      console.error('[OpenAI Vision] Error:', data.error);
-      throw new Error(`OpenAI Vision Error: ${data.error.message}`);
-    }
-    
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('No content received from OpenAI Vision');
-    }
-    
-    return content;
-    
-  } catch (error) {
-    console.error('[OpenAI Vision] Error:', error);
-    throw error;
-  }
-}
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.error(`[Claude Vision] ${model} error ${response.status}: ${errText.slice(0, 200)}`);
+        if (response.status === 401 || response.status === 403) break;
+        continue;
+      }
 
-// Anthropic Vision Analysis (Claude 3)
-async function analyzeWithAnthropic(imageData: string, prompt: string): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("Anthropic API key not configured");
-  
-  try {
-    // Remove data URL prefix and get mime type
-    const matches = imageData.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,(.*)$/);
-    if (!matches) throw new Error('Invalid image data format');
-    
-    const mimeType = matches[1];
-    const base64Image = matches[2];
-    
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 300,
-        temperature: 0.4,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mimeType,
-                  data: base64Image
-                }
-              }
-            ]
-          }
-        ]
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      console.error('[Anthropic Vision] Error:', data.error);
-      throw new Error(`Anthropic Vision Error: ${data.error.message}`);
+      const data: any = await response.json();
+      const content = data?.content?.find((b: any) => b.type === 'text')?.text || data?.content?.[0]?.text;
+      if (content && String(content).trim()) return String(content);
+    } catch (error) {
+      console.error(`[Claude Vision] ${model} threw:`, error);
     }
-    
-    const content = data.content?.[0]?.text;
-    if (!content) {
-      throw new Error('No content received from Anthropic Vision');
-    }
-    
-    return content;
-    
-  } catch (error) {
-    console.error('[Anthropic Vision] Error:', error);
-    throw error;
   }
+
+  // Fail loud — no fallback to any other provider.
+  throw new Error('AI_ENGINE_UNAVAILABLE: Claude vision is unavailable for live camera analysis.');
 }
 
 // Real-time object detection and tracking

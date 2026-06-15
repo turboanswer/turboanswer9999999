@@ -1,5 +1,3 @@
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-
 export interface DiagnosisResult {
   problem: string;
   severity: number;
@@ -12,9 +10,11 @@ export interface DiagnosisResult {
 }
 
 export async function diagnoseImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<DiagnosisResult> {
-  const apiKey = GEMINI_API_KEY;
+  // Claude-only: the diagnosis engine uses Claude vision exclusively.
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
   if (!apiKey) {
-    throw new Error("Gemini API key not configured");
+    throw new Error("AI_ENGINE_UNAVAILABLE: Anthropic API key not configured");
   }
 
   const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
@@ -33,27 +33,9 @@ Return your response as valid JSON with exactly this structure:
   "fullAnalysis": "Detailed paragraph explaining the diagnosis, what you see, potential risks, and recommended course of action"
 }
 
-Be thorough and practical. If the image doesn't show a clear problem, still provide your best assessment of what you see and any maintenance recommendations.`;
+Be thorough and practical. If the image doesn't show a clear problem, still provide your best assessment of what you see and any maintenance recommendations. Respond with ONLY the JSON object, no other text.`;
 
-  const requestBody = {
-    contents: [{
-      parts: [
-        {
-          inline_data: {
-            mime_type: mimeType,
-            data: base64Data
-          }
-        },
-        { text: prompt }
-      ]
-    }],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 4000,
-    }
-  };
-
-  const models = ['gemini-2.0-flash', 'gemini-2.5-flash'];
+  const models = ['claude-sonnet-4-5-20250929', 'claude-3-5-haiku-20241022'];
 
   for (const model of models) {
     try {
@@ -61,29 +43,38 @@ Be thorough and practical. If the image doesn't show a clear problem, still prov
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
-        }
-      );
+      const response = await fetch(`${base.replace(/\/$/, '')}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4000,
+          temperature: 0.2,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Data } },
+              { type: 'text', text: prompt },
+            ],
+          }],
+        }),
+        signal: controller.signal,
+      });
       clearTimeout(timeout);
 
-      if (response.status === 429 || response.status === 503) {
-        console.log(`[SmartDiagnosis] ${model} unavailable (${response.status}), trying next...`);
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.error(`[SmartDiagnosis] ${model} error ${response.status}: ${errText.slice(0, 200)}`);
+        if (response.status === 401 || response.status === 403) break;
         continue;
       }
 
-      const data = await response.json();
-      if (data.error) {
-        console.error(`[SmartDiagnosis] ${model} error:`, data.error.message);
-        continue;
-      }
-
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const data: any = await response.json();
+      const content = data?.content?.find((b: any) => b.type === 'text')?.text || data?.content?.[0]?.text;
       if (!content) continue;
 
       console.log(`[SmartDiagnosis] ${model} completed in ${Date.now() - start}ms`);
@@ -112,5 +103,6 @@ Be thorough and practical. If the image doesn't show a clear problem, still prov
     }
   }
 
-  throw new Error('Smart diagnosis temporarily unavailable. Please try again.');
+  // Fail loud — no fallback to any other provider.
+  throw new Error('AI_ENGINE_UNAVAILABLE: Claude diagnosis is unavailable.');
 }

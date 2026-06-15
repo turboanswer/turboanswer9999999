@@ -1,6 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { callDirect } from "./direct-router.js";
 
-const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+function hasAIKey(): boolean {
+  return !!(process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY);
+}
 
 interface EmotionalContext {
   emotions: string[];
@@ -29,12 +31,19 @@ export class EmotionalAI {
   private conversationMemory: Map<string, ConversationMemory> = new Map();
 
   async analyzeEmotionalState(message: string, userId: string = "default"): Promise<EmotionalContext> {
+    const neutral: EmotionalContext = {
+      emotions: ["neutral"],
+      intensity: 5,
+      mood: "neutral",
+      conversationTone: "casual",
+      empathyLevel: 5
+    };
     try {
-      const model = ai.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        systemInstruction: `You are an expert emotional intelligence analyst. Analyze the emotional state, mood, and feelings in the user's message.
+      if (!hasAIKey()) return neutral;
 
-Respond with JSON in this exact format:
+      const systemPrompt = `You are an expert emotional intelligence analyst. Analyze the emotional state, mood, and feelings in the user's message.
+
+Respond with ONLY raw JSON (no markdown, no code fences) in this exact format:
 {
   "emotions": ["primary_emotion", "secondary_emotion"],
   "intensity": number_1_to_10,
@@ -48,34 +57,25 @@ Consider:
 - Implicit emotional cues (tone, word choice, punctuation)
 - Context clues (life events, relationships, work stress)
 - Energy level (high energy vs low energy emotions)
-- Social needs (wanting support, celebration, advice, venting)`,
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              emotions: { type: "array", items: { type: "string" } },
-              intensity: { type: "number" },
-              mood: { type: "string" },
-              conversationTone: { type: "string" },
-              empathyLevel: { type: "number" }
-            },
-            required: ["emotions", "intensity", "mood", "conversationTone", "empathyLevel"]
-          }
-        }
-      });
+- Social needs (wanting support, celebration, advice, venting)`;
 
-      const response = await model.generateContent(message);
-      return JSON.parse(response.response.text() || "{}");
+      const raw = await callDirect("anthropic/claude-haiku", [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ], { temperature: 0.2, maxTokens: 300, jsonMode: true });
+
+      const cleaned = (raw || "{}").replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim() || "{}";
+      const parsed = JSON.parse(cleaned);
+      return {
+        emotions: Array.isArray(parsed.emotions) && parsed.emotions.length ? parsed.emotions : neutral.emotions,
+        intensity: typeof parsed.intensity === "number" ? parsed.intensity : neutral.intensity,
+        mood: parsed.mood || neutral.mood,
+        conversationTone: parsed.conversationTone || neutral.conversationTone,
+        empathyLevel: typeof parsed.empathyLevel === "number" ? parsed.empathyLevel : neutral.empathyLevel,
+      };
     } catch (error) {
       console.error("Error analyzing emotional state:", error);
-      return {
-        emotions: ["neutral"],
-        intensity: 5,
-        mood: "neutral",
-        conversationTone: "casual",
-        empathyLevel: 5
-      };
+      return neutral;
     }
   }
 
@@ -119,29 +119,21 @@ Consider:
     const contextHistory = this.buildContextualHistory(conversationHistory, memory);
 
     try {
-      // Check if Gemini API key is available
-      if (!process.env.GEMINI_API_KEY) {
-        console.log("[Emotional AI] No Gemini API key found, using fallback response");
+      if (!hasAIKey()) {
+        console.log("[Emotional AI] No AI key found, using fallback response");
         return this.getFallbackEmpatheticResponse(emotionalContext);
       }
-
-      const model = ai.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        systemInstruction: emotionalPrompt,
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 70,
-        }
-      });
 
       const contextString = [
         ...contextHistory.slice(-1),
         `Current message: "${userMessage}"`
       ].join("\n\n");
 
-      console.log(`[Emotional AI] Sending request to Gemini...`);
-      const response = await model.generateContent(contextString);
-      const responseText = response.response.text();
+      console.log(`[Emotional AI] Sending request to Claude...`);
+      const responseText = await callDirect("anthropic/claude-haiku", [
+        { role: "system", content: emotionalPrompt },
+        { role: "user", content: contextString },
+      ], { temperature: 0.3, maxTokens: 70 });
       
       console.log(`[Emotional AI] Generated response: ${responseText?.substring(0, 50)}...`);
       return responseText || "I understand how you're feeling. Could you tell me more about what's on your mind?";

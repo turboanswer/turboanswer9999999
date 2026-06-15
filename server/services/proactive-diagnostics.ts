@@ -61,28 +61,33 @@ async function checkDatabase(): Promise<DiagnosticResult> {
 
 async function checkAIService(): Promise<DiagnosticResult> {
   const ts = new Date().toISOString();
-  if (!process.env.GEMINI_API_KEY) {
-    return { check: 'AI Engine (Gemini)', status: 'fail', details: 'GEMINI_API_KEY not configured', timestamp: ts };
+  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
+  const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
+  if (!apiKey) {
+    return { check: 'AI Engine (Claude)', status: 'fail', details: 'Anthropic API key not configured', timestamp: ts };
   }
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models`,
-      { method: 'GET', headers: { 'x-goog-api-key': process.env.GEMINI_API_KEY! }, signal: AbortSignal.timeout(8000) }
-    );
+    // Minimal Claude completion probe — confirms the key and endpoint work.
+    const response = await fetch(`${base.replace(/\/$/, '')}/v1/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 1,
+        messages: [{ role: 'user', content: 'ping' }],
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
     if (response.ok) {
-      return { check: 'AI Engine (Gemini)', status: 'pass', details: 'Gemini API accessible and key valid', timestamp: ts };
+      return { check: 'AI Engine (Claude)', status: 'pass', details: 'Claude API accessible and key valid', timestamp: ts };
     }
     if (response.status === 429) {
-      return { check: 'AI Engine (Gemini)', status: 'warn', details: 'Rate limited — auto-recovery in progress', timestamp: ts };
+      return { check: 'AI Engine (Claude)', status: 'warn', details: 'Rate limited — auto-recovery in progress', timestamp: ts };
     }
-    // Don't escalate to `fail` for transient meta-endpoint issues — the
-    // /v1beta/models endpoint can return 4xx while actual chat completions
-    // still work, and we have alternate providers (OpenAI / OpenRouter) for
-    // failover. A real outage will show up in user-facing error tracking.
-    trackError('aiError', `Gemini meta endpoint status ${response.status}`);
-    return { check: 'AI Engine (Gemini)', status: 'warn', details: `Meta endpoint returned HTTP ${response.status} — may still be operational`, timestamp: ts };
+    trackError('aiError', `Claude probe status ${response.status}`);
+    return { check: 'AI Engine (Claude)', status: 'warn', details: `Claude probe returned HTTP ${response.status} — may still be operational`, timestamp: ts };
   } catch (e: any) {
-    return { check: 'AI Engine (Gemini)', status: 'warn', details: `Connectivity check failed: ${e.message}`, timestamp: ts };
+    return { check: 'AI Engine (Claude)', status: 'warn', details: `Connectivity check failed: ${e.message}`, timestamp: ts };
   }
 }
 
