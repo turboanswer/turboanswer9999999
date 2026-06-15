@@ -305,3 +305,15 @@ id = "AFZ_CLX5Qhbq4L7yWWI1I"
 uri = "file://playstore_assets/06_download.png"
 type = "image"
 title = "Screenshot 6 — Download now"
+
+[[outputs]]
+id = "NnQ8mGeqMoaJM1W11OyN-"
+uri = "file://screenshots/app-chat.jpg"
+type = "image"
+title = "Chat (trial view) — clean blue Gemini-style"
+
+[[outputs]]
+id = "eDZE3ySwmPfoDm06Ncv6S"
+uri = "file://screenshots/app-login.jpg"
+type = "image"
+title = "Sign-in screen"
