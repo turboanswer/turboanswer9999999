@@ -1566,21 +1566,15 @@ export default function Chat() {
               { icon: <Sparkles className="h-4 w-4" />, text: "Brainstorm ideas", prompt: "Help me brainstorm creative ideas" },
             ];
             return (
-            <div className="flex flex-col items-start py-16 sm:py-24 relative">
-              <style>{`
-                @keyframes gemini-gradient { 0% { background-position: 0% center; } 50% { background-position: 200% center; } 100% { background-position: 0% center; } }
-              `}</style>
-              <div className="relative z-10 w-full">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold leading-[1.15] mb-3 tracking-tight" style={{
-                  background: "linear-gradient(90deg, #4285F4 0%, #9B72CB 50%, #D96570 100%)",
-                  backgroundSize: "100% 100%",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}>
-                  {greeting}, {displayName}
+            <div className="flex flex-col items-center text-center py-16 sm:py-28 relative">
+              <div className="relative z-10 w-full max-w-2xl">
+                <div className="mx-auto mb-7 w-14 h-14 rounded-2xl flex items-center justify-center" style={{ boxShadow: 'var(--spark-glow)', background: 'var(--chat-input-bg)' }}>
+                  <img src={turboLogo} alt="TurboAnswer" className="w-9 h-9 rounded-xl object-cover" />
+                </div>
+                <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.4rem] font-medium leading-[1.1] mb-3 tracking-tight" style={{ color: 'var(--chat-text)' }}>
+                  {greeting}, <span className="spark-gradient-text">{displayName}</span>
                 </h1>
-                <p className={`text-2xl sm:text-3xl lg:text-4xl font-medium mb-12 ${isDark ? 'text-[#444746]' : 'text-gray-300'}`}>
+                <p className="text-lg sm:text-xl font-normal mb-12" style={{ color: 'var(--chat-text-muted)' }}>
                   How can I help you today?
                 </p>
 
@@ -1589,12 +1583,13 @@ export default function Chat() {
                     <button
                       key={i}
                       onClick={() => setMessageContent(s.prompt)}
-                      className={`group relative rounded-2xl p-4 text-left transition-all duration-200 hover:shadow-lg ${isDark ? 'bg-[#26241f] border border-[#3a372f] hover:bg-[#282a2c]' : 'bg-gray-50 border border-gray-200 hover:bg-white hover:border-gray-300'}`}
+                      className="group relative rounded-2xl p-4 text-left transition-all duration-200 hover:-translate-y-0.5"
+                      style={{ background: 'var(--chat-input-bg)', border: '1px solid var(--chat-input-border)', boxShadow: 'var(--card-shadow)' }}
                     >
-                      <div className={`mb-3 ${isDark ? 'text-[#a39e94]' : 'text-gray-400'}`}>
+                      <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl" style={{ color: 'var(--chat-text-muted)', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(60,50,30,0.04)' }}>
                         {s.icon}
                       </div>
-                      <p className={`text-sm ${isDark ? 'text-[#c4c7c5]' : 'text-gray-700'}`}>{s.text}</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--chat-text)' }}>{s.text}</p>
                     </button>
                   ))}
                 </div>
@@ -2010,19 +2005,16 @@ export default function Chat() {
             data-testid="input-doc-file"
           />
           <div className="flex items-end gap-2 sm:gap-3">
-            <div className="flex-1 relative">
+            <div className="flex-1 relative composer-card rounded-3xl">
               <Textarea
                 ref={textareaRef}
                 value={messageContent}
                 onChange={(e) => setMessageContent(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePasteImage}
-                placeholder={attachedImage ? "Ask about this image..." : "Enter a prompt here"}
-                className={`w-full pl-[5.5rem] pr-14 py-3.5 rounded-3xl text-sm sm:text-base resize-none min-h-[52px] max-h-28 transition-colors ${
-                  isDark
-                    ? 'bg-[#26241f] border-[#3a372f] text-[#ece8e0] placeholder-[#a39e94] focus:ring-1 focus:ring-[#d97757]/40 focus:border-[#d97757]/50'
-                    : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-400'
-                }`}
+                placeholder={attachedImage ? "Ask about this image..." : "Ask anything"}
+                className="w-full pl-[5.5rem] pr-14 py-3.5 rounded-3xl text-sm sm:text-base resize-none min-h-[56px] max-h-32 bg-transparent border-0 shadow-none focus-visible:ring-0 focus:ring-0"
+                style={{ color: 'var(--chat-text)' }}
                 rows={1}
               />
               <button

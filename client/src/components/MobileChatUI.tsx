@@ -112,8 +112,8 @@ export default function MobileChatUI({
     textDim: isDark ? "rgba(236,232,224,0.72)" : "rgba(42,40,36,0.72)",
     // Gemini spark — reserved for AI moments + primary send
     primaryGradient: isDark
-      ? "linear-gradient(135deg, #5b9bff 0%, #9b8cff 50%, #e07ab0 100%)"
-      : "linear-gradient(135deg, #4285F4 0%, #7c6cf0 50%, #cf6aa0 100%)",
+      ? "linear-gradient(120deg, #5b9bff 0%, #a78bff 45%, #e0825c 100%)"
+      : "linear-gradient(120deg, #4285F4 0%, #8b7cf0 45%, #c96442 100%)",
     aiBubble: "transparent",
     userBubble: isDark ? "rgba(216,119,87,0.16)" : "rgba(201,100,66,0.10)",
     userText: isDark ? "#ece8e0" : "#2a2824",
@@ -473,7 +473,7 @@ export default function MobileChatUI({
                <img src={turboLogo} alt="Turbo Answer" className="w-10 h-10 object-contain relative z-10" />
             </div>
             
-            <h1 className="text-[32px] font-bold text-center leading-tight tracking-tight mb-2" style={{ color: THEME.text }}>
+            <h1 className="font-display text-[34px] font-medium text-center leading-tight tracking-tight mb-2" style={{ color: THEME.text }}>
               {getGreeting()}, <br/>
               <span style={{ 
                 background: THEME.primaryGradient, 

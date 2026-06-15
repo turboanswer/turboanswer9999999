@@ -1,3 +1,4 @@
+- [Design language "Warm Intelligence"](design-language.md) — Claude calm × Gemini spark fused via ONE shared --ai-gradient (blue→violet→clay); reuse it, keep spark disciplined, update desktop chat.tsx + mobile MobileChatUI THEME together.
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
 - [Azure runtime DB vs Neon](azure-runtime-db.md) — runtime DB is Azure; new tables/columns must go in server/db-migrations.ts (db:push only hits Neon, not runtime).
 - [Prod-only file-not-found (unbundled assets)](prod-unbundled-assets.md) — esbuild→dist/ shifts __dirname; readFile of standalone *.html works in dev, 500s in prod; fix with cwd-relative candidate paths.
