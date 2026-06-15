@@ -1950,11 +1950,7 @@ export default function Chat() {
               <Button
                 onClick={handleSendWithPromo}
                 disabled={(!messageContent.trim() && !attachedImage) || sendMessageMutation.isPending}
-                className={`absolute right-2.5 bottom-2.5 h-9 w-9 p-0 rounded-full disabled:opacity-30 transition-colors ${
-                  isDark
-                    ? 'bg-[#d97757] text-[#131314] hover:bg-[#aecbfa]'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                }`}
+                className="absolute right-2.5 bottom-2.5 h-9 w-9 p-0 rounded-full disabled:opacity-30 transition-opacity hover:opacity-90 text-white ai-gradient-bg border-0"
                 title="Send message"
               >
                 <Send className="h-4 w-4" />
@@ -2483,13 +2479,13 @@ export default function Chat() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShareMode('message')}
-                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'message' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#d97757]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'message' ? (isDark ? 'bg-[#d97757]/15 border-[#d97757] text-[#d97757]' : 'bg-[#c96442]/10 border-[#c96442] text-[#c96442]') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
                 >
                   Message
                 </button>
                 <button
                   onClick={() => setShareMode('approval')}
-                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'approval' ? (isDark ? 'bg-[#4285F4]/20 border-[#4285F4] text-[#d97757]' : 'bg-blue-50 border-blue-400 text-blue-600') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
+                  className={`flex-1 px-2.5 py-2 rounded-xl text-xs font-medium transition-colors border ${shareMode === 'approval' ? (isDark ? 'bg-[#d97757]/15 border-[#d97757] text-[#d97757]' : 'bg-[#c96442]/10 border-[#c96442] text-[#c96442]') : (isDark ? 'border-zinc-700 text-zinc-400' : 'border-gray-200 text-gray-500')}`}
                 >
                   Approval
                 </button>
@@ -2520,7 +2516,7 @@ export default function Chat() {
             <Button
               onClick={handleShareToWorkgroup}
               disabled={!shareWgId || shareSending || (shareMode !== 'ticket' && !showShareModal.question.trim())}
-              className={`w-full font-medium py-2.5 rounded-xl ${shareMode === 'ticket' ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-[#4285F4] hover:bg-[#5a9bf4] text-white'}`}
+              className={`w-full font-medium py-2.5 rounded-xl ${shareMode === 'ticket' ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-[#c96442] hover:bg-[#b5573a] text-white'}`}
             >
               {shareSending ? 'Sending...' : shareMode === 'ticket' ? 'Create Support Ticket' : shareMode === 'approval' ? 'Submit for Approval' : 'Send to Group Chat'}
             </Button>

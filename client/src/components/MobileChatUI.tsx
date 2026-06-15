@@ -701,7 +701,7 @@ export default function MobileChatUI({
           <div className="bg-surface border border-border rounded-[2rem] max-w-sm w-full p-8 relative shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowResearchPopup(false)} className="absolute top-4 right-4 p-2 bg-background rounded-full"><X className="h-5 w-5" style={{ color: THEME.textDim }} /></button>
             <div className="text-center mb-6 mt-2">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-[#c96442] to-[#d97757]">
                 <Brain className="text-white h-8 w-8" />
               </div>
               <h2 className="text-[22px] font-bold mb-1" style={{ color: THEME.text }}>Matrix Research</h2>
@@ -722,7 +722,7 @@ export default function MobileChatUI({
                 </li>
               ))}
             </ul>
-            <Button className="w-full font-bold py-6 rounded-[1rem] text-[16px] shadow-lg bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white border-0" disabled={checkoutLoading}
+            <Button className="w-full font-bold py-6 rounded-[1rem] text-[16px] shadow-lg bg-[#c96442] hover:bg-[#b5573a] text-white border-0" disabled={checkoutLoading}
               onClick={async () => {
                 setCheckoutLoading(true);
                 try {
