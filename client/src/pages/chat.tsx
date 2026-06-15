@@ -1213,11 +1213,11 @@ export default function Chat() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gemini-flash">Free (Basic AI)</SelectItem>
-                {isPaidPro && <SelectItem value="gemini-pro">Turbo Pro</SelectItem>}
+                <SelectItem value="gemini-flash">Turbo AI</SelectItem>
+                {isPaidPro && <SelectItem value="gemini-pro">Turbo AI Pro</SelectItem>}
                 {isResearchOrAbove && <SelectItem value="claude-research">Matrix AI</SelectItem>}
                 {isEnterpriseTier && <SelectItem value="enterprise-research">Enterprise</SelectItem>}
-                {!isPaidPro && <SelectItem value="gemini-pro">Turbo Pro $10 — Upgrade</SelectItem>}
+                {!isPaidPro && <SelectItem value="gemini-pro">Turbo AI Pro $10 — Upgrade</SelectItem>}
                 {!isResearchOrAbove && <SelectItem value="claude-research">Matrix AI $35 — Upgrade</SelectItem>}
                 {!isEnterpriseTier && <SelectItem value="enterprise-research">Enterprise $100 — Upgrade</SelectItem>}
               </SelectContent>

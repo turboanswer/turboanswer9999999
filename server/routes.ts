@@ -91,7 +91,7 @@ ${bodyText.split('\n').map(line => {
   }
 }
 
-const TIER_LABELS: Record<string, string> = { free: 'Turbo', pro: 'Turbo Pro', research: 'Matrix AI', enterprise: 'Enterprise' };
+const TIER_LABELS: Record<string, string> = { free: 'Turbo AI', pro: 'Turbo AI Pro', research: 'Matrix AI', enterprise: 'Enterprise' };
 const TIER_PRICES: Record<string, string> = { pro: '$10.00/mo', research: '$35.00/mo', enterprise: '$100.00/mo' };
 const TIER_PERKS: Record<string, string[]> = {
   pro:        ['Unlimited daily questions', 'Advanced Pro AI model', 'Priority response speed', 'Full Code Studio access'],
