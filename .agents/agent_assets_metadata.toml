@@ -263,3 +263,45 @@ id = "hMzy6PvKn0HPwfNvm_cib"
 uri = "file://RECEPTIONIST_PORTAL_GUIDE.md"
 type = "text"
 title = "Receptionist Portal — Team Guide"
+
+[[outputs]]
+id = "woC37rcZPDiEtnXR_kIoK"
+uri = "file://playstore_assets/00_feature_graphic.png"
+type = "image"
+title = "Feature Graphic (1024×500)"
+
+[[outputs]]
+id = "x2fsoKxYJ0Y0alx9e7r3h"
+uri = "file://playstore_assets/01_welcome.png"
+type = "image"
+title = "Screenshot 1 — Your calm, brilliant AI"
+
+[[outputs]]
+id = "5DMfN_dkCuIqcebP_20nh"
+uri = "file://playstore_assets/02_verified.png"
+type = "image"
+title = "Screenshot 2 — Every answer, fact-checked"
+
+[[outputs]]
+id = "Bw73HrjMlrQRhx8rAkfOA"
+uri = "file://playstore_assets/03_models.png"
+type = "image"
+title = "Screenshot 3 — Ten AI models, one chat"
+
+[[outputs]]
+id = "X_fH3E_aK1hJmqnBe3HBU"
+uri = "file://playstore_assets/04_voice.png"
+type = "image"
+title = "Screenshot 4 — Just talk, it answers"
+
+[[outputs]]
+id = "eqbsqTZqJyJ6t6fUe7Isu"
+uri = "file://playstore_assets/05_code.png"
+type = "image"
+title = "Screenshot 5 — From idea to working code"
+
+[[outputs]]
+id = "AFZ_CLX5Qhbq4L7yWWI1I"
+uri = "file://playstore_assets/06_download.png"
+type = "image"
+title = "Screenshot 6 — Download now"
