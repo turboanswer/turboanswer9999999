@@ -42,23 +42,23 @@ const TABS = [
 
 const AI_MODELS = {
   "gemini-flash": {
-    name: "Matrix AI",
+    name: "Turbo",
     description: "Fast, friendly answers for everyday questions — instant replies in 100+ languages.",
     tier: "Free", icon: Zap,
     color: "from-green-500 to-emerald-600", borderColor: "border-green-500",
     badgeColor: "bg-green-500/10 text-green-400 border-green-500/20",
   },
   "gemini-pro": {
-    name: "Matrix AI Pro",
+    name: "Turbo Pro",
     description: "Our smartest single-shot engine — deeper reasoning, longer answers, image generation, and live web search.",
-    tier: "Pro · $6.99/mo", icon: Star,
+    tier: "Turbo Pro · $10/mo", icon: Star,
     color: "from-purple-500 to-pink-600", borderColor: "border-purple-500",
     badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   },
   "claude-research": {
-    name: "Matrix AI Research",
+    name: "Matrix AI",
     description: "Multiple frontier minds run in parallel, then judged and synthesized into one verified answer with live citations and confidence scores.",
-    tier: "Research · $30/mo", icon: FlaskConical,
+    tier: "Matrix AI · $35/mo", icon: FlaskConical,
     color: "from-blue-500 to-cyan-600", borderColor: "border-blue-500",
     badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   },
@@ -243,7 +243,7 @@ export default function AISettings() {
   const deleteAllMutation = useMutation({ mutationFn: async () => (await apiRequest("DELETE", "/api/conversations")).json(), onSuccess: () => { refetchConversations(); setShowDeleteAllConfirm(false); toast({ title: "All history cleared" }); } });
 
   const hasPaidSub = ["pro","research","enterprise"].includes(subscriptionData?.tier || "");
-  const tierLabel = subscriptionData?.tier === "enterprise" ? "Enterprise · $100/mo" : subscriptionData?.tier === "research" ? "Research · $30/mo" : subscriptionData?.tier === "pro" ? "Pro · $6.99/mo" : "Free";
+  const tierLabel = subscriptionData?.tier === "enterprise" ? "Enterprise · $100/mo" : subscriptionData?.tier === "research" ? "Matrix AI · $35/mo" : subscriptionData?.tier === "pro" ? "Turbo Pro · $10/mo" : "Turbo";
   const displayEmail = user?.email || "—";
   const initials = (user?.firstName?.[0] || user?.email?.[0] || "U").toUpperCase();
   const memberSince = user?.createdAt ? new Date(user.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : "—";

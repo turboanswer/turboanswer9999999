@@ -374,11 +374,11 @@ export default function StackTraceSurgeon() {
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4" style={{ background: 'rgba(168,85,247,0.1)' }}>
               <Lock className="h-6 w-6" style={{ color: '#a855f7' }} />
             </div>
-            <h2 className="text-xl font-bold mb-2">Research Tier Required</h2>
+            <h2 className="text-xl font-bold mb-2">Matrix AI Tier Required</h2>
             <p className="text-sm mb-5 max-w-md mx-auto" style={{ color: subtext }}>
-              Stack Trace Surgeon is part of TurboAnswer Research — built for engineers who debug production issues every day. Upgrade to unlock unlimited repo-aware diagnoses.
+              Stack Trace Surgeon is part of TurboAnswer Matrix AI — built for engineers who debug production issues every day. Upgrade to unlock unlimited repo-aware diagnoses.
             </p>
-            <div className="text-3xl font-bold mb-1">$30<span className="text-sm font-normal" style={{ color: subtext }}>/mo</span></div>
+            <div className="text-3xl font-bold mb-1">$35<span className="text-sm font-normal" style={{ color: subtext }}>/mo</span></div>
             <div className="text-xs mb-5" style={{ color: subtext }}>Cancel anytime · Includes Matrix AI, Deep Think, source-cited research, and Stack Trace Surgeon</div>
             <Link href="/pricing">
               <Button

@@ -233,7 +233,7 @@ export default function CodeCustomizer() {
               data-testid="button-customize"
             >
               {loading ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Customizing with Claude Sonnet 4.5…</>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Customizing with Claude Sonnet 4.6…</>
               ) : (
                 <><Wand2 className="h-4 w-4 mr-2" /> Customize this file</>
               )}
@@ -298,7 +298,7 @@ export default function CodeCustomizer() {
         )}
 
         <div className="mt-10 pt-6 border-t text-center text-[11px]" style={{ borderColor: border, color: subtext }}>
-          Code Customizer by TurboAnswer · Powered by Claude Sonnet 4.5 · Reads only the file you point at · Tokens never stored
+          Code Customizer by TurboAnswer · Powered by Claude Sonnet 4.6 · Reads only the file you point at · Tokens never stored
         </div>
       </div>
     </div>

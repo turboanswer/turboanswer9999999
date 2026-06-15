@@ -13,18 +13,18 @@ export type Tier = "pro" | "research" | "enterprise";
 
 const TIER_CONFIG: Record<Tier, { name: string; description: string; amountCents: number }> = {
   pro: {
-    name: "TurboAnswer Pro",
-    description: "Claude Sonnet 4.5, image generation, longer answers, priority support.",
-    amountCents: 699,
+    name: "Turbo Pro",
+    description: "Claude Sonnet 4.6, image generation, longer answers, priority support.",
+    amountCents: 1000,
   },
   research: {
-    name: "TurboAnswer Research",
-    description: "Multi-model AI panel (Claude Opus 4.1 + Claude Sonnet 4.5 + Gemini Pro) synthesized for the most accurate answer.",
-    amountCents: 3000,
+    name: "Matrix AI",
+    description: "Multi-model AI panel (Claude Opus 4.8 + Claude Sonnet 4.6) synthesized for the most accurate answer.",
+    amountCents: 3500,
   },
   enterprise: {
-    name: "TurboAnswer Enterprise",
-    description: "Everything in Research plus team collaboration with up to 5 members and dedicated support.",
+    name: "Turbo Answer Enterprise",
+    description: "Everything in Matrix AI plus team collaboration with up to 5 members and dedicated support.",
     amountCents: 10000,
   },
 };

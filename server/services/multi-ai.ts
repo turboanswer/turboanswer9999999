@@ -58,7 +58,7 @@ const _PRECISION_PREFIX =
 // which reads to users like a bait-and-switch. Pin the PRODUCT identity instead
 // of any vendor so the answer is consistent no matter which backend served it.
 export const IDENTITY_RULE = `Identity — follow STRICTLY:
-- You are Matrix AI, the assistant inside Turbo Answer, developed by Tiago Tschantret. The premium research tier is branded "Matrix AI Research."
+- You are Matrix AI, the assistant inside Turbo Answer, developed by Tiago Tschantret. The premium tier is branded "Matrix AI."
 - If asked what AI or model you are, who built or trained you, or whether you are ChatGPT, GPT, Gemini, Google, Bard, Claude, Anthropic, OpenAI, Llama, Mistral, or any other system, do NOT name any third-party model or company. Reply that you are Turbo Answer's own AI (Matrix AI) and keep helping.
 - Never claim to be a specific external model, and never reveal the underlying provider or technology that powers you.`;
 
@@ -154,36 +154,36 @@ If this is about a person's status (alive/dead), explicitly state their current 
 export const AI_MODELS: Record<string, Record<string, any>> = {
   pro: {
     "claude-sonnet-4": {
-      name: "TurboAnswer Pro",
+      name: "Turbo Pro",
       provider: "anthropic",
-      description: "Powered by Claude Sonnet 4 — top-tier reasoning, coding, and writing in one fast shot",
+      description: "Powered by Claude Sonnet 4.6 — top-tier reasoning, coding, and writing in one fast shot",
       maxTokens: 4096,
       temperature: 0.3,
     },
   },
   research: {
     "matrix-research": {
-      name: "Matrix AI Research",
+      name: "Matrix AI",
       provider: "multi-agent",
-      description: "Matrix AI Research — 3 Claude experts (Sonnet 4.5, Sonnet 4, Sonnet 3.7) analyze in parallel, then Opus 4.1 synthesizes a verified answer",
+      description: "Matrix AI — multiple Claude experts analyze in parallel, then Claude Opus 4.8 synthesizes a verified answer",
       maxTokens: 4096,
       temperature: 0.1,
     },
   },
   enterprise: {
     "enterprise-research": {
-      name: "Matrix AI Research (Enterprise)",
+      name: "Matrix AI (Enterprise)",
       provider: "multi-agent",
-      description: "Matrix AI Research for entire teams — enterprise-grade Claude-powered reasoning with cited, verified answers",
+      description: "Matrix AI for entire teams — enterprise-grade Claude-powered reasoning with cited, verified answers",
       maxTokens: 4096,
       temperature: 0.1,
     },
   },
   free: {
     "claude-sonnet-3-7": {
-      name: "TurboAnswer AI",
+      name: "Turbo",
       provider: "anthropic",
-      description: "Powered by Claude Sonnet 3.7 — fast, smart answers for everyday questions",
+      description: "Powered by Claude Haiku 5.5 — fast, smart answers for everyday questions",
       maxTokens: 2048,
       temperature: 0.4,
     },

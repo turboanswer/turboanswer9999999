@@ -80,28 +80,30 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
   for (const plan of plans.plans || []) {
     if (plan.status !== "ACTIVE") continue;
 
-    if (plan.name === "Turbo Answer Pro") {
-      try {
-        const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
-        const hasTrial = details?.billing_cycles?.some((c: any) => c.tenure_type === "TRIAL");
-        if (hasTrial) {
-          proPlanId = plan.id;
-        } else {
-          await deactivatePlan(plan.id, "no 7-day trial — will recreate");
-        }
-      } catch { proPlanId = plan.id; }
-    }
-
-    if (plan.name === "Turbo Answer Research") {
+    if (plan.name === "Turbo Pro") {
       try {
         const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
         const hasTrial = details?.billing_cycles?.some((c: any) => c.tenure_type === "TRIAL");
         const regularCycle = details?.billing_cycles?.find((c: any) => c.tenure_type === "REGULAR");
         const price = regularCycle?.pricing_scheme?.fixed_price?.value;
-        if (hasTrial && price && parseFloat(price) === 30) {
+        if (hasTrial && price && parseFloat(price) === 10) {
+          proPlanId = plan.id;
+        } else {
+          await deactivatePlan(plan.id, `missing trial or wrong price ($${price}, expected $10) — will recreate`);
+        }
+      } catch { proPlanId = plan.id; }
+    }
+
+    if (plan.name === "Matrix AI") {
+      try {
+        const details = await paypalRequest("GET", `/v1/billing/plans/${plan.id}`);
+        const hasTrial = details?.billing_cycles?.some((c: any) => c.tenure_type === "TRIAL");
+        const regularCycle = details?.billing_cycles?.find((c: any) => c.tenure_type === "REGULAR");
+        const price = regularCycle?.pricing_scheme?.fixed_price?.value;
+        if (hasTrial && price && parseFloat(price) === 35) {
           researchPlanId = plan.id;
         } else {
-          await deactivatePlan(plan.id, `missing trial or wrong price ($${price}, expected $30) — will recreate`);
+          await deactivatePlan(plan.id, `missing trial or wrong price ($${price}, expected $35) — will recreate`);
         }
       } catch { researchPlanId = plan.id; }
     }
@@ -153,8 +155,8 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
     if (!proPlanId) {
       const plan = await paypalRequest("POST", "/v1/billing/plans", {
         product_id: productId,
-        name: "Turbo Answer Pro",
-        description: "Pro tier - Advanced AI with deeper reasoning. 7-day free trial.",
+        name: "Turbo Pro",
+        description: "Turbo Pro - Claude Sonnet 4.6 with deeper reasoning. 7-day free trial.",
         status: "ACTIVE",
         billing_cycles: [
           trialCycle,
@@ -163,7 +165,7 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
             tenure_type: "REGULAR",
             sequence: 2,
             total_cycles: 0,
-            pricing_scheme: { fixed_price: { value: "6.99", currency_code: "USD" } },
+            pricing_scheme: { fixed_price: { value: "10.00", currency_code: "USD" } },
           },
         ],
         payment_preferences: {
@@ -180,8 +182,8 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
     if (!researchPlanId) {
       const plan = await paypalRequest("POST", "/v1/billing/plans", {
         product_id: productId,
-        name: "Turbo Answer Research",
-        description: "Research tier - Matrix AI Research + Code Studio. 7-day free trial.",
+        name: "Matrix AI",
+        description: "Matrix AI - Claude Opus 4.8 + Claude Sonnet 4.6 panel + Code Studio. 7-day free trial.",
         status: "ACTIVE",
         billing_cycles: [
           trialCycle,
@@ -190,7 +192,7 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
             tenure_type: "REGULAR",
             sequence: 2,
             total_cycles: 0,
-            pricing_scheme: { fixed_price: { value: "30.00", currency_code: "USD" } },
+            pricing_scheme: { fixed_price: { value: "35.00", currency_code: "USD" } },
           },
         ],
         payment_preferences: {
@@ -208,7 +210,7 @@ export async function ensureSubscriptionPlans(): Promise<{ pro: string; research
       const plan = await paypalRequest("POST", "/v1/billing/plans", {
         product_id: productId,
         name: "Turbo Answer Enterprise",
-        description: "Enterprise tier - 5 members, Matrix AI Research + Code Studio. 7-day free trial.",
+        description: "Enterprise tier - 5 members, Matrix AI + Code Studio. 7-day free trial.",
         status: "ACTIVE",
         billing_cycles: [
           trialCycle,

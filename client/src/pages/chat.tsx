@@ -1214,11 +1214,11 @@ export default function Chat() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="gemini-flash">Free (Basic AI)</SelectItem>
-                {isPaidPro && <SelectItem value="gemini-pro">Pro (Advanced)</SelectItem>}
-                {isResearchOrAbove && <SelectItem value="claude-research">Research (Matrix AI)</SelectItem>}
+                {isPaidPro && <SelectItem value="gemini-pro">Turbo Pro</SelectItem>}
+                {isResearchOrAbove && <SelectItem value="claude-research">Matrix AI</SelectItem>}
                 {isEnterpriseTier && <SelectItem value="enterprise-research">Enterprise</SelectItem>}
-                {!isPaidPro && <SelectItem value="gemini-pro">Pro $6.99 — Upgrade</SelectItem>}
-                {!isResearchOrAbove && <SelectItem value="claude-research">Research $30 — Upgrade</SelectItem>}
+                {!isPaidPro && <SelectItem value="gemini-pro">Turbo Pro $10 — Upgrade</SelectItem>}
+                {!isResearchOrAbove && <SelectItem value="claude-research">Matrix AI $35 — Upgrade</SelectItem>}
                 {!isEnterpriseTier && <SelectItem value="enterprise-research">Enterprise $100 — Upgrade</SelectItem>}
               </SelectContent>
             </Select>
@@ -2074,12 +2074,12 @@ export default function Chat() {
               </div>
             </div>
             <div className="text-center mb-5">
-              <span className={`text-4xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$6.99</span>
+              <span className={`text-4xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$10</span>
               <span className={isDark ? 'text-zinc-400 text-base' : 'text-gray-500 text-base'}>/month</span>
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "Advanced AI (Claude Sonnet 4.5 vs Claude Haiku)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation", "Unlimited questions (vs 15/day free)"].map((text, i) => (
+              {["7 days free — cancel anytime", "Advanced AI (Claude Sonnet 4.6 vs Claude Haiku 5.5)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation", "Unlimited questions (vs 15/day free)"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className={`w-4 h-4 flex-shrink-0 ${i === 0 ? 'text-blue-400' : 'text-blue-400'}`} />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2108,7 +2108,7 @@ export default function Chat() {
               <Star className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : "Start Free Trial"}
             </Button>
-            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>7 days free, then $6.99/mo. Cancel anytime.</p>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>7 days free, then $10/mo. Cancel anytime.</p>
           </div>
         </div>
       )}
@@ -2124,8 +2124,8 @@ export default function Chat() {
               <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Brain className="text-white h-7 w-7" />
               </div>
-              <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade to Research</h2>
-              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI Research · Maximum Intelligence</p>
+              <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade to Matrix AI</h2>
+              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI · Maximum Intelligence</p>
             </div>
             {/* Google color bar */}
             <div className="flex h-1 rounded-full overflow-hidden mb-4">
@@ -2137,12 +2137,12 @@ export default function Chat() {
               </div>
             </div>
             <div className="text-center mb-5">
-              <span className={`text-4xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$30</span>
+              <span className={`text-4xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$35</span>
               <span className={isDark ? 'text-zinc-400 text-base' : 'text-gray-500 text-base'}>/month</span>
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "Everything in Pro + Free included"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "Everything in Turbo Pro included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2171,7 +2171,7 @@ export default function Chat() {
               <Brain className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : "Start Free Trial"}
             </Button>
-            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>7 days free, then $30/mo. Cancel anytime.</p>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>7 days free, then $35/mo. Cancel anytime.</p>
           </div>
         </div>
       )}
@@ -2187,7 +2187,7 @@ export default function Chat() {
                 <Crown className="text-white h-7 w-7" />
               </div>
               <h2 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade to Enterprise</h2>
-              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI Research · For up to 5 team members</p>
+              <p className={isDark ? 'text-zinc-400 text-sm' : 'text-gray-500 text-sm'}>Matrix AI · For up to 5 team members</p>
             </div>
             <div className="text-center mb-1">
               <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
@@ -2244,7 +2244,7 @@ export default function Chat() {
               </div>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI Research — cited & verified answers", "All Research features included", "Shareable 6-digit team code (up to 5 members)", "Save 44% vs 5 individual Research plans"].map((text, i) => (
+              {["7 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "All Matrix AI features included", "Shareable 6-digit team code (up to 5 members)", "Save 43% vs 5 individual Matrix AI plans"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2346,8 +2346,8 @@ export default function Chat() {
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><Brain className="w-4 h-4 text-blue-400" /></div>
                       <div>
-                        <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Matrix AI Research</p>
-                        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Research $30" to unlock maximum depth on every response</p>
+                        <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Matrix AI</p>
+                        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Matrix AI $35" to unlock maximum depth on every response</p>
                       </div>
                     </div>
                   </div>
@@ -2367,7 +2367,7 @@ export default function Chat() {
                     <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"><Brain className="w-4 h-4 text-purple-400" /></div>
                     <div>
                       <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Advanced Pro AI Model</p>
-                      <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Pro $6.99" from the model dropdown for smarter answers</p>
+                      <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Select "Turbo Pro $10" from the model dropdown for smarter answers</p>
                     </div>
                   </div>
                 </div>
@@ -2430,7 +2430,7 @@ export default function Chat() {
               ))}
             </div>
             <div className="relative text-center mb-4">
-              <span className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$6.99</span>
+              <span className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$10</span>
               <span className={`text-base ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>/month</span>
             </div>
             <Button
@@ -2455,7 +2455,7 @@ export default function Chat() {
                 finally { setCheckoutLoading(false); }
               }}>
               <Crown className="w-4 h-4 mr-2" />
-              {checkoutLoading ? "Loading..." : "Upgrade to Pro — Unlimited"}
+              {checkoutLoading ? "Loading..." : "Upgrade to Turbo Pro — Unlimited"}
             </Button>
             <button
               onClick={() => setShowDailyLimitModal(false)}
@@ -2498,7 +2498,7 @@ export default function Chat() {
               ))}
             </div>
             <div className="relative text-center mb-4">
-              <span className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$6.99</span>
+              <span className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>$10</span>
               <span className={`text-base ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>/month</span>
             </div>
             <Button

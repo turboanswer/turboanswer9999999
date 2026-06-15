@@ -48,7 +48,7 @@ const SLIDES: Slide[] = [
   {
     kind: "chart",
     eyebrow: "Real-world performance",
-    title: "Matrix AI outperforms Gemini.",
+    title: "Matrix AI outperforms the rest.",
     body: "Measured across everyday tasks people actually use AI for.",
     icon: <BarChart3 size={18} />,
   },
@@ -104,7 +104,7 @@ function PerfChart({ active }: { active: boolean }) {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full" style={{ background: "rgba(148,163,184,0.7)" }} />
-          <span className="text-[11px] font-semibold" style={{ color: "rgba(148,163,184,0.9)" }}>Gemini</span>
+          <span className="text-[11px] font-semibold" style={{ color: "rgba(148,163,184,0.9)" }}>Other AI</span>
         </div>
       </div>
 

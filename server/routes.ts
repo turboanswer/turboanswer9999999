@@ -91,12 +91,12 @@ ${bodyText.split('\n').map(line => {
   }
 }
 
-const TIER_LABELS: Record<string, string> = { free: 'Free', pro: 'Pro', research: 'Research', enterprise: 'Enterprise' };
-const TIER_PRICES: Record<string, string> = { pro: '$6.99/mo', research: '$30.00/mo', enterprise: '$100.00/mo' };
+const TIER_LABELS: Record<string, string> = { free: 'Turbo', pro: 'Turbo Pro', research: 'Matrix AI', enterprise: 'Enterprise' };
+const TIER_PRICES: Record<string, string> = { pro: '$10.00/mo', research: '$35.00/mo', enterprise: '$100.00/mo' };
 const TIER_PERKS: Record<string, string[]> = {
   pro:        ['Unlimited daily questions', 'Advanced Pro AI model', 'Priority response speed', 'Full Code Studio access'],
-  research:   ['Everything in Pro', 'Matrix AI Research engine', 'Cited & verified answers with confidence scores'],
-  enterprise: ['Everything in Research', 'Team access with shared enterprise code', 'Dedicated support', 'Highest priority processing'],
+  research:   ['Everything in Turbo Pro', 'Matrix AI engine', 'Cited & verified answers with confidence scores'],
+  enterprise: ['Everything in Matrix AI', 'Team access with shared enterprise code', 'Dedicated support', 'Highest priority processing'],
 };
 
 async function sendSubscriptionEmail(
@@ -3137,7 +3137,7 @@ Formatting rules:
           const transactions = await getSubscriptionTransactions(subscriptionId);
           const latestCompleted = transactions.find((txn: any) => txn.status === 'COMPLETED' && txn.id);
           if (latestCompleted) {
-            const amount = latestCompleted.amount_with_breakdown?.gross_amount?.value || (user.subscriptionTier === 'enterprise' ? '100.00' : user.subscriptionTier === 'research' ? '30.00' : '6.99');
+            const amount = latestCompleted.amount_with_breakdown?.gross_amount?.value || (user.subscriptionTier === 'enterprise' ? '100.00' : user.subscriptionTier === 'research' ? '35.00' : '10.00');
             const currency = latestCompleted.amount_with_breakdown?.gross_amount?.currency_code || 'USD';
             const refundResult = await refundCapture(latestCompleted.id, { value: amount, currency_code: currency });
             if (refundResult && (refundResult.status === 'COMPLETED' || refundResult.status === 'PENDING')) {
@@ -4197,7 +4197,7 @@ You know the TurboAnswer system end to end:
 - Frontend: React 18 + TypeScript + Vite, Tailwind + shadcn/ui, TanStack Query, Wouter routing. Mobile app via Capacitor (Android).
 - Backend: Express.js + TypeScript (Node ES modules), RESTful API.
 - Database: PostgreSQL hosted on Azure, Drizzle ORM, schema in shared/schema.ts.
-- AI: text answers run on Anthropic Claude (Haiku / Sonnet 4.5 / Opus by tier), with Gemini as resilience fallback. Streaming responses.
+- AI: text answers run on Anthropic Claude (Haiku 5.5 / Sonnet 4.6 / Opus 4.8 by tier). Streaming responses.
 - Payments: PayPal Subscriptions API and Stripe. Tiers: Free, Pro, Research, Enterprise, plus promo codes and enterprise team codes.
 - Email: Brevo (transactional). SMS verification: Twilio.
 - Security: bcrypt passwords, CSRF protection, tiered rate limiting, HTTP security headers, intrusion detection, conversation ownership enforcement, AES-256-GCM encryption for the Crisis Support Bot.
@@ -4656,7 +4656,7 @@ How to answer:
       const bannedCount = allUsers.filter(u => u.isBanned).length;
       const suspendedCount = allUsers.filter(u => u.isSuspended).length;
       const flaggedCount = allUsers.filter(u => u.isFlagged).length;
-      const revenue = (subscriptionStats.pro * 6.99) + (subscriptionStats.research * 15) + (subscriptionStats.enterprise * 50);
+      const revenue = (subscriptionStats.pro * 10) + (subscriptionStats.research * 35) + (subscriptionStats.enterprise * 100);
 
       const statsResponse = {
         totalUsers: userCount,

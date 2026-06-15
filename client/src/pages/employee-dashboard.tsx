@@ -1252,8 +1252,8 @@ export default function EmployeeDashboard() {
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm"
                   >
                     {subModalAction === 'modify' && <option value="free">Free</option>}
-                    <option value="pro">Pro ($6.99/mo)</option>
-                    <option value="research">Research ($30/mo)</option>
+                    <option value="pro">Turbo Pro ($10/mo)</option>
+                    <option value="research">Matrix AI ($35/mo)</option>
                     <option value="enterprise">Enterprise ($100/mo)</option>
                   </select>
                 </div>
@@ -1790,13 +1790,13 @@ function SubscriptionsTab({ users, searchTerm, setSearchTerm, onModify, onCancel
         <Card className="bg-gray-900 border-gray-800">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-blue-400">{adminStats?.subscriptions?.pro || 0}</div>
-            <div className="text-xs text-gray-400">Pro ($6.99/mo)</div>
+            <div className="text-xs text-gray-400">Turbo Pro ($10/mo)</div>
           </CardContent>
         </Card>
         <Card className="bg-gray-900 border-gray-800">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-purple-400">{adminStats?.subscriptions?.research || 0}</div>
-            <div className="text-xs text-gray-400">Research ($30/mo)</div>
+            <div className="text-xs text-gray-400">Matrix AI ($35/mo)</div>
           </CardContent>
         </Card>
         <Card className="bg-gray-900 border-gray-800">
@@ -3137,8 +3137,8 @@ function PromoCodesTab() {
 
   const PRODUCTS = [
     { value: 'code_studio', label: 'Code Studio ($15/mo)' },
-    { value: 'pro', label: 'Pro ($6.99/mo)' },
-    { value: 'research', label: 'Research ($30/mo)' },
+    { value: 'pro', label: 'Turbo Pro ($10/mo)' },
+    { value: 'research', label: 'Matrix AI ($35/mo)' },
     { value: 'enterprise', label: 'Enterprise ($100/mo)' },
     { value: 'all', label: 'All products' },
   ];
@@ -4042,8 +4042,6 @@ function CommandCenterAzure({
             <PropRow label="Status" value={svc?.ai || 'unknown'} valueColor={statusColor(svc?.ai)} />
             <PropRow label="Azure AI" value={runtime?.integrations.ai.openai ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openai ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Anthropic (Claude)" value={runtime?.integrations.ai.anthropic ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.anthropic ? '#4ade80' : '#94a3b8'} />
-            <PropRow label="Google Gemini" value={runtime?.integrations.ai.gemini ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.gemini ? '#4ade80' : '#94a3b8'} />
-            <PropRow label="Gemini Pro" value={runtime?.integrations.ai.geminiPro ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.geminiPro ? '#4ade80' : '#94a3b8'} />
             <PropRow label="OpenRouter" value={runtime?.integrations.ai.openrouter ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openrouter ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Replicate (Imagen)" value={runtime?.integrations.ai.replicate ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.replicate ? '#4ade80' : '#94a3b8'} />
           </HubPanel>
@@ -4232,7 +4230,7 @@ function CommandCenterAzure({
             <PropRow label="Image generation" value="On" valueColor="#4ade80" />
             <PropRow label="Photo editor" value="On" valueColor="#4ade80" />
             <PropRow label="Video generation" value="Replicate / Luma" valueColor="#4ade80" />
-            <PropRow label="Deep research" value="Gemini Pro" valueColor="#4ade80" />
+            <PropRow label="Deep research" value="Claude Opus 4.8" valueColor="#4ade80" />
             <PropRow label="Code Studio" value="On" valueColor="#4ade80" />
             <PropRow label="Workgroups" value="On" valueColor="#4ade80" />
             <PropRow label="Auto-translate" value="65+ languages" valueColor="#4ade80" />

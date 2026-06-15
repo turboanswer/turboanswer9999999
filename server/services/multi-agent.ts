@@ -197,7 +197,7 @@ export async function runMultiAgentResearch(question: string, languageInstructio
     : '';
 
   const { IDENTITY_RULE } = await import('./multi-ai.js');
-  const synthesisPrompt = `${IDENTITY_RULE}\n\nYou are the Lead Synthesizer for Matrix AI Research. You have received analysis from ${agentResponses.length} expert agents examining the same question from different perspectives.
+  const synthesisPrompt = `${IDENTITY_RULE}\n\nYou are the Lead Synthesizer for Matrix AI. You have received analysis from ${agentResponses.length} expert agents examining the same question from different perspectives.
 
 QUESTION: ${question}
 ${verifiedBlock}

@@ -79,7 +79,7 @@ export default function Home() {
         <div className="relative z-10 max-w-5xl mx-auto px-6 pt-24 pb-16 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-blue-500/20 mb-8" style={{ background: "rgba(59,130,246,0.08)" }}>
             <Sparkles size={14} className="text-blue-400" />
-            <span className="text-sm text-blue-300 font-medium">Now powered by Claude Haiku — free for everyone</span>
+            <span className="text-sm text-blue-300 font-medium">Now powered by Claude Haiku 5.5 — free for everyone</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight leading-[0.95] mb-6">
@@ -93,7 +93,7 @@ export default function Home() {
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Free tier runs on <span className="text-white font-semibold">Claude Haiku</span>. Upgrade to Pro for <span className="text-white font-semibold">Claude Sonnet 4.5</span>, image generation, and 4× longer answers.<br />
+            Free tier runs on <span className="text-white font-semibold">Claude Haiku 5.5</span>. Upgrade to Turbo Pro for <span className="text-white font-semibold">Claude Sonnet 4.6</span>, image generation, and 4× longer answers.<br />
             Chat naturally. Analyze documents. 100+ languages. Any device.
           </p>
 
@@ -139,7 +139,7 @@ export default function Home() {
             {
               icon: <MessageSquare className="w-8 h-8" />,
               title: "AI Chat",
-              desc: "Free runs on Claude Haiku. Pro upgrades to Claude Sonnet 4.5 with 4× longer answers and image generation. Research runs Claude Opus 4.1 + Claude Sonnet 4.5 + Gemini Pro in parallel and judges the best answer.",
+              desc: "Free runs on Claude Haiku 5.5. Turbo Pro upgrades to Claude Sonnet 4.6 with 4× longer answers and image generation. Matrix AI runs Claude Opus 4.8 + Claude Sonnet 4.6 in parallel and judges the best answer.",
               href: "/chat",
               gradient: "linear-gradient(135deg, #1a1a2e, #16213e)",
               iconBg: "rgba(59,130,246,0.12)",
@@ -148,12 +148,12 @@ export default function Home() {
             {
               icon: <Stethoscope className="w-8 h-8" />,
               title: "Stack Trace Surgeon",
-              desc: "Paste an error + your GitHub repo. Claude Sonnet 4.5 finds the bug and opens a real PR with the fix.",
+              desc: "Paste an error + your GitHub repo. Claude Opus 4.8 finds the bug and opens a real PR with the fix.",
               href: "/stack-trace-surgeon",
               gradient: "linear-gradient(135deg, #1a0a2e, #2a0d3e)",
               iconBg: "rgba(168,85,247,0.15)",
               iconColor: "#c084fc",
-              badge: isResearch || isEnterprise ? "Included" : "Research",
+              badge: isResearch || isEnterprise ? "Included" : "Matrix AI",
             },
             {
               icon: <Camera className="w-8 h-8" />,
@@ -245,7 +245,7 @@ export default function Home() {
                 </div>
                 <h2 className="text-3xl md:text-4xl font-black text-white mb-3 tracking-tight">The Ultimate AI Team Stack</h2>
                 <p className="text-gray-400 mb-6 max-w-lg">
-                  5 team members. Matrix AI Research. Deep research reports. Everything your team needs — one subscription.
+                  5 team members. Matrix AI. Deep research reports. Everything your team needs — one subscription.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Link href="/pricing">

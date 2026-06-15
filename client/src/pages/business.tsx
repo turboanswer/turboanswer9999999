@@ -128,7 +128,7 @@ TurboWidget.init({
       description: "Ideal for growing businesses with high traffic",
       features: [
         "Unlimited conversations",
-        "Matrix AI Pro engine",
+        "Turbo Pro engine",
         "Advanced customization",
         "Analytics dashboard",
         "Priority email & support ticket help"

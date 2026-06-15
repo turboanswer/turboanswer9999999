@@ -19,44 +19,43 @@ interface PricingPlan {
 const plans: PricingPlan[] = [
   {
     id: 'free',
-    name: 'Free',
+    name: 'Turbo',
     price: '$0',
     period: 'forever',
-    description: 'Powered by Anthropic Claude Haiku',
+    description: 'Powered by Claude Haiku 5.5',
     features: [
-      '⚡ Claude Haiku — fast, friendly answers',
+      '⚡ Claude Haiku 5.5 — fast, friendly answers',
       'Voice commands',
       'Unlimited conversations',
-      'Community support',
       'Basic conversation history'
     ]
   },
   {
     id: 'pro',
-    name: 'Pro',
-    price: '$6.99',
+    name: 'Turbo Pro',
+    price: '$10',
     period: 'per month',
-    description: 'Powered by Anthropic Claude Sonnet 4.5',
+    description: 'Powered by Claude Sonnet 4.6',
     features: [
-      '🧠 Claude Sonnet 4.5 — Anthropic\'s smartest model',
-      'Auto-fallback to Google Gemini 2.5 Pro',
+      '🧠 Claude Sonnet 4.6 — our smartest everyday model',
       'Faster, longer, more nuanced answers',
       'Superior code & writing quality',
+      'Image generation',
       'Priority email & support ticket help',
-      'Everything in Free'
+      'Everything in Turbo'
     ],
     popular: true,
     apiPlan: 'pro'
   },
   {
     id: 'research',
-    name: 'Research',
-    price: '$30',
+    name: 'Matrix AI',
+    price: '$35',
     period: 'per month',
-    description: 'Multi-brand verification: Claude Opus 4.1 + Claude Sonnet 4.5 + Gemini Pro',
+    description: 'Multi-model verification: Claude Opus 4.8 + Claude Sonnet 4.6',
     features: [
-      '🔬 Matrix AI Panel — Claude Opus 4.1 + Claude Sonnet 4.5 + Gemini 2.5 Pro all answer in parallel, judged by Claude',
-      '🩺 Stack Trace Surgeon — AI debugger that opens real GitHub PRs (Claude Sonnet 4.5)',
+      '🔬 Matrix AI Panel — Claude Opus 4.8 + Claude Sonnet 4.6 answer in parallel, judged by Claude',
+      '🩺 Stack Trace Surgeon — AI debugger that opens real GitHub PRs (Claude Opus 4.8)',
       '🧠 Matrix AI Deep Research — 20+ sources cross-checked per question',
       '🖼️ Unlimited AI image generation',
       'Always-on maximum reasoning depth',
@@ -69,7 +68,7 @@ const plans: PricingPlan[] = [
       'Export answers to PDF, Word & Markdown',
       'Priority queue · fastest response times',
       'Early access to new Matrix AI features',
-      'All Pro features included',
+      'All Turbo Pro features included',
       'Priority email & support ticket help'
     ],
     apiPlan: 'research'
@@ -79,14 +78,14 @@ const plans: PricingPlan[] = [
     name: 'Enterprise',
     price: '$100',
     period: 'per month',
-    description: 'Multi-brand AI for up to 5 team members — save 44%',
+    description: 'Matrix AI for up to 5 team members — save 43%',
     features: [
       '👥 Up to 5 team members on one plan',
-      '🔬 Same Matrix AI Panel: Claude Opus 4.1 + Claude Sonnet 4.5 + Gemini Pro',
+      '🔬 Same Matrix AI Panel: Claude Opus 4.8 + Claude Sonnet 4.6',
       '🔐 Shareable 6-digit team code',
-      'All Research features included',
+      'All Matrix AI features included',
       'Priority onboarding & support',
-      'Save 44% vs 5 individual Research plans'
+      'Save 43% vs 5 individual Matrix AI plans'
     ],
     apiPlan: 'enterprise'
   }

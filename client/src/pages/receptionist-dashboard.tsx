@@ -50,9 +50,9 @@ type ActivityResult = { conversations: ActivityConversation[] };
 const TIERS = ["free", "pro", "research", "enterprise"] as const;
 
 const TIER_LABEL: Record<string, string> = {
-  free: "Free",
-  pro: "Pro",
-  research: "Research",
+  free: "Turbo",
+  pro: "Turbo Pro",
+  research: "Matrix AI",
   enterprise: "Enterprise",
 };
 
@@ -72,8 +72,8 @@ const TIER_RANK: Record<string, number> = {
 
 const TIER_PRICE: Record<string, string> = {
   free: "$0/mo",
-  pro: "$6.99/mo",
-  research: "$30/mo",
+  pro: "$10/mo",
+  research: "$35/mo",
   enterprise: "$100/mo",
 };
 
