@@ -14,6 +14,7 @@
 - [AI response language](ai-response-language.md) — "wrong language" is usually the Google Translate DOM widget, not the model; require explicit-choice flag, default English; server must always pin language incl. deep mode.
 - [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.
 - [Prod data provisioning](prod-data-provisioning.md) — prod DB is unreachable from dev + read-only; seed privileged roles via login-time app grant (allowlist), not manual SQL.
+- [Play Store listing assets](playstore-listing.md) — SVG→librsvg gen recipe + copy rules: never "ten models", it's ONE Matrix AI (Claude) per plan; verified/cited = paid only.
 - [Reminder calendar fallback](reminder-calendar-fallback.md) — "remind me" with no native alarm auto-creates a self-only calendar event (no confirm step); parse time via Intl longOffset, never hour12:false.
 - [Theme system & CSS vars](theme-system.md) — index.css tokens are full `hsl(...)` strings: use `var(--x)` directly, never `hsl(var(--x))`; landing is an intentional separate black theme, app is clean blue (Gemini-style).
 - [OpenAI Sora video](openai-sora-video.md) — SDK has no `videos` resource so call Sora REST directly; API shuts down 2026-09-24; brand "Matrix Video", never leak provider names.

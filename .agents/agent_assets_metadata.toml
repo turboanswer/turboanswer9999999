@@ -268,43 +268,43 @@ title = "Receptionist Portal — Team Guide"
 id = "woC37rcZPDiEtnXR_kIoK"
 uri = "file://playstore_assets/00_feature_graphic.png"
 type = "image"
-title = "Feature Graphic (1024×500)"
+title = "Feature graphic (1024×500)"
 
 [[outputs]]
 id = "x2fsoKxYJ0Y0alx9e7r3h"
 uri = "file://playstore_assets/01_welcome.png"
 type = "image"
-title = "Screenshot 1 — Your calm, brilliant AI"
+title = "01 — Your fast, brilliant AI"
 
 [[outputs]]
 id = "5DMfN_dkCuIqcebP_20nh"
 uri = "file://playstore_assets/02_verified.png"
 type = "image"
-title = "Screenshot 2 — Every answer, fact-checked"
+title = "02 — Verified, cited answers"
 
 [[outputs]]
 id = "Bw73HrjMlrQRhx8rAkfOA"
 uri = "file://playstore_assets/03_models.png"
 type = "image"
-title = "Screenshot 3 — Ten AI models, one chat"
+title = "03 — One AI, tuned for every plan"
 
 [[outputs]]
 id = "X_fH3E_aK1hJmqnBe3HBU"
 uri = "file://playstore_assets/04_voice.png"
 type = "image"
-title = "Screenshot 4 — Just talk, it answers"
+title = "04 — Just say it out loud"
 
 [[outputs]]
 id = "eqbsqTZqJyJ6t6fUe7Isu"
 uri = "file://playstore_assets/05_code.png"
 type = "image"
-title = "Screenshot 5 — From idea to working code"
+title = "05 — Build apps in your browser"
 
 [[outputs]]
 id = "AFZ_CLX5Qhbq4L7yWWI1I"
 uri = "file://playstore_assets/06_download.png"
 type = "image"
-title = "Screenshot 6 — Download now"
+title = "06 — Download TurboAnswer"
 
 [[outputs]]
 id = "NnQ8mGeqMoaJM1W11OyN-"
