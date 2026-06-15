@@ -109,6 +109,22 @@ const NEW_TABLES: Array<{ name: string; ddl: string }> = [
       created_at TIMESTAMP NOT NULL DEFAULT now()
     )`,
   },
+  {
+    name: "user_oauth_connections",
+    ddl: `CREATE TABLE IF NOT EXISTS user_oauth_connections (
+      id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id VARCHAR NOT NULL,
+      provider VARCHAR NOT NULL,
+      account_email VARCHAR,
+      account_name VARCHAR,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      expires_at TIMESTAMP,
+      scopes TEXT,
+      created_at TIMESTAMP DEFAULT now(),
+      updated_at TIMESTAMP DEFAULT now()
+    )`,
+  },
 ];
 
 async function tableExists(table: string): Promise<boolean> {

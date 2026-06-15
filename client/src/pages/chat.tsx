@@ -376,6 +376,9 @@ export default function Chat() {
   };
 
   const [streamingText, setStreamingText] = useState("");
+  // Connected Accounts (Task #16): AI-proposed action awaiting user confirmation.
+  const [pendingAction, setPendingAction] = useState<any>(null);
+  const [executingAction, setExecutingAction] = useState(false);
   const [autoDowngraded, setAutoDowngraded] = useState(false);
   const streamSessionRef = useRef(0);
 
@@ -461,6 +464,9 @@ export default function Chat() {
         case 'done':
           setReasoningMode(data?.mode || null);
           break;
+        case 'action_proposal':
+          setPendingAction(data);
+          break;
         case 'saved':
           saved = data;
           break;
@@ -503,6 +509,35 @@ export default function Chat() {
 
     if (streamErr && !saved) throw new Error(streamErr);
     return saved;
+  };
+
+  // Connected Accounts (Task #16): user approved an AI-proposed action.
+  const confirmAction = async () => {
+    if (!pendingAction || executingAction) return;
+    setExecutingAction(true);
+    try {
+      const res = await apiRequest("POST", "/api/connections/action/execute", {
+        provider: pendingAction.provider,
+        action: pendingAction.action,
+        args: pendingAction.args,
+      });
+      const data = await res.json();
+      toast({
+        title: data?.ok ? "Done" : "Action failed",
+        description: data?.message || (data?.ok ? "Completed." : "Could not complete the action."),
+        variant: data?.ok ? undefined : "destructive",
+      });
+      setPendingAction(null);
+    } catch (e: any) {
+      toast({ title: "Action failed", description: e?.message || "Could not complete the action.", variant: "destructive" });
+    } finally {
+      setExecutingAction(false);
+    }
+  };
+
+  const cancelAction = () => {
+    setPendingAction(null);
+    toast({ title: "Cancelled", description: "No action was taken." });
   };
 
   const sendMessageMutation = useMutation({
@@ -1027,8 +1062,59 @@ export default function Chat() {
     setSelectedAIModel(value === 'enterprise-research' ? 'claude-research' : value);
   };
 
+  // Connected Accounts (Task #16): confirmation card for an AI-proposed action
+  // (send email / create event). Rendered for both mobile and desktop layouts.
+  const actionConfirmModal = pendingAction ? (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 200, display: "flex",
+        alignItems: "center", justifyContent: "center", padding: 16,
+        background: "rgba(0,0,0,0.55)",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget && !executingAction) cancelAction(); }}
+    >
+      <div
+        style={{
+          width: "100%", maxWidth: 460, borderRadius: 18,
+          background: "var(--chat-header-bg, #1c1a16)", color: "var(--chat-text, #ece8e0)",
+          border: "1px solid var(--s-pill-border, rgba(255,255,255,0.12))",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)", overflow: "hidden",
+        }}
+      >
+        <div style={{ padding: "16px 18px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", gap: 10 }}>
+          {pendingAction.action?.includes("send") ? <Mail size={18} /> : <Clock size={18} />}
+          <div style={{ fontWeight: 600, fontSize: 15 }}>
+            Confirm {pendingAction.action?.includes("send") ? "email" : "calendar event"}
+          </div>
+        </div>
+        <div style={{ padding: "16px 18px", fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap", maxHeight: "50vh", overflowY: "auto", opacity: 0.92 }}>
+          {pendingAction.summary}
+        </div>
+        <div style={{ padding: "14px 18px", display: "flex", gap: 10, justifyContent: "flex-end", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <button
+            onClick={cancelAction}
+            disabled={executingAction}
+            style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.18)", background: "transparent", color: "inherit", fontSize: 14, cursor: "pointer", opacity: executingAction ? 0.5 : 1 }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={confirmAction}
+            disabled={executingAction}
+            style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: "#22c55e", color: "#062611", fontWeight: 600, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, opacity: executingAction ? 0.7 : 1 }}
+          >
+            {executingAction ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
+            {executingAction ? "Working…" : "Confirm & run"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (isNativeMobile) {
     return (
+      <>
+      {actionConfirmModal}
       <MobileChatUI
         messages={messages}
         conversations={conversations}
@@ -1075,6 +1161,7 @@ export default function Chat() {
         formatTimestamp={formatTimestamp}
         verifiedMessages={verifiedMessages}
       />
+      </>
     );
   }
 
@@ -1087,6 +1174,7 @@ export default function Chat() {
       onDragOver={handleChatDragOver}
       onDrop={handleChatDrop}
     >
+      {actionConfirmModal}
       {isDragging && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none p-6">
           <div className={`w-full h-full rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-3 ${isDark ? 'bg-blue-500/10 border-blue-400 text-blue-200' : 'bg-blue-50 border-blue-500 text-blue-700'}`}>

@@ -2142,13 +2142,49 @@ Formatting rules:
       const languageName = getLanguageName(language || 'en');
       const systemPrompt = `Respond in a ${responseTone || 'casual'} tone with a ${responseStyle || 'balanced'} level of detail. CRITICAL: You MUST write your entire response in ${languageName}. Do not switch to any other language, even if the user's message appears to be in a different language.`;
 
+      // ── Connected Accounts pre-flight (Task #16) ──────────────────────────
+      // If the user has linked Google/Microsoft, classify whether this message
+      // needs their account. READ tools run now and their result is injected as
+      // context; ACTION tools (send/create) are NOT executed — we emit a proposal
+      // the user must confirm, then end the stream.
+      let connectedContext = '';
+      try {
+        const { listConnectionStatuses } = await import('./services/connected-accounts/oauth');
+        const statuses = await listConnectionStatuses(userId);
+        const connectedMap = { google: !!statuses.google?.connected, microsoft: !!statuses.microsoft?.connected };
+        if (connectedMap.google || connectedMap.microsoft) {
+          const { classifyIntent, runReadTool, describeAction } = await import('./services/connected-accounts/tools');
+          const intent = await classifyIntent(content, connectedMap);
+          if (intent.kind === 'action') {
+            const summary = describeAction(intent.provider, intent.action, intent.args);
+            const proposal = { provider: intent.provider, action: intent.action, args: intent.args, summary };
+            const note = `I've prepared this for your approval:\n\n${summary}\n\nConfirm below to proceed, or cancel.`;
+            send('action_proposal', proposal);
+            const aiMessage = await storage.createMessage({ conversationId, content: note, role: 'assistant' });
+            send('saved', { userMessage, aiMessage, actionProposal: proposal });
+            res.write('event: end\ndata: {}\n\n');
+            return res.end();
+          } else if (intent.kind === 'read') {
+            const result = await runReadTool(userId, intent.provider, intent.tool, intent.args);
+            const label = intent.provider === 'google' ? 'Google' : 'Microsoft';
+            if (result.ok && result.context) {
+              connectedContext = `\n\nThe user has connected their ${label} account. Live data was just retrieved for THIS request — use it to answer accurately and reference specifics. Do not claim you lack access.\n\n${label} data:\n${result.context}`;
+            } else if (!result.ok && result.error) {
+              connectedContext = `\n\nNote: an attempt to read the user's ${label} account failed (${result.error}). If relevant, suggest reconnecting it in Settings → Connections.`;
+            }
+          }
+        }
+      } catch (e: any) {
+        console.error('[ConnectedAccounts] preflight error:', e?.message || e);
+      }
+
       try {
         const result = await tre.runReasoning({
           question: content,
           hasImage: false,
           manualDeepThink: !!manualDeepThink && allowDeep,
           forceFastMode: !allowDeep,
-          systemPrompt,
+          systemPrompt: systemPrompt + connectedContext,
           tier: effectiveTier,
           history,
           onEvent: (e) => send(e.type, e),
@@ -2207,6 +2243,98 @@ Formatting rules:
       const used = await (await import('./storage')).getDeepThinkUsage(userId, tre.todayUTC());
       const limit = tre.DEEP_QUOTA[tier] ?? tre.DEEP_QUOTA.free;
       res.json({ used, limit, tier, remaining: limit === -1 ? -1 : Math.max(0, limit - used) });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message });
+    }
+  });
+
+  // ── Connected Accounts (Task #16): per-user Google & Microsoft OAuth ──────
+  app.get("/api/connections", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { listConnectionStatuses, providerConfigured } = await import('./services/connected-accounts/oauth');
+      const statuses = await listConnectionStatuses(userId);
+      res.json({
+        google: {
+          configured: providerConfigured('google'),
+          connected: !!statuses.google?.connected,
+          email: statuses.google?.email || null,
+        },
+        microsoft: {
+          configured: providerConfigured('microsoft'),
+          connected: !!statuses.microsoft?.connected,
+          email: statuses.microsoft?.email || null,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message });
+    }
+  });
+
+  // Begin OAuth — redirects the browser to the provider's consent screen.
+  app.get("/api/connections/:provider/connect", isAuthenticated, async (req: any, res) => {
+    try {
+      const provider = req.params.provider;
+      const { isProvider, providerConfigured, getRedirectUri, buildAuthUrl } = await import('./services/connected-accounts/oauth');
+      if (!isProvider(provider)) return res.status(400).json({ message: 'Unknown provider' });
+      if (!providerConfigured(provider)) {
+        return res.status(503).json({ message: `${provider} sign-in isn't configured yet.` });
+      }
+      const cryptoMod = await import('crypto');
+      const state = cryptoMod.randomBytes(24).toString('hex');
+      (req.session as any).oauthState = { state, provider, userId: req.user.claims.sub };
+      await new Promise<void>((resolve) => req.session.save(() => resolve()));
+      res.redirect(buildAuthUrl(provider, getRedirectUri(req, provider), state));
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message });
+    }
+  });
+
+  // OAuth callback — exchanges the code for tokens and stores them encrypted.
+  app.get("/api/connections/:provider/callback", isAuthenticated, async (req: any, res) => {
+    const provider = req.params.provider;
+    try {
+      const { isProvider, getRedirectUri, exchangeCodeForTokens, saveConnection, PROVIDERS } = await import('./services/connected-accounts/oauth');
+      if (!isProvider(provider)) return res.status(400).send('Unknown provider');
+      const { code, state, error } = req.query;
+      const saved = (req.session as any).oauthState;
+      if (error || !code || !state || !saved || saved.state !== state || saved.provider !== provider || saved.userId !== req.user.claims.sub) {
+        return res.redirect(`/ai-settings?connection=error&provider=${provider}`);
+      }
+      delete (req.session as any).oauthState;
+      const tokens = await exchangeCodeForTokens(provider, String(code), getRedirectUri(req, provider));
+      const account = await PROVIDERS[provider].userInfo(tokens.access_token).catch(() => ({}));
+      await saveConnection(req.user.claims.sub, provider, tokens, account);
+      res.redirect(`/ai-settings?connection=success&provider=${provider}`);
+    } catch (err: any) {
+      console.error('[ConnectedAccounts] callback error:', err?.message || err);
+      res.redirect(`/ai-settings?connection=error&provider=${provider}`);
+    }
+  });
+
+  app.post("/api/connections/:provider/disconnect", isAuthenticated, async (req: any, res) => {
+    try {
+      const provider = req.params.provider;
+      const { isProvider, deleteConnection } = await import('./services/connected-accounts/oauth');
+      if (!isProvider(provider)) return res.status(400).json({ message: 'Unknown provider' });
+      await deleteConnection(req.user.claims.sub, provider);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message });
+    }
+  });
+
+  // Execute a previously-proposed AI action (send email / create event) after
+  // the user confirms it in the chat UI. Acts only on the caller's own account.
+  app.post("/api/connections/action/execute", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { provider, action, args } = req.body || {};
+      const { isProvider } = await import('./services/connected-accounts/oauth');
+      if (!isProvider(provider) || !action) return res.status(400).json({ message: 'Invalid action' });
+      const { executeAction } = await import('./services/connected-accounts/tools');
+      const result = await executeAction(userId, { provider, action, args: args || {}, summary: '' });
+      res.status(result.ok ? 200 : 502).json(result);
     } catch (err: any) {
       res.status(500).json({ message: err?.message });
     }

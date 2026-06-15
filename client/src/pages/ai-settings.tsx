@@ -8,8 +8,9 @@ import {
   Shield, Bell, CreditCard, Sun, Moon, SlidersHorizontal, Globe,
   Download, Eye, EyeOff, ChevronRight, Lock, Volume2, VolumeX, Type,
   Smartphone, Info, RefreshCw, LogOut, Save, Check, X, Settings, Sparkles,
-  HelpCircle, Mail, Clock, BarChart3, Languages, Wand2, FileText, Bot
+  HelpCircle, Mail, Clock, BarChart3, Languages, Wand2, FileText, Bot, Link2, Calendar, HardDrive, Contact
 } from "lucide-react";
+import { SiGoogle, SiGmail, SiGooglecalendar, SiGoogledrive } from "react-icons/si";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,7 @@ const TABS = [
   { id: "profile",     label: "Profile",      icon: User },
   { id: "appearance",  label: "Appearance",   icon: Palette },
   { id: "ai",          label: "AI & Models",  icon: Brain },
+  { id: "connections", label: "Connections",  icon: Link2 },
   { id: "privacy",     label: "Privacy",      icon: Shield },
   { id: "billing",     label: "Billing",      icon: CreditCard },
   { id: "notifications", label: "Notifications", icon: Bell },
@@ -159,6 +161,38 @@ export default function AISettings() {
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
   const { data: enterpriseData } = useQuery<{ hasCode: boolean; code?: string; maxUses?: number; currentUses?: number }>({ queryKey: ["/api/enterprise-code"] });
+
+  type ConnStatus = { configured: boolean; connected: boolean; email: string | null };
+  const { data: connections, isLoading: connectionsLoading } = useQuery<{ google: ConnStatus; microsoft: ConnStatus }>({ queryKey: ["/api/connections"] });
+  const disconnectMutation = useMutation({
+    mutationFn: async (provider: string) => (await apiRequest("POST", `/api/connections/${provider}/disconnect`)).json(),
+    onSuccess: (_, provider) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      toast({ title: "Disconnected", description: `Your ${provider === "google" ? "Google" : "Microsoft"} account has been disconnected.` });
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to disconnect", variant: "destructive" }),
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const conn = params.get("connection");
+    const provider = params.get("provider");
+    if (conn) {
+      const name = provider === "microsoft" ? "Microsoft" : "Google";
+      if (conn === "success") {
+        toast({ title: "Account connected", description: `Your ${name} account is now linked. The AI can use it in chat.` });
+        queryClient.invalidateQueries({ queryKey: ["/api/connections"] });
+      } else if (conn === "error") {
+        toast({ title: "Connection failed", description: `We couldn't connect your ${name} account. Please try again.`, variant: "destructive" });
+      }
+      setActiveTab("connections");
+      params.delete("connection");
+      params.delete("provider");
+      const q = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (q ? `?${q}` : ""));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [promoCode, setPromoCode] = useState("");
   const [showPromoInput, setShowPromoInput] = useState(false);
@@ -511,6 +545,104 @@ export default function AISettings() {
                 <SettingRow label="Show response timing" desc="Display how long each response took">
                   <Toggle value={showThinkingTime} onChange={setShowThinkingTime} color={accentColor} />
                 </SettingRow>
+              </div>
+            </div>
+          )}
+
+          {/* ══ CONNECTIONS ══ */}
+          {activeTab === "connections" && (
+            <div>
+              {sectionTitle("Connected Accounts", "Link your accounts so the AI can read your email, calendar and files — and take actions for you, always with your confirmation")}
+
+              {(() => {
+                const providerCards = [
+                  {
+                    key: "google",
+                    name: "Google",
+                    Icon: SiGoogle,
+                    color: "#4285F4",
+                    desc: "Gmail, Calendar, Drive and Docs",
+                    features: [
+                      { Icon: SiGmail, label: "Gmail" },
+                      { Icon: SiGooglecalendar, label: "Calendar" },
+                      { Icon: SiGoogledrive, label: "Drive & Docs" },
+                    ],
+                  },
+                  {
+                    key: "microsoft",
+                    name: "Microsoft",
+                    Icon: Mail,
+                    color: "#0078D4",
+                    desc: "Outlook, Calendar, OneDrive and Contacts",
+                    features: [
+                      { Icon: Mail, label: "Outlook" },
+                      { Icon: Calendar, label: "Calendar" },
+                      { Icon: HardDrive, label: "OneDrive" },
+                      { Icon: Contact, label: "Contacts" },
+                    ],
+                  },
+                ] as const;
+
+                return providerCards.map(p => {
+                  const status = connections?.[p.key as "google" | "microsoft"];
+                  const configured = status?.configured ?? false;
+                  const connected = status?.connected ?? false;
+                  return (
+                    <div key={p.key} style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 14, alignItems: "center", minWidth: 0 }}>
+                          <div style={{ width: 44, height: 44, borderRadius: 12, background: `${p.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <p.Icon size={22} style={{ color: p.color }} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--s-text)" }}>{p.name}</div>
+                            <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{p.desc}</div>
+                            {connected && status?.email && (
+                              <div style={{ fontSize: 12, color: p.color, marginTop: 4, display: "flex", alignItems: "center", gap: 5 }}>
+                                <Check size={13} /> {status.email}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ flexShrink: 0 }}>
+                          {!configured ? (
+                            <span style={{ fontSize: 12, color: C.muted, padding: "8px 14px", borderRadius: 10, background: "var(--s-pill-border)" }}>Coming soon</span>
+                          ) : connected ? (
+                            <button
+                              onClick={() => disconnectMutation.mutate(p.key)}
+                              disabled={disconnectMutation.isPending}
+                              style={{ fontSize: 13, fontWeight: 500, color: "#EA4335", padding: "9px 18px", borderRadius: 10, border: "1px solid rgba(234,67,53,0.3)", background: "rgba(234,67,53,0.08)", cursor: "pointer" }}
+                            >
+                              Disconnect
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => { window.location.href = `/api/connections/${p.key}/connect`; }}
+                              disabled={connectionsLoading}
+                              style={{ fontSize: 13, fontWeight: 600, color: "#fff", padding: "9px 20px", borderRadius: 10, border: "none", background: p.color, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}
+                            >
+                              <Link2 size={15} /> Connect
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+                        {p.features.map(f => (
+                          <span key={f.label} style={{ fontSize: 12, color: C.muted, display: "flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 8, background: "var(--s-pill-border)" }}>
+                            <f.Icon size={13} /> {f.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+
+              <div style={{ background: "rgba(66,133,244,0.04)", border: "1px solid rgba(66,133,244,0.12)", borderRadius: 14, padding: 16 }}>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <Info size={16} style={{ color: "#4285F4", flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontSize: 13, color: C.muted }}>Your tokens are encrypted and stored securely. The AI only reads what's needed to answer you, and it will never send an email or create an event without showing you exactly what it's about to do and asking you to confirm. You can disconnect any account at any time.</p>
+                </div>
               </div>
             </div>
           )}

@@ -77,3 +77,27 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Per-user OAuth connections for Connected Accounts (Gmail/Calendar/Drive/Docs via
+// Google, Outlook/OneDrive/Contacts via Microsoft). Tokens are stored ENCRYPTED at
+// rest (AES-256-GCM). One row per (userId, provider).
+export const userOauthConnections = pgTable(
+  "user_oauth_connections",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    userId: varchar("user_id").notNull(),
+    provider: varchar("provider").notNull(), // 'google' | 'microsoft'
+    accountEmail: varchar("account_email"),
+    accountName: varchar("account_name"),
+    accessToken: text("access_token").notNull(), // encrypted
+    refreshToken: text("refresh_token"), // encrypted
+    expiresAt: timestamp("expires_at"),
+    scopes: text("scopes"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [index("IDX_oauth_user_provider").on(table.userId, table.provider)]
+);
+
+export type UserOauthConnection = typeof userOauthConnections.$inferSelect;
+export type InsertUserOauthConnection = typeof userOauthConnections.$inferInsert;
