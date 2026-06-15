@@ -35,8 +35,14 @@ and is no longer read — leave it unset/ignored.
 # Gating: never require AZURE_HOSTED_ANTHROPIC alone to reach Claude
 The router must attempt the Azure Foundry Claude path whenever a Foundry endpoint +
 key are present, i.e. `AZURE_OPENAI_API_KEY && AZURE_OPENAI_ENDPOINT && (AZURE_HOSTED_ANTHROPIC
-|| endpoint.includes('services.ai.azure.com'))`. Do NOT gate it solely on the
-`AZURE_HOSTED_ANTHROPIC` flag.
+|| isFoundryEndpoint(ep))`. Do NOT gate it solely on the `AZURE_HOSTED_ANTHROPIC` flag.
+
+The SAME Foundry resource is reachable under TWO hostnames and BOTH serve Claude via
+`/openai/v1/responses` (verified — both return Claude body-validation errors, not auth/route
+errors): `<name>.services.ai.azure.com` (AI Foundry form, what dev uses) and
+`<name>.cognitiveservices.azure.com` (Azure AI Services form shown on the Foundry Overview
+page). `isFoundryEndpoint()` MUST match both substrings, else prod set to the
+cognitiveservices form is rejected and you get the same outage.
 
 **Why:** dev sets the flag, but the prod Azure App Service does not, and there is NO
 direct Anthropic key in any environment (`AI_INTEGRATIONS_ANTHROPIC_API_KEY` /

@@ -25,14 +25,18 @@ type Resolved = { provider: 'anthropic'; modelName: string };
 function useAzureForAnthropic(): boolean {
   return process.env.AZURE_HOSTED_ANTHROPIC === '1' || process.env.AZURE_HOSTED_ANTHROPIC === 'true';
 }
-// Azure AI Foundry endpoints (services.ai.azure.com) host the Claude deployments
-// and serve them via /openai/v1/responses. When the configured endpoint is a
-// Foundry endpoint we route Claude through it WITHOUT requiring the
-// AZURE_HOSTED_ANTHROPIC flag — so any environment that has the Foundry
-// endpoint/key (e.g. the Azure App Service) reaches Claude instead of falling
-// through to an absent direct Anthropic key and failing "all providers failed".
+// Azure AI Foundry resources host the Claude deployments and serve them via
+// /openai/v1/responses. The SAME resource is reachable under two hostnames —
+// `<name>.services.ai.azure.com` (the AI Foundry form) and
+// `<name>.cognitiveservices.azure.com` (the Azure AI Services form shown on the
+// Foundry Overview page) — and BOTH serve Claude. When the configured endpoint
+// is either form we route Claude through it WITHOUT requiring the
+// AZURE_HOSTED_ANTHROPIC flag, so any environment that has the endpoint/key
+// (e.g. the Azure App Service) reaches Claude instead of falling through to an
+// absent direct Anthropic key and failing "all providers failed".
 function isFoundryEndpoint(ep: string): boolean {
-  return ep.toLowerCase().includes('services.ai.azure.com');
+  const e = ep.toLowerCase();
+  return e.includes('services.ai.azure.com') || e.includes('cognitiveservices.azure.com');
 }
 // Map a Claude model ID to its Azure AI Foundry deployment name. The three live
 // Claude deployments on this resource are the entire text engine:
