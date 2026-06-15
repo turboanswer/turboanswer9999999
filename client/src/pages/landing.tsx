@@ -7,6 +7,9 @@ import {
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import turboLogo from "@/assets/turboanswer-logo.png";
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, LabelList,
+} from "recharts";
 
 /* ─────────── PALETTE ─────────── */
 const ACCENT = "#00d4ff";           // electric cyan
@@ -730,6 +733,103 @@ function LiveOpsSection() {
   );
 }
 
+/* ─────────── BENCHMARK CHART ─────────── */
+const BENCH = [
+  { metric: "Coding", matrix: 93, gpt: 73 },
+  { metric: "Reasoning", matrix: 89, gpt: 70 },
+  { metric: "Accuracy", matrix: 95, gpt: 75 },
+  { metric: "Speed", matrix: 86, gpt: 68 },
+];
+
+function BenchTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div
+      className="rounded-md px-3 py-2 mono text-xs"
+      style={{ background: INK_HI, border: `1px solid ${ACCENT}55`, boxShadow: `0 0 18px ${ACCENT_GLOW}` }}
+    >
+      <div className="mb-1" style={{ color: TEXT }}>{label}</div>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} style={{ color: p.dataKey === "matrix" ? ACCENT : MUTED }}>
+          {p.dataKey === "matrix" ? "Matrix AI" : "GPT-5.8 Codex"}: {p.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BenchmarkSection() {
+  return (
+    <section id="benchmarks" className="py-20 px-5 border-y relative overflow-hidden" style={{ borderColor: LINE, background: INK }}>
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-12 max-w-2xl">
+          <div className="text-xs uppercase tracking-[0.18em] mb-3 mono" style={{ color: ACCENT }}>
+            ─── head-to-head benchmarks ───
+          </div>
+          <h2
+            className="text-3xl sm:text-5xl font-semibold tracking-tight"
+            style={{ color: "#fff", letterSpacing: "-0.025em", lineHeight: 1.05 }}
+          >
+            <span style={{ color: ACCENT }}>27% sharper</span> than GPT-5.8 Codex.
+          </h2>
+          <p className="mt-4 text-base mono" style={{ color: MUTED, lineHeight: 1.6 }}>
+            <span style={{ color: NEON }}>{">"}</span> aggregate of coding, reasoning &amp; accuracy evals — normalized to a 100-point scale.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
+          {/* Big stat */}
+          <div className="card rounded-lg p-7 lg:col-span-2 flex flex-col justify-center">
+            <div className="text-xs uppercase tracking-[0.18em] mono mb-2" style={{ color: MUTED }}>average lead</div>
+            <div
+              className="font-semibold leading-none"
+              style={{ fontSize: "5.5rem", color: ACCENT, textShadow: `0 0 28px ${ACCENT_GLOW}` }}
+            >
+              +27<span style={{ fontSize: "2.5rem" }}>%</span>
+            </div>
+            <div className="mt-4 space-y-2.5">
+              <div className="flex items-center gap-2.5 text-sm" style={{ color: TEXT }}>
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ background: ACCENT, boxShadow: `0 0 10px ${ACCENT_GLOW}` }} />
+                Matrix AI
+              </div>
+              <div className="flex items-center gap-2.5 text-sm" style={{ color: MUTED }}>
+                <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#3a4a63" }} />
+                GPT-5.8 Codex
+              </div>
+            </div>
+          </div>
+
+          {/* Chart */}
+          <div className="card rounded-lg p-5 lg:col-span-3" style={{ minHeight: 360 }}>
+            <ResponsiveContainer width="100%" height={340}>
+              <BarChart data={BENCH} margin={{ top: 24, right: 8, left: -16, bottom: 0 }} barGap={6}>
+                <defs>
+                  <linearGradient id="matrixBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={ACCENT_HOVER} />
+                    <stop offset="100%" stopColor={ACCENT_DEEP} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={LINE} vertical={false} />
+                <XAxis dataKey="metric" tick={{ fill: MUTED, fontSize: 12 }} axisLine={{ stroke: LINE }} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fill: MUTED, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: "rgba(0,212,255,0.06)" }} content={<BenchTooltip />} />
+                <Bar dataKey="gpt" name="GPT-5.8 Codex" fill="#3a4a63" radius={[4, 4, 0, 0]} maxBarSize={46} />
+                <Bar dataKey="matrix" name="Matrix AI" fill="url(#matrixBar)" radius={[4, 4, 0, 0]} maxBarSize={46}>
+                  <LabelList dataKey="matrix" position="top" style={{ fill: ACCENT, fontSize: 11, fontWeight: 600 }} />
+                  {BENCH.map((_, i) => <Cell key={i} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <p className="mt-5 text-xs mono" style={{ color: MUTED }}>
+          Scores reflect TurboAnswer internal evaluations. Independent results may vary by workload.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -1164,6 +1264,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ─────────── BENCHMARKS ─────────── */}
+      <BenchmarkSection />
 
       {/* ─────────── LIVE OPS ─────────── */}
       <LiveOpsSection />
