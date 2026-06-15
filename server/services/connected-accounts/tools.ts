@@ -9,10 +9,81 @@
  *    they return a proposal the user must confirm, which is then executed via
  *    executeAction().
  */
+import crypto from "crypto";
 import type { Provider } from "./oauth";
 import { getValidAccessToken } from "./oauth";
 
 export type ConnectedMap = Record<string, boolean>; // { google: true, microsoft: false }
+
+// ── Signed action proposals ───────────────────────────────────────────────
+// Side-effect actions (send email / create event) must NEVER run from a raw
+// client payload — that would make "explicit confirmation" a UI-only control
+// that any authenticated user could bypass. Instead, when the AI proposes an
+// action we mint a short-lived HMAC token bound to {userId, provider, action,
+// args}. The execute route requires this token and re-verifies it, so the
+// server only runs actions it actually proposed, for the user it proposed them
+// to, with the exact args it proposed — and each token is single-use.
+function proposalSigningKey(): Buffer {
+  const secret = process.env.CRISIS_ENCRYPTION_KEY;
+  if (!secret) throw new Error("CRISIS_ENCRYPTION_KEY is required to sign connected-account actions");
+  return crypto.createHash("sha256").update("connected-action-proposal:" + secret).digest();
+}
+
+function stableStringify(value: any): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value ?? null);
+  if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
+  const keys = Object.keys(value).sort();
+  return "{" + keys.map(k => JSON.stringify(k) + ":" + stableStringify(value[k])).join(",") + "}";
+}
+
+function argsHash(args: Record<string, any>): string {
+  return crypto.createHash("sha256").update(stableStringify(args ?? {})).digest("hex");
+}
+
+const PROPOSAL_TTL_MS = 10 * 60 * 1000;
+const usedProposalNonces = new Set<string>();
+
+export function signActionProposal(p: {
+  userId: string; provider: Provider; action: string; args: Record<string, any>; conversationId?: number;
+}): string {
+  const payload = {
+    u: p.userId,
+    pr: p.provider,
+    a: p.action,
+    h: argsHash(p.args),
+    c: p.conversationId ?? null,
+    e: Date.now() + PROPOSAL_TTL_MS,
+    n: crypto.randomBytes(12).toString("hex"),
+  };
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const sig = crypto.createHmac("sha256", proposalSigningKey()).update(body).digest("base64url");
+  return `${body}.${sig}`;
+}
+
+export function verifyActionProposal(
+  token: unknown,
+  ctx: { userId: string; provider: Provider; action: string; args: Record<string, any> },
+): { ok: boolean; error?: string } {
+  if (typeof token !== "string" || !token.includes(".")) return { ok: false, error: "Missing confirmation token" };
+  const [body, sig] = token.split(".");
+  if (!body || !sig) return { ok: false, error: "Malformed confirmation token" };
+  const expected = crypto.createHmac("sha256", proposalSigningKey()).update(body).digest("base64url");
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return { ok: false, error: "Invalid confirmation token" };
+  }
+  let payload: any;
+  try { payload = JSON.parse(Buffer.from(body, "base64url").toString()); } catch { return { ok: false, error: "Malformed confirmation token" }; }
+  if (typeof payload?.e !== "number" || payload.e < Date.now()) return { ok: false, error: "This confirmation has expired — please ask again." };
+  if (payload.u !== ctx.userId) return { ok: false, error: "This action wasn't proposed for your account." };
+  if (payload.pr !== ctx.provider || payload.a !== ctx.action) return { ok: false, error: "Action does not match what was proposed." };
+  if (payload.h !== argsHash(ctx.args)) return { ok: false, error: "The action details were changed after it was proposed." };
+  if (usedProposalNonces.has(payload.n)) return { ok: false, error: "This action was already confirmed." };
+  usedProposalNonces.add(payload.n);
+  if (usedProposalNonces.size > 10000) usedProposalNonces.clear();
+  return { ok: true };
+}
 
 export type ReadResult = { ok: boolean; context?: string; error?: string };
 

@@ -2153,11 +2153,12 @@ Formatting rules:
         const statuses = await listConnectionStatuses(userId);
         const connectedMap = { google: !!statuses.google?.connected, microsoft: !!statuses.microsoft?.connected };
         if (connectedMap.google || connectedMap.microsoft) {
-          const { classifyIntent, runReadTool, describeAction } = await import('./services/connected-accounts/tools');
+          const { classifyIntent, runReadTool, describeAction, signActionProposal } = await import('./services/connected-accounts/tools');
           const intent = await classifyIntent(content, connectedMap);
           if (intent.kind === 'action') {
             const summary = describeAction(intent.provider, intent.action, intent.args);
-            const proposal = { provider: intent.provider, action: intent.action, args: intent.args, summary };
+            const token = signActionProposal({ userId, provider: intent.provider, action: intent.action, args: intent.args, conversationId });
+            const proposal = { provider: intent.provider, action: intent.action, args: intent.args, summary, token };
             const note = `I've prepared this for your approval:\n\n${summary}\n\nConfirm below to proceed, or cancel.`;
             send('action_proposal', proposal);
             const aiMessage = await storage.createMessage({ conversationId, content: note, role: 'assistant' });
@@ -2329,10 +2330,15 @@ Formatting rules:
   app.post("/api/connections/action/execute", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      const { provider, action, args } = req.body || {};
+      const { provider, action, args, token } = req.body || {};
       const { isProvider } = await import('./services/connected-accounts/oauth');
       if (!isProvider(provider) || !action) return res.status(400).json({ message: 'Invalid action' });
-      const { executeAction } = await import('./services/connected-accounts/tools');
+      const { executeAction, verifyActionProposal } = await import('./services/connected-accounts/tools');
+      // Side-effect actions only run if they carry a valid server-issued
+      // confirmation token bound to this user + exact action/args. This makes
+      // "explicit confirmation" an enforced backend control, not just UI.
+      const verdict = verifyActionProposal(token, { userId, provider, action, args: args || {} });
+      if (!verdict.ok) return res.status(403).json({ ok: false, message: verdict.error || 'Action could not be confirmed.' });
       const result = await executeAction(userId, { provider, action, args: args || {}, summary: '' });
       res.status(result.ok ? 200 : 502).json(result);
     } catch (err: any) {

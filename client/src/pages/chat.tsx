@@ -520,6 +520,7 @@ export default function Chat() {
         provider: pendingAction.provider,
         action: pendingAction.action,
         args: pendingAction.args,
+        token: pendingAction.token,
       });
       const data = await res.json();
       toast({
