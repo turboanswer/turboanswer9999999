@@ -401,6 +401,11 @@ export default function MobileChatUI({
                <Settings className="h-4 w-4" /> Settings
              </button>
           </Link>
+          <Link href="/device-tools">
+             <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => setShowDrawer(false)}>
+               <Clock className="h-4 w-4" /> Device Tools
+             </button>
+          </Link>
           <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); setShowSupportPanel(true); }}>
             <Phone className="h-4 w-4" /> Contact Support
           </button>

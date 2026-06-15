@@ -40,6 +40,7 @@ import CollabRooms from "@/pages/collab-rooms";
 import StackTraceSurgeon from "@/pages/stack-trace-surgeon";
 import CodeCustomizer from "@/pages/code-customizer";
 import DevTools from "@/pages/devtools";
+import DeviceTools from "@/pages/device-tools";
 import { WebOnlyGate } from "@/components/WebOnlyGate";
 
 import NotificationPopup from "@/components/NotificationPopup";
@@ -132,6 +133,7 @@ function AuthenticatedRouter() {
       <Route path="/code-customizer" component={CodeCustomizerGated} />
       <Route path="/code-surgeon" component={CodeCustomizerGated} />
       <Route path="/devtools" component={DevTools} />
+      <Route path="/device-tools" component={DeviceTools} />
 
       <Route path="/beta" component={BetaApply} />
       <Route path="/beta-feedback" component={BetaFeedback} />
@@ -215,6 +217,12 @@ function AppContent() {
       window.removeEventListener('keydown', unlock);
       window.removeEventListener('touchstart', unlock);
     };
+  }, []);
+
+  // Native (Task #17): re-arm any persisted reminders/alarms on app launch so
+  // they survive restarts. No-op on web.
+  useEffect(() => {
+    import("@/lib/native").then((m) => m.rescheduleStoredReminders()).catch(() => {});
   }, []);
 
   if (isLoading) {

@@ -397,6 +397,18 @@ export default function Chat() {
     // Bump session counter so any stale chunk events from a previous, still-
     // unfinished stream are dropped instead of bleeding into this run.
     const sessionId = ++streamSessionRef.current;
+
+    // Native phone integrations (Task #17): on the installed app, read on-device
+    // data (contacts/calendar) or schedule a reminder when the message asks for
+    // it, and hand a compact context string to the AI. No-op on web.
+    let deviceContext: string | undefined;
+    try {
+      const { prepareDeviceContext } = await import("@/lib/native");
+      const prep = await prepareDeviceContext(content);
+      deviceContext = prep.deviceContext;
+      if (prep.toast) toast(prep.toast);
+    } catch {}
+
     const res = await fetch(`/api/conversations/${convId}/messages/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -407,6 +419,7 @@ export default function Chat() {
         language: currentLanguage,
         responseStyle: responseStylePref,
         responseTone: responseTonePref,
+        deviceContext,
       }),
     });
     if (res.status === 429) {

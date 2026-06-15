@@ -2008,7 +2008,7 @@ Formatting rules:
   // ============= TurboAnswer Reasoning Engine — SSE streaming endpoint =============
   app.post("/api/conversations/:id/messages/stream", isAuthenticated, async (req: any, res) => {
     const conversationId = parseInt(req.params.id);
-    const { content, deepThink: manualDeepThink, language, responseStyle, responseTone } = req.body || {};
+    const { content, deepThink: manualDeepThink, language, responseStyle, responseTone, deviceContext } = req.body || {};
     const userId = req.user?.claims?.sub;
 
     if (!content || typeof content !== 'string') {
@@ -2185,7 +2185,7 @@ Formatting rules:
           hasImage: false,
           manualDeepThink: !!manualDeepThink && allowDeep,
           forceFastMode: !allowDeep,
-          systemPrompt: systemPrompt + connectedContext,
+          systemPrompt: systemPrompt + connectedContext + (typeof deviceContext === 'string' ? deviceContext : ''),
           tier: effectiveTier,
           history,
           onEvent: (e) => send(e.type, e),
