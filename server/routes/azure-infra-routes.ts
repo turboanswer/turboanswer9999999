@@ -29,6 +29,11 @@ import {
   type ControlAction,
   type MetricRange,
 } from "../services/azure-infra";
+import {
+  runAssistant,
+  executeAction,
+  type AssistantMessage,
+} from "../services/infra-assistant";
 
 const OWNER_EMAIL = "support@turboanswer.it.com";
 
@@ -308,6 +313,38 @@ export function registerAzureInfraRoutes(app: Express) {
     ownerOnly,
     handle(async (req) => {
       const out = await runDbAction(req.params.action);
+      return { ok: true, ...out };
+    }),
+  );
+
+  // --- Command Center: natural-language control (Claude) -----------------
+  // Plans/answers from a plain-English prompt. Read tools run automatically;
+  // control actions come back as `pendingAction` and are NOT executed until the
+  // owner confirms via /api/infra/assistant/confirm below.
+  app.post(
+    "/api/infra/assistant",
+    ownerOnly,
+    handle(async (req) => {
+      const message = String(req.body?.message || "").trim();
+      if (!message) throw new AzureApiError("A command message is required.", 400);
+      const history: AssistantMessage[] = Array.isArray(req.body?.history)
+        ? req.body.history.slice(-8)
+        : [];
+      const out = await runAssistant(message, history);
+      return { ok: true, ...out };
+    }),
+  );
+
+  // Executes a control action the owner explicitly confirmed. The tool + input
+  // are re-validated server-side; only confirmable actions are allowed.
+  app.post(
+    "/api/infra/assistant/confirm",
+    ownerOnly,
+    handle(async (req) => {
+      const tool = String(req.body?.tool || "");
+      const input =
+        req.body?.input && typeof req.body.input === "object" ? req.body.input : {};
+      const out = await executeAction(tool, input);
       return { ok: true, ...out };
     }),
   );

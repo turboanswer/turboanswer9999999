@@ -63,6 +63,29 @@
 
   <main class="p-3 grid grid-cols-12 gap-3 max-w-[1800px] mx-auto">
 
+    <!-- ===================== COMMAND CENTER (NL) ===================== -->
+    <section class="col-span-12 rounded-lg border border-ice/30 bg-panel glow p-3">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-ice font-mono text-xs tracking-wide">⌁ COMMAND CENTER · CONTROL EVERYTHING WITH ONE PROMPT</h2>
+        <span class="font-mono text-[10px] text-icedim">Claude · natural language ops</span>
+      </div>
+      <div id="ccLog" class="h-44 overflow-auto font-mono text-[12px] leading-relaxed rounded border border-slatebd bg-panel2 px-3 py-2 mb-2 space-y-2">
+        <div class="text-icedim">Try: "how's the server?" · "what's our cost this month?" · "restart the server" · "shut it down" · "show 5xx errors in the last hour"</div>
+      </div>
+      <div id="ccConfirm" class="hidden mb-2 rounded border border-warn/50 bg-warn/10 px-3 py-2 font-mono text-[12px]">
+        <div id="ccConfirmText" class="text-warn mb-2"></div>
+        <div class="flex gap-2">
+          <button id="ccConfirmYes" class="util border-bad/50 text-bad">✓ Confirm &amp; Execute</button>
+          <button id="ccConfirmNo" class="util">✕ Cancel</button>
+        </div>
+      </div>
+      <form id="ccForm" class="flex gap-2">
+        <input id="ccInput" type="text" autocomplete="off" placeholder="Type a command in plain English…"
+          class="flex-1 rounded border border-slatebd2 bg-panel2 px-3 py-2 font-mono text-[12px] text-slate-200 placeholder:text-icedim focus:outline-none focus:border-ice/50" />
+        <button id="ccSend" type="submit" class="util border-ice/40 text-ice px-4">Send ▸</button>
+      </form>
+    </section>
+
     <!-- ===================== OPERATIONS ===================== -->
     <section class="col-span-12 xl:col-span-5 rounded-lg border border-slatebd bg-panel p-3">
       <h2 class="text-ice font-mono text-xs mb-2 tracking-wide">INFRASTRUCTURE OPERATIONS MANAGEMENT</h2>
@@ -447,6 +470,83 @@
       document.querySelectorAll('.rangebtn').forEach(x => x.classList.remove('bg-slatebd2','text-ice'));
       b.classList.add('bg-slatebd2','text-ice'); curRange = b.dataset.range; refreshMetrics(curRange);
     }));
+
+    // ---- command center (natural-language ops) ----
+    const ccHistory = [];
+    let ccPending = null;
+    let ccBusy = false;
+
+    function ccAppend(role, text) {
+      const log = $('#ccLog');
+      const wrap = document.createElement('div');
+      const who = role === 'user'
+        ? '<span class="text-ice">you ▸</span> '
+        : role === 'assistant'
+          ? '<span class="text-ok">cc ▸</span> '
+          : '<span class="text-warn">sys ▸</span> ';
+      const color = role === 'user' ? 'text-slate-200' : role === 'sys' ? 'text-warn' : 'text-slate-300';
+      wrap.className = color + ' whitespace-pre-wrap';
+      wrap.innerHTML = who + escapeHtml(text);
+      log.appendChild(wrap); log.scrollTop = log.scrollHeight;
+    }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    }
+    function ccShowConfirm(p) {
+      ccPending = p;
+      $('#ccConfirmText').textContent = '⚠ ' + (p.summary || ('Confirm ' + p.tool + '?'));
+      $('#ccConfirm').classList.remove('hidden');
+    }
+    function ccHideConfirm() {
+      ccPending = null;
+      $('#ccConfirm').classList.add('hidden');
+    }
+
+    async function ccSend(message) {
+      if (ccBusy) return;
+      ccBusy = true; ccHideConfirm();
+      ccAppend('user', message);
+      ccHistory.push({ role: 'user', content: message });
+      progress(true);
+      try {
+        const res = await apiPost('/api/infra/assistant', { message, history: ccHistory.slice(-8) });
+        const reply = res.reply || 'Done.';
+        ccAppend('assistant', reply);
+        ccHistory.push({ role: 'assistant', content: reply });
+        if (res.ranTools && res.ranTools.length) refreshStatus();
+        if (res.pendingAction) {
+          if (LOCKED) ccAppend('sys', 'Operations are LOCKED — unlock the toggle (top right) to run control actions.');
+          else ccShowConfirm(res.pendingAction);
+        }
+      } catch (e) {
+        ccAppend('sys', e.message || 'Command failed.');
+      } finally { progress(false); ccBusy = false; }
+    }
+
+    $('#ccForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = $('#ccInput').value.trim();
+      if (!v) return;
+      $('#ccInput').value = '';
+      ccSend(v);
+    });
+    $('#ccConfirmNo').addEventListener('click', () => { ccHideConfirm(); ccAppend('sys', 'Cancelled.'); });
+    $('#ccConfirmYes').addEventListener('click', async () => {
+      if (!ccPending || ccBusy) return;
+      if (LOCKED) { ccAppend('sys', 'Operations are LOCKED.'); return; }
+      const p = ccPending; ccBusy = true; ccHideConfirm();
+      progress(true); term(`→ command center: execute ${p.tool} …`, 'warn');
+      try {
+        const r = await apiPost('/api/infra/assistant/confirm', { tool: p.tool, input: p.input || {} });
+        const msg = r.result || 'Action completed.';
+        ccAppend('assistant', '✓ ' + msg);
+        term('✓ ' + msg, 'ok');
+        refreshStatus();
+      } catch (e) {
+        ccAppend('sys', e.message || 'Action failed.');
+        term('✗ ' + (e.message || 'Action failed'), 'bad');
+      } finally { progress(false); ccBusy = false; }
+    });
 
     // ---- clock ----
     setInterval(() => { $('#clock').textContent = new Date().toUTCString().replace('GMT','UTC'); }, 1000);

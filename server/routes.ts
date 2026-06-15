@@ -2260,6 +2260,20 @@ Formatting rules:
         console.error('[ConnectedAccounts] preflight error:', e?.message || e);
       }
 
+      // ── Native Claude tool use (function calling) ─────────────────────────
+      // If nothing else claimed this turn, let Claude decide whether the message
+      // needs a first-party tool (exact math, current date/time). Real tool calls
+      // run server-side and their exact results are injected as context.
+      if (!connectedContext) {
+        try {
+          const { runChatToolPreflight } = await import('./services/claude-tools');
+          const toolContext = await runChatToolPreflight(content, { timezone: user?.timezone || undefined });
+          if (toolContext) connectedContext = toolContext;
+        } catch (e: any) {
+          console.error('[ClaudeTools] preflight error:', e?.message || e);
+        }
+      }
+
       try {
         const result = await tre.runReasoning({
           question: content,
@@ -4690,13 +4704,15 @@ How to answer:
         }));
       }
 
+      const docTier = (docUser?.subscriptionTier || 'free').toLowerCase();
       const analysisResult = await analyzeDocument(
         fileContent, 
         originalname, 
         analysisType,
         conversationHistory,
         buffer,
-        mimetype
+        mimetype,
+        docTier
       );
 
       const preview = fileContent === '__BINARY_FILE__'
