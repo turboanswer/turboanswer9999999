@@ -25,6 +25,15 @@ type Resolved = { provider: 'anthropic'; modelName: string };
 function useAzureForAnthropic(): boolean {
   return process.env.AZURE_HOSTED_ANTHROPIC === '1' || process.env.AZURE_HOSTED_ANTHROPIC === 'true';
 }
+// Azure AI Foundry endpoints (services.ai.azure.com) host the Claude deployments
+// and serve them via /openai/v1/responses. When the configured endpoint is a
+// Foundry endpoint we route Claude through it WITHOUT requiring the
+// AZURE_HOSTED_ANTHROPIC flag — so any environment that has the Foundry
+// endpoint/key (e.g. the Azure App Service) reaches Claude instead of falling
+// through to an absent direct Anthropic key and failing "all providers failed".
+function isFoundryEndpoint(ep: string): boolean {
+  return ep.toLowerCase().includes('services.ai.azure.com');
+}
 // Map a Claude model ID to its Azure AI Foundry deployment name. The three live
 // Claude deployments on this resource are the entire text engine:
 //   Haiku  → free tier (Turbo)
@@ -112,11 +121,14 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
   try {
     {
       // Path 1: Azure-hosted Claude via the Foundry Responses API
-      // (services.ai.azure.com/openai/v1/responses). Billed to Azure.
-      if (useAzureForAnthropic()) {
+      // (services.ai.azure.com/openai/v1/responses). Billed to Azure. Attempted
+      // whenever Foundry creds exist OR AZURE_HOSTED_ANTHROPIC forces it — we do
+      // NOT require the flag, so prod (Azure App Service) reaches Claude even if
+      // the flag was never set there.
+      {
         const key = process.env.AZURE_OPENAI_API_KEY;
-        const ep = process.env.AZURE_OPENAI_ENDPOINT;
-        if (key && ep) {
+        const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+        if (key && ep && (useAzureForAnthropic() || isFoundryEndpoint(ep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const res = await fetch(azureResponsesUrl(), {
             method: 'POST',
@@ -171,10 +183,12 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
   try {
     {
       // Azure-hosted Claude streaming via the Foundry Responses API (SSE).
-      if (useAzureForAnthropic()) {
+      // Attempted whenever Foundry creds exist — see callDirect for why we do
+      // not require the AZURE_HOSTED_ANTHROPIC flag.
+      {
         const akey = process.env.AZURE_OPENAI_API_KEY;
-        const aep = process.env.AZURE_OPENAI_ENDPOINT;
-        if (akey && aep) {
+        const aep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+        if (akey && aep && (useAzureForAnthropic() || isFoundryEndpoint(aep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const res = await fetch(azureResponsesUrl(), {
             method: 'POST',

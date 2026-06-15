@@ -32,6 +32,23 @@ Override defaults via `AZURE_DEPLOYMENT_CLAUDE_{HAIKU,SONNET,OPUS}`. The older
 `AZURE_DEPLOYMENT_CLAUDE_SONNET_4_5` secret is stale (set to a nonexistent `claude-sonnet-4-6`)
 and is no longer read — leave it unset/ignored.
 
+# Gating: never require AZURE_HOSTED_ANTHROPIC alone to reach Claude
+The router must attempt the Azure Foundry Claude path whenever a Foundry endpoint +
+key are present, i.e. `AZURE_OPENAI_API_KEY && AZURE_OPENAI_ENDPOINT && (AZURE_HOSTED_ANTHROPIC
+|| endpoint.includes('services.ai.azure.com'))`. Do NOT gate it solely on the
+`AZURE_HOSTED_ANTHROPIC` flag.
+
+**Why:** dev sets the flag, but the prod Azure App Service does not, and there is NO
+direct Anthropic key in any environment (`AI_INTEGRATIONS_ANTHROPIC_API_KEY` /
+`ANTHROPIC_API_KEY` both absent). Flag-only gating made prod skip the only working
+Claude path and fall through to api.anthropic.com with no key → `callDirect(Stream)`
+returns null → reasoning-engine throws `AI_PROVIDERS_UNAVAILABLE` on every chat, while
+dev looked fine. The Foundry endpoint check is the durable signal that Claude is reachable.
+
+**How to apply:** any new Claude call site or env-config change must keep the Foundry-endpoint
+fallback in the gate; match the endpoint case-insensitively. Prod fix only lands after
+redeploy AND only if prod actually has the Foundry endpoint+key set.
+
 # Gotcha: the management plane can't enumerate these deployments
 The Azure SP (AZURE_CLIENT_ID/TENANT/SECRET/SUBSCRIPTION) returns zero Cognitive Services
 accounts via management.azure.com (RBAC/subscription scope), and the data-plane list routes
