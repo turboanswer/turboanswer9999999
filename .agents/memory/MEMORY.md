@@ -1,6 +1,7 @@
 - [Design language "Clear Blue"](design-language.md) — clean Gemini-grade blue minimal; ONE shared --ai-gradient (blue→violet→magenta), reuse it, keep spark disciplined, update desktop chat.tsx + mobile MobileChatUI THEME together; never claim "ten models" (one per tier).
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
 - [Azure runtime DB vs Neon](azure-runtime-db.md) — runtime DB is Azure; new tables/columns must go in server/db-migrations.ts (db:push only hits Neon, not runtime).
+- [Prod deploy pipeline (web)](prod-deploy-pipeline.md) — prod = Azure App Service via GitHub Actions on push to main (not Replit Deploy); Replit deploy logs empty + sandbox can't curl azurewebsites.net; verify via GitHub Actions API.
 - [Prod-only file-not-found (unbundled assets)](prod-unbundled-assets.md) — esbuild→dist/ shifts __dirname; readFile of standalone *.html works in dev, 500s in prod; fix with cwd-relative candidate paths.
 - [Azure Foundry GPT-5 params](azure-foundry-gpt5.md) — GPT-5.x needs max_completion_tokens (not max_tokens) and default temperature; mini/nano live, pro unsupported in this resource.
 - [Azure Foundry Claude surface](azure-foundry-claude.md) — Claude only via /openai/v1/responses; haiku/sonnet/opus=free/pro/matrix; gate Azure path on Foundry endpoint, NOT the AZURE_HOSTED_ANTHROPIC flag (prod lacks it → "all providers failed").
