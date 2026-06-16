@@ -275,6 +275,42 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
             opts.onProviderError?.(detail);
             console.warn(`[Router/Azure-Claude-stream] ${detail}`);
           }
+          // STREAMING FELL SHORT (empty SSE body or non-200). Before giving up,
+          // retry the SAME Claude deployment NON-streaming on the identical
+          // endpoint. The streamed SSE body can come back empty in some prod
+          // runtimes / behind proxies (Azure App Service, Cloudflare) even
+          // though the non-streaming Responses call returns the full answer
+          // reliably (verified: the non-streaming widget path works in prod
+          // while streaming chat threw "providers all failed"). Returning the
+          // text lets the caller emit it as a single chunk so the user still
+          // gets their answer instead of an error. Still 100% Claude — same
+          // model, same Azure endpoint, only the transport degrades.
+          // Reaching here guarantees NOTHING was streamed to the client (the
+          // `if (acc) return acc` above returns on any emitted content), so a
+          // single-chunk non-streaming answer cannot double-emit.
+          try {
+            const ns = await fetch(azureResponsesUrl(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'api-key': akey },
+              body: JSON.stringify(buildResponsesBody(deployment, messages, opts, false, isOpus)),
+              signal: ctrl.signal,
+            });
+            if (ns.ok) {
+              const data: any = await ns.json();
+              const text = extractResponsesText(data);
+              if (text) { clearTimeout(t); return text; }
+              opts.onProviderError?.(`azure-claude(${deployment}) non-stream fallback HTTP 200 but no text`);
+            } else {
+              const txt = await ns.text().catch(() => '');
+              const d = `azure-claude(${deployment}) non-stream fallback HTTP ${ns.status}: ${txt.slice(0, 160)}`;
+              opts.onProviderError?.(d);
+              console.warn(`[Router/Azure-Claude-nonstream-fallback] ${d}`);
+            }
+          } catch (e: any) {
+            if (e?.name !== 'AbortError') {
+              opts.onProviderError?.(`azure-claude(${deployment}) non-stream fallback exception: ${e?.message || e}`);
+            }
+          }
           // Fall through to direct Anthropic only if nothing was emitted.
         }
       }
