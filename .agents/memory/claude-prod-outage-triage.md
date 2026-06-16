@@ -19,6 +19,17 @@ App Service config, NOT code:
    return OK; ProactiveDiag failures:0.
 
 If all green, the prod-only failure is environment/infra, fixable only on Azure:
+- **CONFIRMED root cause of the 2026-06 SEV-A — `AZURE_OPENAI_ENDPOINT` value carried the
+  wrong PATH.** `azureResponsesUrl()` does `normalizeFoundryEndpoint(endpoint) + "/openai/v1/responses"`,
+  and `normalizeFoundryEndpoint` only rewrites the HOST (cognitiveservices→services.ai); it
+  NEVER strips the path. So the env var must already be the working Foundry PROJECT endpoint
+  `https://<res>.services.ai.azure.com/api/projects/<project>` (dev's value) — appending
+  `/openai/v1/responses` then yields a valid project Responses URL. Prod had it set to
+  `https://<res>.services.ai.azure.com/anthropic/v1/messages`, so the app called
+  `…/anthropic/v1/messages/openai/v1/responses` → 404 → fell through to (absent) direct
+  Anthropic → `AI_PROVIDERS_UNAVAILABLE` for EVERY chat. Fix = set prod's `AZURE_OPENAI_ENDPOINT`
+  equal to dev's `/api/projects/<project>` form; no code change, App Service restarts on save.
+  Matches Azure's "requests don't reach Foundry": they 404 at a bogus path, never hit the deployment.
 - Azure App Service "Application settings" `AZURE_OPENAI_ENDPOINT` / `AZURE_OPENAI_API_KEY`
   missing/wrong. These live in the Azure portal, NOT Replit/GitHub; dev secrets do not
   propagate to prod.
