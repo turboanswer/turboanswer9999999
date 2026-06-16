@@ -63,7 +63,7 @@ export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 async function callOR(
   model: string,
   prompt: string,
-  opts: { maxTokens?: number; temperature?: number; jsonMode?: boolean; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
+  opts: { maxTokens?: number; temperature?: number; jsonMode?: boolean; system?: string; timeoutMs?: number; history?: ChatTurn[]; onProviderError?: (detail: string) => void } = {}
 ): Promise<string | null> {
   const messages: Message[] = [];
   if (opts.system) messages.push({ role: 'system', content: opts.system });
@@ -80,6 +80,7 @@ async function callOR(
     temperature: opts.temperature,
     jsonMode: opts.jsonMode,
     timeoutMs: opts.timeoutMs ?? 45000,
+    onProviderError: opts.onProviderError,
   });
 }
 
@@ -500,7 +501,7 @@ function claudeModelForTier(tier?: string): string {
 async function answerForTier(
   prompt: string,
   tier: string | undefined,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] } = {}
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[]; onProviderError?: (detail: string) => void } = {}
 ): Promise<string | null> {
   return await callOR(claudeModelForTier(tier), prompt, opts);
 }
@@ -587,12 +588,14 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
   const shaped = shapeForTier(tier, system, question);
   // Scale timeout with budget: ~50 tok/sec floor + 10s headroom, min 25s, max 120s.
   const timeoutMs = Math.min(120_000, Math.max(25_000, shaped.maxTokens * 20 + 10_000));
-  const out = await answerForTier(question, routingTier(tier, question), { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history });
+  let providerErr = '';
+  const out = await answerForTier(question, routingTier(tier, question), { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history, onProviderError: (d) => { providerErr = d; } });
   if (out) return out;
   // No silent fallback — surface the failure so the route returns a real HTTP
   // error and the UI can offer a retry instead of persisting a fake assistant
-  // message in chat history.
-  throw new Error('AI_ENGINE_UNAVAILABLE: The Claude engine failed or returned empty. Check the Anthropic API key / Azure Claude deployment.');
+  // message in chat history. Include the real provider detail (no secrets) so
+  // the cause is visible instead of a generic "engine failed".
+  throw new Error(`AI_ENGINE_UNAVAILABLE: Claude failed${providerErr ? ` — ${providerErr}` : ' (no provider detail captured)'}`);
 }
 
 // ============= STREAMING (token-by-token) FAST PATH =============
@@ -603,7 +606,7 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
 async function callORStream(
   model: string,
   prompt: string,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[]; onProviderError?: (detail: string) => void },
   onChunk: (text: string) => void,
 ): Promise<string | null> {
   const messages: Message[] = [];
@@ -620,13 +623,14 @@ async function callORStream(
     maxTokens: opts.maxTokens,
     temperature: opts.temperature,
     timeoutMs: opts.timeoutMs ?? 45000,
+    onProviderError: opts.onProviderError,
   }, onChunk);
 }
 
 async function answerForTierStream(
   prompt: string,
   tier: string | undefined,
-  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[] },
+  opts: { maxTokens?: number; temperature?: number; system?: string; timeoutMs?: number; history?: ChatTurn[]; onProviderError?: (detail: string) => void },
   onChunk: (text: string) => void,
 ): Promise<string | null> {
   // Stream from the tier's Claude model. There is NO non-Claude fallback: if
@@ -649,14 +653,19 @@ export async function fastAnswerStream(
   const shaped = shapeForTier(tier, system, question);
   // Streaming gets a longer ceiling because complex answers can be 4000-6000 tokens.
   const timeoutMs = Math.min(150_000, Math.max(45_000, shaped.maxTokens * 25 + 15_000));
+  // Capture the LAST real provider failure so the thrown error (which the SSE
+  // route forwards verbatim to the client toast) reveals the true cause —
+  // 403=network/firewall, 429=quota, 401=key, timeout=connectivity — instead of
+  // a generic "all failed". No secrets are included in these details.
+  let providerErr = '';
   const out = await answerForTierStream(
     question,
     routingTier(tier, question),
-    { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history },
+    { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history, onProviderError: (d) => { providerErr = d; } },
     onChunk,
   );
   if (out) return out;
-  throw new Error('AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.');
+  throw new Error(`AI_PROVIDERS_UNAVAILABLE: Claude streaming failed${providerErr ? ` — ${providerErr}` : ' (no provider detail captured)'}`);
 }
 
 // ============= RETRIEVAL-ONLY PATH =============

@@ -16,6 +16,10 @@ export type CallOpts = {
   temperature?: number;
   jsonMode?: boolean;
   timeoutMs?: number;
+  // Diagnostic hook: invoked with a short, secret-free reason whenever a provider
+  // attempt fails (HTTP status + truncated body, "no key", or an exception). Lets
+  // callers surface the REAL underlying cause instead of a generic "all failed".
+  onProviderError?: (detail: string) => void;
 };
 
 type Resolved = { provider: 'anthropic'; modelName: string };
@@ -153,9 +157,12 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
             let text = extractResponsesText(data);
             if (text && opts.jsonMode) text = stripJsonFences(text);
             if (text) { clearTimeout(t); return text; }
+            opts.onProviderError?.(`azure-claude(${deployment}) HTTP 200 but no text in response`);
           } else {
             const txt = await res.text().catch(() => '');
-            console.warn(`[Router/Azure-Claude] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`);
+            const detail = `azure-claude(${deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+            opts.onProviderError?.(detail);
+            console.warn(`[Router/Azure-Claude] ${detail}`);
           }
           // Fall through to direct Anthropic if Azure deployment fails.
         }
@@ -163,7 +170,10 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
       // Path 2: Direct Anthropic API (billed to Anthropic).
       const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-      if (!key) return null;
+      if (!key) {
+        opts.onProviderError?.('no direct Anthropic key set (AZURE_OPENAI path was the only option and it failed above)');
+        return null;
+      }
       let sys = '';
       const msgs: any[] = [];
       for (const m of messages) {
@@ -177,12 +187,19 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
         signal: ctrl.signal,
       });
       clearTimeout(t);
-      if (!res.ok) { const txt = await res.text().catch(() => ''); console.warn(`[Router/Anthropic] ${r.modelName} HTTP ${res.status}: ${txt.slice(0, 200)}`); return null; }
+      if (!res.ok) { const txt = await res.text().catch(() => ''); const detail = `anthropic(${r.modelName}) HTTP ${res.status}: ${txt.slice(0, 200)}`; opts.onProviderError?.(detail); console.warn(`[Router/Anthropic] ${detail}`); return null; }
       const data: any = await res.json();
-      return data.content?.[0]?.text || null;
+      const out = data.content?.[0]?.text || null;
+      if (!out) opts.onProviderError?.(`anthropic(${r.modelName}) HTTP 200 but no text in response`);
+      return out;
     }
   } catch (err: any) {
     clearTimeout(t);
+    const aborted = err?.name === 'AbortError';
+    const detail = aborted
+      ? `request timed out after ${opts.timeoutMs ?? 30000}ms (no response from provider — possible network/firewall block)`
+      : `exception: ${err?.message || err}`;
+    opts.onProviderError?.(detail);
     console.warn(`[Router] ${orModelId} failed: ${err?.message || err}`);
     return null;
   }
@@ -231,16 +248,22 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
               }
             }
             if (acc) { clearTimeout(t); return acc; }
+            opts.onProviderError?.(`azure-claude(${deployment}) stream connected (HTTP 200) but produced no content`);
           } else {
             const txt = await res.text().catch(() => '');
-            console.warn(`[Router/Azure-Claude-stream] ${deployment} HTTP ${res.status}: ${txt.slice(0, 200)}`);
+            const detail = `azure-claude(${deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+            opts.onProviderError?.(detail);
+            console.warn(`[Router/Azure-Claude-stream] ${detail}`);
           }
           // Fall through to direct Anthropic only if nothing was emitted.
         }
       }
       const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
       const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-      if (!key) return null;
+      if (!key) {
+        opts.onProviderError?.('no direct Anthropic key set (AZURE_OPENAI path was the only option and it failed above)');
+        return null;
+      }
       let sys = '';
       const msgs: any[] = [];
       for (const m of messages) {
@@ -248,7 +271,12 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
         else msgs.push({ role: m.role, content: m.content });
       }
       const res = await fetch(`${base}/v1/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: r.modelName, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, ...(sys ? { system: sys } : {}), messages: msgs, stream: true }), signal: ctrl.signal });
-      if (!res.ok || !res.body) { clearTimeout(t); return null; }
+      if (!res.ok || !res.body) {
+        if (!res.ok) { const txt = await res.text().catch(() => ''); opts.onProviderError?.(`anthropic(${r.modelName}) HTTP ${res.status}: ${txt.slice(0, 160)}`); }
+        else opts.onProviderError?.(`anthropic(${r.modelName}) returned no response body`);
+        clearTimeout(t);
+        return null;
+      }
       const reader = (res.body as any).getReader();
       const dec = new TextDecoder();
       let buf = '', acc = '', done = false;
@@ -269,10 +297,16 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
         }
       }
       clearTimeout(t);
+      if (!acc) opts.onProviderError?.(`anthropic(${r.modelName}) stream produced no content`);
       return acc || null;
     }
   } catch (err: any) {
     clearTimeout(t);
+    const aborted = err?.name === 'AbortError';
+    const detail = aborted
+      ? `request timed out after ${opts.timeoutMs ?? 45000}ms (no response from provider — possible network/firewall block)`
+      : `stream exception: ${err?.message || err}`;
+    opts.onProviderError?.(detail);
     console.warn(`[Router-stream] ${orModelId} failed: ${err?.message || err}`);
     return null;
   }
