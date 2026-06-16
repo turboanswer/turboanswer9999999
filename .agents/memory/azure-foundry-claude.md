@@ -57,12 +57,25 @@ The router must attempt the Azure Foundry Claude path whenever a Foundry endpoin
 key are present, i.e. `AZURE_OPENAI_API_KEY && AZURE_OPENAI_ENDPOINT && (AZURE_HOSTED_ANTHROPIC
 || isFoundryEndpoint(ep))`. Do NOT gate it solely on the `AZURE_HOSTED_ANTHROPIC` flag.
 
-The SAME Foundry resource is reachable under TWO hostnames and BOTH serve Claude via
-`/openai/v1/responses` (verified — both return Claude body-validation errors, not auth/route
-errors): `<name>.services.ai.azure.com` (AI Foundry form, what dev uses) and
-`<name>.cognitiveservices.azure.com` (Azure AI Services form shown on the Foundry Overview
-page). `isFoundryEndpoint()` MUST match both substrings, else prod set to the
-cognitiveservices form is rejected and you get the same outage.
+The SAME Foundry resource is reachable under THREE hostname forms, but they DO NOT behave
+identically for the Claude Responses API (verified by probing the same deployment+key on each):
+- `<name>.services.ai.azure.com` (AI Foundry form, what dev uses) → **200 OK** ✓
+- `<name>.openai.azure.com` (the form the Foundry "Get code" dialog shows) → **200 OK** ✓
+- `<name>.cognitiveservices.azure.com` (Azure AI Services form on the Overview page) →
+  **HTTP 404 `DeploymentNotFound`** ✗ for the very same deployment that works on the other two.
+
+**This is the trap.** A prior note here wrongly claimed all forms serve Claude. Prod had
+`AZURE_OPENAI_ENDPOINT` set to the cognitiveservices form, so EVERY Claude call 404'd, and
+with no direct Anthropic key there was no fallback → `AI_PROVIDERS_UNAVAILABLE` on every chat,
+while dev (services.ai form) looked perfectly healthy. Matching the substring in
+`isFoundryEndpoint()` is NOT enough — the request still 404s.
+
+**Fix:** `normalizeFoundryEndpoint()` in direct-router.ts rewrites
+`.cognitiveservices.azure.com` → `.services.ai.azure.com` before building the Responses URL,
+so a prod env var stuck on the cognitiveservices form still reaches Claude WITHOUT anyone
+editing prod env. `isFoundryEndpoint()` accepts all three substrings (so the Azure path is
+chosen); `normalizeFoundryEndpoint()` fixes the one broken host. Either rewriting the prod env
+var OR shipping this code fix resolves the outage — but the code fix only lands after redeploy.
 
 **Why:** dev sets the flag, but the prod Azure App Service does not, and there is NO
 direct Anthropic key in any environment (`AI_INTEGRATIONS_ANTHROPIC_API_KEY` /

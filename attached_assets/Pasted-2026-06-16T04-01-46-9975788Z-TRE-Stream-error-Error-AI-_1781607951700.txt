@@ -1,0 +1,80 @@
+2026-06-16T04:01:46.9975788Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:01:46.9976162Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:01:46.9976194Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:01:46.9976218Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:01:46.9976243Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:01:47.0705014Z 4:01:47 AM [express] POST /api/conversations/1/messages/stream 200 in 1836ms
+2026-06-16T04:01:47.8738289Z 4:01:47 AM [express] GET /api/conversations/1/messages 200 in 644ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:01:49.0818794Z 4:01:49 AM [express] GET /api/notifications 304 in 216ms :: []
+2026-06-16T04:01:54.4289237Z 4:01:54 AM [express] GET /api/notifications 304 in 216ms :: []
+2026-06-16T04:01:57.2120628Z [ProactiveDiag] Running scheduled diagnostics...
+2026-06-16T04:01:59.7976198Z 4:01:59 AM [express] GET /api/notifications 304 in 216ms :: []
+2026-06-16T04:02:00.6802217Z [Router/Azure-Claude] claude-haiku-4-5 HTTP 404: {
+2026-06-16T04:02:00.6802522Z   "error": {
+2026-06-16T04:02:00.680256Z     "message": "Resource not found Request ID: 5f698dce-1a9f-4ee2-a6cc-b7f08e4565cf",
+2026-06-16T04:02:00.6802604Z     "type": "invalid_request_error",
+2026-06-16T04:02:00.6802626Z     "param": null,
+2026-06-16T04:02:00.6802646Z     "code": "DeploymentNotFound"
+2026-06-16T04:02:00.6802671Z   }
+2026-06-16T04:02:00.6802692Z }
+2026-06-16T04:02:00.8971212Z [ProactiveDiag] Complete — Status: critical, Failures: 1, Warnings: 1, Fixed: 0
+2026-06-16T04:02:03.3100746Z [Router/Azure-Claude] claude-haiku-4-5 HTTP 404: {
+2026-06-16T04:02:03.3101071Z   "error": {
+2026-06-16T04:02:03.3101104Z     "message": "Resource not found Request ID: 4e106e26-fa87-4fed-9d07-d8d9055c241c",
+2026-06-16T04:02:03.310113Z     "type": "invalid_request_error",
+2026-06-16T04:02:03.3101154Z     "param": null,
+2026-06-16T04:02:03.3101177Z     "code": "DeploymentNotFound"
+2026-06-16T04:02:03.3101256Z   }
+2026-06-16T04:02:03.3101278Z }
+2026-06-16T04:02:05.2225038Z 4:02:05 AM [express] GET /api/notifications 304 in 214ms :: []
+2026-06-16T04:02:10.6112116Z 4:02:10 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:16.0011862Z 4:02:16 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:21.3376328Z 4:02:21 AM [express] GET /api/notifications 304 in 214ms :: []
+2026-06-16T04:02:26.7139234Z 4:02:26 AM [express] GET /api/notifications 304 in 222ms :: []
+2026-06-16T04:02:32.0805534Z 4:02:32 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:37.4215128Z 4:02:37 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:42.7710853Z 4:02:42 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:48.1430234Z 4:02:48 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:53.4839422Z 4:02:53 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:58.9126121Z 4:02:58 AM [express] GET /api/notifications 304 in 214ms :: []
+2026-06-16T04:03:04.3424618Z 4:03:04 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:04:57.3709661Z 4:04:57 AM [express] GET /api/auth/user 200 in 590ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:04:57.7197594Z 4:04:57 AM [express] GET /api/notifications 200 in 194ms :: []
+2026-06-16T04:04:58.0975664Z 4:04:58 AM [express] GET /api/deep-think/usage 304 in 271ms :: {"used":0,"limit":-1,"tier":"owner","…
+2026-06-16T04:04:58.1727267Z 4:04:58 AM [express] GET /api/conversations 304 in 637ms :: [{"id":1,"title":"New Conversation","use…
+2026-06-16T04:04:58.1737976Z 4:04:58 AM [express] GET /api/admin/activity 200 in 205ms :: [{"id":"1781582698096-ateoi","timestamp…
+2026-06-16T04:04:58.4232417Z 4:04:58 AM [express] GET /api/admin/error-log 200 in 203ms :: {"errors":[{"id":"err_1781582520679_l1…
+2026-06-16T04:04:58.4471808Z 4:04:58 AM [express] GET /api/workgroups 304 in 620ms :: []
+2026-06-16T04:04:58.514326Z 4:04:58 AM [express] GET /api/subscription-status 304 in 569ms :: {"tier":"research","status":"activ…
+2026-06-16T04:04:58.549406Z 4:04:58 AM [express] GET /api/auth/user 304 in 1012ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939…
+2026-06-16T04:04:58.6667421Z 4:04:58 AM [express] GET /api/employee/users 200 in 337ms :: [{"id":"0a222532-c2f2-4bcd-87d8-c242dd2…
+2026-06-16T04:04:58.6680674Z 4:04:58 AM [express] GET /api/admin/tickets 200 in 342ms :: [{"id":1,"workgroupId":null,"requesterId…
+2026-06-16T04:04:58.886124Z 4:04:58 AM [express] GET /api/admin/notifications 200 in 335ms :: [{"id":45,"type":"system_diagnosti…
+2026-06-16T04:04:58.8897811Z 4:04:58 AM [express] GET /api/admin/notifications/unread-count 200 in 327ms :: {"count":43}
+2026-06-16T04:04:59.0743211Z 4:04:59 AM [express] GET /api/admin/escalations 200 in 268ms :: []
+2026-06-16T04:04:59.1331214Z 4:04:59 AM [express] GET /api/admin/system-health 200 in 442ms :: {"status":"healthy","uptime":211,"…
+2026-06-16T04:04:59.1380635Z 4:04:59 AM [express] GET /api/admin/runtime-info 200 in 331ms :: {"host":{"provider":"Azure App Serv…
+2026-06-16T04:04:59.1624542Z 4:04:59 AM [express] GET /api/admin/stats 200 in 478ms :: {"totalUsers":16,"subscriptions":{"pro":0,…
+2026-06-16T04:04:59.7199459Z 4:04:59 AM [express] GET /api/auth/user 304 in 607ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:04:59.8227053Z 4:04:59 AM [express] GET /api/conversations/1/messages 200 in 623ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:05:03.0576298Z 4:05:03 AM [express] GET /api/notifications 304 in 206ms :: []
+2026-06-16T04:05:03.2350727Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:05:03.2351128Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:05:03.2351159Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:05:03.2351182Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:05:03.2351206Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:05:03.3032011Z 4:05:03 AM [express] POST /api/conversations/1/messages/stream 200 in 1641ms
+2026-06-16T04:05:03.9805015Z 4:05:03 AM [express] GET /api/conversations/1/messages 200 in 556ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:05:08.4441324Z 4:05:08 AM [express] GET /api/notifications 304 in 204ms :: []
+2026-06-16T04:05:08.9388579Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:05:08.9388922Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:05:08.9388952Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:05:08.9388974Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:05:08.9388999Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:05:09.0080121Z 4:05:09 AM [express] POST /api/conversations/1/messages/stream 200 in 1581ms
+2026-06-16T04:05:09.7450439Z 4:05:09 AM [express] GET /api/conversations/1/messages 200 in 575ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:05:13.8268028Z 4:05:13 AM [express] GET /api/notifications 304 in 205ms :: []
+2026-06-16T04:05:19.2460737Z 4:05:19 AM [express] GET /api/notifications 304 in 204ms :: []
+2026-06-16T04:05:24.7746944Z 4:05:24 AM [express] GET /api/notifications 304 in 207ms :: []
+2026-06-16T04:05:30.1769807Z 4:05:30 AM [express] GET /api/notifications 304 in 205ms :: []
+2026-06-16T04:05:35.6337714Z 4:05:35 AM [express] GET /api/notifications 304 in 205ms :: []

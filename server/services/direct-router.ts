@@ -33,14 +33,33 @@ function useAzureForAnthropic(): boolean {
 // /openai/v1/responses. The SAME resource is reachable under two hostnames —
 // `<name>.services.ai.azure.com` (the AI Foundry form) and
 // `<name>.cognitiveservices.azure.com` (the Azure AI Services form shown on the
-// Foundry Overview page) — and BOTH serve Claude. When the configured endpoint
-// is either form we route Claude through it WITHOUT requiring the
-// AZURE_HOSTED_ANTHROPIC flag, so any environment that has the endpoint/key
-// (e.g. the Azure App Service) reaches Claude instead of falling through to an
-// absent direct Anthropic key and failing "all providers failed".
+// Foundry Overview page). We accept EITHER form as a valid Foundry endpoint so
+// any environment that has the endpoint/key (e.g. the Azure App Service) routes
+// Claude through it WITHOUT requiring the AZURE_HOSTED_ANTHROPIC flag, instead of
+// falling through to an absent direct Anthropic key and failing "all providers
+// failed".
+//
+// IMPORTANT: although both hostnames point at the same resource, ONLY the
+// `services.ai.azure.com` form actually resolves the Claude MaaS deployments via
+// /openai/v1/responses. The `cognitiveservices.azure.com` form returns HTTP 404
+// "DeploymentNotFound" for those same deployments. Prod had AZURE_OPENAI_ENDPOINT
+// set to the cognitiveservices form, so every Claude call 404'd (and with no
+// direct Anthropic key there was nothing to fall back to → "all providers
+// failed"). `normalizeFoundryEndpoint()` rewrites the host so either configured
+// form works.
 function isFoundryEndpoint(ep: string): boolean {
   const e = ep.toLowerCase();
-  return e.includes('services.ai.azure.com') || e.includes('cognitiveservices.azure.com');
+  // All three hostname forms the Foundry portal shows for this resource:
+  // services.ai.azure.com + openai.azure.com both resolve the Claude
+  // deployments (verified 200); cognitiveservices.azure.com 404s but points at
+  // the same resource and is normalized away in normalizeFoundryEndpoint().
+  return e.includes('services.ai.azure.com') || e.includes('cognitiveservices.azure.com') || e.includes('.openai.azure.com');
+}
+// Normalize a Foundry endpoint to the hostname form that serves Claude MaaS
+// deployments via /openai/v1/responses. The cognitiveservices.azure.com form
+// 404s for those deployments, so rewrite it to the services.ai.azure.com form.
+function normalizeFoundryEndpoint(ep: string): string {
+  return ep.replace(/\.cognitiveservices\.azure\.com/i, '.services.ai.azure.com');
 }
 // Map a Claude model ID to its Azure AI Foundry deployment name. The three live
 // Claude deployments on this resource are the entire text engine:
@@ -59,7 +78,8 @@ function claudeAzureDeployment(modelName: string): string {
 // services.ai.azure.com resource reject /chat/completions ("api_not_supported")
 // and are served ONLY via /openai/v1/responses.
 function azureResponsesUrl(): string {
-  const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+  const raw = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+  const ep = normalizeFoundryEndpoint(raw);
   return `${ep}/openai/v1/responses`;
 }
 // Build a Responses-API request body from OpenAI-style messages. System turns
