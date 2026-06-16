@@ -18,12 +18,30 @@ newest "Build and deploy Node.js app to Azure Web App - turboanswergroup" run's
 `conclusion` and `head_sha`. If the latest commit's run = success, prod has that code.
 (api.github.com is reachable from the sandbox.)
 
-# The sandbox CANNOT reach the prod URL directly
-`curl https://turboanswergroup.azurewebsites.net/...` returns HTTP 000 immediately
-(connection blocked by the sandbox egress firewall) — this is NOT prod being down. You
-cannot smoke-test the live app over HTTP from dev. Verify prod via the GitHub Actions
-run status instead, and reproduce the engine in-process locally (it uses the same Azure
-Foundry endpoint+key as prod).
+# Reaching prod from the sandbox: use the DIRECT azurewebsites.net host, not the custom domain
+The custom domain `turboanswer.it.com` is fronted by Cloudflare/WAF bot-protection →
+plain fetch/curl gets **403** (looks like "blocked" but it's just bot filtering; a real
+browser/screenshot renders fine). BUT the **direct App Service host**
+`https://turboanswergroup-dce0g0azd4bnanhs.westus2-01.azurewebsites.net` **IS reachable
+from the sandbox** and is NOT behind the WAF. Use it to smoke-test the live deployed app.
+
+**Best live engine smoke test (no auth needed):** the widget endpoints are unauthenticated
+and run the SAME Claude engine. POST `/api/widget/conversation` `{domain,userAgent}` → get
+`conversationId`, then POST `/api/widget/message` `{sessionId,message,domain}` → a real
+Claude answer with HTTP 200 proves the live Azure-Claude path is healthy end-to-end. (Note
+the deployed widget validates `sessionId`+`message`; field names have drifted between the
+deployed build and the workspace source before — see below.) This is far stronger than the
+in-process local repro because it exercises the ACTUAL running deployment.
+
+**Watch for code drift:** the running deployment has at times NOT matched the workspace
+source (e.g. deployed `/api/widget/message` expected `sessionId` while workspace source
+used `conversationId`). Always trust a live probe over reading local source when diagnosing
+prod. Still cross-check the GitHub Actions run `head_sha` vs `origin/main` to see what's
+actually shipped.
+
+`origin` = `github.com/turboanswer/turboanswer9999999` (has an embedded PAT in the remote
+URL — user should rotate it). Stale decoy repos exist under `tiagotschantret12-dotcom/*`
+(no workflows) — do not confuse them for the live repo.
 
 # CI already normalizes the lockfile
 The workflow has a "Normalize lockfile registry URLs" step that seds
