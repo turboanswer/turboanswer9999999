@@ -1,0 +1,209 @@
+6-06-16T04:01:28.8394353Z   pro: 'P-15C2617045104002WNIYMVGA',
+2026-06-16T04:01:28.8394406Z   research: 'P-3HL022095H208742JNIYMVGA',
+2026-06-16T04:01:28.8394435Z   enterprise: 'P-2YR2423533700331ANGWKAZA'
+2026-06-16T04:01:28.8394457Z }
+2026-06-16T04:01:28.839448Z [PayPal] Ready
+2026-06-16T04:01:28.9052964Z 4:01:28 AM [express] GET /api/admin/error-log 200 in 719ms :: {"errors":[],"stats":{"total":0,"unres…
+2026-06-16T04:01:29.4182953Z 4:01:29 AM [express] GET /api/admin/tickets 200 in 1223ms :: [{"id":1,"workgroupId":null,"requesterI…
+2026-06-16T04:01:29.7243959Z 4:01:29 AM [express] GET /api/notifications 304 in 1518ms :: []
+2026-06-16T04:01:29.7799083Z 4:01:29 AM [express] GET /api/auth/user 304 in 1582ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939…
+2026-06-16T04:01:29.7807404Z 4:01:29 AM [express] GET /api/admin/activity 200 in 1566ms :: [{"id":"1781582489418-p5u4y","timestam…
+2026-06-16T04:01:29.8346222Z 4:01:29 AM [express] GET /api/deep-think/usage 304 in 1643ms :: {"used":0,"limit":-1,"tier":"owner",…
+2026-06-16T04:01:29.8391691Z 4:01:29 AM [express] GET /api/admin/notifications/unread-count 200 in 1646ms :: {"count":42}
+2026-06-16T04:01:29.8628206Z 4:01:29 AM [express] GET /api/admin/notifications 200 in 1667ms :: [{"id":44,"type":"system_diagnost…
+2026-06-16T04:01:29.9213256Z 4:01:29 AM [express] GET /api/employee/users 200 in 1726ms :: [{"id":"0a222532-c2f2-4bcd-87d8-c242dd…
+2026-06-16T04:01:31.0366352Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:01:31.0366672Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:01:31.0366712Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:01:31.036681Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:01:31.0366834Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:01:31.1100468Z 4:01:31 AM [express] POST /api/conversations/1/messages/stream 200 in 2906ms
+2026-06-16T04:01:31.8158395Z 4:01:31 AM [express] GET /api/conversations/1/messages 200 in 586ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:01:35.0861715Z 4:01:35 AM [express] GET /api/notifications 304 in 217ms :: []
+2026-06-16T04:01:37.9785027Z 4:01:37 AM [express] GET /api/auth/user 304 in 213ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:01:38.3481125Z 4:01:38 AM [express] GET /api/conversations 304 in 220ms :: [{"id":1,"title":"New Conversation","use…
+2026-06-16T04:01:38.349666Z 4:01:38 AM [express] GET /api/auth/user 304 in 216ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:01:38.3584982Z 4:01:38 AM [express] GET /api/notifications 304 in 227ms :: []
+2026-06-16T04:01:38.423877Z 4:01:38 AM [express] GET /api/deep-think/usage 304 in 295ms :: {"used":0,"limit":-1,"tier":"owner","…
+2026-06-16T04:01:38.5862359Z 4:01:38 AM [express] GET /api/subscription-status 304 in 215ms :: {"tier":"research","status":"activ…
+2026-06-16T04:01:38.6472686Z 4:01:38 AM [express] GET /api/workgroups 304 in 215ms :: []
+2026-06-16T04:01:39.2387096Z 4:01:39 AM [express] GET /api/conversations/1/messages 304 in 752ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:01:43.7193238Z 4:01:43 AM [express] GET /api/notifications 304 in 218ms :: []
+2026-06-16T04:01:46.9975788Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:01:46.9976162Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:01:46.9976194Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:01:46.9976218Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:01:46.9976243Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:01:47.0705014Z 4:01:47 AM [express] POST /api/conversations/1/messages/stream 200 in 1836ms
+2026-06-16T04:01:47.8738289Z 4:01:47 AM [express] GET /api/conversations/1/messages 200 in 644ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:01:49.0818794Z 4:01:49 AM [express] GET /api/notifications 304 in 216ms :: []
+2026-06-16T04:01:54.4289237Z 4:01:54 AM [express] GET /api/notifications 304 in 216ms :: []
+2026-06-16T04:01:57.2120628Z [ProactiveDiag] Running scheduled diagnostics...
+2026-06-16T04:01:59.7976198Z 4:01:59 AM [express] GET /api/notifications 304 in 216ms :: []
+2026-06-16T04:02:00.6802217Z [Router/Azure-Claude] claude-haiku-4-5 HTTP 404: {
+2026-06-16T04:02:00.6802522Z   "error": {
+2026-06-16T04:02:00.680256Z     "message": "Resource not found Request ID: 5f698dce-1a9f-4ee2-a6cc-b7f08e4565cf",
+2026-06-16T04:02:00.6802604Z     "type": "invalid_request_error",
+2026-06-16T04:02:00.6802626Z     "param": null,
+2026-06-16T04:02:00.6802646Z     "code": "DeploymentNotFound"
+2026-06-16T04:02:00.6802671Z   }
+2026-06-16T04:02:00.6802692Z }
+2026-06-16T04:02:00.8971212Z [ProactiveDiag] Complete — Status: critical, Failures: 1, Warnings: 1, Fixed: 0
+2026-06-16T04:02:03.3100746Z [Router/Azure-Claude] claude-haiku-4-5 HTTP 404: {
+2026-06-16T04:02:03.3101071Z   "error": {
+2026-06-16T04:02:03.3101104Z     "message": "Resource not found Request ID: 4e106e26-fa87-4fed-9d07-d8d9055c241c",
+2026-06-16T04:02:03.310113Z     "type": "invalid_request_error",
+2026-06-16T04:02:03.3101154Z     "param": null,
+2026-06-16T04:02:03.3101177Z     "code": "DeploymentNotFound"
+2026-06-16T04:02:03.3101256Z   }
+2026-06-16T04:02:03.3101278Z }
+2026-06-16T04:02:05.2225038Z 4:02:05 AM [express] GET /api/notifications 304 in 214ms :: []
+2026-06-16T04:02:10.6112116Z 4:02:10 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:16.0011862Z 4:02:16 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:21.3376328Z 4:02:21 AM [express] GET /api/notifications 304 in 214ms :: []
+2026-06-16T04:02:26.7139234Z 4:02:26 AM [express] GET /api/notifications 304 in 222ms :: []
+2026-06-16T04:02:32.0805534Z 4:02:32 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:37.4215128Z 4:02:37 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:42.7710853Z 4:02:42 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:48.1430234Z 4:02:48 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:53.4839422Z 4:02:53 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:02:58.9126121Z 4:02:58 AM [express] GET /api/notifications 304 in 214ms :: []
+2026-06-16T04:03:04.3424618Z 4:03:04 AM [express] GET /api/notifications 304 in 215ms :: []
+2026-06-16T04:04:57.3709661Z 4:04:57 AM [express] GET /api/auth/user 200 in 590ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:04:57.7197594Z 4:04:57 AM [express] GET /api/notifications 200 in 194ms :: []
+2026-06-16T04:04:58.0975664Z 4:04:58 AM [express] GET /api/deep-think/usage 304 in 271ms :: {"used":0,"limit":-1,"tier":"owner","…
+2026-06-16T04:04:58.1727267Z 4:04:58 AM [express] GET /api/conversations 304 in 637ms :: [{"id":1,"title":"New Conversation","use…
+2026-06-16T04:04:58.1737976Z 4:04:58 AM [express] GET /api/admin/activity 200 in 205ms :: [{"id":"1781582698096-ateoi","timestamp…
+2026-06-16T04:04:58.4232417Z 4:04:58 AM [express] GET /api/admin/error-log 200 in 203ms :: {"errors":[{"id":"err_1781582520679_l1…
+2026-06-16T04:04:58.4471808Z 4:04:58 AM [express] GET /api/workgroups 304 in 620ms :: []
+2026-06-16T04:04:58.514326Z 4:04:58 AM [express] GET /api/subscription-status 304 in 569ms :: {"tier":"research","status":"activ…
+2026-06-16T04:04:58.549406Z 4:04:58 AM [express] GET /api/auth/user 304 in 1012ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939…
+2026-06-16T04:04:58.6667421Z 4:04:58 AM [express] GET /api/employee/users 200 in 337ms :: [{"id":"0a222532-c2f2-4bcd-87d8-c242dd2…
+2026-06-16T04:04:58.6680674Z 4:04:58 AM [express] GET /api/admin/tickets 200 in 342ms :: [{"id":1,"workgroupId":null,"requesterId…
+2026-06-16T04:04:58.886124Z 4:04:58 AM [express] GET /api/admin/notifications 200 in 335ms :: [{"id":45,"type":"system_diagnosti…
+2026-06-16T04:04:58.8897811Z 4:04:58 AM [express] GET /api/admin/notifications/unread-count 200 in 327ms :: {"count":43}
+2026-06-16T04:04:59.0743211Z 4:04:59 AM [express] GET /api/admin/escalations 200 in 268ms :: []
+2026-06-16T04:04:59.1331214Z 4:04:59 AM [express] GET /api/admin/system-health 200 in 442ms :: {"status":"healthy","uptime":211,"…
+2026-06-16T04:04:59.1380635Z 4:04:59 AM [express] GET /api/admin/runtime-info 200 in 331ms :: {"host":{"provider":"Azure App Serv…
+2026-06-16T04:04:59.1624542Z 4:04:59 AM [express] GET /api/admin/stats 200 in 478ms :: {"totalUsers":16,"subscriptions":{"pro":0,…
+2026-06-16T04:04:59.7199459Z 4:04:59 AM [express] GET /api/auth/user 304 in 607ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:04:59.8227053Z 4:04:59 AM [express] GET /api/conversations/1/messages 200 in 623ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:05:03.0576298Z 4:05:03 AM [express] GET /api/notifications 304 in 206ms :: []
+2026-06-16T04:05:03.2350727Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:05:03.2351128Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:05:03.2351159Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:05:03.2351182Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:05:03.2351206Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:05:03.3032011Z 4:05:03 AM [express] POST /api/conversations/1/messages/stream 200 in 1641ms
+2026-06-16T04:05:03.9805015Z 4:05:03 AM [express] GET /api/conversations/1/messages 200 in 556ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:05:08.4441324Z 4:05:08 AM [express] GET /api/notifications 304 in 204ms :: []
+2026-06-16T04:05:08.9388579Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:05:08.9388922Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:05:08.9388952Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:05:08.9388974Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:05:08.9388999Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:05:09.0080121Z 4:05:09 AM [express] POST /api/conversations/1/messages/stream 200 in 1581ms
+2026-06-16T04:05:09.7450439Z 4:05:09 AM [express] GET /api/conversations/1/messages 200 in 575ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:05:13.8268028Z 4:05:13 AM [express] GET /api/notifications 304 in 205ms :: []
+2026-06-16T04:05:19.2460737Z 4:05:19 AM [express] GET /api/notifications 304 in 204ms :: []
+2026-06-16T04:05:24.7746944Z 4:05:24 AM [express] GET /api/notifications 304 in 207ms :: []
+2026-06-16T04:05:30.1769807Z 4:05:30 AM [express] GET /api/notifications 304 in 205ms :: []
+2026-06-16T04:05:35.6337714Z 4:05:35 AM [express] GET /api/notifications 304 in 205ms :: []
+2026-06-16T04:06:52.8833421Z 4:06:52 AM [express] GET /api/auth/user 304 in 597ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:06:58.9649887Z 4:06:58 AM [express] GET /api/auth/user 200 in 209ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:06:59.9252374Z 4:06:59 AM [express] GET /api/conversations 304 in 199ms :: [{"id":1,"title":"New Conversation","use…
+2026-06-16T04:07:00.1706511Z 4:07:00 AM [express] GET /api/deep-think/usage 304 in 689ms :: {"used":0,"limit":-1,"tier":"owner","…
+2026-06-16T04:07:00.2451368Z 4:07:00 AM [express] GET /api/workgroups 304 in 199ms :: []
+2026-06-16T04:07:00.276747Z 4:07:00 AM [express] GET /api/auth/user 304 in 637ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:07:00.3752435Z 4:07:00 AM [express] GET /api/subscription-status 304 in 638ms :: {"tier":"research","status":"activ…
+2026-06-16T04:07:00.3866751Z 4:07:00 AM [express] GET /api/notifications 304 in 1009ms :: []
+2026-06-16T04:07:02.3734465Z 4:07:02 AM [express] GET /api/auth/user 200 in 201ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:07:02.8324749Z 4:07:02 AM [express] GET /api/notifications 200 in 206ms :: []
+2026-06-16T04:07:02.8384316Z 4:07:02 AM [express] GET /api/auth/user 304 in 213ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:07:02.9029047Z 4:07:02 AM [express] GET /api/deep-think/usage 200 in 271ms :: {"used":0,"limit":-1,"tier":"owner","…
+2026-06-16T04:07:03.2319243Z 4:07:03 AM [express] GET /api/workgroups 200 in 592ms :: []
+2026-06-16T04:07:03.2466764Z 4:07:03 AM [express] GET /api/conversations 304 in 206ms :: [{"id":1,"title":"New Conversation","use…
+2026-06-16T04:07:03.2699668Z 4:07:03 AM [express] GET /api/admin/activity 200 in 213ms :: [{"id":"1781582822902-8a3u0","timestamp…
+2026-06-16T04:07:03.2824736Z 4:07:03 AM [express] GET /api/subscription-status 200 in 653ms :: {"tier":"research","status":"activ…
+2026-06-16T04:07:03.4750813Z 4:07:03 AM [express] GET /api/admin/runtime-info 200 in 425ms :: {"host":{"provider":"Azure App Serv…
+2026-06-16T04:07:03.4959325Z 4:07:03 AM [express] GET /api/admin/error-log 200 in 215ms :: {"errors":[{"id":"err_1781582520679_l1…
+2026-06-16T04:07:03.7221844Z 4:07:03 AM [express] GET /api/admin/tickets 200 in 354ms :: [{"id":1,"workgroupId":null,"requesterId…
+2026-06-16T04:07:03.7716404Z 4:07:03 AM [express] GET /api/employee/users 200 in 287ms :: [{"id":"0a222532-c2f2-4bcd-87d8-c242dd2…
+2026-06-16T04:07:03.823453Z 4:07:03 AM [express] GET /api/admin/notifications/unread-count 200 in 333ms :: {"count":43}
+2026-06-16T04:07:03.8346451Z 4:07:03 AM [express] GET /api/admin/notifications 200 in 349ms :: [{"id":45,"type":"system_diagnosti…
+2026-06-16T04:07:04.120491Z 4:07:04 AM [express] GET /api/admin/stats 200 in 399ms :: {"totalUsers":16,"subscriptions":{"pro":0,…
+2026-06-16T04:07:04.1387859Z 4:07:04 AM [express] GET /api/admin/system-health 200 in 418ms :: {"status":"healthy","uptime":336,"…
+2026-06-16T04:07:04.1523761Z 4:07:04 AM [express] GET /api/auth/user 304 in 206ms :: {"id":"0a222532-c2f2-4bcd-87d8-c242dd281939"…
+2026-06-16T04:07:04.2298758Z 4:07:04 AM [express] GET /api/admin/escalations 200 in 283ms :: []
+2026-06-16T04:07:04.5789969Z 4:07:04 AM [express] GET /api/conversations/1/messages 304 in 629ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:07:08.2444063Z 4:07:08 AM [express] GET /api/notifications 304 in 202ms :: []
+2026-06-16T04:07:09.4969808Z [TRE] Stream error: Error: AI_PROVIDERS_UNAVAILABLE: streaming providers all failed. Check provider keys.
+2026-06-16T04:07:09.4970154Z     at fastAnswerStream (file:///home/site/wwwroot/dist/index.js:3682:9)
+2026-06-16T04:07:09.497019Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-06-16T04:07:09.4970214Z     at async Object.runReasoning (file:///home/site/wwwroot/dist/index.js:3750:17)
+2026-06-16T04:07:09.497024Z     at async file:///home/site/wwwroot/dist/index.js:12422:24
+2026-06-16T04:07:09.5637354Z 4:07:09 AM [express] POST /api/conversations/1/messages/stream 200 in 1797ms
+2026-06-16T04:07:10.4116797Z 4:07:10 AM [express] GET /api/conversations/1/messages 200 in 715ms :: [{"id":1,"conversationId":1,"…
+2026-06-16T04:07:13.7069451Z 4:07:13 AM [express] GET /api/notifications 304 in 201ms :: []
+2026-06-16T04:07:19.1477256Z 4:07:19 AM [express] GET /api/notifications 304 in 201ms :: []
+2026-06-16T04:07:24.5468996Z 4:07:24 AM [express] GET /api/notifications 304 in 201ms :: []
+2026-06-16T04:07:30.0102765Z 4:07:30 AM [express] GET /api/notifications 304 in 200ms :: []
+2026-06-16T04:07:35.4236164Z 4:07:35 AM [express] GET /api/notifications 304 in 202ms :: []
+2026-06-16T04:07:37.9180954Z 4:07:37 AM [express] GET /api/notifications 304 in 201ms :: []
+2026-06-16T04:07:40.1728801Z 4:07:40 AM [express] GET /api/logout 302 in 131ms
+2026-06-16T04:07:41.3057375Z 4:07:41 AM [express] GET /api/auth/user 401 in 68ms :: {"message":"Unauthorized"}
+2026-06-16T04:11:45.7029809Z 4:11:45 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2026-06-16T04:11:46.5225938Z 4:11:46 AM [express] GET /api/auth/user 401 in 1ms :: {"message":"Unauthorized"}
+2026-06-16T04:18:38.7939175Z    _____
+2026-06-16T04:18:38.7940643Z   /  _  \ __________ _________   ____
+2026-06-16T04:18:38.7940686Z  /  /_\  \\___   /  |  \_  __ \_/ __ \
+2026-06-16T04:18:38.7940715Z /    |    \/    /|  |  /|  | \/\  ___/
+2026-06-16T04:18:38.7940746Z \____|__  /_____ \____/ |__|    \___  >
+2026-06-16T04:18:38.7940777Z         \/      \/                  \/
+2026-06-16T04:18:38.7940824Z A P P   S E R V I C E   O N   L I N U X
+2026-06-16T04:18:38.7940851Z
+2026-06-16T04:18:38.7940881Z Documentation    : http://aka.ms/webapp-linux
+2026-06-16T04:18:38.7940912Z NodeJS quickstart: https://aka.ms/node-qs
+2026-06-16T04:18:38.7940941Z NodeJS Version   : v22.22.2
+2026-06-16T04:18:38.7940969Z Instance Name    : lp0sdlwk000035
+2026-06-16T04:18:38.7941011Z Instance Id      : db9c9ef0dad693442c006909fadf80d57590f17d40be6c05f8db98764abb37e6
+2026-06-16T04:18:38.7941039Z
+2026-06-16T04:18:38.7941068Z Note: Any data outside '/home' is not persisted
+2026-06-16T04:18:39.8127087Z Starting OpenBSD Secure Shell server: sshd.
+2026-06-16T04:18:39.8235379Z WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2026-06-16T04:18:39.8464531Z Updating certificates in /etc/ssl/certs...
+2026-06-16T04:18:43.7081442Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_ECC_Root_CA_2022.pem
+2026-06-16T04:18:43.7081842Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_RSA_Root_CA_2022.pem
+2026-06-16T04:18:43.7769146Z rehash: warning: skipping ca-certificates.crt,it does not contain exactly one certificate or CRL
+2026-06-16T04:18:43.7904115Z 4 added, 0 removed; done.
+2026-06-16T04:18:43.7904321Z Running hooks in /etc/ca-certificates/update.d...
+2026-06-16T04:18:43.7904367Z done.
+2026-06-16T04:18:43.8091007Z CA certificates copied and updated successfully.
+2026-06-16T04:18:43.880177Z Starting periodic command scheduler: cron.
+2026-06-16T04:18:43.915083Z Found build manifest file at '/home/site/wwwroot/oryx-manifest.toml'. Deserializing it...
+2026-06-16T04:18:43.9195911Z Could not find operation ID in manifest. Generating an operation id...
+2026-06-16T04:18:43.9203125Z Build Operation ID: e18f870a-9455-41d0-8fc3-6a6cb88b78d4
+2026-06-16T04:18:44.012064Z Environment Variables for Application Insight's IPA Codeless Configuration exists..
+2026-06-16T04:18:44.0162496Z Writing output script to '/opt/startup/startup.sh'
+2026-06-16T04:18:44.0260683Z Running #!/bin/sh
+2026-06-16T04:18:44.0260896Z
+2026-06-16T04:18:44.0260941Z # Enter the source directory to make sure the script runs where the user expects
+2026-06-16T04:18:44.0260981Z cd "/home/site/wwwroot"
+2026-06-16T04:18:44.0261009Z
+2026-06-16T04:18:44.0261068Z export NODE_PATH=/usr/local/lib/node_modules:$NODE_PATH
+2026-06-16T04:18:44.0261102Z if [ -z "$PORT" ]; then
+2026-06-16T04:18:44.0261134Z 		export PORT=8080
+2026-06-16T04:18:44.0261165Z fi
+2026-06-16T04:18:44.026439Z
+2026-06-16T04:18:44.026443Z echo Found tar.gz based node_modules.
+2026-06-16T04:18:44.0264465Z extractionCommand="tar -xzf node_modules.tar.gz -C /node_modules"
+2026-06-16T04:18:44.0264498Z echo "Removing existing modules directory from root..."
+2026-06-16T04:18:44.0264544Z rm -fr /node_modules
+2026-06-16T04:18:44.0264575Z mkdir -p /node_modules
+2026-06-16T04:18:44.0264605Z echo Extracting modules...
+2026-06-16T04:18:44.0264634Z $extractionCommand
+2026-06-16T04:18:44.0264682Z export NODE_PATH="/node_modules":$NODE_PATH
+2026-06-16T04:18:44.0264713Z export PATH=/node_modules/.bin:$PATH
+2026-06-16T04:18:44.0264758Z if [ -d node_modules ]; then
+2026-06-16T04:18:44.0264789Z     mv -f node_modules _del_node_modules || true
+2026-06-16T04:18:44.0264816Z fi
