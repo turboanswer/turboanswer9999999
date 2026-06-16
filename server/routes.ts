@@ -2228,6 +2228,52 @@ Formatting rules:
         }
       }
 
+      // ── Image generation (Claude is text-only and can't draw) ─────────────
+      // The client detects most image requests and calls /api/generate-image
+      // directly; this is the SERVER-SIDE backstop for any phrasing it missed. A
+      // cheap, regex-gated Haiku classifier decides whether the user wants a NEW
+      // image and, if so, we generate it with the Azure image model (free
+      // Pollinations fallback) and return it AS the answer instead of a text reply.
+      try {
+        const { detectImageRequest } = await import('./services/image-intent');
+        const imagePrompt = await detectImageRequest(content);
+        if (imagePrompt) {
+          send('chunk', { text: 'Generating your image…' });
+          const { azureGenerateImage } = await import('./services/azure-media.js');
+          let imageUrl = await azureGenerateImage(imagePrompt, '1024x1024');
+          if (!imageUrl) {
+            const seed = Math.floor(Math.random() * 1_000_000);
+            const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}&model=flux`;
+            try {
+              const pr = await fetch(pollUrl, { signal: AbortSignal.timeout(60000) });
+              if (pr.ok) {
+                const buf = Buffer.from(await pr.arrayBuffer());
+                const ct = pr.headers.get('content-type') || 'image/jpeg';
+                imageUrl = `data:${ct};base64,${buf.toString('base64')}`;
+              }
+            } catch (pe: any) {
+              console.error('[ImageIntent] Pollinations fallback failed:', pe?.message || pe);
+            }
+          }
+          const aiContent = imageUrl
+            ? `Here's your image of ${imagePrompt}:\n\n![Generated image](${imageUrl})`
+            : "I couldn't generate that image right now. Please try again in a moment.";
+          const aiMessage = await storage.createMessage({ conversationId, content: aiContent, role: 'assistant' });
+          try {
+            const allMsgs = await storage.getMessagesByConversation(conversationId);
+            if (allMsgs.length <= 2) {
+              const title = content.slice(0, 60).trim() + (content.length > 60 ? '...' : '');
+              await storage.updateConversation(conversationId, { title });
+            }
+          } catch {}
+          send('saved', { userMessage, aiMessage });
+          res.write('event: end\ndata: {}\n\n');
+          return res.end();
+        }
+      } catch (e: any) {
+        console.error('[ImageIntent] detection error:', e?.message || e);
+      }
+
       try {
         const result = await tre.runReasoning({
           question: content,

@@ -13,13 +13,17 @@ function isFoundry(ep: string): boolean {
   return ep.includes("services.ai.azure.com");
 }
 
+// Azure's in-house image model (Microsoft MAI image). GPT/DALL-E image models
+// were removed — image generation runs on MAI here, with a free Pollinations
+// fallback handled by the callers. Override the deployment name with
+// AZURE_DEPLOYMENT_IMAGE if it's named differently on the Azure resource.
 const IMAGE_DEPLOYMENT =
-  process.env.AZURE_DEPLOYMENT_IMAGE || "gpt-image-2";
+  process.env.AZURE_DEPLOYMENT_IMAGE || "MAI-Image";
 const TTS_DEPLOYMENT =
   process.env.AZURE_DEPLOYMENT_TTS || "gpt-audio-2";
 
 /**
- * Generate an image via Azure Foundry's gpt-image-2 deployment.
+ * Generate an image via Azure Foundry's MAI image deployment.
  * Returns a data URL ("data:image/png;base64,...") or null on failure.
  */
 export async function azureGenerateImage(
