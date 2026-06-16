@@ -1,6 +1,7 @@
 import { storage } from "../storage";
 import { ensureSubscriptionPlans } from "../paypal";
 import { trackError } from "./error-tracker";
+import { callDirect } from "./direct-router";
 
 export interface DiagnosticResult {
   check: string;
@@ -61,33 +62,24 @@ async function checkDatabase(): Promise<DiagnosticResult> {
 
 async function checkAIService(): Promise<DiagnosticResult> {
   const ts = new Date().toISOString();
-  const apiKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-  if (!apiKey) {
-    return { check: 'AI Engine (Claude)', status: 'fail', details: 'Anthropic API key not configured', timestamp: ts };
-  }
+  // Probe the SAME engine the app actually uses: the direct-router, which talks
+  // to Azure-hosted Claude (with a direct-Anthropic fallback). Probing
+  // api.anthropic.com directly here was a false alarm — this deployment has no
+  // direct Anthropic key and runs entirely on Azure-hosted Claude.
   try {
-    // Minimal Claude completion probe — confirms the key and endpoint work.
-    const response = await fetch(`${base.replace(/\/$/, '')}/v1/messages`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
-        max_tokens: 1,
-        messages: [{ role: 'user', content: 'ping' }],
-      }),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (response.ok) {
-      return { check: 'AI Engine (Claude)', status: 'pass', details: 'Claude API accessible and key valid', timestamp: ts };
+    const out = await callDirect(
+      'anthropic/claude-3-5-haiku',
+      [{ role: 'user', content: 'ping' }],
+      { maxTokens: 16, temperature: 0.3, timeoutMs: 8000 },
+    );
+    if (out && out.trim()) {
+      return { check: 'AI Engine (Claude)', status: 'pass', details: 'Claude engine reachable and responding', timestamp: ts };
     }
-    if (response.status === 429) {
-      return { check: 'AI Engine (Claude)', status: 'warn', details: 'Rate limited — auto-recovery in progress', timestamp: ts };
-    }
-    trackError('aiError', `Claude probe status ${response.status}`);
-    return { check: 'AI Engine (Claude)', status: 'warn', details: `Claude probe returned HTTP ${response.status} — may still be operational`, timestamp: ts };
+    trackError('aiError', 'Claude engine probe returned no content');
+    return { check: 'AI Engine (Claude)', status: 'fail', details: 'Claude engine returned no content — check Azure Foundry endpoint/key', timestamp: ts };
   } catch (e: any) {
-    return { check: 'AI Engine (Claude)', status: 'warn', details: `Connectivity check failed: ${e.message}`, timestamp: ts };
+    trackError('aiError', `Claude engine probe failed: ${e?.message || e}`);
+    return { check: 'AI Engine (Claude)', status: 'warn', details: `Connectivity check failed: ${e?.message || e}`, timestamp: ts };
   }
 }
 

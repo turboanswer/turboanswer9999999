@@ -31,6 +31,17 @@ different surfaces on one endpoint.
   free+pro tiers work, top tier (Matrix AI) silently 400s and — with no Anthropic fallback key in
   any env — fails loud as "providers unavailable"; this is the recurring ProactiveDiag
   "Failures: 1". Same family of quirk as the GPT-5 reasoning deployments (default-temperature-only).
+- max_output_tokens floor: the Responses API rejects `max_output_tokens` < 16 with HTTP 400
+  "integer below minimum value. Expected a value >= 16". Any tiny probe (e.g. a health check
+  sending maxTokens:1 or :5) silently 400s → callDirect returns null. Use >= 16 for probes.
+
+# Health check must probe the REAL engine, not api.anthropic.com
+The ProactiveDiag AI check (`checkAIService`) must probe Claude via `callDirect()` (the
+direct-router → Azure-hosted Claude path the app actually uses), NOT a raw POST to
+`{base}/v1/messages` on api.anthropic.com. **Why:** there is no direct Anthropic key in
+any env, so the old probe always reported "Anthropic API key not configured" (fail) even
+though Azure Claude was healthy — a permanent false "Failures: 1". Probing via callDirect
+makes the check reflect what users experience. Keep probe maxTokens >= 16 (see floor above).
 
 # Tier → Claude deployment (live names, confirmed working)
 - Free  ("Turbo")      → `claude-haiku-4-5`
