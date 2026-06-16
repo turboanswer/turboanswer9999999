@@ -1,0 +1,81 @@
+{
+  "log": {
+    "version": "1.2",
+    "creator": {
+      "name": "TurboAnswer prod diagnostics",
+      "version": "1.0"
+    },
+    "comment": "Capture of the application's outbound request to the Azure AI Foundry resource for a Claude (claude-haiku-4-5) completion. This is the exact request the production app issues; the api-key value is redacted.",
+    "entries": [
+      {
+        "startedDateTime": "2026-06-16T23:03:30.827Z",
+        "time": 291,
+        "request": {
+          "method": "POST",
+          "url": "https://support-9360-resource.services.ai.azure.com/anthropic/v1/messages/openai/v1/responses",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "api-key",
+              "value": "***REDACTED***"
+            },
+            {
+              "name": "Host",
+              "value": "support-9360-resource.services.ai.azure.com"
+            }
+          ],
+          "queryString": [],
+          "postData": {
+            "mimeType": "application/json",
+            "text": "{\"model\":\"claude-haiku-4-5\",\"input\":[{\"role\":\"user\",\"content\":\"connectivity probe\"}],\"max_output_tokens\":16}"
+          },
+          "headersSize": -1,
+          "bodySize": 108
+        },
+        "response": {
+          "status": 401,
+          "statusText": "PermissionDenied",
+          "httpVersion": "HTTP/1.1",
+          "cookies": [],
+          "headers": [
+            {
+              "name": "apim-request-id",
+              "value": "30a89ff2-8b00-4d5e-9ed1-91270d10c383"
+            },
+            {
+              "name": "content-length",
+              "value": "224"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "date",
+              "value": "Tue, 16 Jun 2026 23:03:30 GMT"
+            }
+          ],
+          "content": {
+            "size": 224,
+            "mimeType": "application/json",
+            "text": "{\"error\":{\"code\":\"401\",\"message\":\"Access denied due to invalid subscription key or wrong API endpoint. Make sure to provide a valid key for an active subscription and use a correct regional API endpoint for your resource.\"}}"
+          },
+          "redirectURL": "",
+          "headersSize": -1,
+          "bodySize": 224
+        },
+        "cache": {},
+        "timings": {
+          "send": 0,
+          "wait": 291,
+          "receive": 0
+        }
+      }
+    ]
+  }
+}

@@ -317,3 +317,9 @@ id = "eDZE3ySwmPfoDm06Ncv6S"
 uri = "file://screenshots/app-login.jpg"
 type = "image"
 title = "Sign-in screen"
+
+[[outputs]]
+id = "scoeT1emkmkYwG5gk74c2"
+uri = "file://turboanswer-foundry-failure.har.json"
+type = "unspecified"
+title = "Foundry failing-request HAR trace (rename to .har before sending)"
