@@ -847,7 +847,18 @@ export default function Chat() {
   const outlookConfigured = connections?.microsoft?.configured !== false;
   const connectAccount = (provider: "google" | "microsoft") => {
     const configured = provider === "google" ? googleConfigured : outlookConfigured;
-    if (!configured) { setLocation("/ai-settings"); return; }
+    // Always start OAuth when the provider is set up. Only when the server has
+    // DEFINITIVELY reported it isn't configured do we surface a clear message —
+    // never silently bounce the user to Settings (that looked like "Connect does
+    // nothing but open Settings").
+    if (!configured) {
+      toast({
+        title: `${provider === "google" ? "Gmail" : "Outlook"} sign-in isn't available yet`,
+        description: "The app owner still needs to finish connecting this provider. Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
     window.location.href = `/api/connections/${provider}/connect`;
   };
   const { data: userWorkgroups = [] } = useQuery<any[]>({ queryKey: ['/api/workgroups'] });
