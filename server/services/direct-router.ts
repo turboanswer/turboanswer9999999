@@ -29,24 +29,25 @@ type Resolved = { provider: 'anthropic'; modelName: string };
 function useAzureForAnthropic(): boolean {
   return process.env.AZURE_HOSTED_ANTHROPIC === '1' || process.env.AZURE_HOSTED_ANTHROPIC === 'true';
 }
-// Azure AI Foundry resources host the Claude deployments and serve them via
-// /openai/v1/responses. The SAME resource is reachable under two hostnames —
-// `<name>.services.ai.azure.com` (the AI Foundry form) and
-// `<name>.cognitiveservices.azure.com` (the Azure AI Services form shown on the
-// Foundry Overview page). We accept EITHER form as a valid Foundry endpoint so
-// any environment that has the endpoint/key (e.g. the Azure App Service) routes
-// Claude through it WITHOUT requiring the AZURE_HOSTED_ANTHROPIC flag, instead of
-// falling through to an absent direct Anthropic key and failing "all providers
-// failed".
+// Azure AI Foundry resources host the Claude deployments and serve them via the
+// Anthropic-native Messages API (<resource-origin>/anthropic/v1/messages — the
+// "Target URI" the Foundry portal shows for each Claude deployment). The SAME
+// resource is reachable under two hostnames — `<name>.services.ai.azure.com` (the
+// AI Foundry form) and `<name>.cognitiveservices.azure.com` (the Azure AI Services
+// form shown on the Foundry Overview page). We accept EITHER form as a valid
+// Foundry endpoint so any environment that has the endpoint/key (e.g. the Azure
+// App Service) routes Claude through it WITHOUT requiring the AZURE_HOSTED_ANTHROPIC
+// flag, instead of falling through to an absent direct Anthropic key and failing
+// "all providers failed".
 //
 // IMPORTANT: although both hostnames point at the same resource, ONLY the
-// `services.ai.azure.com` form actually resolves the Claude MaaS deployments via
-// /openai/v1/responses. The `cognitiveservices.azure.com` form returns HTTP 404
-// "DeploymentNotFound" for those same deployments. Prod had AZURE_OPENAI_ENDPOINT
-// set to the cognitiveservices form, so every Claude call 404'd (and with no
-// direct Anthropic key there was nothing to fall back to → "all providers
-// failed"). `normalizeFoundryEndpoint()` rewrites the host so either configured
-// form works.
+// `services.ai.azure.com` form actually resolves the Claude MaaS deployments. The
+// `cognitiveservices.azure.com` form returns HTTP 404 "DeploymentNotFound" for
+// those same deployments, so `normalizeFoundryEndpoint()` rewrites the host. The
+// Messages endpoint is then built from the resource ORIGIN only (see
+// `azureAnthropicUrl()`), so the path portion of AZURE_OPENAI_ENDPOINT is
+// irrelevant — bare host, /api/projects/<project>, or the …/anthropic/v1/messages
+// Target URI all resolve to the same correct URL.
 function isFoundryEndpoint(ep: string): boolean {
   const e = ep.toLowerCase();
   // All three hostname forms the Foundry portal shows for this resource:
@@ -55,11 +56,15 @@ function isFoundryEndpoint(ep: string): boolean {
   // the same resource and is normalized away in normalizeFoundryEndpoint().
   return e.includes('services.ai.azure.com') || e.includes('cognitiveservices.azure.com') || e.includes('.openai.azure.com');
 }
-// Normalize a Foundry endpoint to the hostname form that serves Claude MaaS
-// deployments via /openai/v1/responses. The cognitiveservices.azure.com form
-// 404s for those deployments, so rewrite it to the services.ai.azure.com form.
+// Normalize a Foundry endpoint's HOST to the form that serves Claude MaaS
+// deployments. The cognitiveservices.azure.com and <name>.openai.azure.com forms
+// point at the SAME resource (identical resource name across all three hostname
+// forms) but do NOT resolve the Claude deployments — only services.ai.azure.com
+// does — so rewrite both to it.
 function normalizeFoundryEndpoint(ep: string): string {
-  return ep.replace(/\.cognitiveservices\.azure\.com/i, '.services.ai.azure.com');
+  return ep
+    .replace(/\.cognitiveservices\.azure\.com/i, '.services.ai.azure.com')
+    .replace(/\.openai\.azure\.com/i, '.services.ai.azure.com');
 }
 // Map a Claude model ID to its Azure AI Foundry deployment name. The three live
 // Claude deployments on this resource are the entire text engine:
@@ -74,29 +79,45 @@ function claudeAzureDeployment(modelName: string): string {
   if (m.includes('opus')) return process.env.AZURE_DEPLOYMENT_CLAUDE_OPUS || 'claude-opus-4-8';
   return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET || 'claude-sonnet-4-5';
 }
-// Azure AI Foundry Responses API endpoint. Claude deployments on this
-// services.ai.azure.com resource reject /chat/completions ("api_not_supported")
-// and are served ONLY via /openai/v1/responses.
-function azureResponsesUrl(): string {
+// Azure AI Foundry endpoint for the Claude deployments. The Foundry portal's
+// "Target URI" for each Claude deployment is <resource-origin>/anthropic/v1/messages
+// — the Anthropic-native Messages API — authenticated with the `x-api-key` header
+// (NOT `api-key`, which returns HTTP 401 "invalid subscription key or wrong API
+// endpoint"). We derive the URL from the RESOURCE ORIGIN only, so ANY value of
+// AZURE_OPENAI_ENDPOINT resolves correctly: the bare resource host, the
+// `/api/projects/<project>` form, OR the portal Target URI itself
+// (…/anthropic/v1/messages) all collapse to the same correct URL. This removes the
+// recurring outage where pasting the portal Target URI into AZURE_OPENAI_ENDPOINT
+// made the app build `…/anthropic/v1/messages/openai/v1/responses` → 401.
+function azureAnthropicUrl(): string {
   const raw = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
-  const ep = normalizeFoundryEndpoint(raw);
-  return `${ep}/openai/v1/responses`;
+  const norm = normalizeFoundryEndpoint(raw);
+  let origin = norm;
+  try { origin = new URL(norm).origin; } catch { origin = norm.replace(/(https?:\/\/[^/]+).*/i, '$1'); }
+  return `${origin}/anthropic/v1/messages`;
 }
-// Build a Responses-API request body from OpenAI-style messages. System turns
-// become `instructions`; user/assistant turns become the `input` array.
-function buildResponsesBody(deployment: string, messages: Message[], opts: CallOpts, stream: boolean, isOpus: boolean): any {
-  let instructions = '';
-  const input: { role: string; content: any }[] = [];
+// Build an Anthropic-native Messages API request body. System turns become the
+// top-level `system` string; user/assistant turns become the `messages` array.
+function buildAzureAnthropicBody(deployment: string, messages: Message[], opts: CallOpts, stream: boolean, isOpus: boolean): any {
+  let system = '';
+  const msgs: { role: string; content: any }[] = [];
   for (const m of messages) {
     if (m.role === 'system') {
       const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-      instructions += (instructions ? '\n\n' : '') + c;
+      system += (system ? '\n\n' : '') + c;
     } else {
-      input.push({ role: m.role, content: m.content });
+      msgs.push({ role: m.role, content: m.content });
     }
   }
-  const body: any = { model: deployment, input, max_output_tokens: opts.maxTokens ?? 1500 };
-  if (instructions) body.instructions = instructions;
+  // The Anthropic Messages API has no strict JSON response mode (unlike the old
+  // Responses API's text.format:json_object), so when jsonMode is requested we pin
+  // it via a system instruction; callers also strip any code fences via
+  // stripJsonFences on the result.
+  if (opts.jsonMode) {
+    system += (system ? '\n\n' : '') + 'Respond with ONLY a single valid JSON value — no prose, no explanation, and no markdown code fences.';
+  }
+  const body: any = { model: deployment, max_tokens: opts.maxTokens ?? 1500, messages: msgs };
+  if (system) body.system = system;
   // Claude Opus 4.x on Azure Foundry only accepts the DEFAULT temperature (1) and
   // returns HTTP 400 ("invalid_request_error") for any NON-default temperature
   // (e.g. 0 or 0.3). Haiku/Sonnet accept any value. Omitting it for Opus lets it
@@ -105,18 +126,15 @@ function buildResponsesBody(deployment: string, messages: Message[], opts: CallO
   // AZURE_DEPLOYMENT_CLAUDE_OPUS name can't silently regress this. Other models
   // keep the requested temperature.
   if (opts.temperature != null && !isOpus) body.temperature = opts.temperature;
-  if (opts.jsonMode) body.text = { format: { type: 'json_object' } };
   if (stream) body.stream = true;
   return body;
 }
-// Pull the assistant text out of a non-streamed Responses-API payload.
-function extractResponsesText(data: any): string | null {
+// Pull the assistant text out of an Anthropic Messages API payload by joining all
+// text content blocks.
+function extractAnthropicText(data: any): string | null {
   if (!data) return null;
-  if (typeof data.output_text === 'string' && data.output_text) return data.output_text;
-  if (Array.isArray(data.output)) {
-    const text = data.output
-      .map((o: any) => (Array.isArray(o?.content) ? o.content.map((c: any) => c?.text || '').join('') : ''))
-      .join('');
+  if (Array.isArray(data.content)) {
+    const text = data.content.map((b: any) => (typeof b?.text === 'string' ? b.text : '')).join('');
     if (text) return text;
   }
   return null;
@@ -155,26 +173,26 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
     {
-      // Path 1: Azure-hosted Claude via the Foundry Responses API
-      // (services.ai.azure.com/openai/v1/responses). Billed to Azure. Attempted
-      // whenever Foundry creds exist OR AZURE_HOSTED_ANTHROPIC forces it — we do
-      // NOT require the flag, so prod (Azure App Service) reaches Claude even if
-      // the flag was never set there.
+      // Path 1: Azure-hosted Claude via the Foundry Anthropic Messages API
+      // (services.ai.azure.com/anthropic/v1/messages, `x-api-key` header). Billed
+      // to Azure. Attempted whenever Foundry creds exist OR AZURE_HOSTED_ANTHROPIC
+      // forces it — we do NOT require the flag, so prod (Azure App Service) reaches
+      // Claude even if the flag was never set there.
       {
         const key = process.env.AZURE_OPENAI_API_KEY;
         const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
         if (key && ep && (useAzureForAnthropic() || isFoundryEndpoint(ep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await fetch(azureResponsesUrl(), {
+          const res = await fetch(azureAnthropicUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'api-key': key },
-            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, false, isOpus)),
+            headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
             signal: ctrl.signal,
           });
           if (res.ok) {
             const data: any = await res.json();
-            let text = extractResponsesText(data);
+            let text = extractAnthropicText(data);
             if (text && opts.jsonMode) text = stripJsonFences(text);
             if (text) { clearTimeout(t); return text; }
             opts.onProviderError?.(`azure-claude(${deployment}) HTTP 200 but no text in response`);
@@ -231,19 +249,20 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
   try {
     {
-      // Azure-hosted Claude streaming via the Foundry Responses API (SSE).
-      // Attempted whenever Foundry creds exist — see callDirect for why we do
-      // not require the AZURE_HOSTED_ANTHROPIC flag.
+      // Azure-hosted Claude streaming via the Foundry Anthropic Messages API
+      // (anthropic/v1/messages, `x-api-key`, SSE). Attempted whenever Foundry
+      // creds exist — see callDirect for why we do not require the
+      // AZURE_HOSTED_ANTHROPIC flag.
       {
         const akey = process.env.AZURE_OPENAI_API_KEY;
         const aep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
         if (akey && aep && (useAzureForAnthropic() || isFoundryEndpoint(aep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await fetch(azureResponsesUrl(), {
+          const res = await fetch(azureAnthropicUrl(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'api-key': akey },
-            body: JSON.stringify(buildResponsesBody(deployment, messages, opts, true, isOpus)),
+            headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, true, isOpus)),
             signal: ctrl.signal,
           });
           if (res.ok && res.body) {
@@ -262,8 +281,8 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
                 if (data === '[DONE]') { done = true; break; }
                 try {
                   const p = JSON.parse(data);
-                  if (p.type === 'response.output_text.delta' && typeof p.delta === 'string') { acc += p.delta; onChunk(p.delta); }
-                  else if (p.type === 'response.completed' || p.type === 'response.failed' || p.type === 'error') { done = true; }
+                  if (p.type === 'content_block_delta' && p.delta?.text) { acc += p.delta.text; onChunk(p.delta.text); }
+                  else if (p.type === 'message_stop' || p.type === 'error') { done = true; }
                 } catch {}
               }
             }
@@ -289,15 +308,15 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
           // `if (acc) return acc` above returns on any emitted content), so a
           // single-chunk non-streaming answer cannot double-emit.
           try {
-            const ns = await fetch(azureResponsesUrl(), {
+            const ns = await fetch(azureAnthropicUrl(), {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'api-key': akey },
-              body: JSON.stringify(buildResponsesBody(deployment, messages, opts, false, isOpus)),
+              headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
+              body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
               signal: ctrl.signal,
             });
             if (ns.ok) {
               const data: any = await ns.json();
-              const text = extractResponsesText(data);
+              const text = extractAnthropicText(data);
               if (text) { clearTimeout(t); return text; }
               opts.onProviderError?.(`azure-claude(${deployment}) non-stream fallback HTTP 200 but no text`);
             } else {
