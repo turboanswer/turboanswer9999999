@@ -715,7 +715,7 @@ export default function MobileChatUI({
               <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$10</span>
               <span className="text-[16px] ml-1" style={{ color: THEME.textMuted }}>/mo</span>
               <div className="inline-flex items-center gap-1.5 mt-2 bg-indigo-500/10 text-indigo-500 text-[12px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full">
-                7-day free trial
+                3-day free trial
               </div>
             </div>
             <ul className="space-y-4 mb-8">
@@ -758,7 +758,7 @@ export default function MobileChatUI({
               <span className="text-[40px] font-bold" style={{ color: THEME.text }}>$35</span>
               <span className="text-[16px] ml-1" style={{ color: THEME.textMuted }}>/mo</span>
               <div className="inline-flex items-center gap-1.5 mt-2 bg-blue-500/10 text-blue-500 text-[12px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full">
-                7-day free trial
+                3-day free trial
               </div>
             </div>
             <ul className="space-y-4 mb-8">

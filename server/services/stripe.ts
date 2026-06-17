@@ -114,7 +114,7 @@ export async function createCheckoutSession(opts: {
     allow_promotion_codes: true,
     billing_address_collection: "auto",
     subscription_data: {
-      trial_period_days: opts.trialDays ?? 7,
+      trial_period_days: opts.trialDays ?? 3,
       metadata: { userId: opts.userId, tier: opts.tier },
     },
     metadata: { userId: opts.userId, tier: opts.tier },

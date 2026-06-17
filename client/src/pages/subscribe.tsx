@@ -45,7 +45,7 @@ const PLANS = [
       'Everything in Turbo',
     ],
     cta: 'Subscribe — $10/mo',
-    note: '7-day free trial · Cancel anytime',
+    note: '3-day free trial · Cancel anytime',
     highlight: false,
   },
   {
@@ -65,7 +65,7 @@ const PLANS = [
       'Everything in Turbo AI Pro',
     ],
     cta: 'Subscribe — $35/mo',
-    note: '7-day free trial · Cancel anytime',
+    note: '3-day free trial · Cancel anytime',
     highlight: true,
   },
   {
@@ -85,7 +85,7 @@ const PLANS = [
       'Dedicated team support',
     ],
     cta: 'Subscribe — $100/mo',
-    note: '7-day free trial · Cancel anytime',
+    note: '3-day free trial · Cancel anytime',
     highlight: false,
   },
 ];
@@ -134,7 +134,7 @@ export default function Subscribe() {
             Choose Your Plan
           </h1>
           <p className="text-zinc-400 text-base max-w-xl mx-auto">
-            All paid plans include a 7-day free trial — no charge until your trial ends.
+            All paid plans include a 3-day free trial — no charge until your trial ends.
           </p>
         </div>
 

@@ -2164,7 +2164,7 @@ export default function Chat() {
             </div>
             <div className="text-center mb-1">
               <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
+                <CheckCircle className="w-3 h-3" /> 3-day free trial — no charge today
               </div>
             </div>
             <div className="text-center mb-5">
@@ -2173,7 +2173,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "Advanced AI (Claude Sonnet 4.6 vs Claude Haiku 5.5)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation", "Unlimited questions (vs 15/day free)"].map((text, i) => (
+              {["3 days free — cancel anytime", "Advanced AI (Claude Sonnet 4.6 vs Claude Haiku 5.5)", "Longer, detailed answers (5x more)", "Live web search for current events", "Verified answer badges", "AI image generation", "Unlimited questions (vs 15/day free)"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className={`w-4 h-4 flex-shrink-0 ${i === 0 ? 'text-blue-400' : 'text-blue-400'}`} />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2202,7 +2202,7 @@ export default function Chat() {
               <Star className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : "Start Free Trial"}
             </Button>
-            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>7 days free, then $10/mo. Cancel anytime.</p>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>3 days free, then $10/mo. Cancel anytime.</p>
           </div>
         </div>
       )}
@@ -2227,7 +2227,7 @@ export default function Chat() {
             </div>
             <div className="text-center mb-1">
               <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
+                <CheckCircle className="w-3 h-3" /> 3-day free trial — no charge today
               </div>
             </div>
             <div className="text-center mb-5">
@@ -2236,7 +2236,7 @@ export default function Chat() {
               <p className={`text-xs mt-1 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>after free trial</p>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "Everything in Turbo AI Pro included"].map((text, i) => (
+              {["3 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "Everything in Turbo AI Pro included"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2265,7 +2265,7 @@ export default function Chat() {
               <Brain className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : "Start Free Trial"}
             </Button>
-            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>7 days free, then $35/mo. Cancel anytime.</p>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>3 days free, then $35/mo. Cancel anytime.</p>
           </div>
         </div>
       )}
@@ -2285,7 +2285,7 @@ export default function Chat() {
             </div>
             <div className="text-center mb-1">
               <div className="inline-flex items-center gap-1.5 bg-blue-500/15 border border-blue-500/30 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                <CheckCircle className="w-3 h-3" /> 7-day free trial — no charge today
+                <CheckCircle className="w-3 h-3" /> 3-day free trial — no charge today
               </div>
             </div>
             <div className="text-center mb-5">
@@ -2338,7 +2338,7 @@ export default function Chat() {
               </div>
             </div>
             <ul className="space-y-3 mb-6">
-              {["7 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "All Matrix AI features included", "Shareable 6-digit team code (up to 5 members)", "Save 43% vs 5 individual Matrix AI plans"].map((text, i) => (
+              {["3 days free — cancel anytime", "🧠 Matrix AI — cited & verified answers", "All Matrix AI features included", "Shareable 6-digit team code (up to 5 members)", "Save 43% vs 5 individual Matrix AI plans"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <CheckCircle className="w-4 h-4 text-blue-400 flex-shrink-0" />
                   <span className={`text-sm ${i === 0 ? 'font-semibold text-blue-400' : isDark ? 'text-zinc-200' : 'text-gray-700'}`}>{text}</span>
@@ -2369,7 +2369,7 @@ export default function Chat() {
               <Crown className="w-4 h-4 mr-2" />
               {checkoutLoading ? "Loading..." : entCouponApplied ? "Start Free Trial - $0.99/mo after" : "Start Free Trial"}
             </Button>
-            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>7 days free, then $100/mo. Cancel anytime.</p>
+            <p className={`text-center text-xs mt-3 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>3 days free, then $100/mo. Cancel anytime.</p>
             <div className={`mt-4 pt-4 border-t ${isDark ? 'border-zinc-700' : 'border-gray-200'} text-center`}>
               <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
                 Need more than 5 members?{' '}
