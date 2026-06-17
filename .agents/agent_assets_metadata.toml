@@ -347,3 +347,9 @@ id = "ZQnoNTxnAXgxCr0deRshH"
 uri = "file://attached_assets/tshirt/visit-light-shirt.png"
 type = "image"
 title = "VISIT TURBOANSWER.IT.COM — for LIGHT shirts (navy text)"
+
+[[outputs]]
+id = "dmBjCT0hquPZ1LraiYTPx"
+uri = "file://attached_assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509.png"
+type = "image"
+title = "TurboAnswer Logo"
