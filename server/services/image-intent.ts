@@ -24,16 +24,25 @@ const IMAGE_NOUNS =
   'image|picture|pic|photo|photograph|drawing|illustration|painting|portrait|' +
   'wallpaper|poster|avatar|sticker|banner|logo|mockup|headshot|artwork|render|rendering';
 
+// Lookup triggers: "what does X look like", "real/actual photo of X". These have
+// no image noun, so the noun gate alone would miss them.
+const LOOKUP_RE =
+  '(?:\\bwhat\\b[\\s\\S]{0,40}?\\blooks?\\s+like\\b)' +
+  '|(?:\\b(?:real|actual|true)\\s+(?:photo|picture|image|pic|photograph)s?\\b)' +
+  '|(?:\\b(?:find|look\\s*up|search\\s+for)\\b[\\s\\S]{0,30}?\\b(?:photo|picture|image|pic|photograph)s?\\b)';
+
 // Gate: fire the classifier only when a message plausibly asks for an image —
 //   (a) a slash command (/image, /img, /draw, /art, /gen ...), OR
 //   (b) a strong image noun appears anywhere, OR
-//   (c) the message leads with a literal drawing verb.
+//   (c) the message leads with a literal drawing verb, OR
+//   (d) a "what does X look like" / "real photo of X" lookup phrasing.
 // Generic verbs (make/create/generate/design/render) intentionally do NOT fire
 // on their own — they only matter when paired with an image noun, caught by (b).
 const IMAGE_GATE_RE = new RegExp(
   '(?:^\\s*/(?:image|img|draw|art|gen(?:erate)?)\\b)' +
     `|(?:\\b(?:${IMAGE_NOUNS})s?\\b)` +
-    '|(?:^\\s*(?:please\\s+|hey\\s+|ok(?:ay)?\\s+)?(?:(?:can|could|would|will|pls|plz)\\s+(?:you\\s+)?)?(?:draw|paint|sketch|illustrate)\\b)',
+    '|(?:^\\s*(?:please\\s+|hey\\s+|ok(?:ay)?\\s+)?(?:(?:can|could|would|will|pls|plz)\\s+(?:you\\s+)?)?(?:draw|paint|sketch|illustrate)\\b)' +
+    `|(?:${LOOKUP_RE})`,
   'i',
 );
 
@@ -45,28 +54,38 @@ export function mightBeImageRequest(message: string): boolean {
 }
 
 const CLASSIFIER_SYSTEM =
-  'You are a strict intent classifier for an AI assistant. Decide whether the ' +
-  "user's message is asking the assistant to CREATE / GENERATE / DRAW / PAINT a " +
-  'BRAND-NEW image, picture, logo, illustration, or artwork from a text ' +
-  'description.\n\n' +
-  'IS an image request: "draw a cat astronaut", "make me a logo for my cafe", ' +
-  '"generate a sunset wallpaper", "/image neon city at night", "I want a picture ' +
-  'of mars".\n' +
-  'NOT an image request: factual or text questions; asking ABOUT an existing or ' +
-  'uploaded image; editing an attached photo; or figurative uses ("draw a ' +
-  'conclusion", "the art of war", "paint a picture with words", "picture this").\n\n' +
+  'You are a strict intent classifier for an AI assistant that can BOTH generate ' +
+  'new images AND look up real existing photos. Classify the intent:\n\n' +
+  '- "generate": the user wants the assistant to CREATE / DRAW / PAINT a ' +
+  'BRAND-NEW image, logo, illustration, or artwork from a description. ' +
+  'e.g. "draw a cat astronaut", "make me a logo for my cafe", "generate a ' +
+  'sunset wallpaper", "/image neon city at night", "I want a picture of mars".\n' +
+  '- "lookup": the user wants to SEE a REAL, existing photo of something real. ' +
+  'e.g. "what does the Eiffel Tower look like", "show me a real photo of a red ' +
+  'panda", "find a picture of the Tesla Cybertruck", "what does a capybara look ' +
+  'like".\n' +
+  '- "none": factual or text questions; asking ABOUT an uploaded image; editing ' +
+  'an attached photo; or figurative uses ("draw a conclusion", "the art of war", ' +
+  '"paint a picture with words", "picture this", "it looks like rain").\n\n' +
   'Respond with ONLY compact JSON, no prose and no code fences: ' +
-  '{"isImage": boolean, "prompt": string}. "prompt" is a concise description of ' +
-  'the image to generate (subject + key style/details), or "" when isImage is false.';
+  '{"intent": "generate"|"lookup"|"none", "query": string}. For "generate", ' +
+  '"query" is a concise image description (subject + key style). For "lookup", ' +
+  '"query" is the real-world subject to find a photo of. Use "" when "none".';
+
+export interface ImageAction {
+  mode: 'generate' | 'lookup';
+  query: string;
+}
 
 /**
- * Returns a clean image-generation prompt when the message is an image request,
- * or null otherwise. Gated by a cheap regex so normal chat is untouched.
+ * Classify a chat message as an image GENERATE request, a real-photo LOOKUP
+ * request, or neither. Gated by a cheap regex so normal chat is untouched; the
+ * (cheap, Haiku) classifier only runs when a message plausibly involves images.
  */
-export async function detectImageRequest(
+export async function detectImageAction(
   message: string,
   opts: { timeoutMs?: number } = {},
-): Promise<string | null> {
+): Promise<ImageAction | null> {
   if (!mightBeImageRequest(message)) return null;
   try {
     const raw = await callDirect(
@@ -81,13 +100,25 @@ export async function detectImageRequest(
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
     const parsed = JSON.parse(jsonMatch[0]);
-    if (parsed && parsed.isImage === true) {
-      const prompt = typeof parsed.prompt === 'string' ? parsed.prompt.trim() : '';
-      return prompt || message.trim();
-    }
+    const intent = parsed?.intent;
+    const query = typeof parsed?.query === 'string' ? parsed.query.trim() : '';
+    if (intent === 'generate') return { mode: 'generate', query: query || message.trim() };
+    if (intent === 'lookup' && query) return { mode: 'lookup', query };
     return null;
   } catch (e: any) {
     console.warn(`[ImageIntent] classify failed: ${e?.message || e}`);
     return null;
   }
+}
+
+/**
+ * Backward-compatible helper: returns a clean image-generation prompt when the
+ * message is a GENERATE request, or null otherwise.
+ */
+export async function detectImageRequest(
+  message: string,
+  opts: { timeoutMs?: number } = {},
+): Promise<string | null> {
+  const action = await detectImageAction(message, opts);
+  return action && action.mode === 'generate' ? action.query : null;
 }

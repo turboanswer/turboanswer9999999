@@ -15,7 +15,7 @@ import {
   Cpu, HardDrive, Radio, Circle, Wifi, WifiOff, MemoryStick, ShieldCheck, Siren, Unlock, Loader2,
   ShieldOff, ShieldPlus, KeyRound, Ticket, Globe, GitBranch, BarChart2, Network, Box,
   Lock, MapPin, Tag, Cloud, Lightbulb, FileCode, Inbox, ClipboardList, Star, Pin, MoreHorizontal,
-  Phone, Briefcase, Power, Square, Wallet
+  Phone, Briefcase, Power, Square, Wallet, Megaphone, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,6 +141,7 @@ const EMAIL_TEMPLATES_LIST = [
   { id: 'account-deleted', label: 'Permanently Deleted', icon: Trash2, color: '#dc2626', description: 'Confirm to a user that their account and all data have been permanently deleted.' },
   { id: 'blacklist-added', label: 'Added to Blacklist', icon: ShieldOff, color: '#7f1d1d', description: 'Notify a user they have been added to the TurboAnswer blacklist.' },
   { id: 'blacklist-removed', label: 'Removed from Blacklist', icon: ShieldPlus, color: '#059669', description: 'Notify a user they have been removed from the TurboAnswer blacklist.' },
+  { id: 'product-update', label: 'Product Update', icon: Sparkles, color: '#8b5cf6', description: 'Announce the Claude Sonnet 4.8 upgrade. Send to one user as a test, or broadcast to every user.' },
 ];
 
 function getEmailTemplateBody(templateId: string, name: string, date: string): string {
@@ -153,6 +154,7 @@ function getEmailTemplateBody(templateId: string, name: string, date: string): s
     'account-deleted': `Dear ${name},\n\nThis email confirms that your TurboAnswer account has been permanently deleted as of ${date}.\n\nThe following actions have been completed:\n\n- All account data has been permanently removed from our systems\n- All conversation history has been deleted\n- Any active subscriptions have been cancelled\n- This action is irreversible and cannot be undone\n\nIf you wish to use TurboAnswer again in the future, you are welcome to create a new account at any time.\n\nThank you for being a part of the TurboAnswer community.`,
     'blacklist-added': `Dear ${name},\n\nWe are writing to inform you that your account has been added to the TurboAnswer blacklist effective ${date}.\n\nThe following restrictions are now in effect:\n\n- Your account has been permanently blocked from accessing TurboAnswer\n- You will not be able to create new accounts using the same credentials\n- Any active subscriptions have been cancelled and refunded where applicable\n- All associated data will be retained for security purposes\n\nThis action was taken due to severe or repeated violations of our terms of service.\n\nIf you believe this decision was made in error, you may submit an appeal by contacting appeals@turboanswer.it.com.`,
     'blacklist-removed': `Dear ${name},\n\nWe are pleased to inform you that your account has been removed from the TurboAnswer blacklist as of ${date}.\n\nYour access has been fully restored:\n\n- Your account is now fully active and accessible\n- You may log in and use all TurboAnswer services\n- You are welcome to subscribe to any of our plans\n- All platform features are available to you\n\nWe kindly ask that you continue to adhere to our community guidelines and terms of service.\n\nYou can log in at: ${appUrl}/login`,
+    'product-update': `Hi ${name},\n\nBig news — TurboAnswer just got its biggest intelligence upgrade yet. We're now powered by Claude Sonnet 4.8, the latest and most capable AI model available.\n\nHere's what that means for you:\n\n- Sharper, more accurate answers across coding, writing, research, and everyday questions\n- Stronger reasoning on complex, multi-step problems\n- Faster, more natural conversations that actually stay on topic\n- Better help with long documents, deep analysis, and detailed explanations\n\nThere's nothing you need to do — the upgrade is already live on your account. Just open TurboAnswer and ask anything.\n\nTry it now: https://turbo-answer.replit.app\n\nThank you for being part of TurboAnswer.`,
   };
   return bodies[templateId] || '';
 }
@@ -165,6 +167,9 @@ function EmailTemplatesTab() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [useHtml, setUseHtml] = useState(true);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [broadcastPreview, setBroadcastPreview] = useState<{ count: number; token: string } | null>(null);
+  const BROADCAST_ALLOWED = new Set(['product-update']);
 
   const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const name = recipientName.trim() || '[Recipient Name]';
@@ -195,6 +200,42 @@ function EmailTemplatesTab() {
     }
   };
 
+  const handleBroadcastPreview = async () => {
+    setBroadcasting(true);
+    try {
+      const res = await apiRequest('POST', '/api/admin/broadcast-email', { templateType: selectedTemplate, dryRun: true });
+      const data = await res.json();
+      if (data.dryRun) {
+        setBroadcastPreview({ count: data.recipientCount, token: data.confirmToken });
+      } else {
+        toast({ title: 'Could not prepare broadcast', description: data.error || 'Unknown error', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Could not prepare broadcast', description: err.message || 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
+  const handleBroadcastConfirm = async () => {
+    if (!broadcastPreview) return;
+    setBroadcasting(true);
+    try {
+      const res = await apiRequest('POST', '/api/admin/broadcast-email', { templateType: selectedTemplate, confirmToken: broadcastPreview.token });
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: 'Broadcast sent', description: `Delivered to ${data.sent} of ${data.total}${data.failed ? ` — ${data.failed} failed` : ''}.` });
+        setBroadcastPreview(null);
+      } else {
+        toast({ title: 'Broadcast failed', description: data.error || 'Unknown error', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Broadcast failed', description: err.message || 'Something went wrong', variant: 'destructive' });
+    } finally {
+      setBroadcasting(false);
+    }
+  };
+
   return (
     <div style={{ padding: '24px', maxWidth: '900px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
@@ -212,7 +253,7 @@ function EmailTemplatesTab() {
             const Icon = t.icon;
             const isSelected = selectedTemplate === t.id;
             return (
-              <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setSent(false); }}
+              <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setSent(false); setBroadcastPreview(null); }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '14px 10px', borderRadius: '10px', border: isSelected ? `2px solid ${t.color}` : '2px solid #2a2a2a', backgroundColor: isSelected ? `${t.color}15` : '#0a0a0a', cursor: 'pointer', transition: 'all 0.2s' }}>
                 <Icon style={{ width: '20px', height: '20px', color: t.color }} />
                 <span style={{ fontSize: '12px', fontWeight: '600', color: isSelected ? t.color : '#ccc', textAlign: 'center' }}>{t.label}</span>
@@ -244,6 +285,32 @@ function EmailTemplatesTab() {
             {sent && <span style={{ color: '#22c55e', fontSize: '14px' }}>Email delivered to {recipientEmail}</span>}
           </div>
         </div>
+
+        {BROADCAST_ALLOWED.has(selectedTemplate) && (
+          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #1f1f1f' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <Megaphone className="w-4 h-4 text-amber-400" />
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fbbf24' }}>Broadcast to all users</span>
+            </div>
+            <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '12px' }}>Send this announcement to every user with a valid email. Tip: send it to yourself above first as a test.</p>
+            {!broadcastPreview ? (
+              <Button onClick={handleBroadcastPreview} disabled={broadcasting} variant="outline" className="border-amber-600 text-amber-400 hover:bg-amber-600/10">
+                {broadcasting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Preparing...</> : <><Megaphone className="w-4 h-4 mr-2" /> Send to All Users</>}
+              </Button>
+            ) : (
+              <div style={{ backgroundColor: '#f59e0b10', border: '1px solid #f59e0b40', borderRadius: '10px', padding: '16px' }}>
+                <p style={{ color: '#fbbf24', fontWeight: 600, margin: '0 0 4px' }}>Send this email to {broadcastPreview.count} {broadcastPreview.count === 1 ? 'user' : 'users'}?</p>
+                <p style={{ color: '#9ca3af', fontSize: '13px', margin: '0 0 12px' }}>This sends a real email to every user and can't be undone.</p>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <Button onClick={handleBroadcastConfirm} disabled={broadcasting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold">
+                    {broadcasting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending...</> : <>Yes, send to {broadcastPreview.count}</>}
+                  </Button>
+                  <Button onClick={() => setBroadcastPreview(null)} disabled={broadcasting} variant="ghost" className="text-gray-400 hover:text-white">Cancel</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ backgroundColor: '#111111', border: '1px solid #1f1f1f', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>

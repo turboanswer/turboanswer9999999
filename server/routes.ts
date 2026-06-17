@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -89,6 +90,129 @@ ${bodyText.split('\n').map(line => {
     console.error('[Email] Send failed:', err.message);
     return null;
   }
+}
+
+// ---- Admin broadcast email (marketing announcements) ----
+// Only templates in this allowlist may be sent to the entire user base. Account
+// status notices (bans, deletions, etc.) must never be broadcast to everyone.
+const BROADCAST_ALLOWED_TEMPLATES = new Set<string>(['product-update']);
+
+function buildProductUpdateEmail(recipientName: string): { subject: string; statusText: string; bodyText: string } {
+  const appUrl = 'https://turbo-answer.replit.app';
+  return {
+    subject: 'TurboAnswer just got a major brain upgrade ⚡',
+    statusText: 'A Smarter TurboAnswer Is Here',
+    bodyText: `Hi ${recipientName},
+
+Big news — TurboAnswer just got its biggest intelligence upgrade yet. We're now powered by Claude Sonnet 4.8, the latest and most capable AI model available.
+
+Here's what that means for you:
+
+- Sharper, more accurate answers across coding, writing, research, and everyday questions
+- Stronger reasoning on complex, multi-step problems
+- Faster, more natural conversations that actually stay on topic
+- Better help with long documents, deep analysis, and detailed explanations
+
+There's nothing you need to do — the upgrade is already live on your account. Just open TurboAnswer and ask anything.
+
+Try it now: ${appUrl}
+
+Thank you for being part of TurboAnswer.`,
+  };
+}
+
+// Renders the shared admin-email look (gradient header + plain-text fallback).
+function renderTransactionalEmail(
+  template: { subject: string; statusText: string; bodyText: string },
+  useHtml: boolean,
+): { htmlContent?: string; textContent: string } {
+  const textContent = `${template.bodyText}
+
+--
+TurboAnswer Support
+Email: support@turboanswer.it.com
+Support tickets: https://turboanswer.it.com/support
+Hours: 24/7 — always open
+
+To stop receiving these emails, reply with "Unsubscribe" in the subject line.`;
+
+  if (!useHtml) return { textContent };
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#ffffff;max-width:600px;margin:0 auto;padding:0;background-color:#000000;">
+<div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;text-align:center;border-radius:12px 12px 0 0;">
+  <h1 style="color:#fff;margin:0;font-size:22px;">${escapeHtml(template.statusText)}</h1>
+</div>
+<div style="background-color:#000000;padding:28px 32px;border:1px solid #333;border-top:none;border-radius:0 0 12px 12px;">
+${template.bodyText.split('\n').map(line => {
+    const safe = escapeHtml(line);
+    if (line.startsWith('- ')) return `<p style="margin:4px 0 4px 20px;color:#e2e2e2;">${safe}</p>`;
+    if (line.trim() === '') return '<br>';
+    return `<p style="margin:0 0 10px;color:#ffffff;">${safe}</p>`;
+  }).join('\n')}
+<hr style="border:none;border-top:1px solid #333;margin:24px 0;">
+<p style="font-size:13px;color:#999;margin:0;">TurboAnswer Support</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Email: support@turboanswer.it.com</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Support tickets: https://turboanswer.it.com/support</p>
+<p style="font-size:13px;color:#999;margin:2px 0;">Hours: 24/7 — always open</p>
+</div>
+</body>
+</html>`;
+
+  return { htmlContent, textContent };
+}
+
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function broadcastSigningKey(): Buffer {
+  const secret = process.env.SESSION_SECRET || process.env.CRISIS_ENCRYPTION_KEY || process.env.BREVO_API_KEY || 'turboanswer-broadcast-fallback';
+  return crypto.createHash('sha256').update('broadcast-email:' + secret).digest();
+}
+
+// Short-lived token bound to the exact template + audience size, so the confirmed
+// send must match what was previewed (and can't be replayed after the list changes).
+function signBroadcastToken(templateType: string, count: number): string {
+  const expiry = Date.now() + 10 * 60 * 1000;
+  const payload = { t: templateType, c: count, e: expiry, n: crypto.randomBytes(12).toString('hex') };
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', broadcastSigningKey()).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+// One confirmed send per preview token: a token's nonce is recorded the first time
+// it is consumed, so re-POSTing the same token can't broadcast to everyone twice.
+const consumedBroadcastNonces = new Map<string, number>();
+function consumeBroadcastNonce(nonce: string, expiry: number): boolean {
+  const now = Date.now();
+  consumedBroadcastNonces.forEach((exp, key) => { if (exp < now) consumedBroadcastNonces.delete(key); });
+  if (consumedBroadcastNonces.has(nonce)) return false;
+  consumedBroadcastNonces.set(nonce, expiry);
+  return true;
+}
+
+function verifyBroadcastToken(token: unknown, templateType: string, count: number): { ok: boolean; nonce?: string; expiry?: number } {
+  if (typeof token !== 'string' || !token.includes('.')) return { ok: false };
+  const [body, sig] = token.split('.');
+  if (!body || !sig) return { ok: false };
+  const expected = crypto.createHmac('sha256', broadcastSigningKey()).update(body).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false };
+  let payload: any;
+  try { payload = JSON.parse(Buffer.from(body, 'base64url').toString()); } catch { return { ok: false }; }
+  if (typeof payload?.e !== 'number' || payload.e < Date.now()) return { ok: false };
+  if (typeof payload?.n !== 'string' || !payload.n) return { ok: false };
+  if (payload.t !== templateType || payload.c !== count) return { ok: false };
+  return { ok: true, nonce: payload.n, expiry: payload.e };
 }
 
 const TIER_LABELS: Record<string, string> = { free: 'Turbo AI', pro: 'Turbo AI Pro', research: 'Matrix AI', enterprise: 'Enterprise' };
@@ -2229,35 +2353,43 @@ Formatting rules:
       }
 
       // ── Image generation (Claude is text-only and can't draw) ─────────────
-      // The client detects most image requests and calls /api/generate-image
-      // directly; this is the SERVER-SIDE backstop for any phrasing it missed. A
-      // cheap, regex-gated Haiku classifier decides whether the user wants a NEW
-      // image and, if so, we generate it with the Azure image model (free
-      // Pollinations fallback) and return it AS the answer instead of a text reply.
+      // The client detects most image requests directly; this is the SERVER-SIDE
+      // backstop for any phrasing it missed. A cheap, regex-gated Haiku classifier
+      // decides whether the user wants a NEW image (generate via DALL·E 3 →
+      // Pollinations) or a REAL photo of something (lookup), and returns it AS the
+      // answer instead of a text reply Claude can't draw.
       try {
-        const { detectImageRequest } = await import('./services/image-intent');
-        const imagePrompt = await detectImageRequest(content);
-        if (imagePrompt) {
-          send('chunk', { text: 'Generating your image…' });
-          const { azureGenerateImage } = await import('./services/azure-media.js');
-          let imageUrl = await azureGenerateImage(imagePrompt, '1024x1024');
-          if (!imageUrl) {
-            const seed = Math.floor(Math.random() * 1_000_000);
-            const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}&model=flux`;
-            try {
-              const pr = await fetch(pollUrl, { signal: AbortSignal.timeout(60000) });
-              if (pr.ok) {
-                const buf = Buffer.from(await pr.arrayBuffer());
-                const ct = pr.headers.get('content-type') || 'image/jpeg';
-                imageUrl = `data:${ct};base64,${buf.toString('base64')}`;
-              }
-            } catch (pe: any) {
-              console.error('[ImageIntent] Pollinations fallback failed:', pe?.message || pe);
+        const { detectImageAction } = await import('./services/image-intent');
+        const action = await detectImageAction(content);
+        if (action) {
+          let aiContent: string;
+          if (action.mode === 'lookup') {
+            // Real-photo lookup ("what does X look like").
+            send('chunk', { text: `Finding a photo of ${action.query}…` });
+            const { searchRealPhoto } = await import('./services/image-search');
+            const hit = await searchRealPhoto(action.query);
+            if (hit) {
+              // Encode parens/spaces so the markdown image regex (which stops at
+              // ")") doesn't break on Wikimedia URLs that contain them.
+              const safeUrl = String(hit.url)
+                .replace(/\(/g, '%28')
+                .replace(/\)/g, '%29')
+                .replace(/\s/g, '%20');
+              const caption = hit.source ? `\n\nSource: ${hit.source}` : '';
+              aiContent = `Here's what ${action.query} looks like:\n\n![photo](${safeUrl})${caption}`;
+            } else {
+              aiContent = `I couldn't find a real photo of ${action.query} right now.`;
             }
+          } else {
+            // New image generation.
+            send('chunk', { text: `Generating your image…\nPrompt: ${action.query}` });
+            const { generateImages } = await import('./services/image-generation');
+            const { dataUrls } = await generateImages(action.query, { count: 1, size: '1024x1024' });
+            const imageUrl = dataUrls[0] || null;
+            aiContent = imageUrl
+              ? `Here's your image of ${action.query}:\n\n![Generated image](${imageUrl})`
+              : "I couldn't generate that image right now. Please try again in a moment.";
           }
-          const aiContent = imageUrl
-            ? `Here's your image of ${imagePrompt}:\n\n![Generated image](${imageUrl})`
-            : "I couldn't generate that image right now. Please try again in a moment.";
           const aiMessage = await storage.createMessage({ conversationId, content: aiContent, role: 'assistant' });
           try {
             const allMsgs = await storage.getMessagesByConversation(conversationId);
@@ -5122,6 +5254,7 @@ We kindly ask that you continue to adhere to our community guidelines and terms 
 
 You can log in at: ${appUrl}/login`,
         },
+        'product-update': buildProductUpdateEmail(recipientName),
       };
 
       const template = templates[templateType];
@@ -5199,6 +5332,105 @@ ${template.bodyText.split('\n').map(line => {
     } catch (error: any) {
       console.error('Email send error:', error);
       res.status(500).json({ error: 'Failed to send email' });
+    }
+  });
+
+  // Broadcast a marketing/announcement email to the whole user base.
+  // Two-step: POST with { templateType } (or dryRun:true) returns the audience size
+  // plus a short-lived signed confirmToken; POST again with that token to actually send.
+  app.post('/api/admin/broadcast-email', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { templateType, dryRun, confirmToken } = req.body || {};
+      if (!templateType || typeof templateType !== 'string') {
+        return res.status(400).json({ error: 'templateType is required' });
+      }
+      if (!BROADCAST_ALLOWED_TEMPLATES.has(templateType)) {
+        return res.status(400).json({ error: `Template "${templateType}" cannot be broadcast. Allowed: ${Array.from(BROADCAST_ALLOWED_TEMPLATES).join(', ')}` });
+      }
+      const brevoApiKey = process.env.BREVO_API_KEY;
+      if (!brevoApiKey) {
+        return res.status(500).json({ error: 'Brevo API key not configured' });
+      }
+
+      // Build a clean, de-duplicated list of real recipient addresses.
+      const allUsers = await storage.getAllUsers();
+      const emailRe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+      const seen = new Set<string>();
+      const recipients: { email: string; name: string }[] = [];
+      for (const u of allUsers) {
+        const raw = (u.email || '').trim();
+        const key = raw.toLowerCase();
+        if (!raw || !emailRe.test(raw)) continue;
+        if (key.endsWith('@example.com') || key.endsWith('@test.com')) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const name = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'there';
+        recipients.push({ email: raw, name });
+      }
+      const count = recipients.length;
+
+      // Step 1 — preview / dry run: return the audience size + a signed confirm token.
+      if (dryRun || !confirmToken) {
+        const token = signBroadcastToken(templateType, count);
+        return res.json({
+          dryRun: true,
+          recipientCount: count,
+          confirmToken: token,
+          message: count === 0
+            ? 'No eligible recipients found.'
+            : `${count} ${count === 1 ? 'person' : 'people'} will receive this email.`,
+        });
+      }
+
+      // Step 2 — confirmed send: token must match the exact template + audience size.
+      const verified = verifyBroadcastToken(confirmToken, templateType, count);
+      if (!verified.ok) {
+        return res.status(409).json({ error: 'Your preview expired or the audience changed. Please preview again before sending.' });
+      }
+      // Single-use: the same preview token can't trigger a second broadcast to everyone.
+      if (!consumeBroadcastNonce(verified.nonce!, verified.expiry!)) {
+        return res.status(409).json({ error: 'This preview was already sent. Please preview again to send another broadcast.' });
+      }
+      if (count === 0) {
+        return res.json({ success: true, sent: 0, failed: 0, total: 0 });
+      }
+
+      // Throttled send: batches of 10 with ~1.8s between batches to stay under Brevo limits.
+      let sent = 0;
+      let failed = 0;
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+        const batch = recipients.slice(i, i + BATCH_SIZE);
+        const results = await Promise.allSettled(batch.map(async (r) => {
+          const template = buildProductUpdateEmail(r.name); // allowlist guarantees product-update
+          const { htmlContent, textContent } = renderTransactionalEmail(template, true);
+          const resp = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: { 'accept': 'application/json', 'api-key': brevoApiKey, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              sender: { name: 'TurboAnswer', email: 'support@turboanswer.it.com' },
+              to: [{ email: r.email, name: r.name }],
+              subject: template.subject,
+              htmlContent,
+              textContent,
+              headers: { 'X-Mailer': 'TurboAnswer Notifications', 'List-Unsubscribe': '<mailto:support@turboanswer.it.com?subject=Unsubscribe>' },
+            }),
+          });
+          if (!resp.ok) throw new Error(`Brevo ${resp.status}`);
+          return true;
+        }));
+        for (const r of results) { if (r.status === 'fulfilled') sent++; else failed++; }
+        if (i + BATCH_SIZE < recipients.length) {
+          await new Promise(resolve => setTimeout(resolve, 1800));
+        }
+      }
+
+      // Deliberately log only aggregate counts — never recipient addresses.
+      console.log(`[Broadcast] template=${templateType} sent=${sent} failed=${failed} total=${count}`);
+      res.json({ success: true, sent, failed, total: count });
+    } catch (error: any) {
+      console.error('[Broadcast] error:', error?.message || error);
+      res.status(500).json({ error: 'Failed to send broadcast' });
     }
   });
 

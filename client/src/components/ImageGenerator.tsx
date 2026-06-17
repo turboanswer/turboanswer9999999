@@ -44,7 +44,7 @@ export function ImageGenerator({ onImageGenerated, onClose }: ImageGeneratorProp
       const response = await fetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: imagePrompt, size: "auto", quality: "low", count: 5 }),
+        body: JSON.stringify({ prompt: imagePrompt, size: "1024x1024", quality: "standard", count: 3 }),
       });
       if (!response.ok) {
         const error = await response.json();
@@ -107,7 +107,7 @@ export function ImageGenerator({ onImageGenerated, onClose }: ImageGeneratorProp
           <div>
             <h3 className="font-semibold text-white text-sm">AI Image Creator</h3>
             <p className="text-[10px] text-zinc-400 flex items-center gap-1">
-              <Zap className="h-3 w-3 text-yellow-400" /> Generates 5 images at once
+              <Zap className="h-3 w-3 text-yellow-400" /> Generates 3 images at once
             </p>
           </div>
         </div>
@@ -152,12 +152,12 @@ export function ImageGenerator({ onImageGenerated, onClose }: ImageGeneratorProp
           {generateMutation.isPending ? (
             <div className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Creating 5 images... {(elapsed / 1000).toFixed(1)}s</span>
+              <span>Creating 3 images... {(elapsed / 1000).toFixed(1)}s</span>
             </div>
           ) : (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              Generate 5 Images
+              Generate 3 Images
             </>
           )}
         </Button>
@@ -213,7 +213,7 @@ export function ImageGenerator({ onImageGenerated, onClose }: ImageGeneratorProp
             </Button>
             <Button onClick={handleDownloadAll} variant="outline" size="sm" className="flex-1 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800">
               <Download className="h-4 w-4 mr-2" />
-              Download All 5
+              Download All
             </Button>
             <Button
               onClick={() => { setGeneratedImages([]); setPrompt(""); setSelectedIndex(0); }}

@@ -29,3 +29,4 @@
 - [AI identity guard](ai-identity-guard.md) — every user-facing assistant prompt must pin the product identity, never a vendor; mixed backend + Gemini fallback leaks "Google" otherwise.
 - [Chat media rendering](chat-media-render.md) — generated images are ![alt](dataURL); extract media from RAW text BEFORE cleanMarkdown, use a constant safe alt (a prompt with "]" breaks the regex → base64 wall), prefer a data: url for MIME.
 - [Tier & pricing strings scattered](tier-pricing-strings.md) — no central tier/price/model constant; rebrands must touch paypal+stripe+routes emails+multi-ai catalog+all client popups/dashboards or stale copies leak via email/checkout/api.
+- [Broadcast / bulk email safety](broadcast-email-safety.md) — "send to all" confirm tokens must be single-use (nonce, not just signed+TTL or they replay) and HTML-escape DB-sourced recipient names in HTML bodies.

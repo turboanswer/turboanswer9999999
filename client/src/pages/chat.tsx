@@ -29,6 +29,7 @@ export default function Chat() {
   const [messageContent, setMessageContent] = useState("");
   const [pendingImagePrompt, setPendingImagePrompt] = useState<string | null>(null);
   const [pendingPronounce, setPendingPronounce] = useState<string | null>(null);
+  const [pendingImageLookup, setPendingImageLookup] = useState<string | null>(null);
   const [showVoiceTalk, setShowVoiceTalk] = useState(false);
   const [showCodeAnalyzer, setShowCodeAnalyzer] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -954,6 +955,36 @@ export default function Chat() {
     if (m && m[1] && m[1].trim().length > 0) return m[1].trim();
     return null;
   };
+  // Real-photo LOOKUP intent ("what does X look like", "find a photo of X").
+  // Must run BEFORE detectImageIntent, which would treat these as GENERATE.
+  const detectImageLookupIntent = (text: string): string | null => {
+    const t = text.trim();
+    if (!t) return null;
+    const clean = (s: string) => s.trim().replace(/^["']|["']$/g, "").replace(/[.!?]+$/, "").trim();
+    const ok = (s: string): string | null => {
+      const c = clean(s);
+      if (c.length <= 1) return null;
+      if (/^(it|this|that|they|them|he|she|him|her|one|some|something|anything|everything)$/i.test(c)) return null;
+      return c;
+    };
+    const NOUN = "photo|picture|image|pic|photograph";
+    // "what does/do/is X look like" (also "what's X look like")
+    let m = t.match(/^what(?:'?s|\s+(?:does|do|did|is|are))\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+looks?\s+like\s*\??$/i);
+    if (m && m[1]) { const c = ok(m[1]); if (c) return c; }
+    // "...what X looks like" — e.g. "show me what a quokka looks like"
+    m = t.match(/\bwhat\s+(?:a\s+|an\s+|the\s+)?(.+?)\s+looks?\s+like\s*\??$/i);
+    if (m && m[1]) { const c = ok(m[1]); if (c) return c; }
+    // "find / look up / search for a photo of X" (find implies an existing photo)
+    m = t.match(new RegExp(`^(?:please\\s+)?(?:can\\s+you\\s+|could\\s+you\\s+)?(?:find|look\\s*up|search\\s+for)\\s+(?:me\\s+|us\\s+)?(?:a\\s+|an\\s+|some\\s+)?(?:real\\s+|actual\\s+|true\\s+)?(?:${NOUN})s?\\s+of\\s+(.+)$`, "i"));
+    if (m && m[1]) { const c = ok(m[1]); if (c) return c; }
+    // "show/get/send me a REAL photo of X" (explicit real qualifier)
+    m = t.match(new RegExp(`^(?:please\\s+)?(?:can\\s+you\\s+)?(?:show|get|send|give|fetch)\\s+(?:me\\s+|us\\s+)?(?:a\\s+|an\\s+)?(?:real|actual|true)\\s+(?:${NOUN})s?\\s+of\\s+(.+)$`, "i"));
+    if (m && m[1]) { const c = ok(m[1]); if (c) return c; }
+    // "a real photo of X"
+    m = t.match(new RegExp(`^(?:a\\s+|an\\s+|the\\s+)?(?:real|actual|true)\\s+(?:${NOUN})s?\\s+of\\s+(.+)$`, "i"));
+    if (m && m[1]) { const c = ok(m[1]); if (c) return c; }
+    return null;
+  };
 
   const runImageMagic = async (prompt: string, originalUserText: string, convId: number) => {
     setPendingImagePrompt(prompt);
@@ -990,6 +1021,47 @@ export default function Chat() {
       toast({ title: "Image generation failed", description: err?.message || "Please try again.", variant: "destructive" });
     } finally {
       setPendingImagePrompt(null);
+    }
+  };
+
+  const runImagePeek = async (query: string, originalUserText: string, convId: number) => {
+    setPendingImageLookup(query);
+    setMessageContent("");
+    try {
+      await fetch(`/api/conversations/${convId}/append`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ role: "user", content: originalUserText }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+      const r = await fetch("/api/image-search", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ query }),
+      });
+      let aiContent: string;
+      if (r.ok) {
+        const data = await r.json();
+        const hit = data?.image;
+        // Encode parens/spaces so the image markdown regex (which stops at ")")
+        // doesn't break on Wikimedia URLs that contain them.
+        const safeUrl = String(hit?.url || "").replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\s/g, "%20");
+        if (!safeUrl) throw new Error("No photo found");
+        const caption = hit?.source ? `\n\nSource: ${hit.source}` : "";
+        aiContent = `Here's what ${query} looks like:\n\n![photo](${safeUrl})${caption}`;
+      } else if (r.status === 404) {
+        aiContent = `I couldn't find a real photo of ${query}.`;
+      } else {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e?.error || "Image search failed");
+      }
+      await fetch(`/api/conversations/${convId}/append`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+        body: JSON.stringify({ role: "assistant", content: aiContent }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
+    } catch (err: any) {
+      toast({ title: "Image search failed", description: err?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setPendingImageLookup(null);
     }
   };
 
@@ -1033,6 +1105,8 @@ export default function Chat() {
     const raw = messageContent.trim();
     // Magic-word intents take precedence over normal AI routing.
     if (!attachedImage) {
+      const lookupQuery = detectImageLookupIntent(raw);
+      if (lookupQuery) { runImagePeek(lookupQuery, raw, convId); return; }
       const imgPrompt = detectImageIntent(raw);
       if (imgPrompt) { runImageMagic(imgPrompt, raw, convId); return; }
       const pronWord = detectPronounceIntent(raw);
@@ -1884,23 +1958,23 @@ export default function Chat() {
               </div>
             </div>
           )}
-          {(pendingImagePrompt || pendingPronounce) && (
+          {(pendingImagePrompt || pendingPronounce || pendingImageLookup) && (
             <div className="flex items-end gap-2 sm:gap-3 mb-4 sm:mb-5">
               <div className="relative flex-shrink-0">
                 <img src={turboLogo} alt="AI" className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover" />
                 <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 animate-pulse" style={{ borderColor: isDark ? '#18181b' : '#fff' }} />
               </div>
-              <div className={`px-4 py-4 rounded-2xl rounded-bl-md relative overflow-hidden ${isDark ? 'bg-zinc-800/80 border border-zinc-700/50' : 'bg-white border border-gray-200 shadow-sm'}`} style={{ minWidth: pendingImagePrompt ? 320 : 220 }}>
+              <div className={`px-4 py-4 rounded-2xl rounded-bl-md relative overflow-hidden ${isDark ? 'bg-zinc-800/80 border border-zinc-700/50' : 'bg-white border border-gray-200 shadow-sm'}`} style={{ minWidth: (pendingImagePrompt || pendingImageLookup) ? 320 : 220 }}>
                 <style>{`
                   @keyframes img-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
                 `}</style>
-                {pendingImagePrompt && (
+                {(pendingImagePrompt || pendingImageLookup) && (
                   <div className="w-72 h-72 sm:w-80 sm:h-80 rounded-lg mb-3" style={{ background: isDark ? 'linear-gradient(110deg, #27272a 8%, #3f3f46 18%, #27272a 33%)' : 'linear-gradient(110deg, #f3f4f6 8%, #e5e7eb 18%, #f3f4f6 33%)', backgroundSize: '200% 100%', animation: 'img-shimmer 1.5s linear infinite' }} />
                 )}
                 <div className="flex items-center gap-2">
                   <Loader2 className={`w-4 h-4 animate-spin ${isDark ? 'text-purple-400' : 'text-purple-500'}`} />
                   <span className={`text-sm font-medium`} style={{ background: 'linear-gradient(90deg, #818cf8, #c084fc, #f0abfc, #c084fc, #818cf8)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'turbo-gradient-text 2s linear infinite' }}>
-                    {pendingImagePrompt ? `Creating image of ${pendingImagePrompt}...` : `Generating pronunciation for "${pendingPronounce}"...`}
+                    {pendingImagePrompt ? `Creating image of ${pendingImagePrompt}...` : pendingImageLookup ? `Finding a photo of ${pendingImageLookup}...` : `Generating pronunciation for "${pendingPronounce}"...`}
                   </span>
                 </div>
               </div>

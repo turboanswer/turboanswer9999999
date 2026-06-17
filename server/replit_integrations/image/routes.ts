@@ -1,84 +1,77 @@
 import type { Express, Request, Response } from "express";
-import { azureGenerateImage, azureSpeak } from "../../services/azure-media";
+import { azureSpeak } from "../../services/azure-media";
+import { generateImages, type ImageSize } from "../../services/image-generation";
+import { searchRealPhoto } from "../../services/image-search";
 
-async function generateWithPollinations(prompt: string, width: number, height: number, seed: number): Promise<string | null> {
-  try {
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&enhance=true&seed=${seed}&model=flux`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
-    if (!res.ok) {
-      console.error(`[Image] Pollinations returned ${res.status}`);
-      return null;
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    const ct = res.headers.get("content-type") || "image/jpeg";
-    return `data:${ct};base64,${buf.toString("base64")}`;
-  } catch (err: any) {
-    console.error("[Image] Pollinations failed:", err?.message || err);
-    return null;
-  }
-}
-
-function parseSize(size: string): { width: number; height: number } {
-  if (size === "1024x1536") return { width: 1024, height: 1536 };
-  if (size === "1536x1024") return { width: 1536, height: 1024 };
-  return { width: 1024, height: 1024 };
-}
+const VALID_SIZES: ImageSize[] = ["1024x1024", "1024x1536", "1536x1024"];
 
 export function registerImageRoutes(app: Express): void {
   app.post("/api/generate-image", async (req: Request, res: Response) => {
     try {
-      const { prompt, size = "1024x1024", count = 4 } = req.body;
+      const { prompt, size = "1024x1024", count = 3, quality } = req.body;
 
       if (!prompt) {
         return res.status(400).json({ error: "Prompt is required" });
       }
 
-      const imageCount = Math.min(Math.max(1, Number(count) || 4), 10);
-      const { width, height } = parseSize(size);
+      const normalizedSize: ImageSize = VALID_SIZES.includes(size)
+        ? size
+        : "1024x1024";
+      const imageCount = Math.min(Math.max(1, Number(count) || 3), 6);
       const startTime = Date.now();
 
-      // Primary: Azure Foundry MAI image deployment (Azure-billed).
-      const azureSize = (size === "1024x1536" || size === "1536x1024") ? size : "1024x1024";
-      let images: { b64_json: string; url: string }[] = [];
-      const azureResults = await Promise.all(
-        Array.from({ length: imageCount }, () => azureGenerateImage(prompt, azureSize as any))
-      );
-      images = azureResults
-        .filter((r): r is string => r !== null)
-        .map((dataUrl) => ({
-          b64_json: dataUrl.replace(/^data:image\/[^;]+;base64,/, ""),
-          url: dataUrl,
-        }));
-
-      // Fallback: Pollinations.ai (free, no key) if Azure failed.
-      if (images.length === 0) {
-        console.log("[Image] Azure image model unavailable, falling back to Pollinations");
-        const baseSeed = Math.floor(Math.random() * 1_000_000);
-        const pollResults = await Promise.all(
-          Array.from({ length: imageCount }, (_, i) =>
-            generateWithPollinations(prompt, width, height, baseSeed + i)
-          )
-        );
-        images = pollResults
-          .filter((r): r is string => r !== null)
-          .map(b64 => ({ b64_json: b64.replace(/^data:image\/[^;]+;base64,/, ""), url: b64 }));
-      }
+      // OpenAI DALL·E 3 (primary) → Azure (if configured) → Pollinations.
+      const { dataUrls, provider } = await generateImages(prompt, {
+        size: normalizedSize,
+        count: imageCount,
+        quality: quality === "hd" || quality === "high" ? "hd" : "standard",
+      });
 
       const elapsed = Date.now() - startTime;
-      console.log(`[Image] Generated ${images.length}/${imageCount} images in ${elapsed}ms (${width}x${height})`);
+      console.log(
+        `[Image] Generated ${dataUrls.length}/${imageCount} via ${provider} in ${elapsed}ms`,
+      );
 
-      if (images.length === 0) {
+      if (dataUrls.length === 0) {
         return res.status(500).json({ error: "All image generation providers failed. Please try again." });
       }
+
+      // Only expose b64_json for PNG data URLs (so the client renders the
+      // correct MIME); JPEG/remote URLs are served via `url`.
+      const images = dataUrls.map((u) => ({
+        b64_json: /^data:image\/png;base64,/.test(u)
+          ? u.replace(/^data:image\/png;base64,/, "")
+          : "",
+        url: u,
+      }));
 
       res.json({
         images,
         generationTime: elapsed,
         count: images.length,
+        provider,
       });
     } catch (error: any) {
       console.error("Error generating image:", error);
       res.status(500).json({ error: error?.message || "Failed to generate image" });
+    }
+  });
+
+  // Real-photo lookup ("what does X look like") — distinct from AI generation.
+  app.post("/api/image-search", async (req: Request, res: Response) => {
+    try {
+      const { query } = req.body || {};
+      if (!query || typeof query !== "string") {
+        return res.status(400).json({ error: "query is required" });
+      }
+      const hit = await searchRealPhoto(query);
+      if (!hit) {
+        return res.status(404).json({ error: "No real photo found" });
+      }
+      res.json({ image: hit });
+    } catch (error: any) {
+      console.error("Image search error:", error);
+      res.status(500).json({ error: error?.message || "Image search failed" });
     }
   });
 
