@@ -86,14 +86,6 @@ function SettingRow({ label, desc, children, stacked }: { label: string; desc?: 
   );
 }
 
-function Select({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
-  return (
-    <select value={value} onChange={e => onChange(e.target.value)} style={{ background: "var(--s-input-bg)", border: "1px solid var(--s-input-border)", borderRadius: 8, padding: "6px 10px", color: "var(--s-input-text)", fontSize: 13, cursor: "pointer", outline: "none" }}>
-      {options.map(o => <option key={o.value} value={o.value} style={{ background: "var(--s-option-bg)" }}>{o.label}</option>)}
-    </select>
-  );
-}
-
 export default function AISettings() {
   const [activeTab, setActiveTab] = useState("profile");
   const [selectedModel, setSelectedModel] = usePref("selectedAIModel", "gemini-flash");
@@ -110,40 +102,20 @@ export default function AISettings() {
   const [accentColor, setAccentColor] = usePref("pref_accentColor", "#1a73e8");
   const [showTimestamps, setShowTimestamps] = usePref("pref_showTimestamps", true);
   const [animationsEnabled, setAnimationsEnabled] = usePref("pref_animations", true);
-  const [sidebarCollapsed, setSidebarCollapsed] = usePref("pref_sidebarCollapsed", false);
 
   // AI prefs
   const [responseStyle, setResponseStyle] = usePref<"concise"|"balanced"|"detailed">("pref_responseStyle", "balanced");
   const [responseTone, setResponseTone] = usePref<"professional"|"casual"|"creative"|"academic">("pref_responseTone", "casual");
-  const [preferredLanguage, setPreferredLanguage] = usePref("pref_language", "en");
   const [autoScroll, setAutoScroll] = usePref("pref_autoScroll", true);
   const [sendOnEnter, setSendOnEnter] = usePref("pref_sendOnEnter", true);
-  const [showThinkingTime, setShowThinkingTime] = usePref("pref_showThinkingTime", false);
-  const [codeHighlighting, setCodeHighlighting] = usePref("pref_codeHighlight", true);
-  const [mathRendering, setMathRendering] = usePref("pref_mathRender", false);
-  const [smartSuggestions, setSmartSuggestions] = usePref("pref_smartSuggestions", true);
-  const [streamResponses, setStreamResponses] = usePref("pref_streamResponses", true);
-
-
-  // Privacy prefs
-  const [saveHistory, setSaveHistory] = usePref("pref_saveHistory", true);
-  const [analyticsEnabled, setAnalyticsEnabled] = usePref("pref_analytics", false);
-  const [profileVisible, setProfileVisible] = usePref("pref_profileVisible", false);
-  const [sessionTimeout, setSessionTimeout] = usePref<"never"|"1h"|"8h"|"24h">("pref_sessionTimeout", "never");
-  const [dataRetention, setDataRetention] = usePref<"forever"|"1y"|"6mo"|"1mo">("pref_dataRetention", "forever");
 
   // Notification prefs
-  const [emailNotifs, setEmailNotifs] = usePref("pref_emailNotifs", false);
-  const [systemNotifs, setSystemNotifs] = usePref("pref_systemNotifs", false);
-  const [updateNotifs, setUpdateNotifs] = usePref("pref_updateNotifs", true);
-  const [billingNotifs, setBillingNotifs] = usePref("pref_billingNotifs", true);
   const [weeklyDigest, setWeeklyDigest] = usePref("pref_weeklyDigest", false);
   const weeklyDigestMutation = useMutation({
     mutationFn: async (enabled: boolean) => (await apiRequest("POST", "/api/settings/weekly-digest", { enabled })).json(),
     onSuccess: (_, enabled) => toast({ title: enabled ? "Weekly Digest Enabled" : "Weekly Digest Disabled", description: enabled ? "You'll receive a confirmation email shortly." : "You've unsubscribed from weekly digest emails." }),
     onError: (e: any) => toast({ title: "Error", description: e.message || "Failed to update", variant: "destructive" }),
   });
-  const [betaFeatures, setBetaFeatures] = usePref("pref_betaFeatures", false);
 
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
@@ -508,17 +480,6 @@ export default function AISettings() {
                     {(["casual","professional","creative","academic"] as const).map(s => pill(s.charAt(0).toUpperCase()+s.slice(1), responseTone===s, ()=>setResponseTone(s)))}
                   </div>
                 </SettingRow>
-                <SettingRow label="Preferred language" desc="Language for AI responses">
-                  <Select value={preferredLanguage} onChange={setPreferredLanguage} options={[
-                    {value:"en",label:"English"},{value:"es",label:"Spanish"},{value:"fr",label:"French"},
-                    {value:"de",label:"German"},{value:"it",label:"Italian"},{value:"pt",label:"Portuguese"},
-                    {value:"zh",label:"Chinese"},{value:"ja",label:"Japanese"},{value:"ko",label:"Korean"},
-                    {value:"ar",label:"Arabic"},{value:"ru",label:"Russian"},{value:"hi",label:"Hindi"},
-                  ]} />
-                </SettingRow>
-                <SettingRow label="Stream responses" desc="Show AI response as it generates">
-                  <Toggle value={streamResponses} onChange={setStreamResponses} color={accentColor} />
-                </SettingRow>
                 <SettingRow label="Auto-scroll to latest" desc="Scroll down as AI responds">
                   <Toggle value={autoScroll} onChange={setAutoScroll} color={accentColor} />
                 </SettingRow>
@@ -528,22 +489,6 @@ export default function AISettings() {
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Input</div>
                 <SettingRow label="Send on Enter" desc="Press Enter to send. Shift+Enter for new line.">
                   <Toggle value={sendOnEnter} onChange={setSendOnEnter} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Smart suggestions" desc="Show prompt suggestions and autocomplete">
-                  <Toggle value={smartSuggestions} onChange={setSmartSuggestions} color={accentColor} />
-                </SettingRow>
-              </div>
-
-              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Content Rendering</div>
-                <SettingRow label="Code syntax highlighting" desc="Color-code programming languages in responses">
-                  <Toggle value={codeHighlighting} onChange={setCodeHighlighting} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Math rendering" desc="Render LaTeX math equations (β)">
-                  <Toggle value={mathRendering} onChange={setMathRendering} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Show response timing" desc="Display how long each response took">
-                  <Toggle value={showThinkingTime} onChange={setShowThinkingTime} color={accentColor} />
                 </SettingRow>
               </div>
             </div>
@@ -651,28 +596,6 @@ export default function AISettings() {
           {activeTab === "privacy" && (
             <div>
               {sectionTitle("Privacy & Data", "Control how your data is handled and stored")}
-              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Data Storage</div>
-                <SettingRow label="Save chat history" desc="Store your conversations in the cloud">
-                  <Toggle value={saveHistory} onChange={setSaveHistory} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Data retention period" desc="How long to keep your conversations">
-                  <Select value={dataRetention} onChange={setDataRetention} options={[
-                    {value:"forever",label:"Forever"},{value:"1y",label:"1 year"},
-                    {value:"6mo",label:"6 months"},{value:"1mo",label:"30 days"},
-                  ]} />
-                </SettingRow>
-                <SettingRow label="Usage analytics" desc="Share anonymous usage data to improve TurboAnswer">
-                  <Toggle value={analyticsEnabled} onChange={setAnalyticsEnabled} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Session timeout" desc="Auto-logout after inactivity">
-                  <Select value={sessionTimeout} onChange={setSessionTimeout} options={[
-                    {value:"never",label:"Never"},{value:"1h",label:"1 hour"},
-                    {value:"8h",label:"8 hours"},{value:"24h",label:"24 hours"},
-                  ]} />
-                </SettingRow>
-              </div>
-
               <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Chat History</div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -808,33 +731,8 @@ export default function AISettings() {
               {sectionTitle("Notifications", "Control what TurboAnswer communicates to you")}
               <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Email Notifications</div>
-                <SettingRow label="Account emails" desc="Welcome, password reset, account changes (security-related)">
-                  <Toggle value={emailNotifs} onChange={setEmailNotifs} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Billing alerts" desc="Invoices, payment confirmations and billing reminders (recommended)">
-                  <Toggle value={billingNotifs} onChange={setBillingNotifs} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Subscription emails" desc="Plan activations, upgrades, cancellations">
-                  <Toggle value={updateNotifs} onChange={setUpdateNotifs} color={accentColor} />
-                </SettingRow>
                 <SettingRow label="Weekly digest" desc="Get a weekly summary of your AI usage">
                   <Toggle value={weeklyDigest} onChange={v => { setWeeklyDigest(v); weeklyDigestMutation.mutate(v); }} color={accentColor} />
-                </SettingRow>
-              </div>
-
-              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>System Notifications</div>
-                <SettingRow label="Browser notifications" desc="Push notifications when TurboAnswer is in the background">
-                  <Toggle value={systemNotifs} onChange={async v => {
-                    if (v && "Notification" in window) {
-                      const perm = await Notification.requestPermission();
-                      if (perm !== "granted") { toast({ title: "Notifications blocked", description: "Enable them in your browser settings", variant: "destructive" }); return; }
-                    }
-                    setSystemNotifs(v);
-                  }} color={accentColor} />
-                </SettingRow>
-                <SettingRow label="Beta feature previews" desc="Get notified about early access features">
-                  <Toggle value={betaFeatures} onChange={setBetaFeatures} color={accentColor} />
                 </SettingRow>
               </div>
 
