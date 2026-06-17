@@ -353,3 +353,9 @@ id = "dmBjCT0hquPZ1LraiYTPx"
 uri = "file://attached_assets/file_000000007ff071f8a754520ac27c6ba4_1770423239509.png"
 type = "image"
 title = "TurboAnswer Logo"
+
+[[outputs]]
+id = "w8JYYPwplrUREa5NzslCr"
+uri = "file://attached_assets/tshirt/robot_transparent.png"
+type = "image"
+title = "TurboAnswer Robot Logo (no background)"
