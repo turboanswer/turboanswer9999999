@@ -201,10 +201,17 @@ const sensitiveApiLimiter = rateLimit({
 });
 
 app.use(apiLimiter);
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', registerLimiter);
+// NOTE: the real auth routes are /api/login and /api/register (no /auth/ prefix),
+// so the limiters must be mounted there. Now that these pre-auth endpoints are
+// CSRF-exempt, this per-IP throttle is the primary abuse control.
+app.use('/api/login', authLimiter);
+app.use('/api/register', registerLimiter);
 app.use('/api/auth/forgot-password', passwordResetLimiter);
 app.use('/api/auth/reset-password', passwordResetLimiter);
+// Verification-code senders are now CSRF-exempt; throttle per IP to block
+// email/SMS amplification (the per-identifier in-memory limit is the other layer).
+app.use('/api/email/send-verification', passwordResetLimiter);
+app.use('/api/sms/send-verification', passwordResetLimiter);
 app.use('/api/conversations', aiLimiter);
 app.use('/api/analyze-image', sensitiveApiLimiter);
 app.use('/api/trial', sensitiveApiLimiter);
@@ -263,18 +270,41 @@ app.get('/api/csrf-token', (req: Request, res: Response) => {
   res.json({ token });
 });
 
-const CSRF_EXEMPT_PATHS = [
-  '/api/paypal/webhook',
-  '/api/stripe/webhook',
+// Namespaces that are exempt by prefix (sub-paths are intentionally covered).
+const CSRF_EXEMPT_PREFIXES = [
   '/api/widget/',
   '/api/devtools/',
 ];
+// Exact paths that are exempt. Use exact matching (not startsWith) so a future
+// route that merely shares a prefix (e.g. /api/login-admin) is NOT exempted by
+// accident.
+const CSRF_EXEMPT_EXACT = new Set([
+  '/api/paypal/webhook',
+  '/api/stripe/webhook',
+  // Pre-authentication endpoints. CSRF defends an existing logged-in session,
+  // so it adds no security before a session exists — but requiring the
+  // double-submit cookie+header here made sign-up/verification/reset fragile
+  // (the CSRF cookie does not reliably round-trip on the published site and the
+  // cross-origin native app), which silently blocked verification codes from
+  // being sent. These routes are still protected by rate limiting and the
+  // email/SMS code itself.
+  '/api/login',
+  '/api/register',
+  '/api/email/send-verification',
+  '/api/email/verify',
+  '/api/sms/send-verification',
+  '/api/sms/verify',
+  '/api/auth/forgot-password',
+  '/api/auth/verify-reset-otp',
+  '/api/auth/reset-password',
+]);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
   if (!req.path.startsWith('/api')) return next();
 
-  if (CSRF_EXEMPT_PATHS.some(p => req.path.startsWith(p))) return next();
+  if (CSRF_EXEMPT_EXACT.has(req.path)) return next();
+  if (CSRF_EXEMPT_PREFIXES.some(p => req.path.startsWith(p))) return next();
 
   const cookieToken = req.cookies?.[CSRF_COOKIE];
   const headerToken = req.get(CSRF_HEADER);
