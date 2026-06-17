@@ -137,7 +137,7 @@ export default function CodeAnalyzerModal({ isDark, onClose }: CodeAnalyzerModal
             {error && <div className="text-red-500">⚠️ {error}</div>}
             {!error && !analysis && !loading && (
               <div className={isDark ? 'text-zinc-500' : 'text-zinc-400'}>
-                Paste code on the left, pick a preset, and tap "Analyze Code."{"\n\n"}Runs on Claude Opus 4.8 with up to 4,000 tokens of deep analysis.
+                Paste code on the left, pick a preset, and tap "Analyze Code."{"\n\n"}Runs on Claude Opus 4.8 with up to 2,000 tokens of deep analysis.
               </div>
             )}
             {loading && !analysis && (

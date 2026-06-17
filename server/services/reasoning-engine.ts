@@ -554,10 +554,10 @@ function shapeForTier(tier: string | undefined, system?: string, question?: stri
   // purpose; Pro and above scale up significantly on complex questions.
   const budgets: Record<string, Record<Complexity, number>> = {
     free:       { trivial: 120, short: 350,  normal: 600,  complex: 1000 },
-    pro:        { trivial: 150, short: 800,  normal: 2200, complex: 4000 },
-    research:   { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
-    enterprise: { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
-    owner:      { trivial: 150, short: 1000, normal: 3500, complex: 6000 },
+    pro:        { trivial: 150, short: 800,  normal: 1500, complex: 2000 },
+    research:   { trivial: 150, short: 1000, normal: 1600, complex: 2000 },
+    enterprise: { trivial: 150, short: 1000, normal: 1600, complex: 2000 },
+    owner:      { trivial: 150, short: 1000, normal: 1600, complex: 2000 },
   };
   const tempByComplexity: Record<Complexity, number> = { trivial: 0.7, short: 0.5, normal: 0.4, complex: 0.25 };
   const tierBudget = budgets[t] || budgets.free;

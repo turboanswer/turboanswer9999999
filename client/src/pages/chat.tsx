@@ -87,7 +87,6 @@ export default function Chat() {
   const [confidenceMessages, setConfidenceMessages] = useState<Record<number, number>>({});
   const [reasoningTraces, setReasoningTraces] = useState<Record<number, { stages: ReasoningStage[]; sources: { title: string; url: string }[]; panel: { model: string }[]; mode: string; confidence: number }>>({});
   const [expandedReasoning, setExpandedReasoning] = useState<Record<number, boolean>>({});
-  const deepThinkUsageQuery = useQuery<{ used: number; limit: number; tier: string }>({ queryKey: ['/api/deep-think/usage'], staleTime: 30000 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const timedPromoShown = useRef(false);
@@ -1237,30 +1236,7 @@ export default function Chat() {
               </SelectContent>
             </Select>
 
-            {isResearchOrAbove && selectedAIModel !== 'gemini-flash' && selectedAIModel !== 'gemini-pro' && (
-              <button
-                onClick={() => setDeepThink(v => !v)}
-                title={deepThink ? "Deep Think ON — forces full Matrix AI reasoning + verification" : "Deep Think OFF — Matrix AI auto-decides fast vs deep"}
-                className={`h-8 px-2 sm:px-3 flex items-center gap-1 rounded-full text-[10px] sm:text-xs font-medium transition-colors ${
-                  deepThink
-                    ? (isDark ? 'bg-blue-600/30 border border-blue-500 text-blue-200' : 'bg-blue-100 border border-blue-400 text-blue-700')
-                    : (isDark ? 'bg-[#1e1f20] border border-[#2d2f31] text-[#9aa0a6] hover:text-[#c4c7c5]' : 'bg-gray-100 border border-gray-300 text-gray-500 hover:text-gray-900')
-                }`}
-                data-testid="button-deep-think"
-              >
-                <Brain className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Deep Think</span>
-                {deepThinkUsageQuery.data && deepThinkUsageQuery.data.limit !== -1 && (
-                  <span className={`ml-1 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                    deepThinkUsageQuery.data.used >= deepThinkUsageQuery.data.limit
-                      ? 'bg-red-500/20 text-red-500'
-                      : (isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-200 text-blue-800')
-                  }`} data-testid="deep-think-quota">
-                    {Math.max(0, deepThinkUsageQuery.data.limit - deepThinkUsageQuery.data.used)}/{deepThinkUsageQuery.data.limit}
-                  </span>
-                )}
-              </button>
-            )}
+            {/* Deep Think toggle removed */}
 
 
             <Link href="/code-customizer">
@@ -1821,7 +1797,7 @@ export default function Chat() {
                 {autoDowngraded && isResearchOrAbove && (
                   <div className="mb-2 inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold border" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.08)', borderColor: 'rgba(245,158,11,0.3)' }} data-testid="auto-downgrade-badge">
                     <Zap className="h-3 w-3" />
-                    Auto-routed to fast — toggle Deep Think for verified deep reasoning
+                    Auto-routed to fast mode for a quicker answer
                   </div>
                 )}
                 <div className={`rounded-2xl rounded-bl-md px-4 py-3 ${isDark ? 'bg-zinc-900/80 border border-zinc-800 text-zinc-100' : 'bg-white border border-gray-200 shadow-sm text-gray-900'}`}>
@@ -1855,7 +1831,7 @@ export default function Chat() {
                   </span>
                   {isResearchOrAbove && quotaWarning && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/40">
-                      Deep Think quota reached ({quotaWarning.used}/{quotaWarning.limit}) — using fast mode
+                      Using fast mode for a quicker answer
                     </span>
                   )}
                 </div>

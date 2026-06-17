@@ -27,14 +27,14 @@ export default function Landing() {
       >
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={turboLogo} alt="TurboAnswer" className="h-6 w-auto brightness-0 invert opacity-90" />
+            <img src={turboLogo} alt="TurboAnswer" className="h-7 w-auto opacity-95" />
             <span className="font-semibold text-[15px] tracking-tight text-[#EDEDED]">TurboAnswer</span>
           </div>
           <div className="flex items-center gap-6">
             <Link href="/login" className="text-sm font-medium text-[#A1A1AA] hover:text-white transition-colors">
               Sign in
             </Link>
-            <Link href="/register" className="h-8 px-4 inline-flex items-center justify-center rounded bg-[#EDEDED] text-[#050505] text-sm font-medium hover:bg-white transition-colors">
+            <Link href="/register" className="h-8 px-4 inline-flex items-center justify-center rounded bg-gradient-to-r from-[#4A47F6] to-[#A855F7] text-white text-sm font-medium hover:opacity-90 transition-opacity">
               Get started
             </Link>
           </div>
@@ -63,7 +63,7 @@ export default function Landing() {
         </p>
         
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-          <Link href="/register" className="h-12 px-8 inline-flex items-center justify-center gap-2 rounded bg-white text-black text-[15px] font-medium hover:bg-gray-100 transition-colors w-full sm:w-auto">
+          <Link href="/register" className="h-12 px-8 inline-flex items-center justify-center gap-2 rounded bg-gradient-to-r from-[#4A47F6] via-[#7C5CFF] to-[#A855F7] text-white text-[15px] font-medium hover:opacity-90 transition-opacity w-full sm:w-auto shadow-lg shadow-[#4A47F6]/30">
             Get started — free
             <ArrowRight className="h-4 w-4" />
           </Link>
@@ -352,7 +352,7 @@ export default function Landing() {
       <footer className="pt-16 pb-12 px-6 border-t border-[#111111] bg-[#020202]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <img src={turboLogo} alt="TurboAnswer" className="h-6 w-auto brightness-0 invert opacity-40" />
+            <img src={turboLogo} alt="TurboAnswer" className="h-6 w-auto opacity-70" />
             <span className="font-medium text-[15px] tracking-tight text-[#666]">TurboAnswer</span>
           </div>
           <div className="flex gap-8 text-[15px] text-[#666]">

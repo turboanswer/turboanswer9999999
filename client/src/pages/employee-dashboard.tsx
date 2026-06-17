@@ -749,7 +749,7 @@ export default function EmployeeDashboard() {
             </div>
           )}
 
-          <Link href="/">
+          <Link href="/chat">
             <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded font-mono text-[10px] text-zinc-600 hover:text-zinc-300 transition-colors"
               style={{ border: '1px solid #1a1a1a' }}>
               <ArrowLeft className="w-3 h-3" /> App
