@@ -106,22 +106,26 @@ export default function MobileChatUI({
 
   const msgFontSize = fontSizePref === "small" ? "14px" : fontSizePref === "large" ? "18px" : "16px";
 
-  // "Clear Blue" — clean, minimal, Gemini-grade with real depth
+  // "Clear Blue" — clean, premium, Gemini-grade with real depth
   const THEME = {
-    bg: isDark ? "#131314" : "#ffffff",
-    surface: isDark ? "#1e1f20" : "#f0f4f9",
-    surfaceHover: isDark ? "#282a2c" : "#e9eef6",
-    border: isDark ? "rgba(255,255,255,0.10)" : "rgba(20,40,80,0.10)",
-    text: isDark ? "#e3e3e3" : "#1f1f1f",
-    textMuted: isDark ? "rgba(227,227,227,0.5)" : "rgba(95,99,104,0.85)",
-    textDim: isDark ? "rgba(227,227,227,0.72)" : "rgba(31,31,31,0.72)",
+    bg: isDark ? "#0e0f11" : "#ffffff",
+    surface: isDark ? "#1a1c1f" : "#f3f6fb",
+    surfaceHover: isDark ? "#23262a" : "#e7eef8",
+    elev: isDark ? "#17191c" : "#ffffff",
+    border: isDark ? "rgba(255,255,255,0.07)" : "rgba(20,40,80,0.07)",
+    text: isDark ? "#ededee" : "#1a1a1c",
+    textMuted: isDark ? "rgba(237,237,238,0.56)" : "rgba(95,99,104,0.82)",
+    textDim: isDark ? "rgba(237,237,238,0.70)" : "rgba(31,31,31,0.68)",
     // Gemini spark — reserved for AI moments + primary send
     primaryGradient: isDark
       ? "linear-gradient(105deg, #5b9bff 0%, #b58bf0 50%, #f291b0 100%)"
       : "linear-gradient(105deg, #1a73e8 0%, #8e5ad4 50%, #e0608a 100%)",
+    cardShadow: isDark
+      ? "0 1px 2px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.28)"
+      : "0 1px 2px rgba(20,40,80,0.05), 0 8px 24px rgba(20,40,80,0.06)",
     aiBubble: "transparent",
-    userBubble: isDark ? "rgba(138,180,248,0.16)" : "rgba(26,115,232,0.08)",
-    userText: isDark ? "#e3e3e3" : "#1f1f1f",
+    userBubble: isDark ? "rgba(138,180,248,0.14)" : "rgba(26,115,232,0.07)",
+    userText: isDark ? "#ededee" : "#1a1a1c",
   };
 
   const [showDrawer, setShowDrawer] = useState(false);
@@ -273,7 +277,7 @@ export default function MobileChatUI({
         overflow: "hidden", 
         overscrollBehavior: "none", 
         touchAction: "pan-y",
-        fontFamily: "system-ui, -apple-system, sans-serif"
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
       }}
     >
       <input
@@ -492,7 +496,7 @@ export default function MobileChatUI({
 
         <div className="flex-1 flex justify-center">
           <Select value={selectedAIModel} onValueChange={handleModelChange}>
-            <SelectTrigger className="h-9 text-[13px] font-bold tracking-wide rounded-full border border-border/50 px-4 gap-2 bg-surface shadow-sm focus:ring-0 uppercase">
+            <SelectTrigger className="h-9 text-[13.5px] font-semibold tracking-tight rounded-full border border-border/40 px-4 gap-2 bg-surface shadow-sm focus:ring-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl border-border/50 shadow-xl">
@@ -513,38 +517,39 @@ export default function MobileChatUI({
       <main className="flex-1 overflow-y-auto scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
         {messages.length === 0 && !isTyping ? (
           <div className="flex flex-col h-full px-6 pt-10 pb-6 items-center justify-center animate-in fade-in duration-700">
-            <div className="w-20 h-20 mb-8 rounded-3xl bg-surface flex items-center justify-center shadow-lg relative overflow-hidden">
-               <div className="absolute inset-0 opacity-20" style={{ background: THEME.primaryGradient }} />
-               <img src={turboLogo} alt="Turbo Answer" className="w-10 h-10 object-contain relative z-10" />
+            <div className="relative mb-8">
+              <div className="absolute -inset-4 rounded-full opacity-30 blur-2xl" style={{ background: THEME.primaryGradient }} />
+              <div className="w-[72px] h-[72px] rounded-[22px] flex items-center justify-center relative overflow-hidden" style={{ background: THEME.elev, boxShadow: THEME.cardShadow, border: `1px solid ${THEME.border}` }}>
+                 <div className="absolute inset-0 opacity-[0.12]" style={{ background: THEME.primaryGradient }} />
+                 <img src={turboLogo} alt="Turbo Answer" className="w-10 h-10 object-contain relative z-10" />
+              </div>
             </div>
             
-            <h1 className="text-[34px] font-normal text-center leading-tight tracking-tight mb-2" style={{
+            <h1 className="text-[32px] font-semibold text-center leading-tight tracking-tight mb-2.5" style={{
               background: THEME.primaryGradient,
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent"
             }}>
               {getGreeting()}, {firstName}
             </h1>
-            <p className="text-[15px] text-center mb-10 max-w-[280px]" style={{ color: THEME.textMuted }}>
-              I'm ready to help. What's on your mind?
+            <p className="text-[15px] text-center mb-10 max-w-[290px] leading-relaxed" style={{ color: THEME.textMuted }}>
+              How can I help you today?
             </p>
 
-            <div className="grid grid-cols-1 w-full gap-3 max-w-[320px] mt-auto">
+            <div className="grid grid-cols-2 w-full gap-3 max-w-[360px] mt-auto">
               {SUGGESTIONS.map((s, i) => {
                 const Icon = s.icon;
                 return (
                   <button
                     key={i}
                     onClick={() => setMessageContent(s.prompt)}
-                    className="flex items-center gap-4 p-4 rounded-[1.25rem] text-left transition-all active:scale-[0.98] active:opacity-70 bg-surface border border-transparent shadow-sm"
+                    className="flex flex-col items-start gap-3 p-4 rounded-[20px] text-left transition-all active:scale-[0.97]"
+                    style={{ background: THEME.elev, border: `1px solid ${THEME.border}`, boxShadow: THEME.cardShadow }}
                   >
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-background shrink-0 shadow-sm" style={{ color: THEME.textDim }}>
-                      <Icon className="h-5 w-5" />
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: isDark ? "rgba(138,180,248,0.12)" : "rgba(26,115,232,0.08)" }}>
+                      <Icon className="h-[18px] w-[18px]" style={{ color: isDark ? "#8ab4f8" : "#1a73e8" }} />
                     </div>
-                    <div>
-                      <p className="text-[14px] font-semibold" style={{ color: THEME.text }}>{s.text}</p>
-                      <p className="text-[12px] truncate max-w-[200px]" style={{ color: THEME.textMuted }}>{s.prompt}</p>
-                    </div>
+                    <p className="text-[13.5px] font-semibold leading-snug" style={{ color: THEME.text }}>{s.text}</p>
                   </button>
                 );
               })}
@@ -560,18 +565,19 @@ export default function MobileChatUI({
                 {msg.role === "assistant" && (
                   <div className="flex items-center gap-2 mb-1.5 ml-1">
                      <img src={turboLogo} alt="Turbo" className="w-5 h-5 rounded-full object-cover" />
-                     <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: THEME.textMuted }}>Turbo Answer</span>
+                     <span className="text-[12.5px] font-semibold tracking-tight" style={{ color: THEME.textMuted }}>Turbo Answer</span>
                   </div>
                 )}
                 <div 
-                  className="max-w-[88%] leading-relaxed break-words shadow-sm" 
+                  className="max-w-[90%] leading-relaxed break-words" 
                   style={{ 
                     fontSize: msgFontSize, 
                     background: msg.role === "user" ? THEME.userBubble : THEME.aiBubble,
                     color: msg.role === "user" ? THEME.userText : THEME.text,
-                    padding: "12px 16px",
-                    borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "4px 20px 20px 20px",
-                    border: msg.role !== "user" ? `1px solid ${THEME.border}` : "none"
+                    padding: msg.role === "user" ? "11px 16px" : "1px 0",
+                    borderRadius: msg.role === "user" ? "20px 20px 6px 20px" : "0",
+                    border: "none",
+                    boxShadow: msg.role === "user" ? THEME.cardShadow : "none"
                   }}
                 >
                   {renderMessageContent(msg.content, msg.role)}
@@ -602,16 +608,16 @@ export default function MobileChatUI({
               <div className="flex flex-col mb-6 items-start animate-in fade-in duration-300">
                 <div className="flex items-center gap-2 mb-1.5 ml-1">
                    <img src={turboLogo} alt="Turbo" className="w-5 h-5 rounded-full object-cover" />
-                   <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: THEME.textMuted }}>Turbo Answer</span>
+                   <span className="text-[12.5px] font-semibold tracking-tight" style={{ color: THEME.textMuted }}>Turbo Answer</span>
                 </div>
-                <div className="max-w-[88%] leading-relaxed break-words shadow-sm" 
+                <div className="max-w-[90%] leading-relaxed break-words" 
                   style={{ 
                     fontSize: msgFontSize, 
                     background: THEME.aiBubble,
                     color: THEME.text,
-                    padding: "12px 16px",
-                    borderRadius: "4px 20px 20px 20px",
-                    border: `1px solid ${THEME.border}`
+                    padding: "1px 0",
+                    borderRadius: "0",
+                    border: "none"
                   }}>
                   {autoDowngraded && (
                     <div className="text-[11px] mb-2 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 font-bold uppercase tracking-wide border" style={{ color: '#d97706', background: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.2)' }}>
@@ -664,7 +670,7 @@ export default function MobileChatUI({
           </div>
         )}
 
-        <div className="relative flex items-end gap-2 bg-surface rounded-[1.75rem] p-1.5 shadow-sm border border-border/50 focus-within:border-indigo-500/30 transition-all duration-300">
+        <div className="relative flex items-end gap-2 rounded-[26px] p-1.5 transition-all duration-300" style={{ background: THEME.surface, border: `1px solid ${THEME.border}`, boxShadow: THEME.cardShadow }}>
           <button
             onClick={() => cameraInputRef.current?.click()}
             className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 hover:bg-background/50 mb-0.5 ml-0.5"
@@ -691,7 +697,7 @@ export default function MobileChatUI({
             style={{
               background: messageContent.trim() ? THEME.primaryGradient : THEME.surfaceHover,
               color: messageContent.trim() ? "#FFF" : THEME.textMuted,
-              boxShadow: messageContent.trim() ? "0 4px 12px rgba(79, 70, 229, 0.2)" : "none"
+              boxShadow: messageContent.trim() ? "0 4px 14px rgba(26, 115, 232, 0.35)" : "none"
             }}
           >
             <ArrowUp className="h-5 w-5" />
