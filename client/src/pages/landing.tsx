@@ -6,6 +6,8 @@ import {
   Database, GitBranch
 } from "lucide-react";
 import turboLogo from "@/assets/turboanswer-logo.png";
+import usFromSpace from "@assets/generated_images/us_from_space.png";
+import serverRoom from "@assets/generated_images/server_room.png";
 
 // A self-contained, premium dark theme palette applied via wrapper div
 export default function Landing() {
@@ -256,6 +258,183 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Global Infrastructure */}
+      <section className="py-24 md:py-32 px-6 bg-[#000000] border-t border-[#111111] relative overflow-hidden" id="infrastructure">
+        {/* Ambient glows */}
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#4A47F6]/10 blur-[160px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-[420px] h-[420px] bg-[#A855F7]/10 blur-[160px] rounded-full pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          {/* Heading */}
+          <div className="text-center mb-16 max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#111111]/50 border border-[#222]/80 text-[#A1A1AA] text-xs font-medium mb-6 backdrop-blur-md">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22D3EE] animate-pulse" />
+              Global infrastructure
+            </div>
+            <h2 className="text-3xl md:text-5xl font-display font-medium tracking-tight text-white mb-4">
+              One network.{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4A47F6] via-[#886DF2] to-[#A855F7]">
+                Every corner of the world.
+              </span>
+            </h2>
+            <p className="text-[#A1A1AA] text-lg leading-relaxed font-light">
+              TurboAnswer runs on a globally distributed backbone — replicated databases and dedicated compute, always close to you, always on.
+            </p>
+          </div>
+
+          {/* Map visual with animated NY <-> LA arc */}
+          <div className="relative rounded-2xl border border-[#1A1A1A] overflow-hidden shadow-2xl mb-6">
+            <div className="relative aspect-[16/9]">
+              <img
+                src={usFromSpace}
+                alt="Global database network spanning the United States, viewed from space at night"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+
+              <svg
+                viewBox="0 0 1600 900"
+                preserveAspectRatio="xMidYMid meet"
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                aria-hidden="true"
+              >
+                <defs>
+                  <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#22D3EE" />
+                    <stop offset="50%" stopColor="#886DF2" />
+                    <stop offset="100%" stopColor="#A855F7" />
+                  </linearGradient>
+                  <filter id="arcGlow" x="-60%" y="-60%" width="220%" height="220%">
+                    <feGaussianBlur stdDeviation="7" result="b" />
+                    <feMerge>
+                      <feMergeNode in="b" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+
+                {/* Static faint arc */}
+                <path
+                  d="M 340 640 Q 715 150 1090 450"
+                  fill="none"
+                  stroke="url(#arcGrad)"
+                  strokeWidth="3"
+                  strokeOpacity="0.35"
+                  filter="url(#arcGlow)"
+                />
+                {/* Animated traveling beam */}
+                <path
+                  d="M 340 640 Q 715 150 1090 450"
+                  fill="none"
+                  stroke="url(#arcGrad)"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeDasharray="140 1500"
+                  filter="url(#arcGlow)"
+                >
+                  <animate attributeName="stroke-dashoffset" from="1640" to="0" dur="3s" repeatCount="indefinite" />
+                </path>
+
+                {/* Data packet traveling NY -> LA -> NY */}
+                <circle r="7" fill="#ffffff" filter="url(#arcGlow)">
+                  <animateMotion
+                    dur="3s"
+                    repeatCount="indefinite"
+                    calcMode="linear"
+                    keyPoints="0;1;0"
+                    keyTimes="0;0.5;1"
+                    path="M 340 640 Q 715 150 1090 450"
+                  />
+                </circle>
+
+                {/* Los Angeles node */}
+                <circle cx="340" cy="640" r="6" fill="#22D3EE" filter="url(#arcGlow)" />
+                <circle cx="340" cy="640" r="6" fill="none" stroke="#22D3EE" strokeWidth="2">
+                  <animate attributeName="r" from="6" to="30" dur="2.2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.8" to="0" dur="2.2s" repeatCount="indefinite" />
+                </circle>
+                <text x="340" y="700" textAnchor="middle" fontSize="22" fill="#E2E8F0" style={{ letterSpacing: "2px", fontWeight: 600 }}>
+                  LOS ANGELES
+                </text>
+
+                {/* New York node */}
+                <circle cx="1090" cy="450" r="6" fill="#A855F7" filter="url(#arcGlow)" />
+                <circle cx="1090" cy="450" r="6" fill="none" stroke="#A855F7" strokeWidth="2">
+                  <animate attributeName="r" from="6" to="30" dur="2.2s" begin="1.1s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.8" to="0" dur="2.2s" begin="1.1s" repeatCount="indefinite" />
+                </circle>
+                <text x="1090" y="415" textAnchor="middle" fontSize="22" fill="#E2E8F0" style={{ letterSpacing: "2px", fontWeight: 600 }}>
+                  NEW YORK
+                </text>
+              </svg>
+
+              {/* Live chip */}
+              <div className="absolute top-5 left-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 border border-white/10 text-[#E2E8F0] text-xs font-medium backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
+                Live · coast-to-coast replication
+              </div>
+
+              {/* Caption */}
+              <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-end justify-between gap-4">
+                <div className="max-w-xl">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-medium text-white">Data that travels at the speed of light</h3>
+                  <p className="hidden sm:block text-[#CBD5E1] text-sm md:text-base mt-1.5 leading-relaxed">
+                    From New York to Los Angeles and back in a blink — your context is mirrored across the country so answers never wait.
+                  </p>
+                </div>
+                <div className="font-mono text-xs text-[#22D3EE] hidden sm:flex items-center gap-1.5 shrink-0">
+                  <Database className="h-4 w-4" /> NYC ⇄ LAX
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Server room + reliability */}
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="relative rounded-2xl border border-[#1A1A1A] overflow-hidden shadow-2xl min-h-[340px] group">
+              <img
+                src={serverRoom}
+                alt="Massive data center server room powering TurboAnswer around the clock"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1200ms] group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none" />
+              <div className="absolute top-5 left-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 border border-white/10 text-[#E2E8F0] text-xs font-medium backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
+                24/7/365 uptime
+              </div>
+              <div className="absolute bottom-6 left-6 right-6">
+                <h3 className="text-2xl font-medium text-white mb-2">Servers that never sleep</h3>
+                <p className="text-[#CBD5E1] text-sm leading-relaxed">
+                  Behind every answer, fleets of enterprise servers hum around the clock — redundant power, real-time monitoring, and automatic failover keep TurboAnswer fast, safe, and online.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#1A1A1A] bg-[#0A0A0A] p-8 md:p-10 flex flex-col justify-center">
+              <h3 className="text-2xl font-medium text-white mb-7">Built to stay up. Built to stay safe.</h3>
+              <div className="grid sm:grid-cols-2 gap-x-6 gap-y-7">
+                {[
+                  { icon: Activity, title: "Real-time monitoring", desc: "Every node watched 24/7 with instant alerting." },
+                  { icon: Server, title: "Triple redundancy", desc: "Failover across regions — no single point of failure." },
+                  { icon: Lock, title: "AES-256 encryption", desc: "Encrypted in transit and at rest, always." },
+                  { icon: Zap, title: "Instant auto-scaling", desc: "Capacity expands the moment load spikes." }
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-[#111] border border-[#222] flex items-center justify-center shrink-0">
+                      <item.icon className="h-5 w-5 text-[#886DF2]" />
+                    </div>
+                    <div>
+                      <h4 className="text-[15px] font-medium text-white">{item.title}</h4>
+                      <p className="text-sm text-[#A1A1AA] mt-1 leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -42,6 +42,18 @@ uri = "file://attached_assets/generated_images/turbo_splash.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "nKD33isWXtjhTO_7HZZ9p"
+uri = "file://attached_assets/generated_images/us_from_space.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "aL2THfk_5Yz0_7Q4Q8eB_"
+uri = "file://attached_assets/generated_images/server_room.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "xQO9WI8CP45Xz4LOhZIMh"
 uri = "file://turboanswer.tar.gz"
