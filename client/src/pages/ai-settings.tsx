@@ -131,7 +131,7 @@ export default function AISettings() {
     return () => window.removeEventListener("resize", handler);
   }, []);
 
-  const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
+  const { data: subscriptionData } = useQuery<{ tier: string; status: string; provider?: string | null }>({ queryKey: ["/api/subscription-status"] });
   const { data: enterpriseData } = useQuery<{ hasCode: boolean; code?: string; maxUses?: number; currentUses?: number }>({ queryKey: ["/api/enterprise-code"] });
 
   type ConnStatus = { configured: boolean; connected: boolean; email: string | null };
@@ -196,6 +196,15 @@ export default function AISettings() {
       toast({ title: data.refunded ? "Cancelled & Refunded" : "Subscription Cancelled", description: data.message });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const portalMutation = useMutation({
+    mutationFn: async () => (await apiRequest("POST", "/api/stripe/portal")).json(),
+    onSuccess: (data: any) => {
+      if (data?.url) window.location.href = data.url;
+      else toast({ title: "Couldn't open billing portal", variant: "destructive" });
+    },
+    onError: (e: any) => toast({ title: "Couldn't open billing portal", description: e.message, variant: "destructive" }),
   });
 
   const cancelAddonMutation = useMutation({
@@ -694,6 +703,17 @@ export default function AISettings() {
                   </button>
                 </div>
               </div>
+
+              {/* Manage billing (Stripe portal) — only for Stripe-backed subs */}
+              {hasPaidSub && subscriptionData?.provider === "stripe" && (
+                <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 6 }}>Manage Billing</div>
+                  <p style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Update your card, view invoices and receipts, or change your plan in Stripe's secure billing portal.</p>
+                  <button onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: `${accentColor}14`, border: `1px solid ${accentColor}40`, borderRadius: 10, color: accentColor, cursor: portalMutation.isPending ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600 }}>
+                    <CreditCard size={15} /> {portalMutation.isPending ? "Opening…" : "Manage Billing"}
+                  </button>
+                </div>
+              )}
 
               {/* Cancel subscription */}
               {hasPaidSub && (

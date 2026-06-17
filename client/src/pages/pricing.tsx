@@ -449,12 +449,12 @@ export default function Pricing() {
                 >
                   {checkoutLoading === plan.id ? 'Loading...' : (
                     plan.id === 'enterprise' && couponApplied && couponDiscount
-                      ? `Subscribe with PayPal - ${couponDiscount.price}/mo`
-                      : `Subscribe with PayPal - ${plan.price}/mo`
+                      ? `Subscribe - ${couponDiscount.price}/mo`
+                      : `Subscribe - ${plan.price}/mo`
                   )}
                 </button>
                 <p style={{ textAlign: 'center', fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
-                  Cancel anytime. Secure payment via PayPal.
+                  Cancel anytime. Secure payment via Stripe.
                 </p>
               </>
             )}

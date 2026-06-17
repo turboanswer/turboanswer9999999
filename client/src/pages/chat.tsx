@@ -154,6 +154,7 @@ export default function Chat() {
     const params = new URLSearchParams(window.location.search);
     const subParam = params.get('subscription');
     const paypalSubId = params.get('subscription_id') || params.get('ba_token');
+    let stripeSessionId: string | undefined = params.get('stripe_session') || undefined;
 
     let expectedTier: string | null = null;
     let subscriptionId: string | undefined = paypalSubId || undefined;
@@ -170,6 +171,8 @@ export default function Chat() {
           const data = JSON.parse(pending);
           if (Date.now() - data.timestamp < 30 * 60 * 1000) {
             expectedTier = data.tier;
+            if (data.subscriptionId) subscriptionId = data.subscriptionId;
+            if (data.stripeSessionId) stripeSessionId = data.stripeSessionId;
           } else {
             localStorage.removeItem('turbo_pending_subscription');
           }
@@ -185,12 +188,12 @@ export default function Chat() {
           const res = await fetch("/api/sync-subscription", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ expectedTier, subscriptionId }),
+            body: JSON.stringify({ expectedTier, subscriptionId, stripeSessionId }),
             credentials: "include",
           });
           if (res.status === 401) {
-            console.log('[PayPal Return] Session lost, saving pending subscription for after login');
-            localStorage.setItem('turbo_pending_subscription', JSON.stringify({ tier: expectedTier, subscriptionId, timestamp: Date.now() }));
+            console.log('[Subscription Return] Session lost, saving pending subscription for after login');
+            localStorage.setItem('turbo_pending_subscription', JSON.stringify({ tier: expectedTier, subscriptionId, stripeSessionId, timestamp: Date.now() }));
             return false;
           }
           const data = await res.json();
@@ -224,7 +227,7 @@ export default function Chat() {
       queryClient.invalidateQueries({ queryKey: ["/api/enterprise-code"] });
       toast({
         title: "Finishing up your subscription",
-        description: "We're still confirming your payment with PayPal. Your plan unlocks automatically once it's approved.",
+        description: "We're still confirming your payment. Your plan unlocks automatically once it's approved.",
       });
     };
     syncSubscription();

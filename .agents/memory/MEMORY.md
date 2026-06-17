@@ -10,6 +10,7 @@
 - [Android signing / Play upload key](android-signing.md) — "bundle isn't valid" = wrong signing key; multi-key history, lost original, use upload-key reset not delete/republish.
 - [Play compliance & native AI gating](play-compliance-webgate.md) — the Play notice was only a broken deletion URL, not AI; un-gating native AI is safe; web gate is a no-op on non-native.
 - [PayPal tier-sync IDOR](paypal-sync-ownership.md) — /api/sync-subscription must verify custom_id.userId == caller and take tier only from custom_id, never client.
+- [Dual-provider billing safety](dual-provider-billing.md) — granting via Stripe MUST cancel+clear any PayPal sub (and vice versa) or users double-bill; gate "Manage Billing" on provider==stripe.
 - [Code Studio multi-file model](code-studio-multifile.md) — projects stored as file arrays; serving/preview re-inline css/js; generation builds one HTML then splits into index/styles/app.
 - [SSE token streaming](streaming-sse.md) — fast/retrieval/deep all stream via answerForTierStream; never cascade to another deployment after a chunk reached the client (duplicates the stream).
 - [AI response language](ai-response-language.md) — "wrong language" is usually the Google Translate DOM widget, not the model; require explicit-choice flag, default English; server must always pin language incl. deep mode.

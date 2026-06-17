@@ -31,6 +31,7 @@ export interface IStorage {
   setStripeCustomerId(userId: string, stripeCustomerId: string): Promise<User>;
   updateStripeSubscription(opts: { userId: string; stripeCustomerId: string; stripeSubscriptionId: string; tier: string; status: string; currentPeriodEnd: Date | null; }): Promise<User>;
   cancelStripeSubscription(stripeSubscriptionId: string): Promise<User | undefined>;
+  clearPaypalSubscription(userId: string): Promise<void>;
   getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined>;
   getUserByStripeSubscriptionId(stripeSubscriptionId: string): Promise<User | undefined>;
   updateCodeStudioAddon(userId: string, addon: boolean, subId: string | null): Promise<User>;
@@ -303,6 +304,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.stripeSubscriptionId, stripeSubscriptionId))
       .returning();
     return user;
+  }
+
+  async clearPaypalSubscription(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ paypalSubscriptionId: null })
+      .where(eq(users.id, userId));
   }
 
   async getUserByStripeCustomerId(stripeCustomerId: string): Promise<User | undefined> {

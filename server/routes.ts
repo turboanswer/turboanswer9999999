@@ -418,6 +418,26 @@ const MAX_ACTIVITY_LOG = 300;
 // non-2xx response, so we acknowledge replays without re-applying them.
 const processedStripeEventIds = new Set<string>();
 
+// When a user starts paying through Stripe, make sure they aren't ALSO being
+// billed by a leftover PayPal subscription. Cancels the PayPal sub (best-effort)
+// and clears it locally so the account has a single, unambiguous billing provider.
+// Prevents double-billing and keeps the cancel flow correct (Stripe-only afterward).
+async function migrateOffPaypal(userId: string): Promise<void> {
+  try {
+    const u = await storage.getUser(userId);
+    if (!u?.paypalSubscriptionId) return;
+    try {
+      await cancelSubscription(u.paypalSubscriptionId, 'Switched to Stripe billing');
+      console.log(`[Migrate] Cancelled PayPal sub ${u.paypalSubscriptionId} for user ${userId} (moved to Stripe)`);
+    } catch (e: any) {
+      console.error('[Migrate] PayPal cancel failed (clearing local ref anyway):', e.message);
+    }
+    await storage.clearPaypalSubscription(userId);
+  } catch (e: any) {
+    console.error('[Migrate] Error migrating off PayPal:', e.message);
+  }
+}
+
 async function handleStripeEvent(event: any): Promise<void> {
   console.log('[Stripe Webhook] Event:', event.type, event.id);
 
@@ -445,6 +465,7 @@ async function handleStripeEvent(event: any): Promise<void> {
         currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
       });
       console.log(`[Stripe Webhook] User ${userId} subscribed to ${tier} (status=${sub.status})`);
+      await migrateOffPaypal(userId);
 
       // Fire welcome email + enterprise code if applicable. Best-effort.
       try {
@@ -2603,11 +2624,13 @@ Formatting rules:
     }
   });
 
-  // PayPal checkout — create a subscription and redirect to PayPal's approval page.
+  // Stripe checkout — create a Checkout Session and redirect to Stripe's hosted page.
   // IMPORTANT: selecting a plan here never grants a paid tier. The tier is only
-  // elevated AFTER PayPal confirms the subscription is ACTIVE/APPROVED, which
-  // happens in /api/sync-subscription (on return) and the PayPal webhook. Until
-  // then the account stays on its current tier (free for new accounts).
+  // elevated AFTER Stripe confirms payment, which happens in /api/sync-subscription
+  // (on return, via the session id) and the Stripe webhook (checkout.session.completed
+  // / customer.subscription.*). Until then the account stays on its current tier.
+  // Customer-entered discounts use Stripe promotion codes (allow_promotion_codes is
+  // enabled in createCheckoutSession), so create coupons in the Stripe dashboard.
   app.post('/api/checkout', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -2616,45 +2639,32 @@ Formatting rules:
         return res.status(401).json({ error: 'User not found' });
       }
 
-      if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+      if (!stripe) {
         return res.status(503).json({ error: 'Billing is temporarily unavailable. Please try again shortly.' });
       }
 
-      const { plan, coupon } = req.body || {};
+      const { plan } = req.body || {};
       const tier: 'pro' | 'research' | 'enterprise' =
         plan === 'enterprise' ? 'enterprise' : plan === 'research' ? 'research' : 'pro';
 
-      // Optional coupon price override (enterprise only). Re-validated server-side
-      // here so a client can never fake a discount by passing an arbitrary price.
-      let priceOverride: string | undefined;
-      if (tier === 'enterprise' && coupon) {
-        const couponData = VALID_COUPONS[String(coupon).trim().toUpperCase()];
-        if (couponData && user.email?.toLowerCase() === couponData.allowedEmail.toLowerCase()) {
-          priceOverride = couponData.discountedPrice.replace(/[^0-9.]/g, '');
-          console.log(`[PayPal Checkout] Coupon applied for ${user.email}: $${priceOverride}/mo`);
-        }
-      }
-
-      console.log('[PayPal Checkout] Starting for user:', userId, 'plan:', tier);
+      console.log('[Stripe Checkout] Starting for user:', userId, 'plan:', tier);
 
       const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
-      const { subscriptionId, approvalUrl } = await createSubscription(
+      // Stripe substitutes the literal {CHECKOUT_SESSION_ID} on redirect so the
+      // return flow can verify the exact session that was paid.
+      const { url } = await createCheckoutSession({
         tier,
-        user.email,
         userId,
-        `${baseUrl}/chat?subscription=${tier}`,
-        `${baseUrl}/subscribe?cancelled=1`,
-        priceOverride,
-      );
+        email: user.email,
+        existingCustomerId: user.stripeCustomerId,
+        successUrl: `${baseUrl}/chat?subscription=${tier}&stripe_session={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${baseUrl}/subscribe?cancelled=1`,
+      });
 
-      // Store ONLY the pending subscription id (no tier change). This lets the
-      // return flow / webhook find and verify the subscription with PayPal.
-      await storage.storePendingSubscription(userId, subscriptionId);
-
-      console.log('[PayPal Checkout] Subscription created, redirecting user:', userId, subscriptionId);
-      res.json({ url: approvalUrl });
+      console.log('[Stripe Checkout] Session created, redirecting user:', userId);
+      res.json({ url });
     } catch (error: any) {
-      console.error('[PayPal Checkout] ERROR:', error.message);
+      console.error('[Stripe Checkout] ERROR:', error.message);
       res.status(500).json({ error: 'Checkout failed. Please try again.' });
     }
   });
@@ -2726,9 +2736,9 @@ Formatting rules:
   app.post('/api/sync-subscription', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { subscriptionId } = req.body || {};
+      const { subscriptionId, stripeSessionId } = req.body || {};
 
-      // Tiers a PayPal subscription is allowed to grant. Anything else (e.g. a
+      // Tiers a subscription is allowed to grant. Anything else (e.g. a
       // one-off "code-studio-addon" custom_id) must never set the account tier.
       const PAID_TIERS = ['pro', 'research', 'enterprise'];
 
@@ -2742,6 +2752,92 @@ Formatting rules:
         const isSwitch = oldTier !== 'free' && oldTier !== newTier;
         sendSubscriptionEmail(isSwitch ? 'switch' : 'signup', u.email, name, newTier, oldTier).catch(() => {});
       };
+
+      // ── Stripe return flow ──────────────────────────────────────────────
+      // The user just came back from Stripe Checkout. Verify the exact session,
+      // confirm it belongs to this account, and grant the tier immediately for a
+      // snappy UX. The webhook (checkout.session.completed) is the durable source
+      // of truth and also sends the welcome email — we deliberately do NOT send it
+      // here so users never get a duplicate.
+      if (stripeSessionId && stripe) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(String(stripeSessionId), {
+            expand: ['subscription'],
+          });
+
+          // SECURITY: bind the checkout to THIS user. We set client_reference_id
+          // (and metadata.userId) to the owner at creation; without this check a
+          // user could pass someone else's session id to self-elevate.
+          const ownerId = session.client_reference_id || (session.metadata as any)?.userId;
+          if (!ownerId || String(ownerId) !== String(userId)) {
+            console.warn(`[Stripe Sync] Ownership mismatch: session ${stripeSessionId} owner=${ownerId} requester=${userId}`);
+            return res.status(403).json({ error: 'This checkout does not belong to your account.' });
+          }
+
+          const sub: any = typeof session.subscription === 'object'
+            ? session.subscription
+            : (session.subscription ? await stripe.subscriptions.retrieve(String(session.subscription)) : null);
+
+          const paid = session.payment_status === 'paid'
+            || session.payment_status === 'no_payment_required'
+            || (sub && (sub.status === 'active' || sub.status === 'trialing'));
+
+          if (sub && paid) {
+            const customerId = typeof session.customer === 'string'
+              ? session.customer
+              : (session.customer as any)?.id;
+            const priceId = sub.items?.data?.[0]?.price?.id;
+            const tier = (priceId && await tierForPriceId(priceId))
+              || (sub.metadata?.tier as string | undefined)
+              || ((session.metadata as any)?.tier as string | undefined)
+              || 'pro';
+
+            if (!PAID_TIERS.includes(tier)) {
+              console.warn(`[Stripe Sync] Session ${stripeSessionId} has invalid tier '${tier}'`);
+              return res.status(400).json({ error: 'Subscription tier is invalid.' });
+            }
+
+            await storage.updateStripeSubscription({
+              userId,
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: sub.id,
+              tier: tier as any,
+              status: sub.status,
+              currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end * 1000) : null,
+            });
+            console.log(`[Stripe Sync] Updated user ${userId} to ${tier} (status=${sub.status})`);
+            await migrateOffPaypal(userId);
+
+            let enterpriseCode: string | undefined;
+            if (tier === 'enterprise') {
+              const existingCode = await storage.getEnterpriseCodeByOwner(userId);
+              if (!existingCode) {
+                const { randomInt } = await import('crypto');
+                const code = String(randomInt(100000, 999999));
+                await storage.createEnterpriseCode(code, userId, currentUser?.email || null);
+                enterpriseCode = code;
+                console.log(`[Enterprise] Generated code ${code} for user ${userId}`);
+              } else {
+                if (!existingCode.isActive) {
+                  await storage.reactivateEnterpriseCode(userId);
+                  console.log(`[Enterprise] Reactivated code ${existingCode.code} for user ${userId}`);
+                }
+                enterpriseCode = existingCode.code;
+              }
+            }
+
+            return res.json({ tier, status: 'active', enterpriseCode });
+          }
+
+          // Session exists but isn't paid yet — return current tier; the webhook
+          // will grant it once payment settles.
+          console.log(`[Stripe Sync] Session ${stripeSessionId} not paid yet (payment_status=${session.payment_status}, sub=${sub?.status})`);
+          return res.json({ tier: currentUser?.subscriptionTier || 'free', status: currentUser?.subscriptionStatus || 'none' });
+        } catch (e: any) {
+          console.error('[Stripe Sync] Error:', e.message);
+          return res.json({ tier: currentUser?.subscriptionTier || 'free', status: currentUser?.subscriptionStatus || 'none' });
+        }
+      }
 
       if (subscriptionId) {
         const subDetails = await getSubscriptionDetails(subscriptionId);
@@ -2864,8 +2960,10 @@ Formatting rules:
         return res.json({ tier: 'free', status: 'expired' });
       }
 
+      const provider = user.stripeSubscriptionId ? 'stripe' : (user.paypalSubscriptionId ? 'paypal' : null);
+
       if ((user.subscriptionTier === 'pro' || user.subscriptionTier === 'research' || user.subscriptionTier === 'enterprise') && user.subscriptionStatus === 'active') {
-        return res.json({ tier: user.subscriptionTier, status: 'active' });
+        return res.json({ tier: user.subscriptionTier, status: 'active', provider });
       }
 
       if (user.paypalSubscriptionId) {
@@ -2891,7 +2989,7 @@ Formatting rules:
         }
       }
 
-      res.json({ tier: user.subscriptionTier || 'free', status: user.subscriptionStatus || 'none' });
+      res.json({ tier: user.subscriptionTier || 'free', status: user.subscriptionStatus || 'none', provider });
     } catch (error: any) {
       console.error('Subscription status error:', error);
       res.json({ tier: 'free', status: 'none' });
@@ -3242,6 +3340,19 @@ Formatting rules:
           // The customer.subscription.updated/deleted webhook will sync our state.
           await stripe.subscriptions.update(user.stripeSubscriptionId, { cancel_at_period_end: true });
           console.log(`[Stripe Cancel] ${user.stripeSubscriptionId} scheduled to cancel at period end for user ${userId}`);
+
+          // Safety net: if a legacy PayPal subscription somehow still lingers on
+          // this account, cancel it too so the user is never left being billed by
+          // PayPal after cancelling here.
+          if (user.paypalSubscriptionId) {
+            try {
+              await cancelSubscription(user.paypalSubscriptionId, 'User requested cancellation');
+              await storage.clearPaypalSubscription(userId);
+              console.log(`[Stripe Cancel] Also cancelled lingering PayPal sub ${user.paypalSubscriptionId} for user ${userId}`);
+            } catch (e: any) {
+              console.error('[Stripe Cancel] Lingering PayPal cancel failed:', e.message);
+            }
+          }
 
           if (user.subscriptionTier === 'enterprise') {
             const revokedUsers = await storage.revokeAllEnterpriseCodeAccess(userId);
