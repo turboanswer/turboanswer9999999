@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
 import { compressImageToDataUrl, isLikelyImage } from "@/lib/image-compress";
-import { openExternal, gmailComposeUrl, outlookComposeUrl } from "@/lib/email-compose";
 import { 
   X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, 
   Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, 
@@ -76,6 +75,9 @@ interface Props {
   showDailyLimitModal: boolean;
   setShowDailyLimitModal: (v: boolean) => void;
   verifiedMessages?: Record<number, "verified" | "unverified" | "unknown">;
+  googleConnected?: boolean;
+  outlookConnected?: boolean;
+  onConnectAccount?: (provider: "google" | "microsoft") => void;
 }
 
 export default function MobileChatUI({
@@ -90,6 +92,7 @@ export default function MobileChatUI({
   toast, messagesEndRef, renderMessageContent, formatTimestamp,
   showDailyLimitModal, setShowDailyLimitModal,
   verifiedMessages = {},
+  googleConnected = false, outlookConnected = false, onConnectAccount,
 }: Props) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -429,12 +432,28 @@ export default function MobileChatUI({
           <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); setShowSupportPanel(true); }}>
             <Phone className="h-4 w-4" /> Contact Support
           </button>
-          <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); openExternal(gmailComposeUrl({})); }}>
-            <Mail className="h-4 w-4" /> Open Gmail
-          </button>
-          <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); openExternal(outlookComposeUrl({})); }}>
-            <Mail className="h-4 w-4" /> Open Outlook
-          </button>
+          {googleConnected ? (
+            <Link href="/ai-settings">
+              <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: "#22c55e" }} onClick={() => setShowDrawer(false)}>
+                <Check className="h-4 w-4" /> Gmail connected
+              </button>
+            </Link>
+          ) : (
+            <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); onConnectAccount?.("google"); }}>
+              <Mail className="h-4 w-4" /> Connect Gmail
+            </button>
+          )}
+          {outlookConnected ? (
+            <Link href="/ai-settings">
+              <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: "#22c55e" }} onClick={() => setShowDrawer(false)}>
+                <Check className="h-4 w-4" /> Outlook connected
+              </button>
+            </Link>
+          ) : (
+            <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); onConnectAccount?.("microsoft"); }}>
+              <Send className="h-4 w-4" /> Connect Outlook
+            </button>
+          )}
           <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5 text-red-500/80" onClick={logout}>
             <LogOut className="h-4 w-4" /> Sign Out
           </button>

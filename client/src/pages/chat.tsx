@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
 import { compressImageToDataUrl, isLikelyImage } from "@/lib/image-compress";
-import { isEmailRequest, gmailComposeUrl, outlookComposeUrl, mailtoUrl, openExternal, encodeEmailDraft, decodeEmailDraft, type EmailDraft } from "@/lib/email-compose";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, User, FileText, X, Brain, Settings, LogOut, Zap, Menu, QrCode, ImageIcon, Crown, CheckCircle, Star, Sun, Moon, Shield, Heart, Users, Copy, Sparkles, ArrowRight, Rocket, FlaskConical, ClipboardCheck, MessageSquare, Phone, Mail, Clock, Code2, Camera, Scissors, Loader2, Swords, Key, Plus, Upload, Stethoscope, Mic } from "lucide-react";
@@ -24,49 +23,6 @@ import turboLogo from "@assets/file_000000007ff071f8a754520ac27c6ba4_17704232395
 import MobileChatUI from "@/components/MobileChatUI";
 
 const isNativeMobile = !!(window as any).Capacitor?.isNativePlatform?.();
-
-// Inline chat card for an AI-drafted email. Shows the To / Subject / Body and
-// opens the user's webmail (Gmail / Outlook) or default mail app pre-filled.
-// We never send automatically — the user reviews and sends from their own mail.
-function EmailDraftCard({ draft, isDark }: { draft: EmailDraft; isDark: boolean }) {
-  const border = isDark ? "border-zinc-600" : "border-gray-300";
-  const subText = isDark ? "text-zinc-400" : "text-gray-500";
-  const headBg = isDark ? "bg-zinc-900/50" : "bg-gray-50";
-  const btn =
-    "flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors";
-  return (
-    <div className={`rounded-xl border ${border} overflow-hidden max-w-md`}>
-      <div className={`px-4 py-2.5 flex items-center gap-2 text-sm font-semibold ${headBg}`}>
-        <Mail size={15} /> Email draft
-      </div>
-      <div className="px-4 py-3 space-y-2.5 text-sm">
-        <div>
-          <div className={`text-[11px] uppercase tracking-wide ${subText}`}>To</div>
-          <div className="break-words">{draft.to || "(add a recipient)"}</div>
-        </div>
-        <div>
-          <div className={`text-[11px] uppercase tracking-wide ${subText}`}>Subject</div>
-          <div className="break-words">{draft.subject || "(no subject)"}</div>
-        </div>
-        <div>
-          <div className={`text-[11px] uppercase tracking-wide ${subText}`}>Message</div>
-          <div className="whitespace-pre-wrap break-words">{draft.body || ""}</div>
-        </div>
-      </div>
-      <div className={`flex flex-wrap gap-2 px-4 py-3 border-t ${border} ${headBg}`}>
-        <button onClick={() => openExternal(gmailComposeUrl(draft))} className={`${btn} bg-blue-600 hover:bg-blue-700 text-white`}>
-          <Mail size={13} /> Open in Gmail
-        </button>
-        <button onClick={() => openExternal(outlookComposeUrl(draft))} className={`${btn} bg-sky-600 hover:bg-sky-700 text-white`}>
-          <Mail size={13} /> Open in Outlook
-        </button>
-        <button onClick={() => openExternal(mailtoUrl(draft))} className={`${btn} ${isDark ? "bg-zinc-700 hover:bg-zinc-600 text-white" : "bg-gray-200 hover:bg-gray-300 text-gray-800"}`}>
-          <Mail size={13} /> Default Mail
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function Chat() {
   const [, setLocation] = useLocation();
@@ -800,25 +756,6 @@ export default function Chat() {
     // cleanMarkdown must never run over an image/audio data URL — doing so can
     // shatter the markdown and dump a giant wall of base64 as plain text.
     const cleanText = (t: string) => (role === 'assistant' ? cleanMarkdown(t) : t);
-    // Email draft card: extract the [[EMAIL_DRAFT]]<base64 json>[[/EMAIL_DRAFT]]
-    // marker from the RAW text BEFORE cleanMarkdown (which would mangle it), and
-    // render the interactive card with Gmail/Outlook/Mail buttons. Works in both
-    // the desktop and native chat UIs because both share renderMessageContent.
-    const emailMatch = content.match(/\[\[EMAIL_DRAFT\]\]([\s\S]*?)\[\[\/EMAIL_DRAFT\]\]/);
-    if (emailMatch) {
-      const draft = decodeEmailDraft(emailMatch[1]);
-      const intro = cleanText(content.slice(0, emailMatch.index).trim());
-      if (draft) {
-        return (
-          <div className="space-y-3">
-            {intro && <span style={{ whiteSpace: 'pre-wrap' }}>{intro}</span>}
-            <EmailDraftCard draft={draft} isDark={isDark} />
-          </div>
-        );
-      }
-      // Malformed marker — strip it entirely so we never dump raw base64 at the user.
-      content = (content.slice(0, emailMatch.index) + content.slice(emailMatch.index! + emailMatch[0].length)).trim();
-    }
     const mediaRegex = /!\[([^\]]*)\]\((data:image\/[^)]+|https?:\/\/[^)\s]+)\)|\[AUDIO:(data:audio\/[^\]]+)\]/g;
     const parts: Array<{ type: 'text' | 'image' | 'audio'; value: string; alt?: string }> = [];
     let lastIndex = 0;
@@ -897,6 +834,22 @@ export default function Chat() {
   };
 
   const { data: subscriptionData } = useQuery<{ tier: string; status: string }>({ queryKey: ["/api/subscription-status"] });
+  // Connected-account status (Gmail / Outlook). When linked, the AI can read &
+  // reply to email right in chat. Connect = start OAuth; manage = AI Settings.
+  type ConnStatus = { configured: boolean; connected: boolean; email: string | null };
+  const { data: connections } = useQuery<{ google: ConnStatus; microsoft: ConnStatus }>({ queryKey: ["/api/connections"] });
+  const googleConnected = !!connections?.google?.connected;
+  const outlookConnected = !!connections?.microsoft?.connected;
+  // Default true while the query is loading so the button stays active; only a
+  // definitive `configured === false` routes to AI Settings (which shows the
+  // proper "Coming soon" state) instead of hitting a raw 503 from /connect.
+  const googleConfigured = connections?.google?.configured !== false;
+  const outlookConfigured = connections?.microsoft?.configured !== false;
+  const connectAccount = (provider: "google" | "microsoft") => {
+    const configured = provider === "google" ? googleConfigured : outlookConfigured;
+    if (!configured) { setLocation("/ai-settings"); return; }
+    window.location.href = `/api/connections/${provider}/connect`;
+  };
   const { data: userWorkgroups = [] } = useQuery<any[]>({ queryKey: ['/api/workgroups'] });
   // Deep Think + confidence reasoning are RESEARCH-EXCLUSIVE features.
   // Gate all paid UI off the live subscription data (not the stale user object).
@@ -1146,54 +1099,17 @@ export default function Chat() {
     }
   };
 
-  // Draft an email from the user's request and show a card with Gmail/Outlook/
-  // Mail buttons. The server (Claude) decides if this is really an email; if not
-  // (or on any error) we fall back to a normal AI answer so nothing is lost.
-  const runEmailDraft = async (raw: string, convId: number) => {
-    setIsTyping(true);
-    setMessageContent("");
-    // Phase 1: ask the server (Claude) whether this is really an email and, if so,
-    // for the {to,subject,body} draft. If it isn't an email or the call fails, fall
-    // back to a normal AI answer — no messages have been appended yet, so nothing
-    // is lost or duplicated.
-    let draft: EmailDraft | null = null;
-    try {
-      const r = await apiRequest("POST", "/api/email/draft", { message: raw });
-      const data = await r.json();
-      if (data?.isEmail && data?.draft) draft = data.draft as EmailDraft;
-    } catch { /* draft detection failed — answer normally below */ }
-    if (!draft) {
-      sendMessageMutation.mutate({ content: raw, convId });
-      return;
-    }
-    // Phase 2: persist the user turn + the draft card. apiRequest throws on a
-    // non-2xx response, so if an append fails we surface it instead of silently
-    // dropping the card — and we do NOT re-send via the normal mutation (that
-    // would duplicate the already-appended user message).
-    try {
-      await apiRequest("POST", `/api/conversations/${convId}/append`, { role: "user", content: raw });
-      const aiContent = `Here's a draft email — pick how you'd like to send it:\n\n[[EMAIL_DRAFT]]${encodeEmailDraft(draft)}[[/EMAIL_DRAFT]]`;
-      await apiRequest("POST", `/api/conversations/${convId}/append`, { role: "assistant", content: aiContent });
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations", convId, "messages"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
-    } catch {
-      toast({ title: "Couldn't save the draft", description: "Please try again.", variant: "destructive" });
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   const handleSendWithPromo = async () => {
     if ((!messageContent.trim() && !attachedImage) || sendMessageMutation.isPending) return;
     const convId = await getOrCreateConversationId();
     if (!convId) return;
     const raw = messageContent.trim();
     // Magic-word intents take precedence over normal AI routing.
-    // Order: attachment analysis → email draft → photo lookup → image generate →
-    // pronunciation → normal chat. Email is checked before image so "email a
-    // picture of X to Bob" drafts an email instead of generating an image.
+    // Order: attachment analysis → photo lookup → image generate → pronunciation
+    // → normal chat. Email requests ("check my inbox", "reply to Bob") are NOT
+    // intercepted here — they flow to the normal stream where the connected-
+    // accounts classifier reads/sends via the user's linked Gmail/Outlook.
     if (!attachedImage) {
-      if (isEmailRequest(raw)) { runEmailDraft(raw, convId); return; }
       const lookupQuery = detectImageLookupIntent(raw);
       if (lookupQuery) { runImagePeek(lookupQuery, raw, convId); return; }
       const imgPrompt = detectImageIntent(raw);
@@ -1350,6 +1266,9 @@ export default function Chat() {
         renderMessageContent={renderMessageContent}
         formatTimestamp={formatTimestamp}
         verifiedMessages={verifiedMessages}
+        googleConnected={googleConnected}
+        outlookConnected={outlookConnected}
+        onConnectAccount={connectAccount}
       />
       </>
     );
@@ -1480,11 +1399,13 @@ export default function Chat() {
                   </Button>
                 </Link>
               )}
-              <Button onClick={() => openExternal(gmailComposeUrl({}))} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#9aa0a6] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Compose in Gmail">
+              <Button onClick={() => googleConnected ? setLocation('/ai-settings') : connectAccount('google')} variant="ghost" size="sm" className={`relative h-8 w-8 p-0 rounded-full ${googleConnected ? 'text-green-500 hover:text-green-600' : isDark ? 'text-[#9aa0a6] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title={googleConnected ? 'Gmail connected — ask me to check or reply to your emails' : 'Connect Gmail so the AI can read & reply to your emails'}>
                 <Mail className="h-4 w-4" />
+                {googleConnected && <span className={`absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-green-500 ring-2 ${isDark ? 'ring-[#131314]' : 'ring-white'}`} />}
               </Button>
-              <Button onClick={() => openExternal(outlookComposeUrl({}))} variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#9aa0a6] hover:text-sky-400 hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-sky-500 hover:bg-gray-100'}`} title="Compose in Outlook">
+              <Button onClick={() => outlookConnected ? setLocation('/ai-settings') : connectAccount('microsoft')} variant="ghost" size="sm" className={`relative h-8 w-8 p-0 rounded-full ${outlookConnected ? 'text-green-500 hover:text-green-600' : isDark ? 'text-[#9aa0a6] hover:text-sky-400 hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-sky-500 hover:bg-gray-100'}`} title={outlookConnected ? 'Outlook connected — ask me to check or reply to your emails' : 'Connect Outlook so the AI can read & reply to your emails'}>
                 <Send className="h-4 w-4" />
+                {outlookConnected && <span className={`absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-green-500 ring-2 ${isDark ? 'ring-[#131314]' : 'ring-white'}`} />}
               </Button>
               <Link href="/ai-settings">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#9aa0a6] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Settings">
