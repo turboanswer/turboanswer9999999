@@ -7332,6 +7332,24 @@ Return ONLY valid JSON (no markdown):
     }
   });
 
+  // Turn a "email someone about X" request into a ready-to-send draft. We never
+  // send anything; the client opens Gmail/Outlook/Mail pre-filled. Returns
+  // { isEmail:false } when the message isn't actually an email request so the
+  // client can fall back to a normal chat answer.
+  app.post('/api/email/draft', isAuthenticated, async (req: any, res) => {
+    try {
+      const message = typeof req.body?.message === 'string' ? req.body.message : '';
+      if (!message.trim()) return res.status(400).json({ error: 'Message required' });
+      const { draftEmail } = await import('./services/email-intent');
+      const draft = await draftEmail(message);
+      if (!draft) return res.json({ isEmail: false });
+      return res.json({ isEmail: true, draft });
+    } catch (e: any) {
+      console.error('[Email Draft]', e?.message || e);
+      return res.status(500).json({ error: 'Could not draft email' });
+    }
+  });
+
   startProactiveDiagnostics();
 
   // ══════════════════════════════════════════════════════════════════════════

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
+import { compressImageToDataUrl, isLikelyImage } from "@/lib/image-compress";
+import { openExternal, gmailComposeUrl, outlookComposeUrl } from "@/lib/email-compose";
 import { 
   X, Menu, Camera, Brain, Crown, CheckCircle, Star, Zap, Sparkles, Rocket, 
   Settings, LogOut, Heart, MessageSquare, Copy, Users, Shield, FlaskConical, 
@@ -186,18 +188,36 @@ export default function MobileChatUI({
     }
   };
 
-  const handleCameraSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setCameraImage(result.split(",")[1]);
-      setCameraImageFull(result);
-      setCameraQuestion("");
-    };
-    reader.readAsDataURL(file);
     e.target.value = "";
+    if (!file) return;
+    if (!isLikelyImage(file)) {
+      toast({ title: "Not an image", description: "Please choose a photo (JPG, PNG, HEIC, etc.).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      toast({ title: "Image too large", description: "Please choose an image under 25 MB.", variant: "destructive" });
+      return;
+    }
+    try {
+      // Compress to a small JPEG before holding it in WebView memory — full-res
+      // phone photos are huge and previously crashed the native app.
+      const dataUrl = await compressImageToDataUrl(file, 1568, 0.85);
+      const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : "";
+      if (!base64) throw new Error("Bad image data");
+      setCameraImage(base64);
+      setCameraImageFull(dataUrl);
+      setCameraQuestion("");
+    } catch {
+      toast({
+        title: "Couldn't read image",
+        description: file.type === "image/heic" || /\.heic$/i.test(file.name)
+          ? "iPhone HEIC photos: set Camera → Formats to 'Most Compatible' or use a JPG."
+          : "Try a different photo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCameraAnalyze = async () => {
@@ -408,6 +428,12 @@ export default function MobileChatUI({
           </Link>
           <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); setShowSupportPanel(true); }}>
             <Phone className="h-4 w-4" /> Contact Support
+          </button>
+          <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); openExternal(gmailComposeUrl({})); }}>
+            <Mail className="h-4 w-4" /> Open Gmail
+          </button>
+          <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5" style={{ color: THEME.textDim }} onClick={() => { setShowDrawer(false); openExternal(outlookComposeUrl({})); }}>
+            <Mail className="h-4 w-4" /> Open Outlook
           </button>
           <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[14px] font-medium active:bg-black/5 text-red-500/80" onClick={logout}>
             <LogOut className="h-4 w-4" /> Sign Out
