@@ -19,17 +19,20 @@ App Service config, NOT code:
    return OK; ProactiveDiag failures:0.
 
 If all green, the prod-only failure is environment/infra, fixable only on Azure:
-- **CONFIRMED root cause of the 2026-06 SEV-A — `AZURE_OPENAI_ENDPOINT` value carried the
-  wrong PATH.** `azureResponsesUrl()` does `normalizeFoundryEndpoint(endpoint) + "/openai/v1/responses"`,
-  and `normalizeFoundryEndpoint` only rewrites the HOST (cognitiveservices→services.ai); it
-  NEVER strips the path. So the env var must already be the working Foundry PROJECT endpoint
-  `https://<res>.services.ai.azure.com/api/projects/<project>` (dev's value) — appending
-  `/openai/v1/responses` then yields a valid project Responses URL. Prod had it set to
-  `https://<res>.services.ai.azure.com/anthropic/v1/messages`, so the app called
-  `…/anthropic/v1/messages/openai/v1/responses` → 404 → fell through to (absent) direct
-  Anthropic → `AI_PROVIDERS_UNAVAILABLE` for EVERY chat. Fix = set prod's `AZURE_OPENAI_ENDPOINT`
-  equal to dev's `/api/projects/<project>` form; no code change, App Service restarts on save.
-  Matches Azure's "requests don't reach Foundry": they 404 at a bogus path, never hit the deployment.
+- **2026-06 SEV-A — RESOLVED.** Root cause WAS `AZURE_OPENAI_ENDPOINT` carrying a wrong PATH.
+  `azureResponsesUrl()` does `normalizeFoundryEndpoint(endpoint) + "/openai/v1/responses"`, and
+  `normalizeFoundryEndpoint` only rewrites the HOST (cognitiveservices→services.ai); it NEVER
+  strips the path. The env var must already be the working Foundry PROJECT endpoint
+  `https://<res>.services.ai.azure.com/api/projects/<project>` (dev's value). Prod had been set to
+  `…/anthropic/v1/messages` → app called `…/anthropic/v1/messages/openai/v1/responses` → 401/404 →
+  fell through to (absent) direct Anthropic → `AI_PROVIDERS_UNAVAILABLE`. **Fixed in the portal**
+  (App Service app-settings change auto-restarts; no deploy). Verified resolved: prod
+  `AZURE_OPENAI_ENDPOINT` now = the `/api/projects/support-9360` form, and a LIVE probe of prod's
+  real endpoint+key returned HTTP 200 for ALL three deployments (claude-haiku-4-5 / claude-sonnet-4-5
+  / claude-opus-4-8). App Service Running, no VNet (default internet egress).
+- **DON'T trust a hand-built HAR/repro after the fact** — a probe that hardcodes the *old* malformed
+  URL will still 401 and look like a live outage even though prod is healthy. Always read the LIVE
+  prod value via ARM `config/appsettings/list` and probe THAT exact endpoint+key before concluding.
 - Azure App Service "Application settings" `AZURE_OPENAI_ENDPOINT` / `AZURE_OPENAI_API_KEY`
   missing/wrong. These live in the Azure portal, NOT Replit/GitHub; dev secrets do not
   propagate to prod.
@@ -39,8 +42,13 @@ If all green, the prod-only failure is environment/infra, fixable only on Azure:
 
 **Why:** recurring SEV-A panic that "the code is broken" when code + deploy are already
 verified correct; the actual lever is Azure config, not another push.
-**How to apply:** the Replit sandbox cannot reach prod (azurewebsites.net = HTTP 000;
-custom domain WAF returns 403), and Replit deployment logs are empty (prod is Azure, not
-Replit Deploy). Read real prod telemetry via `server/services/azure-infra.ts`
-(App Insights / Log Analytics KQL — needs SP env AZURE_TENANT_ID/CLIENT_ID/CLIENT_SECRET
-plus RBAC) or the in-app owner-only Azure Infra Control Center.
+**How to apply:** the sandbox CAN reach the raw App Service host directly —
+`https://<app>.<region>.azurewebsites.net/api/auth/user` returns 401 (app up) — but the
+Cloudflare-fronted custom domain (turboanswer.it.com) returns 403 "Just a moment…". The most
+decisive check is an ARM probe from the dev sandbox: SP creds (AZURE_TENANT_ID/CLIENT_ID/
+CLIENT_SECRET/SUBSCRIPTION_ID/RESOURCE_GROUP/APP_SERVICE_NAME are all present in dev) →
+`POST .../config/appsettings/list` for the live endpoint+key → POST that endpoint's
+`/openai/v1/responses` with the haiku/sonnet/opus deployment names. NOTE: this resource's
+App Insights component + Log Analytics workspace are NOT in this subscription (resource list
+returns none), so KQL telemetry is unavailable here — rely on the ARM appsettings read + live
+Foundry probe instead.
