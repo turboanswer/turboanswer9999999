@@ -335,3 +335,15 @@ id = "scoeT1emkmkYwG5gk74c2"
 uri = "file://turboanswer-foundry-failure.har.json"
 type = "unspecified"
 title = "Foundry failing-request HAR trace (rename to .har before sending)"
+
+[[outputs]]
+id = "fmFllN-QB9-n1aMhVrFmo"
+uri = "file://attached_assets/tshirt/visit-dark-shirt.png"
+type = "image"
+title = "VISIT TURBOANSWER.IT.COM — for DARK shirts (white text)"
+
+[[outputs]]
+id = "ZQnoNTxnAXgxCr0deRshH"
+uri = "file://attached_assets/tshirt/visit-light-shirt.png"
+type = "image"
+title = "VISIT TURBOANSWER.IT.COM — for LIGHT shirts (navy text)"
