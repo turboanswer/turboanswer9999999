@@ -365,3 +365,9 @@ id = "EI7K_pWWajV9DEGb4AUjR"
 uri = "file://attached_assets/turboanswer_credential_3x5.png"
 type = "image"
 title = "TurboAnswer ID Badge — Tiago Tschantre, Microsoft Specialist"
+
+[[outputs]]
+id = "cweqPydhG-96_y0jPNi7G"
+uri = "file://attached_assets/turboanswer_badge_final.png"
+type = "image"
+title = "TurboAnswer ID Credential Badge"
