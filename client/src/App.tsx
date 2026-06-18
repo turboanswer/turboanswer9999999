@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
@@ -138,6 +138,10 @@ function AuthenticatedRouter() {
       <Route path="/beta" component={BetaApply} />
       <Route path="/beta-feedback" component={BetaFeedback} />
       <Route path="/forgot-password" component={ForgotPassword} />
+      {/* Already signed in — the landing page's "Sign in"/"Get started" links point
+          here, so send them into the app instead of showing a 404. */}
+      <Route path="/login"><Redirect to="/chat" /></Route>
+      <Route path="/register"><Redirect to="/chat" /></Route>
       <Route component={NotFound} />
     </Switch>
   );
