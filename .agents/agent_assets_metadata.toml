@@ -359,3 +359,9 @@ id = "w8JYYPwplrUREa5NzslCr"
 uri = "file://attached_assets/tshirt/robot_transparent.png"
 type = "image"
 title = "TurboAnswer Robot Logo (no background)"
+
+[[outputs]]
+id = "EI7K_pWWajV9DEGb4AUjR"
+uri = "file://attached_assets/turboanswer_credential_3x5.png"
+type = "image"
+title = "TurboAnswer × Microsoft — Operations Technician / CEO (3×5 in)"
