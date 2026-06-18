@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Loader2, ArrowRight, Zap, ShieldCheck, Sparkles, Globe, ArrowLeft, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,13 +22,34 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
 
-  // Auth flow steps: credentials → (2FA code OR forced 2FA setup for legacy accounts).
-  const [step, setStep] = useState<"credentials" | "twofa-code" | "twofa-setup">("credentials");
+  // Auth flow steps: credentials → (2FA code for enrolled accounts) OR
+  // (optional "set up 2FA?" offer → optional setup) for accounts without 2FA.
+  const [step, setStep] = useState<"credentials" | "twofa-code" | "twofa-offer" | "twofa-setup">("credentials");
   const [setupData, setSetupData] = useState<TwoFaSetupData | null>(null);
   const [useBackupCode, setUseBackupCode] = useState(false);
   const [code, setCode] = useState("");
   const [backupCode, setBackupCode] = useState("");
   const [verifying, setVerifying] = useState(false);
+  // User payload from an already-granted session that is being offered optional 2FA.
+  const [pendingUser, setPendingUser] = useState<any>(null);
+  const [startingSetup, setStartingSetup] = useState(false);
+
+  // Resume fix: if the app reloads while the user is on the 2FA code screen (e.g. they
+  // left to open their authenticator app), restore that screen instead of dropping them
+  // back to the email/password form. The server still holds the pending sign-in session.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("turbo_2fa_login_pending");
+      if (raw) {
+        const { ts } = JSON.parse(raw);
+        if (ts && Date.now() - ts < 10 * 60 * 1000) {
+          setStep("twofa-code");
+        } else {
+          localStorage.removeItem("turbo_2fa_login_pending");
+        }
+      }
+    } catch {}
+  }, []);
 
   // Shared post-login routine: reconcile any pending subscription, then route the user
   // to their portal. Used by both the no-2FA path and the 2FA-code path.
@@ -73,7 +94,37 @@ export default function Login() {
     // Login already lands the role on its portal, so suppress the one-time
     // AuthenticatedRouter redirect to avoid a bounce when navigating afterward.
     sessionStorage.setItem("rolePortalRedirected", "1");
+    try { localStorage.removeItem("turbo_2fa_login_pending"); } catch {}
     setLocation(safeRedirect);
+  };
+
+  // Optional 2FA: begin enrollment for the already-signed-in user, then show the
+  // authenticator QR + backup codes (the existing TwoFactorSetup flow finishes it).
+  const startTwoFaSetup = async () => {
+    setStartingSetup(true);
+    try {
+      const res = await fetch("/api/2fa/start-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSetupData({
+          qr: data.qr,
+          otpauthUrl: data.otpauthUrl,
+          backupCodes: data.backupCodes || [],
+          email: data.email || formData.email,
+        });
+        setStep("twofa-setup");
+      } else {
+        toast({ title: "Couldn't start setup", description: data.message || "Please try again.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Couldn't start 2FA setup. Please try again.", variant: "destructive" });
+    } finally {
+      setStartingSetup(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,16 +149,15 @@ export default function Login() {
         setCode("");
         setBackupCode("");
         setUseBackupCode(false);
+        // Persist so a mid-2FA app reload restores this screen instead of the login form.
+        try { localStorage.setItem("turbo_2fa_login_pending", JSON.stringify({ ts: Date.now() })); } catch {}
         setStep("twofa-code");
-      } else if (response.ok && data.twoFactorSetupRequired) {
-        // Legacy account without 2FA — force enrollment now.
-        setSetupData({
-          qr: data.qr,
-          otpauthUrl: data.otpauthUrl,
-          backupCodes: data.backupCodes || [],
-          email: data.email || formData.email,
-        });
-        setStep("twofa-setup");
+      } else if (response.ok && data.twoFactorOffer) {
+        // No 2FA on this account — already signed in. Offer (don't force) enrollment.
+        // Note: we do NOT invalidate the auth query yet, so this Login screen stays
+        // mounted to show the offer; the session cookie is already set server-side.
+        setPendingUser(data);
+        setStep("twofa-offer");
       } else if (response.ok) {
         await completeLogin(data);
       } else {
@@ -211,14 +261,22 @@ export default function Login() {
         <div className="w-full max-w-[420px] mx-auto lg:ml-auto">
         <div className="flex flex-col items-center mb-6">
           <h2 className="text-2xl font-normal text-white mb-1">
-            {step === "credentials" ? "Sign in" : step === "twofa-code" ? "Two-factor authentication" : "Secure your account"}
+            {step === "credentials"
+              ? "Sign in"
+              : step === "twofa-code"
+                ? "Two-factor authentication"
+                : step === "twofa-offer"
+                  ? "You're signed in"
+                  : "Secure your account"}
           </h2>
           <p className="text-sm text-[#9aa0a6]">
             {step === "credentials"
               ? "to continue to TurboAnswer"
               : step === "twofa-code"
                 ? "Enter the code from your authenticator"
-                : "Set up two-factor authentication to continue"}
+                : step === "twofa-offer"
+                  ? "Add an extra layer of security?"
+                  : "Set up two-factor authentication to continue"}
           </p>
         </div>
 
@@ -327,7 +385,7 @@ export default function Login() {
               <div className="flex items-center justify-between pt-1">
                 <button
                   type="button"
-                  onClick={() => { setStep("credentials"); setCode(""); setBackupCode(""); setUseBackupCode(false); }}
+                  onClick={() => { try { localStorage.removeItem("turbo_2fa_login_pending"); } catch {} setStep("credentials"); setCode(""); setBackupCode(""); setUseBackupCode(false); }}
                   className="flex items-center gap-1 text-sm text-[#4285F4] hover:text-[#5b9bff] font-medium transition-colors"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" /> Back
@@ -345,6 +403,42 @@ export default function Login() {
                 </Button>
               </div>
             </form>
+          )}
+
+          {step === "twofa-offer" && (
+            <div className="space-y-5">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 rounded-full bg-[#4285F4]/15 flex items-center justify-center mb-3">
+                  <ShieldCheck size={22} className="text-[#4285F4]" />
+                </div>
+                <p className="text-sm text-white">Would you like to set up two-factor authentication?</p>
+                <p className="text-xs text-[#9aa0a6] mt-1">
+                  It adds a second step at sign-in using your authenticator app, so your account stays safe even if your password is stolen. You can always do this later in settings.
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                onClick={startTwoFaSetup}
+                disabled={startingSetup}
+                className="w-full h-11 rounded-full bg-[#4285F4] hover:bg-[#5b9bff] text-[#131314] font-medium text-sm disabled:opacity-50 transition-colors"
+              >
+                {startingSetup ? (
+                  <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Starting…</span>
+                ) : (
+                  <span className="flex items-center gap-1.5">Set up 2FA <ShieldCheck className="h-3.5 w-3.5" /></span>
+                )}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => completeLogin(pendingUser)}
+                disabled={startingSetup}
+                className="w-full text-center text-sm text-[#9aa0a6] hover:text-white font-medium transition-colors disabled:opacity-50"
+              >
+                Maybe later
+              </button>
+            </div>
           )}
 
           {step === "twofa-setup" && setupData && (

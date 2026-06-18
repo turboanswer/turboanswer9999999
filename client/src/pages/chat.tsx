@@ -1413,14 +1413,6 @@ export default function Chat() {
                   </Button>
                 </Link>
               )}
-              <Button onClick={() => googleConnected ? setLocation('/ai-settings') : connectAccount('google')} variant="ghost" size="sm" className={`relative h-8 w-8 p-0 rounded-full ${googleConnected ? 'text-green-500 hover:text-green-600' : isDark ? 'text-[#9aa0a6] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title={googleConnected ? 'Gmail connected — ask me to check or reply to your emails' : 'Connect Gmail so the AI can read & reply to your emails'}>
-                <Mail className="h-4 w-4" />
-                {googleConnected && <span className={`absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-green-500 ring-2 ${isDark ? 'ring-[#131314]' : 'ring-white'}`} />}
-              </Button>
-              <Button onClick={() => outlookConnected ? setLocation('/ai-settings') : connectAccount('microsoft')} variant="ghost" size="sm" className={`relative h-8 w-8 p-0 rounded-full ${outlookConnected ? 'text-green-500 hover:text-green-600' : isDark ? 'text-[#9aa0a6] hover:text-sky-400 hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-sky-500 hover:bg-gray-100'}`} title={outlookConnected ? 'Outlook connected — ask me to check or reply to your emails' : 'Connect Outlook so the AI can read & reply to your emails'}>
-                <Send className="h-4 w-4" />
-                {outlookConnected && <span className={`absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-green-500 ring-2 ${isDark ? 'ring-[#131314]' : 'ring-white'}`} />}
-              </Button>
               <Link href="/ai-settings">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#9aa0a6] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Settings">
                   <Settings className="h-4 w-4" />

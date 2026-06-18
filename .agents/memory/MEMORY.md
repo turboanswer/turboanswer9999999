@@ -33,3 +33,4 @@
 - [otplib v13 API](otplib-v13-api.md) — v13 is ESM functional (no `authenticator` object); use generateSecret/generateURI/verify; verify is async returning {valid}; await it everywhere.
 - [Tier & pricing strings scattered](tier-pricing-strings.md) — no central tier/price/model constant; rebrands must touch paypal+stripe+routes emails+multi-ai catalog+all client popups/dashboards or stale copies leak via email/checkout/api.
 - [Broadcast / bulk email safety](broadcast-email-safety.md) — "send to all" confirm tokens must be single-use (nonce, not just signed+TTL or they replay) and HTML-escape DB-sourced recipient names in HTML bodies.
+- [Optional 2FA offer flow](optional-2fa-offer.md) — to OFFER (not force) 2FA after sign-in, do NOT invalidate the auth query until the user decides or the Login/Register screen unmounts mid-prompt; session cookie is already set so 2FA setup endpoints still work.

@@ -38,9 +38,11 @@ export default function Register() {
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
 
-  // Two-factor enrollment step (replaces the old email-code verification).
-  const [step, setStep] = useState<"details" | "twofa">("details");
+  // Account creation grants a session immediately; 2FA is OPTIONAL and offered, not forced.
+  const [step, setStep] = useState<"details" | "twofa-offer" | "twofa">("details");
   const [setupData, setSetupData] = useState<TwoFaSetupData | null>(null);
+  const [pendingUser, setPendingUser] = useState<any>(null);
+  const [startingSetup, setStartingSetup] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(search);
@@ -112,14 +114,10 @@ export default function Register() {
 
       const data = await response.json();
 
-      if (response.ok && data.twoFactorSetupRequired) {
-        setSetupData({
-          qr: data.qr,
-          otpauthUrl: data.otpauthUrl,
-          backupCodes: data.backupCodes || [],
-          email: data.email || formData.email,
-        });
-        setStep("twofa");
+      if (response.ok && data.twoFactorOffer) {
+        // Account created and signed in. Offer (don't force) optional 2FA enrollment.
+        setPendingUser(data);
+        setStep("twofa-offer");
       } else {
         toast({ title: "Error", description: data.message || "Failed to create account", variant: "destructive" });
       }
@@ -130,14 +128,43 @@ export default function Register() {
     }
   };
 
-  // Step 2: 2FA confirmed on the server, the session is granted — route the user in.
+  // Finish onboarding: route the user into their portal. Used both when 2FA is set up
+  // and when the user skips it (session is already granted by /api/register).
   const handle2faVerified = async (user: any) => {
     await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
     toast({
-      title: "Account secured!",
-      description: user?.isEmployee ? "Welcome! Your admin account is ready." : "Welcome to Turbo Answer!",
+      title: user?.twoFactorEnabled ? "Account secured!" : "Welcome to Turbo Answer!",
+      description: user?.isEmployee ? "Welcome! Your admin account is ready." : "You're all set.",
     });
     setLocation(user?.isEmployee ? "/employee/dashboard" : "/chat");
+  };
+
+  // Optional 2FA: begin enrollment for the just-created, already-signed-in user.
+  const startTwoFaSetup = async () => {
+    setStartingSetup(true);
+    try {
+      const res = await fetch("/api/2fa/start-setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSetupData({
+          qr: data.qr,
+          otpauthUrl: data.otpauthUrl,
+          backupCodes: data.backupCodes || [],
+          email: data.email || formData.email,
+        });
+        setStep("twofa");
+      } else {
+        toast({ title: "Couldn't start setup", description: data.message || "Please try again.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Couldn't start 2FA setup. Please try again.", variant: "destructive" });
+    } finally {
+      setStartingSetup(false);
+    }
   };
 
   return (
@@ -150,10 +177,10 @@ export default function Register() {
         <div className="flex flex-col items-center mb-8">
           <img src={turboLogo} alt="TurboAnswer" className="w-12 h-12 rounded-2xl object-cover mb-5" />
           <h1 className="text-2xl font-normal text-white mb-1">
-            {step === "details" ? "Create your account" : "Secure your account"}
+            {step === "details" ? "Create your account" : step === "twofa-offer" ? "You're all set" : "Secure your account"}
           </h1>
           <p className="text-sm text-[#9aa0a6]">
-            {step === "details" ? "to start using TurboAnswer" : "Set up two-factor authentication"}
+            {step === "details" ? "to start using TurboAnswer" : step === "twofa-offer" ? "Add an extra layer of security?" : "Set up two-factor authentication"}
           </p>
         </div>
 
@@ -282,6 +309,42 @@ export default function Register() {
                 </div>
               </form>
             </>
+          )}
+
+          {step === "twofa-offer" && (
+            <div className="space-y-5">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 rounded-full bg-[#4285F4]/15 flex items-center justify-center mb-3">
+                  <Shield size={22} className="text-[#4285F4]" />
+                </div>
+                <p className="text-sm text-white">Would you like to set up two-factor authentication?</p>
+                <p className="text-xs text-[#9aa0a6] mt-1">
+                  It adds a second step at sign-in using your authenticator app, so your account stays safe even if your password is stolen. You can always do this later in settings.
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                onClick={startTwoFaSetup}
+                disabled={startingSetup}
+                className="w-full h-11 rounded-full bg-[#4285F4] hover:bg-[#5b9bff] text-[#131314] font-medium text-sm disabled:opacity-50 transition-colors"
+              >
+                {startingSetup ? (
+                  <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Starting…</span>
+                ) : (
+                  <span className="flex items-center gap-1.5">Set up 2FA <Shield className="h-3.5 w-3.5" /></span>
+                )}
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => handle2faVerified(pendingUser)}
+                disabled={startingSetup}
+                className="w-full text-center text-sm text-[#9aa0a6] hover:text-white font-medium transition-colors disabled:opacity-50"
+              >
+                Maybe later
+              </button>
+            </div>
           )}
 
           {step === "twofa" && setupData && (

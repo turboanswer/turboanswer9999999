@@ -688,23 +688,21 @@ export async function setupAuth(app: Express) {
         }
       }
 
-      // Generate one-time backup codes (returned ONCE in plaintext, stored hashed) and a
-      // QR for the authenticator app. No session is granted yet — the user must confirm a
-      // TOTP code via /api/2fa/verify-setup, which enables 2FA and logs them in.
-      const backupCodes = generateBackupCodes();
-      await authStorage.setTwoFactorBackupCodes(user.id, await hashBackupCodes(backupCodes));
-      const { otpauthUrl, qr } = await buildTwoFactorSetup(user.email!, twoFaSecret);
-
-      (req.session as any).pending2faUserId = user.id;
-      delete (req.session as any).userId;
+      // 2FA is OPTIONAL. Grant the session now and let the client OFFER (not force)
+      // enrollment. The user can set it up via /api/2fa/start-setup at any time.
+      await authStorage.updateLastLogin(user.id);
+      (req.session as any).userId = user.id;
+      delete (req.session as any).pending2faUserId;
+      sendBrevoWelcomeEmail(user.email!, user.firstName || '').catch(() => {});
 
       res.json({
-        twoFactorSetupRequired: true,
+        twoFactorOffer: true,
+        id: user.id,
         email: user.email,
         firstName: user.firstName,
-        otpauthUrl,
-        qr,
-        backupCodes,
+        lastName: user.lastName,
+        isEmployee: user.isEmployee,
+        isReceptionist: (user as any).isReceptionist,
       });
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -763,21 +761,19 @@ export async function setupAuth(app: Express) {
         return res.json({ twoFactorRequired: true, email: user.email });
       }
 
-      // Legacy account with no 2FA yet — force enrollment now (fresh secret + backup codes).
-      const setupSecret = generateSecret();
-      await authStorage.setTwoFactorSecret(user.id, setupSecret);
-      const backupCodes = generateBackupCodes();
-      await authStorage.setTwoFactorBackupCodes(user.id, await hashBackupCodes(backupCodes));
-      const { otpauthUrl, qr } = await buildTwoFactorSetup(user.email!, setupSecret);
-      (req.session as any).pending2faUserId = user.id;
-      delete (req.session as any).userId;
+      // No 2FA on this account — 2FA is OPTIONAL, so grant the session now and let the
+      // client OFFER (not force) enrollment via /api/2fa/start-setup.
+      await authStorage.updateLastLogin(user.id);
+      (req.session as any).userId = user.id;
+      delete (req.session as any).pending2faUserId;
       return res.json({
-        twoFactorSetupRequired: true,
+        twoFactorOffer: true,
+        id: user.id,
         email: user.email,
         firstName: user.firstName,
-        otpauthUrl,
-        qr,
-        backupCodes,
+        lastName: user.lastName,
+        isEmployee: user.isEmployee,
+        isReceptionist: (user as any).isReceptionist,
       });
     } catch (error: any) {
       console.error("Login error:", error);
@@ -827,6 +823,31 @@ export async function setupAuth(app: Express) {
     } catch (error: any) {
       console.error("2FA pending-setup error:", error);
       res.status(500).json({ message: "Could not load setup details." });
+    }
+  });
+
+  // Begin OPTIONAL 2FA enrollment for an already-signed-in user (fresh secret + backup
+  // codes + QR). The user finishes by confirming a code at /api/2fa/verify-setup, which
+  // flips 2FA on. Used by the "Would you like to set up 2FA?" prompt after sign-in.
+  app.post("/api/2fa/start-setup", async (req, res) => {
+    try {
+      const userId = (req.session as any).userId;
+      if (!userId) return res.status(401).json({ message: "Please sign in first." });
+      const user = await authStorage.getUser(userId);
+      if (!user) return res.status(401).json({ message: "Please sign in first." });
+      if (user.twoFactorEnabled) {
+        return res.status(400).json({ message: "Two-factor authentication is already enabled." });
+      }
+      const setupSecret = generateSecret();
+      await authStorage.setTwoFactorSecret(user.id, setupSecret);
+      const backupCodes = generateBackupCodes();
+      await authStorage.setTwoFactorBackupCodes(user.id, await hashBackupCodes(backupCodes));
+      const { otpauthUrl, qr } = await buildTwoFactorSetup(user.email!, setupSecret);
+      (req.session as any).pending2faUserId = user.id;
+      res.json({ email: user.email, otpauthUrl, qr, backupCodes });
+    } catch (error: any) {
+      console.error("2FA start-setup error:", error);
+      res.status(500).json({ message: "Could not start 2FA setup. Please try again." });
     }
   });
 
