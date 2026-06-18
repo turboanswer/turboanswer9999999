@@ -3738,6 +3738,23 @@ Formatting rules:
     }
   });
 
+  // Reset a user's 2FA (Admin only) — used when a verified user submits a support
+  // ticket after losing their authenticator and backup codes. Clears the secret +
+  // backup codes so the user enrolls fresh on their next login.
+  app.post('/api/employee/users/:id/reset-2fa', isAdmin, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const { authStorage } = await import('./replit_integrations/auth/storage');
+      const target = await authStorage.getUser(userId);
+      if (!target) return res.status(404).json({ message: 'User not found' });
+      await authStorage.disableTwoFactor(userId);
+      res.json({ message: '2FA has been reset. The user will set up a new authenticator on their next login.' });
+    } catch (error: any) {
+      console.error('Reset 2FA error:', error);
+      res.status(500).json({ message: 'Failed to reset 2FA' });
+    }
+  });
+
   // Unban user (Employee only)
   app.post('/api/employee/users/:id/unban', isAdmin, async (req, res) => {
     try {

@@ -454,6 +454,15 @@ export default function EmployeeDashboard() {
     onError: (err: any) => toast({ title: 'Failed to unflag user', description: err?.message || 'Unknown error', variant: 'destructive' }),
   });
 
+  const reset2faMutation = useMutation({
+    mutationFn: (userId: string) => apiRequest('POST', `/api/employee/users/${userId}/reset-2fa`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/employee/users'] });
+      toast({ title: '2FA reset', description: 'The user must set up two-factor authentication again on their next sign-in.' });
+    },
+    onError: (err: any) => toast({ title: 'Failed to reset 2FA', description: err?.message || 'Unknown error', variant: 'destructive' }),
+  });
+
   const suspendMutation = useMutation({
     mutationFn: ({ userId, reason }: { userId: string; reason: string }) =>
       apiRequest('POST', `/api/employee/users/${userId}/suspend`, {
@@ -1121,6 +1130,9 @@ export default function EmployeeDashboard() {
                                     <Play className="w-3 h-3 mr-1" /> Unsuspend
                                   </Button>
                                 )}
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20" onClick={() => reset2faMutation.mutate(user.id)} disabled={reset2faMutation.isPending}>
+                                  <KeyRound className="w-3 h-3 mr-1" /> Reset 2FA
+                                </Button>
                                 <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-400 hover:bg-red-900/30" onClick={() => { setDeleteModal({ userId: user.id, userName: `${user.firstName} ${user.lastName}` }); setDeleteVerificationCode(''); setDeleteError(''); }}>
                                   <Trash2 className="w-3 h-3 mr-1" /> Delete
                                 </Button>

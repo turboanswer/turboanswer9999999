@@ -16,7 +16,7 @@ export function registerAuthRoutes(app: Express): void {
 
       await maybeGrantReceptionist(user);
 
-      const { password, twoFactorSecret, ...safeUser } = user;
+      const { password, twoFactorSecret, twoFactorBackupCodes, ...safeUser } = user;
       res.json(safeUser);
     } catch (error) {
       console.error("Error fetching user:", error);

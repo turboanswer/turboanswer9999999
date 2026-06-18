@@ -21,6 +21,7 @@ export const users = pgTable("users", {
   password: varchar("password"),
   twoFactorSecret: varchar("two_factor_secret"),
   twoFactorEnabled: boolean("two_factor_enabled").default(false),
+  twoFactorBackupCodes: text("two_factor_backup_codes").array(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),

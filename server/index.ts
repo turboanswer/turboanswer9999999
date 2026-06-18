@@ -179,6 +179,17 @@ const registerLimiter = rateLimit({
   keyGenerator: limiterKey,
 });
 
+// 2FA verification is the second auth factor and is CSRF-exempt, so a per-IP
+// throttle is the primary online brute-force control. Failed attempts count;
+// successes don't, so a legitimate user isn't punished for a quick mistype.
+const twoFactorLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many verification attempts. Please try again later.' },
+  skipSuccessfulRequests: true,
+  keyGenerator: limiterKey,
+});
+
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -206,6 +217,8 @@ app.use(apiLimiter);
 // CSRF-exempt, this per-IP throttle is the primary abuse control.
 app.use('/api/login', authLimiter);
 app.use('/api/register', registerLimiter);
+app.use('/api/2fa/login', twoFactorLimiter);
+app.use('/api/2fa/verify-setup', twoFactorLimiter);
 app.use('/api/auth/forgot-password', passwordResetLimiter);
 app.use('/api/auth/reset-password', passwordResetLimiter);
 // Verification-code senders are now CSRF-exempt; throttle per IP to block
@@ -290,6 +303,13 @@ const CSRF_EXEMPT_EXACT = new Set([
   // email/SMS code itself.
   '/api/login',
   '/api/register',
+  // Mandatory 2FA steps that complete signup/login. Like /api/login and
+  // /api/register, these run before a full session is granted (they rely on the
+  // server-side pending2fa* session marker, not the CSRF cookie), so the same
+  // cross-origin/native CSRF-cookie fragility applies. They are protected by the
+  // dedicated twoFactorLimiter and the TOTP/backup secret itself.
+  '/api/2fa/verify-setup',
+  '/api/2fa/login',
   '/api/email/send-verification',
   '/api/email/verify',
   '/api/sms/send-verification',

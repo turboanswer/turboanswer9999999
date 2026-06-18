@@ -3,6 +3,7 @@ import { pool } from "./db";
 const USERS_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "two_factor_secret", ddl: "VARCHAR" },
   { name: "two_factor_enabled", ddl: "BOOLEAN DEFAULT false" },
+  { name: "two_factor_backup_codes", ddl: "TEXT[]" },
   { name: "home_address", ddl: "TEXT" },
   { name: "stripe_customer_id", ddl: "TEXT" },
   { name: "stripe_subscription_id", ddl: "TEXT" },

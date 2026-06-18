@@ -3,8 +3,40 @@ import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import bcrypt from "bcryptjs";
 import { authStorage } from "./storage";
+import { generateSecret, generateURI, verify as verifyOtp } from "otplib";
+import QRCode from "qrcode";
 
 import crypto from "crypto";
+
+const TWOFA_ISSUER = "TurboAnswer";
+
+// One-time backup recovery codes (shown once at setup, stored hashed). Format: XXXXX-XXXXX.
+function generateBackupCodes(count = 8): string[] {
+  const codes: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const raw = crypto.randomBytes(5).toString("hex").toUpperCase();
+    codes.push(`${raw.slice(0, 5)}-${raw.slice(5, 10)}`);
+  }
+  return codes;
+}
+const normalizeBackupCode = (input: string) => input.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+async function hashBackupCodes(codes: string[]): Promise<string[]> {
+  return Promise.all(codes.map((c) => bcrypt.hash(normalizeBackupCode(c), 10)));
+}
+async function buildTwoFactorSetup(email: string, secret: string): Promise<{ otpauthUrl: string; qr: string }> {
+  const otpauthUrl = generateURI({ issuer: TWOFA_ISSUER, label: email, secret });
+  const qr = await QRCode.toDataURL(otpauthUrl, { margin: 1, width: 240 });
+  return { otpauthUrl, qr };
+}
+// Tolerate ±1 time step (±30s) of clock drift between the server and the user's phone.
+async function verifyTotp(token: string, secret: string): Promise<boolean> {
+  try {
+    const result = await verifyOtp({ secret, token: String(token).replace(/\s/g, ""), epochTolerance: 30 });
+    return !!result?.valid;
+  } catch {
+    return false;
+  }
+}
 
 const smsVerificationCodes = new Map<string, { code: string; expiresAt: number; verified: boolean; attempts: number }>();
 const smsSendLimits = new Map<string, { count: number; windowStart: number }>();
@@ -525,13 +557,9 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: "An account with this email already exists" });
       }
 
-      // Require a successfully verified email code (matching this email) before
-      // creating the account. Replaces the old SMS phone-verification gate.
-      const emailKey = normalizeEmail(email);
-      const emailVerification = emailVerificationCodes.get(emailKey);
-      if (!emailVerification || !emailVerification.verified || Date.now() > emailVerification.expiresAt) {
-        return res.status(400).json({ message: "Please verify your email with the code we sent before creating your account." });
-      }
+      // Email-code verification has been removed in favor of mandatory authenticator
+      // (TOTP) 2FA. The account is created with 2FA pending; the user must scan the QR
+      // and confirm a code (see /api/2fa/verify-setup) before a session is granted.
 
       // Receptionist accounts are pre-provisioned, not self-registered. Reject any attempt
       // to claim a reserved receptionist email so the login-time role grant can never be
@@ -606,6 +634,10 @@ export async function setupAuth(app: Express) {
         }
       }
 
+      // Generate the TOTP secret up front and store it with the account (2FA not yet
+      // enabled — it flips on once the user confirms a code at /api/2fa/verify-setup).
+      const twoFaSecret = generateSecret();
+
       const user = await authStorage.upsertUser({
         email: email.toLowerCase(),
         password: hashedPassword,
@@ -617,6 +649,8 @@ export async function setupAuth(app: Express) {
         canViewAllChats: grantAdmin,
         canBanUsers: grantAdmin,
         isBetaTester,
+        twoFactorSecret: twoFaSecret,
+        twoFactorEnabled: false,
         // referralProUntil is set ONLY after we successfully claim the code below.
       });
 
@@ -654,13 +688,24 @@ export async function setupAuth(app: Express) {
         }
       }
 
-      // Consume the verification code so it can't be reused.
-      emailVerificationCodes.delete(emailKey);
+      // Generate one-time backup codes (returned ONCE in plaintext, stored hashed) and a
+      // QR for the authenticator app. No session is granted yet — the user must confirm a
+      // TOTP code via /api/2fa/verify-setup, which enables 2FA and logs them in.
+      const backupCodes = generateBackupCodes();
+      await authStorage.setTwoFactorBackupCodes(user.id, await hashBackupCodes(backupCodes));
+      const { otpauthUrl, qr } = await buildTwoFactorSetup(user.email!, twoFaSecret);
 
-      sendBrevoWelcomeEmail(user.email!, user.firstName || '').catch(() => {});
+      (req.session as any).pending2faUserId = user.id;
+      delete (req.session as any).userId;
 
-      (req.session as any).userId = user.id;
-      res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, isEmployee: user.isEmployee });
+      res.json({
+        twoFactorSetupRequired: true,
+        email: user.email,
+        firstName: user.firstName,
+        otpauthUrl,
+        qr,
+        backupCodes,
+      });
     } catch (error: any) {
       console.error("Registration error:", error);
       res.status(500).json({ message: "Registration failed. Please try again." });
@@ -710,12 +755,112 @@ export async function setupAuth(app: Express) {
 
       await maybeGrantReceptionist(user);
 
-      await authStorage.updateLastLogin(user.id);
-      (req.session as any).userId = user.id;
-      res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, isEmployee: user.isEmployee, isReceptionist: (user as any).isReceptionist });
+      // Mandatory 2FA. Password alone never grants a session.
+      if (user.twoFactorEnabled && user.twoFactorSecret) {
+        // Already enrolled — require an authenticator (or backup) code next.
+        (req.session as any).pending2faLoginUserId = user.id;
+        delete (req.session as any).userId;
+        return res.json({ twoFactorRequired: true, email: user.email });
+      }
+
+      // Legacy account with no 2FA yet — force enrollment now (fresh secret + backup codes).
+      const setupSecret = generateSecret();
+      await authStorage.setTwoFactorSecret(user.id, setupSecret);
+      const backupCodes = generateBackupCodes();
+      await authStorage.setTwoFactorBackupCodes(user.id, await hashBackupCodes(backupCodes));
+      const { otpauthUrl, qr } = await buildTwoFactorSetup(user.email!, setupSecret);
+      (req.session as any).pending2faUserId = user.id;
+      delete (req.session as any).userId;
+      return res.json({
+        twoFactorSetupRequired: true,
+        email: user.email,
+        firstName: user.firstName,
+        otpauthUrl,
+        qr,
+        backupCodes,
+      });
     } catch (error: any) {
       console.error("Login error:", error);
       res.status(500).json({ message: "Login failed. Please try again." });
+    }
+  });
+
+  // Confirm an authenticator code to finish 2FA enrollment (used by both signup and the
+  // legacy-account upgrade path). On success, 2FA is enabled and the session is granted.
+  app.post("/api/2fa/verify-setup", async (req, res) => {
+    try {
+      const { token } = req.body;
+      const pendingId = (req.session as any).pending2faUserId;
+      if (!pendingId) return res.status(401).json({ message: "No pending 2FA setup. Please sign in again." });
+      if (!token || !/^\d{6}$/.test(String(token).replace(/\s/g, ""))) {
+        return res.status(400).json({ message: "Enter the 6-digit code from your authenticator app." });
+      }
+      const user = await authStorage.getUser(pendingId);
+      if (!user || !user.twoFactorSecret) {
+        return res.status(400).json({ message: "Setup session expired. Please sign in again." });
+      }
+      if (!(await verifyTotp(String(token), user.twoFactorSecret))) {
+        return res.status(400).json({ message: "That code didn't match. Check your phone's time and enter the current code." });
+      }
+      await authStorage.enableTwoFactor(user.id);
+      await authStorage.updateLastLogin(user.id);
+      delete (req.session as any).pending2faUserId;
+      (req.session as any).userId = user.id;
+      sendBrevoWelcomeEmail(user.email!, user.firstName || '').catch(() => {});
+      res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, isEmployee: user.isEmployee, isReceptionist: (user as any).isReceptionist });
+    } catch (error: any) {
+      console.error("2FA setup verify error:", error);
+      res.status(500).json({ message: "Could not complete 2FA setup. Please try again." });
+    }
+  });
+
+  // Re-fetch the pending setup QR (e.g. after a page refresh mid-enrollment). Backup codes
+  // are never re-served — they're only shown once when first generated.
+  app.get("/api/2fa/pending-setup", async (req, res) => {
+    try {
+      const pendingId = (req.session as any).pending2faUserId;
+      if (!pendingId) return res.status(401).json({ message: "No pending 2FA setup." });
+      const user = await authStorage.getUser(pendingId);
+      if (!user || !user.twoFactorSecret) return res.status(400).json({ message: "Setup session expired." });
+      const { otpauthUrl, qr } = await buildTwoFactorSetup(user.email!, user.twoFactorSecret);
+      res.json({ email: user.email, otpauthUrl, qr });
+    } catch (error: any) {
+      console.error("2FA pending-setup error:", error);
+      res.status(500).json({ message: "Could not load setup details." });
+    }
+  });
+
+  // Complete login by verifying a 6-digit authenticator code OR a one-time backup code.
+  app.post("/api/2fa/login", async (req, res) => {
+    try {
+      const { token, backupCode } = req.body;
+      const pendingId = (req.session as any).pending2faLoginUserId;
+      if (!pendingId) return res.status(401).json({ message: "No pending sign-in. Please enter your email and password again." });
+      const user = await authStorage.getUser(pendingId);
+      if (!user || !user.twoFactorSecret) {
+        return res.status(400).json({ message: "Sign-in session expired. Please try again." });
+      }
+
+      let ok = false;
+      if (token && /^\d{6}$/.test(String(token).replace(/\s/g, ""))) {
+        ok = await verifyTotp(String(token), user.twoFactorSecret);
+      } else if (backupCode && String(backupCode).trim()) {
+        const normalized = normalizeBackupCode(String(backupCode));
+        // Match-and-consume atomically so the same one-time code can't be
+        // accepted twice by concurrent requests.
+        ok = await authStorage.consumeBackupCode(user.id, (hashed) => bcrypt.compare(normalized, hashed));
+      }
+      if (!ok) {
+        return res.status(400).json({ message: "Invalid code. Enter the current 6-digit code or a backup code." });
+      }
+
+      await authStorage.updateLastLogin(user.id);
+      delete (req.session as any).pending2faLoginUserId;
+      (req.session as any).userId = user.id;
+      res.json({ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, isEmployee: user.isEmployee, isReceptionist: (user as any).isReceptionist });
+    } catch (error: any) {
+      console.error("2FA login verify error:", error);
+      res.status(500).json({ message: "Sign-in failed. Please try again." });
     }
   });
 

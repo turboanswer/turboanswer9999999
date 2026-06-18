@@ -30,5 +30,6 @@
 - [AI identity guard](ai-identity-guard.md) — every user-facing assistant prompt must pin the product identity, never a vendor; mixed backend + Gemini fallback leaks "Google" otherwise.
 - [Chat media rendering](chat-media-render.md) — generated images are ![alt](dataURL); extract media from RAW text BEFORE cleanMarkdown, use a constant safe alt (a prompt with "]" breaks the regex → base64 wall), prefer a data: url for MIME.
 - [Pre-auth endpoints must be CSRF-exempt](auth-csrf-preauth.md) — "won't send a code" is usually CSRF 403 before Brevo, not email; double-submit cookie doesn't round-trip on published/native; exempt login/register/verify/reset, exact-match not startsWith, fix rate-limiter mount paths.
+- [otplib v13 API](otplib-v13-api.md) — v13 is ESM functional (no `authenticator` object); use generateSecret/generateURI/verify; verify is async returning {valid}; await it everywhere.
 - [Tier & pricing strings scattered](tier-pricing-strings.md) — no central tier/price/model constant; rebrands must touch paypal+stripe+routes emails+multi-ai catalog+all client popups/dashboards or stale copies leak via email/checkout/api.
 - [Broadcast / bulk email safety](broadcast-email-safety.md) — "send to all" confirm tokens must be single-use (nonce, not just signed+TTL or they replay) and HTML-escape DB-sourced recipient names in HTML bodies.
