@@ -23,6 +23,7 @@
 - [Native app vs website identity](native-vs-website-identity.md) — Capacitor app is a separate "division" (dark futuristic "Matrix AI"); native must never land on website LandingPage; web keeps its own look.
 - [Azure Infra Control Center](azure-infra-control-center.md) — owner-only Azure admin dashboard; SP secret ID-vs-value gotcha + the RBAC roles its data planes need (403/404 = missing roles, not code).
 - [Cookie SameSite dual-origin](cookie-samesite-dual-origin.md) — web is same-origin (Lax) but native app is cross-origin localhost→Azure (needs None;Secure); pick SameSite per req.origin or login breaks in app only.
+- [Payment redirect base URL](payment-redirect-base-url.md) — Stripe/PayPal return URLs must use one allowlisted helper, never req.get('host') (raw Azure host drops the cookie → logout + no upgrade); allowlist guards open-redirect.
 - [Text engine = Claude](text-engine-claude.md) — all text/vision/doc on Claude, no fallback (fail loud); image gen/edit + TTS are the deliberate non-Claude carve-out kept per user; direct-router remaps stray ids to Claude.
 - [Claude prod outage triage](claude-prod-outage-triage.md) — dev-healthy + green deploy of HEAD on main => it's Foundry / Azure App Service config (endpoint/key/deployment names), NOT code; sandbox can't reach prod, read telemetry via azure-infra.ts.
 - [AI action confirmation tokens](ai-action-confirmation-token.md) — side-effect AI actions must require a server-signed HMAC proposal token (user+action+args-bound), not trust the client; UI confirm is not a control.

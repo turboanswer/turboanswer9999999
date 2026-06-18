@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
 import crypto from "crypto";
@@ -663,6 +663,63 @@ After downloading, verify the file is exactly 4,041,426 bytes</p>
       return `https://${replitDomain}`;
     }
     return 'https://turbo-answer.replit.app';
+  }
+
+  // Base URL for payment redirects (Stripe/PayPal return pages).
+  // CRITICAL #1 — correctness: never return the raw *.azurewebsites.net origin.
+  // The login session cookie is scoped to the public custom domain
+  // (turboanswer.it.com); returning the browser to the Azure host lands it on a
+  // DIFFERENT origin, so the cookie is not sent — the user looks logged out and
+  // the paid tier never syncs after checkout.
+  // CRITICAL #2 — security: only ever return an ALLOWLISTED host. These values
+  // become Stripe/PayPal success/cancel/return URLs, so blindly trusting the
+  // browser-supplied Origin/Referer (or a spoofed Host) would let a crafted
+  // request redirect a paying user to an attacker domain (open redirect /
+  // phishing). We therefore validate every candidate against a fixed allowlist
+  // and fall back to the canonical domain.
+  function getPublicBaseUrl(req: Request): string {
+    const override = process.env.PUBLIC_APP_URL?.trim().replace(/\/+$/, '');
+    const CANONICAL = override || 'https://turboanswer.it.com';
+
+    // Hosts we are willing to send a user back to.
+    const allowed = new Set<string>();
+    const addHost = (val?: string | null) => {
+      if (!val) return;
+      try {
+        const u = new URL(val.includes('://') ? val : `https://${val}`);
+        allowed.add(u.host.toLowerCase());
+      } catch {
+        /* ignore malformed entries */
+      }
+    };
+    addHost(CANONICAL);
+    addHost(override);
+    addHost('turbo-answer.replit.app');
+    (process.env.REPLIT_DOMAINS?.split(',') || []).forEach((d) => addHost(d.trim()));
+
+    // Return the candidate's origin only when its host is allowlisted (or a
+    // local dev host — never a phishing vector). Otherwise reject it.
+    const pick = (val?: string | null): string | null => {
+      if (!val) return null;
+      try {
+        const u = new URL(val.includes('://') ? val : `https://${val}`);
+        const host = u.host.toLowerCase();
+        const isLocal = u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+        if (allowed.has(host) || isLocal) return `${u.protocol}//${u.host}`;
+      } catch {
+        /* ignore malformed values */
+      }
+      return null;
+    };
+
+    // Prefer the real browser origin, then referer, then the proxied host —
+    // but every candidate must pass the allowlist check above.
+    return (
+      pick(req.headers.origin as string | undefined) ||
+      pick(req.headers.referer as string | undefined) ||
+      pick(req.get('host')) ||
+      CANONICAL
+    );
   }
 
   app.get("/robots.txt", (req, res) => {
@@ -2649,7 +2706,7 @@ Formatting rules:
 
       console.log('[Stripe Checkout] Starting for user:', userId, 'plan:', tier);
 
-      const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
+      const baseUrl = getPublicBaseUrl(req);
       // Stripe substitutes the literal {CHECKOUT_SESSION_ID} on redirect so the
       // return flow can verify the exact session that was paid.
       const { url } = await createCheckoutSession({
@@ -2678,7 +2735,7 @@ Formatting rules:
       if (!user.stripeCustomerId) {
         return res.status(400).json({ error: 'No active Stripe subscription found.' });
       }
-      const baseUrl = `https://${req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000'}`;
+      const baseUrl = getPublicBaseUrl(req);
       const { url } = await createPortalSession(user.stripeCustomerId, `${baseUrl}/chat`);
       res.json({ url });
     } catch (error: any) {
@@ -3457,8 +3514,7 @@ Formatting rules:
         return res.json({ free: true, success: true, message: 'Code Studio included free with Enterprise!' });
       }
 
-      const host = req.get('host') || process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
-      const appUrl = `https://${host}`;
+      const appUrl = getPublicBaseUrl(req);
       console.log(`[Addon] Creating subscription for user ${userId}, return base: ${appUrl}`);
       const result = await createAddonSubscription(
         user.email,
@@ -6628,7 +6684,7 @@ ${currentHtml}`;
         return res.status(400).json({ error: `Invalid credit pack. Valid options: ${Object.keys(CREDIT_PACKS).join(', ')}` });
       }
       const userId = req.user.claims.sub;
-      const origin = req.headers.origin || `${req.protocol}://${req.headers.host}`;
+      const origin = getPublicBaseUrl(req);
       const { orderId, approvalUrl } = await createCreditPackOrder(
         creditCount,
         `${origin}/code-studio?creditSuccess=1`,
