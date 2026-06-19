@@ -587,6 +587,24 @@ export const stackTraceDiagnoses = pgTable("stack_trace_diagnoses", {
   filesUsed: jsonb("files_used").$type<{ path: string; line?: number }[]>().notNull().default([]),
   warnings: jsonb("warnings").$type<string[]>().notNull().default([]),
   prUrl: text("pr_url"),
+  // ── Revolutionary upgrade fields ──────────────────────────────────────────
+  // Where this record came from: 'manual' (user pasted) or 'ingest' (auto-caught
+  // from Sentry / a log drain via the public webhook).
+  source: text("source").notNull().default("manual"),
+  // Lifecycle for the signals feed: 'diagnosed' | 'new' (untriaged ingest) | 'triaged'.
+  status: text("status").notNull().default("diagnosed"),
+  // 'critical' | 'high' | 'medium' | 'low'
+  severity: text("severity"),
+  // 0–100 confidence the AI has in the primary root cause.
+  confidence: integer("confidence"),
+  // Ranked alternative hypotheses with their own confidence scores.
+  alternatives: jsonb("alternatives").$type<{ cause: string; confidence: number }[]>().notNull().default([]),
+  // On-call incident brief (impact / mitigate-now / permanent-fix).
+  incidentSummary: text("incident_summary"),
+  // Auto-written blameless postmortem (markdown).
+  postmortem: text("postmortem"),
+  // Likely culprit commit found via AI git-bisect.
+  culprit: jsonb("culprit").$type<{ sha: string; author: string; date: string; message: string; url: string } | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

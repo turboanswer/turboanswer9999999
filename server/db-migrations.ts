@@ -51,6 +51,11 @@ const USERS_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "daily_questions_used", ddl: "INTEGER DEFAULT 0" },
   { name: "daily_questions_reset_at", ddl: "TIMESTAMP" },
   { name: "timezone", ddl: "VARCHAR DEFAULT 'UTC'" },
+  // Stack Trace Surgeon: free trial + metered credits + ingest webhook token.
+  { name: "stack_trace_trial_used", ddl: "INTEGER DEFAULT 0" },
+  { name: "stack_trace_credits", ddl: "INTEGER DEFAULT 0" },
+  { name: "stack_trace_credit_granted", ddl: "BOOLEAN DEFAULT false" },
+  { name: "stack_trace_ingest_token", ddl: "TEXT" },
 ];
 
 // Extra columns we need on tables OTHER than users.
@@ -64,6 +69,15 @@ const EXTRA_TABLE_COLUMNS: Array<{ table: string; name: string; ddl: string }> =
   { table: "support_tickets", name: "status", ddl: "TEXT DEFAULT 'open'" },
   { table: "support_tickets", name: "created_at", ddl: "TIMESTAMP DEFAULT now()" },
   { table: "support_tickets", name: "updated_at", ddl: "TIMESTAMP DEFAULT now()" },
+  // Stack Trace Surgeon revolutionary-upgrade columns (added after initial table).
+  { table: "stack_trace_diagnoses", name: "source", ddl: "TEXT NOT NULL DEFAULT 'manual'" },
+  { table: "stack_trace_diagnoses", name: "status", ddl: "TEXT NOT NULL DEFAULT 'diagnosed'" },
+  { table: "stack_trace_diagnoses", name: "severity", ddl: "TEXT" },
+  { table: "stack_trace_diagnoses", name: "confidence", ddl: "INTEGER" },
+  { table: "stack_trace_diagnoses", name: "alternatives", ddl: "JSONB NOT NULL DEFAULT '[]'::jsonb" },
+  { table: "stack_trace_diagnoses", name: "incident_summary", ddl: "TEXT" },
+  { table: "stack_trace_diagnoses", name: "postmortem", ddl: "TEXT" },
+  { table: "stack_trace_diagnoses", name: "culprit", ddl: "JSONB" },
 ];
 
 // Columns that need to be made NULLABLE because we relaxed the constraint.
@@ -89,6 +103,14 @@ const NEW_TABLES: Array<{ name: string; ddl: string }> = [
       files_used JSONB NOT NULL DEFAULT '[]'::jsonb,
       warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
       pr_url TEXT,
+      source TEXT NOT NULL DEFAULT 'manual',
+      status TEXT NOT NULL DEFAULT 'diagnosed',
+      severity TEXT,
+      confidence INTEGER,
+      alternatives JSONB NOT NULL DEFAULT '[]'::jsonb,
+      incident_summary TEXT,
+      postmortem TEXT,
+      culprit JSONB,
       created_at TIMESTAMP NOT NULL DEFAULT now()
     )`,
   },

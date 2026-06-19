@@ -949,23 +949,51 @@ function downloadAAB(){
   // Paste an error/stack trace + GitHub repo URL → we extract the file paths
   // mentioned in the trace, fetch JUST those files from the repo, and feed
   // {trace + relevant source} to the AI for a focused root-cause diagnosis.
-  // RESEARCH-ONLY: gated to Research / Enterprise / Owner / Employee.
+  //
+  // ACCESS MODEL (revolutionary upgrade):
+  //  • Free / Pro: STS_TRIAL_LIMIT free diagnoses, then an upgrade wall.
+  //  • Research / Enterprise: a one-time STS_GRANT_CENTS ($35) welcome credit,
+  //    then strict per-use metering (diagnose = 50¢, PR/apply = 150¢, stop at 0).
+  //  • Owner / Employee: unlimited, never charged.
+  const STS_DIAGNOSE_COST_CENTS = 50;
+  const STS_ACTION_COST_CENTS = 150;   // open-PR or direct-apply
+  const STS_TRIAL_LIMIT = 2;
+  const STS_GRANT_CENTS = 3500;        // one-time $35 welcome credit on upgrade
+
+  // Resolve the caller's access posture once. Grants the one-time credit on the
+  // first paid-tier visit. Returns enough for both the gate and the spend log.
+  async function stsResolveAccess(userId: string, user: any) {
+    const tier = (user?.subscriptionTier || 'free').toLowerCase();
+    const ownerLike = isOwnerAccount(user) || (user as any)?.isEmployee === true;
+    const paid = tier === 'research' || tier === 'enterprise';
+    let current = user;
+    if (paid && !ownerLike && current?.stackTraceCreditGranted !== true) {
+      try { current = await storage.grantStackTraceCredit(userId, STS_GRANT_CENTS); }
+      catch (e: any) { console.error('[StackTraceSurgeon] grant failed:', e?.message || e); }
+    }
+    const credits = Math.max(0, current?.stackTraceCredits ?? 0);
+    const trialUsed = Math.max(0, current?.stackTraceTrialUsed ?? 0);
+    return { tier, ownerLike, paid, credits, trialUsed, user: current };
+  }
+
+  // Lazily ensure the user has an ingest webhook token. Returns the token.
+  async function stsEnsureIngestToken(userId: string, user: any): Promise<string> {
+    if (user?.stackTraceIngestToken && typeof user.stackTraceIngestToken === 'string') {
+      return user.stackTraceIngestToken;
+    }
+    const { randomBytes } = await import('crypto');
+    const token = randomBytes(24).toString('hex');
+    await storage.setStackTraceIngestToken(userId, token);
+    return token;
+  }
+
   app.post("/api/stack-trace-surgeon/diagnose", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
       const user = userId ? await storage.getUser(userId) : null;
-      const tier = (user?.subscriptionTier || 'free').toLowerCase();
-      const allowed =
-        tier === 'research' ||
-        tier === 'enterprise' ||
-        isOwnerAccount(user) ||
-        (user as any)?.isEmployee === true;
-      if (!allowed) {
-        return res.status(403).json({
-          message: "Stack Trace Surgeon is a Research-tier feature. Upgrade to Research to unlock unlimited repo-aware debugging.",
-          code: "RESEARCH_TIER_REQUIRED",
-        });
-      }
+      if (!user) return res.status(401).json({ message: "Not authenticated." });
+
+      const acc = await stsResolveAccess(userId, user);
 
       const { stackTrace, repoUrl, githubToken } = req.body || {};
       if (!stackTrace || typeof stackTrace !== 'string' || !stackTrace.trim()) {
@@ -975,9 +1003,51 @@ function downloadAAB(){
         return res.status(400).json({ message: "GitHub repo URL is required (e.g. https://github.com/owner/repo)." });
       }
 
-      const effectiveTier = isOwnerAccount(user) ? 'owner' : tier;
+      // ── Reserve BEFORE the work via a single atomic conditional write, so two
+      //    parallel requests can never both pass the gate (no overspend / no
+      //    free 3rd trial). Refunded below if the diagnosis itself throws. ──────
+      let creditsRemaining = acc.credits;
+      let trialUsed = acc.trialUsed;
+      let reservedCredits = false;
+      let reservedTrial = false;
+      if (!acc.ownerLike) {
+        if (acc.paid) {
+          const debit = await storage.debitStackTraceCredits(userId, STS_DIAGNOSE_COST_CENTS);
+          if (!debit.ok) {
+            return res.status(402).json({
+              message: "You're out of Stack Trace Surgeon credits. Top up to keep diagnosing.",
+              code: "OUT_OF_CREDITS",
+              credits: debit.credits,
+            });
+          }
+          reservedCredits = true;
+          creditsRemaining = debit.credits;
+        } else {
+          const t = await storage.consumeStackTraceTrial(userId, STS_TRIAL_LIMIT);
+          if (!t.ok) {
+            return res.status(402).json({
+              message: `You've used all ${STS_TRIAL_LIMIT} free diagnoses. Upgrade to Research to unlock the full debug terminal — including a $35 welcome credit.`,
+              code: "TRIAL_EXHAUSTED",
+              trialUsed: t.trialUsed,
+              trialLimit: STS_TRIAL_LIMIT,
+            });
+          }
+          reservedTrial = true;
+          trialUsed = t.trialUsed;
+        }
+      }
+
+      const effectiveTier = acc.ownerLike ? 'owner' : acc.tier;
       const { diagnoseStackTrace } = await import('./services/stack-trace-surgeon.js');
-      const result = await diagnoseStackTrace(stackTrace, repoUrl, effectiveTier, githubToken && typeof githubToken === 'string' ? githubToken : undefined);
+      let result;
+      try {
+        result = await diagnoseStackTrace(stackTrace, repoUrl, effectiveTier, githubToken && typeof githubToken === 'string' ? githubToken : undefined);
+      } catch (e: any) {
+        // Work failed — refund the reservation so failures are always free.
+        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_DIAGNOSE_COST_CENTS); } catch {} }
+        if (reservedTrial) { try { await storage.refundStackTraceTrial(userId); } catch {} }
+        throw e;
+      }
 
       // Auto-save to history (best-effort; never block the response on this).
       let savedId: number | undefined;
@@ -994,16 +1064,193 @@ function downloadAAB(){
           framesParsed: result.framesParsed,
           filesUsed: result.filesUsed,
           warnings: result.warnings,
+          source: 'manual',
+          status: 'diagnosed',
+          severity: result.severity,
+          confidence: result.confidence,
+          alternatives: result.alternatives,
+          incidentSummary: result.incidentSummary,
+          postmortem: result.postmortem,
+          culprit: result.culprit,
         });
         savedId = saved.id;
       } catch (e: any) {
         console.error("[StackTraceSurgeon] Save failed:", e?.message || e);
       }
 
-      res.json({ ...result, id: savedId });
+      res.json({
+        ...result,
+        id: savedId,
+        account: {
+          ownerLike: acc.ownerLike,
+          paid: acc.paid,
+          tier: acc.tier,
+          credits: creditsRemaining,
+          trialUsed,
+          trialLimit: STS_TRIAL_LIMIT,
+          diagnoseCostCents: STS_DIAGNOSE_COST_CENTS,
+        },
+      });
     } catch (error: any) {
       console.error("[StackTraceSurgeon] Error:", error?.message || error);
       res.status(500).json({ message: "Diagnosis failed. Please try again." });
+    }
+  });
+
+  // Account / access readout for the command-center UI.
+  app.get("/api/stack-trace-surgeon/account", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      if (!user) return res.status(401).json({ message: "Not authenticated." });
+      const acc = await stsResolveAccess(userId, user);
+      const ingestToken = await stsEnsureIngestToken(userId, acc.user);
+      res.json({
+        ownerLike: acc.ownerLike,
+        paid: acc.paid,
+        tier: acc.tier,
+        credits: acc.credits,
+        creditGranted: acc.user?.stackTraceCreditGranted === true,
+        trialUsed: acc.trialUsed,
+        trialLimit: STS_TRIAL_LIMIT,
+        diagnoseCostCents: STS_DIAGNOSE_COST_CENTS,
+        actionCostCents: STS_ACTION_COST_CENTS,
+        grantCents: STS_GRANT_CENTS,
+        ingestToken,
+      });
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] account failed:", e?.message || e);
+      res.status(500).json({ message: "Failed to load account." });
+    }
+  });
+
+  // Rotate the ingest webhook token (invalidates the old URL).
+  app.post("/api/stack-trace-surgeon/ingest-token/rotate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const user = userId ? await storage.getUser(userId) : null;
+      if (!user) return res.status(401).json({ message: "Not authenticated." });
+      const { randomBytes } = await import('crypto');
+      const token = randomBytes(24).toString('hex');
+      await storage.setStackTraceIngestToken(userId, token);
+      res.json({ ingestToken: token });
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] rotate failed:", e?.message || e);
+      res.status(500).json({ message: "Failed to rotate token." });
+    }
+  });
+
+  // Incoming signals feed (auto-caught production errors).
+  app.get("/api/stack-trace-surgeon/signals", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) return res.status(401).json({ message: "Not authenticated." });
+      const rows = await storage.getStackTraceSignalsByUser(userId, 50);
+      res.json(rows);
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] signals failed:", e?.message || e);
+      res.status(500).json({ message: "Failed to load signals." });
+    }
+  });
+
+  // ── PUBLIC ingest webhook — auto-catch production errors ────────────────────
+  // No auth: identified by the per-user secret token in the URL. Accepts Sentry
+  // style payloads or a raw { stackTrace, title } body. Cheap auto-triage (no
+  // credit charge) populates severity + one-line cause. Rate-limited per token.
+  const _stsIngestHits = new Map<string, { count: number; resetAt: number }>();
+  const STS_INGEST_MAX_PER_MIN = 20;
+  const STS_INGEST_TRIAGE_CAP_PER_DAY = 60; // beyond this, store raw (no AI triage)
+  const _stsTriageDay = new Map<string, { count: number; day: string }>();
+  app.post("/api/stack-trace-surgeon/ingest/:token", async (req: any, res) => {
+    try {
+      const token = String(req.params.token || '');
+      if (!token || token.length < 16) return res.status(404).json({ message: "Unknown ingest endpoint." });
+
+      // Per-token rate limit.
+      const now = Date.now();
+      const rl = _stsIngestHits.get(token);
+      if (!rl || now > rl.resetAt) {
+        _stsIngestHits.set(token, { count: 1, resetAt: now + 60_000 });
+      } else {
+        rl.count += 1;
+        if (rl.count > STS_INGEST_MAX_PER_MIN) {
+          return res.status(429).json({ message: "Too many events — slow down." });
+        }
+      }
+
+      const user = await storage.getUserByStackTraceIngestToken(token);
+      if (!user) return res.status(404).json({ message: "Unknown ingest endpoint." });
+
+      // Extract a stack trace + title from common shapes (Sentry / raw / generic).
+      const b = req.body || {};
+      const sentryExc = b?.exception?.values?.[0];
+      const stackTrace: string =
+        (typeof b.stackTrace === 'string' && b.stackTrace) ||
+        (typeof b.stacktrace === 'string' && b.stacktrace) ||
+        (typeof b.trace === 'string' && b.trace) ||
+        (sentryExc ? `${sentryExc.type || 'Error'}: ${sentryExc.value || ''}\n${(sentryExc.stacktrace?.frames || []).slice(-15).map((f: any) => `  at ${f.function || '?'} (${f.filename || '?'}:${f.lineno ?? '?'})`).reverse().join('\n')}` : '') ||
+        (typeof b.message === 'string' && b.message) ||
+        '';
+      if (!stackTrace.trim()) return res.status(400).json({ message: "No stack trace / error found in payload." });
+
+      const hintTitle =
+        (typeof b.title === 'string' && b.title) ||
+        (sentryExc ? `${sentryExc.type || 'Error'}: ${sentryExc.value || ''}` : '') ||
+        (typeof b.message === 'string' && b.message) ||
+        '';
+
+      // Cheap triage, capped per day to control cost.
+      const day = new Date().toISOString().slice(0, 10);
+      const tday = _stsTriageDay.get(token);
+      let canTriage = true;
+      if (!tday || tday.day !== day) _stsTriageDay.set(token, { count: 0, day });
+      const cur = _stsTriageDay.get(token)!;
+      if (cur.count >= STS_INGEST_TRIAGE_CAP_PER_DAY) canTriage = false;
+
+      let title = (hintTitle || stackTrace.split('\n').find((l: string) => l.trim()) || 'Production error').trim().slice(0, 120);
+      let rootCause = 'Awaiting diagnosis — open this signal in the terminal to run a full root-cause analysis.';
+      let severity: string | undefined;
+      let confidence: number | undefined;
+      let status = 'new';
+      if (canTriage) {
+        try {
+          const { triageSignal } = await import('./services/stack-trace-surgeon.js');
+          const t = await triageSignal(stackTrace, hintTitle);
+          title = t.title || title;
+          rootCause = t.rootCause;
+          severity = t.severity;
+          confidence = t.confidence;
+          status = 'triaged';
+          cur.count += 1;
+        } catch (e: any) {
+          console.error('[StackTraceSurgeon] ingest triage failed:', e?.message || e);
+        }
+      }
+
+      const saved = await storage.saveStackTraceDiagnosis({
+        userId: user.id,
+        title,
+        stackTrace: stackTrace.slice(0, 20000),
+        repoUrl: typeof b.repoUrl === 'string' ? b.repoUrl : '',
+        rootCause,
+        suggestedFix: '',
+        framesParsed: 0,
+        filesUsed: [],
+        warnings: [],
+        source: 'ingest',
+        status,
+        severity,
+        confidence,
+        alternatives: [],
+        incidentSummary: '',
+        postmortem: '',
+        culprit: null,
+      });
+
+      res.json({ ok: true, id: saved.id, status });
+    } catch (e: any) {
+      console.error("[StackTraceSurgeon] ingest failed:", e?.message || e);
+      res.status(500).json({ message: "Ingest failed." });
     }
   });
 
@@ -1011,10 +1258,6 @@ function downloadAAB(){
   app.get("/api/stack-trace-surgeon/history", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      const user = userId ? await storage.getUser(userId) : null;
-      const tier = (user?.subscriptionTier || 'free').toLowerCase();
-      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
-      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
       const rows = await storage.getStackTraceDiagnosesByUser(userId, 50);
       res.json(rows);
     } catch (e: any) {
@@ -1027,10 +1270,6 @@ function downloadAAB(){
   app.get("/api/stack-trace-surgeon/history/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      const user = userId ? await storage.getUser(userId) : null;
-      const tier = (user?.subscriptionTier || 'free').toLowerCase();
-      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
-      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
       const id = parseInt(req.params.id, 10);
       if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid id." });
       const row = await getDiagWithFallback(id, userId);
@@ -1045,10 +1284,6 @@ function downloadAAB(){
   app.delete("/api/stack-trace-surgeon/history/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
-      const user = userId ? await storage.getUser(userId) : null;
-      const tier = (user?.subscriptionTier || 'free').toLowerCase();
-      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
-      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
       const id = parseInt(req.params.id, 10);
       if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid id." });
       await storage.deleteStackTraceDiagnosis(id, userId);
@@ -1063,9 +1298,13 @@ function downloadAAB(){
     try {
       const userId = req.user?.claims?.sub;
       const user = userId ? await storage.getUser(userId) : null;
-      const tier = (user?.subscriptionTier || 'free').toLowerCase();
-      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
-      if (!allowed) return res.status(403).json({ message: "Research tier required.", code: "RESEARCH_TIER_REQUIRED" });
+      const acc = await stsResolveAccess(userId, user);
+      if (!acc.ownerLike && !acc.paid) {
+        return res.status(402).json({
+          message: "Shipping fixes (opening a PR) is a paid feature. Upgrade to Research to push fixes — includes a $35 welcome credit.",
+          code: "UPGRADE_REQUIRED",
+        });
+      }
 
       const { diagnosisId, githubToken: providedToken } = req.body || {};
       if (!diagnosisId || typeof diagnosisId !== 'number') {
@@ -1142,19 +1381,38 @@ function downloadAAB(){
         '_Please review carefully before merging. The patch was generated from a stack trace; verify it does not break adjacent behavior._',
       ].join('\n');
 
-      const pr = await createFixPullRequest({
-        owner: ref.owner,
-        repo: ref.repo,
-        filePath: livePath,
-        newContent: patched,
-        commitMessage,
-        prTitle,
-        prBody,
-        token: githubToken,
-      });
+      // Reserve the action cost atomically just before the side-effecting call.
+      // All validation above is free; only a real PR attempt costs credits.
+      let creditsRemaining = acc.credits;
+      let reservedCredits = false;
+      if (!acc.ownerLike) {
+        const debit = await storage.debitStackTraceCredits(userId, STS_ACTION_COST_CENTS);
+        if (!debit.ok) {
+          return res.status(402).json({ message: "Not enough credits to open a PR.", code: "OUT_OF_CREDITS", credits: debit.credits });
+        }
+        reservedCredits = true;
+        creditsRemaining = debit.credits;
+      }
+
+      let pr;
+      try {
+        pr = await createFixPullRequest({
+          owner: ref.owner,
+          repo: ref.repo,
+          filePath: livePath,
+          newContent: patched,
+          commitMessage,
+          prTitle,
+          prBody,
+          token: githubToken,
+        });
+      } catch (e: any) {
+        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_ACTION_COST_CENTS); } catch {} }
+        throw e;
+      }
 
       await storage.setStackTraceDiagnosisPrUrl(diagnosisId, userId, pr.url);
-      res.json({ ok: true, prUrl: pr.url, prNumber: pr.number, branch: pr.branch });
+      res.json({ ok: true, prUrl: pr.url, prNumber: pr.number, branch: pr.branch, credits: creditsRemaining });
     } catch (e: any) {
       console.error("[StackTraceSurgeon] Open PR failed:", e?.status, e?.message || e);
       const status = e?.status === 401 || e?.status === 403 ? 403 : 500;
@@ -1192,6 +1450,11 @@ function downloadAAB(){
           code: "OWNER_OR_OWN_PAT_REQUIRED",
         });
       }
+
+      // Metering: paid (non-owner) users spend STS_ACTION_COST_CENTS per apply.
+      // Grant the welcome credit if this is their first paid action. The actual
+      // atomic reservation happens just before the commit (so validation is free).
+      const acc = await stsResolveAccess(userId, user);
 
       const { diagnosisId, githubToken: providedToken, confirmedDirect } = req.body || {};
       if (!diagnosisId || typeof diagnosisId !== 'number') {
@@ -1266,6 +1529,25 @@ function downloadAAB(){
 
       const commitMessage = `fix: ${diag.title.slice(0, 60)}\n\nApplied via TurboAnswer Stack Trace Surgeon.\nDiagnosis #${diag.id}.`;
 
+      // Reserve the action cost atomically just before the commit (validation free).
+      let creditsRemaining = acc.credits;
+      let reservedCredits = false;
+      if (!acc.ownerLike) {
+        let debit;
+        try {
+          debit = await storage.debitStackTraceCredits(userId, STS_ACTION_COST_CENTS);
+        } catch (e) {
+          _applyFixInFlight.delete(inflightKey); // never leak the in-flight lock on a DB error
+          throw e;
+        }
+        if (!debit.ok) {
+          _applyFixInFlight.delete(inflightKey);
+          return res.status(402).json({ message: "Not enough credits to apply a fix.", code: "OUT_OF_CREDITS", credits: debit.credits });
+        }
+        reservedCredits = true;
+        creditsRemaining = debit.credits;
+      }
+
       let result;
       try {
         result = await applyFixDirect({
@@ -1276,6 +1558,9 @@ function downloadAAB(){
           commitMessage,
           token: githubToken,
         });
+      } catch (e: any) {
+        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_ACTION_COST_CENTS); } catch {} }
+        throw e;
       } finally {
         _applyFixInFlight.delete(inflightKey);
       }
@@ -1290,6 +1575,7 @@ function downloadAAB(){
         commitUrl: result.commitUrl,
         branch: result.branch,
         filePath: livePath,
+        credits: creditsRemaining,
       });
     } catch (e: any) {
       console.error("[StackTraceSurgeon] Direct apply failed:", e?.status, e?.message || e);
@@ -1419,12 +1705,6 @@ function downloadAAB(){
   // string where it could be captured by access logs or browser history.
   app.post("/api/stack-trace-surgeon/pr-checks", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
-      const user = userId ? await storage.getUser(userId) : null;
-      const tier = (user?.subscriptionTier || 'free').toLowerCase();
-      const allowed = tier === 'research' || tier === 'enterprise' || isOwnerAccount(user) || (user as any)?.isEmployee === true;
-      if (!allowed) return res.status(403).json({ message: "Research tier required." });
-
       const prUrl = typeof req.body?.prUrl === 'string' ? req.body.prUrl : '';
       const providedToken = typeof req.body?.githubToken === 'string' ? req.body.githubToken.trim() : '';
       if (!prUrl) return res.status(400).json({ message: "prUrl is required." });
@@ -1433,12 +1713,20 @@ function downloadAAB(){
       const ref = parsePrUrl(prUrl);
       if (!ref) return res.status(400).json({ message: "Not a valid github.com PR URL." });
 
+      // Prefer the caller's own token. Only fall back to the workspace integration
+      // token when the caller actually owns a diagnosis whose PR this is — otherwise
+      // any authenticated user could read arbitrary repos' CI via the shared token.
       let token = providedToken;
       if (!token) {
-        const integrationToken = await getReplitGithubToken();
-        if (integrationToken) token = integrationToken;
+        const userId = req.user?.claims?.sub;
+        const own = userId ? await storage.getStackTraceDiagnosesByUser(userId, 500) : [];
+        const ownsThisPr = own.some((d) => typeof d.prUrl === 'string' && d.prUrl && d.prUrl.split('/files')[0].split('#')[0] === prUrl.split('/files')[0].split('#')[0]);
+        if (ownsThisPr) {
+          const integrationToken = await getReplitGithubToken();
+          if (integrationToken) token = integrationToken;
+        }
       }
-      if (!token) return res.status(400).json({ message: "GitHub token required to read PR checks." });
+      if (!token) return res.status(400).json({ message: "GitHub token required to read PR checks. Paste a token with read access to this repo." });
 
       const summary = await getPullRequestChecks(ref.owner, ref.repo, ref.number, token);
       res.json(summary);

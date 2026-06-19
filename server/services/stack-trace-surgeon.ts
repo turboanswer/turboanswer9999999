@@ -166,7 +166,86 @@ export type Diagnosis = {
   filesUsed: { path: string; line?: number }[];
   framesParsed: number;
   warnings: string[];
+  // ── Revolutionary upgrade ──────────────────────────────────────────────────
+  confidence: number;                                   // 0–100
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  alternatives: { cause: string; confidence: number }[];
+  incidentSummary: string;                              // on-call incident brief
+  postmortem: string;                                   // blameless postmortem (markdown)
+  culprit: { sha: string; author: string; date: string; message: string; url: string } | null;
 };
+
+// ── Deep repo reasoning: follow local imports one hop ─────────────────────────
+// Extract relative import targets from a source file so we can pull in the
+// modules the failing file actually depends on. Only relative paths ('./' '../')
+// are followed — never node_modules / stdlib.
+const IMPORT_PATTERNS: RegExp[] = [
+  /import\s+(?:[^'"]+\s+from\s+)?['"](\.[^'"]+)['"]/g, // JS/TS import … from './x'
+  /require\(\s*['"](\.[^'"]+)['"]\s*\)/g,              // CommonJS require('./x')
+  /from\s+(\.[^\s]+)\s+import/g,                       // Python: from .mod import
+];
+
+const IMPORT_EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.go', '.rb', '/index.ts', '/index.js', '/__init__.py'];
+const DEEP_FILE_LIMIT = 6;
+
+function resolveRelative(fromPath: string, target: string): string {
+  const dir = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/')) : '';
+  // Python dotted: ".mod" / "..pkg.mod" → strip leading dots into ../, dots→/
+  let t = target;
+  if (/^\.+[A-Za-z_]/.test(t) && !t.includes('/')) {
+    const dots = (t.match(/^\.+/) || [''])[0].length;
+    const rest = t.slice(dots).replace(/\./g, '/');
+    t = (dots > 1 ? '../'.repeat(dots - 1) : './') + rest;
+  }
+  const parts = (dir + '/' + t).split('/');
+  const out: string[] = [];
+  for (const p of parts) {
+    if (p === '' || p === '.') continue;
+    if (p === '..') out.pop();
+    else out.push(p);
+  }
+  return out.join('/');
+}
+
+async function expandWithImports(
+  ref: RepoRef,
+  seed: { path: string; content: string; line?: number }[],
+  token?: string,
+): Promise<{ path: string; content: string; line?: number }[]> {
+  const have = new Set(seed.map(f => f.path));
+  const extra: { path: string; content: string; line?: number }[] = [];
+  const branches = Array.from(new Set([ref.branch, ref.branch === 'main' ? 'master' : 'main']));
+  for (const f of seed) {
+    if (extra.length >= DEEP_FILE_LIMIT) break;
+    const targets = new Set<string>();
+    for (const re of IMPORT_PATTERNS) {
+      re.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(f.content)) !== null) {
+        const base = resolveRelative(f.path, m[1]);
+        if (base) targets.add(base);
+      }
+    }
+    for (const base of Array.from(targets)) {
+      if (extra.length >= DEEP_FILE_LIMIT) break;
+      for (const ext of IMPORT_EXTS) {
+        const cand = base + ext;
+        if (have.has(cand) || !FILE_EXT_RE.test(cand)) continue;
+        let content: string | null = null;
+        for (const br of branches) {
+          content = await tryFetchRaw(ref.owner, ref.repo, br, cand, token);
+          if (content) break;
+        }
+        if (content) {
+          have.add(cand);
+          extra.push({ path: cand, content });
+          break;
+        }
+      }
+    }
+  }
+  return extra;
+}
 
 function buildPrompt(stackTrace: string, files: { path: string; content: string; line?: number }[]): string {
   const fileBlocks = files.map(f => {
@@ -197,9 +276,22 @@ function buildPrompt(stackTrace: string, files: { path: string; content: string;
     'OUTPUT FORMAT (markdown, exact section names, in this order):',
     '════════════════════════════════════════',
     '',
+    '## Confidence',
+    '(A single integer 0-100 on its own line = how confident you are in the PRIMARY root cause below.',
+    'High (85-100) only when the trace + source make it near-certain. Lower it honestly when guessing.)',
+    '',
+    '## Severity',
+    '(One word: critical, high, medium, or low. critical = data loss / outage / security; high = core feature',
+    'broken; medium = degraded; low = cosmetic or edge case.)',
+    '',
     '## Root Cause',
     '(2–4 sentences in plain English. Name the file + line from the trace, then explain WHY it fails — the',
     'underlying mistake — not just WHAT the error message says. Be specific.)',
+    '',
+    '## Alternative Causes',
+    '(2–3 OTHER plausible explanations, ranked, each on its own line formatted EXACTLY as:',
+    '`- (NN%) one-sentence alternate hypothesis`  where NN is your confidence in that alternative.',
+    'If you are fully certain, still give at least one lower-confidence alternative.)',
     '',
     '## Suggested Fix',
     '(Required: file path + a fenced code block. Use unified diff format `--- a/path` / `+++ b/path` with',
@@ -215,6 +307,16 @@ function buildPrompt(stackTrace: string, files: { path: string; content: string;
     '(1–3 short, concrete steps. e.g. "Run `python app.py` again — the TypeError should be gone." or',
     '"Add a unit test that passes timeout=10.0 and expects no exception.")',
     '',
+    '## Incident Brief',
+    '(A terse on-call brief for whoever is paged RIGHT NOW. Three lines, each prefixed exactly:',
+    '`Impact:` who/what is affected and how bad. `Mitigate now:` the fastest safe stop-gap (feature flag,',
+    'rollback, restart). `Permanent fix:` one line pointing at the fix above.)',
+    '',
+    '## Postmortem',
+    '(A short blameless postmortem in markdown with these bold labels on their own lines: **Summary**,',
+    '**Root cause**, **Resolution**, **Prevention**. 1–3 sentences each. Blameless tone — no names, focus on',
+    'systems and process. This is auto-attached to the incident record.)',
+    '',
     '════════════════════════════════════════',
     haveFiles
       ? `INPUT: stack trace + ${(fileBlocks.match(/^=== /gm) || []).length} fetched source file(s).`
@@ -229,19 +331,71 @@ function buildPrompt(stackTrace: string, files: { path: string; content: string;
   ].join('\n');
 }
 
-function splitDiagnosis(text: string): { rootCause: string; suggestedFix: string } {
-  const root = text.match(/##\s*Root Cause\s*([\s\S]*?)(?=\n##\s|$)/i)?.[1]?.trim() || '';
-  const fixSection = text.match(/##\s*Suggested Fix\s*([\s\S]*?)(?=\n##\s|$)/i)?.[1]?.trim() || '';
-  const why = text.match(/##\s*Why This Works\s*([\s\S]*?)(?=\n##\s|$)/i)?.[1]?.trim() || '';
-  const tests = text.match(/##\s*Tests \/ Verification\s*([\s\S]*?)(?=\n##\s|$)/i)?.[1]?.trim() || '';
+type ParsedDiagnosis = {
+  rootCause: string;
+  suggestedFix: string;
+  confidence: number;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  alternatives: { cause: string; confidence: number }[];
+  incidentSummary: string;
+  postmortem: string;
+};
+
+function section(text: string, name: string): string {
+  const re = new RegExp(`##\\s*${name}\\s*([\\s\\S]*?)(?=\\n##\\s|$)`, 'i');
+  return text.match(re)?.[1]?.trim() || '';
+}
+
+function splitDiagnosis(text: string): ParsedDiagnosis {
+  const root = section(text, 'Root Cause');
+  const fixSection = section(text, 'Suggested Fix');
+  const why = section(text, 'Why This Works');
+  const tests = section(text, 'Tests \\/ Verification');
+  const incidentSummary = section(text, 'Incident Brief');
+  const postmortem = section(text, 'Postmortem');
+
+  // Confidence: first integer 0-100 in its section.
+  const confRaw = section(text, 'Confidence');
+  const confMatch = confRaw.match(/\b(\d{1,3})\b/);
+  let confidence = confMatch ? Math.max(0, Math.min(100, parseInt(confMatch[1], 10))) : 70;
+
+  // Severity: first matching keyword.
+  const sevRaw = (section(text, 'Severity') || '').toLowerCase();
+  const severity: ParsedDiagnosis['severity'] =
+    /critical/.test(sevRaw) ? 'critical' :
+    /high/.test(sevRaw) ? 'high' :
+    /low/.test(sevRaw) ? 'low' : 'medium';
+
+  // Alternatives: lines like "- (NN%) cause" or "- cause — NN%".
+  const altRaw = section(text, 'Alternative Causes');
+  const alternatives: { cause: string; confidence: number }[] = [];
+  for (const line of altRaw.split('\n')) {
+    const l = line.replace(/^\s*[-*]\s*/, '').trim();
+    if (!l) continue;
+    let pct = 50;
+    let cause = l;
+    const lead = l.match(/^\((\d{1,3})\s*%?\)\s*(.+)$/);
+    const trail = l.match(/^(.+?)\s*[—-]\s*(\d{1,3})\s*%\s*$/);
+    if (lead) { pct = parseInt(lead[1], 10); cause = lead[2].trim(); }
+    else if (trail) { cause = trail[1].trim(); pct = parseInt(trail[2], 10); }
+    if (cause) alternatives.push({ cause, confidence: Math.max(0, Math.min(100, pct)) });
+    if (alternatives.length >= 4) break;
+  }
+
   const suggested = [
     fixSection,
     why ? `\n**Why this works:** ${why}` : '',
     tests ? `\n\n**Verify:**\n${tests}` : '',
   ].filter(Boolean).join('').trim();
+
   return {
     rootCause: root || text.slice(0, 600),
     suggestedFix: suggested || text,
+    confidence,
+    severity,
+    alternatives,
+    incidentSummary,
+    postmortem,
   };
 }
 
@@ -260,11 +414,27 @@ export async function diagnoseStackTrace(
       filesUsed: [],
       framesParsed: 0,
       warnings: ['repo_url_invalid'],
+      confidence: 0,
+      severity: 'low',
+      alternatives: [],
+      incidentSummary: '',
+      postmortem: '',
+      culprit: null,
     };
   }
   const frames = parseStackTrace(stackTrace);
   if (frames.length === 0) warnings.push('no_frames_parsed');
-  const files = ref ? await fetchRepoFiles(ref, frames, token) : [];
+  const seedFiles = await fetchRepoFiles(ref, frames, token);
+  // Deep repo reasoning: follow local imports one hop out from the failing files
+  // so the AI can reason across modules, not just the single frame file.
+  let files = seedFiles;
+  if (seedFiles.length > 0) {
+    const extra = await expandWithImports(ref, seedFiles, token);
+    if (extra.length > 0) {
+      files = [...seedFiles, ...extra];
+      warnings.push('deep_repo_expanded');
+    }
+  }
   if (frames.length > 0 && files.length === 0) warnings.push('no_files_fetched');
 
   const prompt = buildPrompt(stackTrace, files);
@@ -275,13 +445,76 @@ export async function diagnoseStackTrace(
   if (!raw || raw.trim().length < 20) {
     raw = await fastAnswer(prompt, undefined, tier);
   }
-  const { rootCause, suggestedFix } = splitDiagnosis(raw);
+  const parsed = splitDiagnosis(raw);
+
+  // Find-what-broke-it: AI git-bisect on the top frame's resolved file. The last
+  // commit that touched the failing file is the prime suspect. Needs a token.
+  let culprit: Diagnosis['culprit'] = null;
+  if (token && files.length > 0) {
+    try {
+      const { getLatestCommitForPath } = await import('./github-pr.js');
+      const topPath = files[0].path;
+      const branches = Array.from(new Set([ref.branch, ref.branch === 'main' ? 'master' : 'main']));
+      for (const br of branches) {
+        const c = await getLatestCommitForPath(ref.owner, ref.repo, topPath, br, token);
+        if (c) { culprit = c; break; }
+      }
+    } catch { /* best-effort */ }
+  }
 
   return {
-    rootCause,
-    suggestedFix,
+    rootCause: parsed.rootCause,
+    suggestedFix: parsed.suggestedFix,
     filesUsed: files.map(f => ({ path: f.path, line: f.line })),
     framesParsed: frames.length,
     warnings,
+    confidence: parsed.confidence,
+    severity: parsed.severity,
+    alternatives: parsed.alternatives,
+    incidentSummary: parsed.incidentSummary,
+    postmortem: parsed.postmortem,
+    culprit,
+  };
+}
+
+// ── Cheap auto-triage for ingested signals (no repo fetch, no credit charge) ──
+// Used by the public ingest webhook so the signals feed shows severity + a one
+// line root cause without burning the user's metered balance. Uses a fast model.
+export type Triage = {
+  title: string;
+  rootCause: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  confidence: number;
+};
+
+export async function triageSignal(stackTrace: string, hintTitle?: string): Promise<Triage> {
+  const prompt = [
+    'You are an SRE triaging an incoming production error. Be terse.',
+    'Output EXACTLY these three lines and nothing else:',
+    'SEVERITY: <critical|high|medium|low>',
+    'CONFIDENCE: <0-100>',
+    'CAUSE: <one sentence most-likely root cause>',
+    '',
+    'ERROR:',
+    stackTrace.slice(0, 4000),
+  ].join('\n');
+  let raw = '';
+  try {
+    raw = (await callDirect('openai/gpt-4o-mini', [{ role: 'user', content: prompt }], {
+      maxTokens: 200, temperature: 0.1, timeoutMs: 20000,
+    })) || '';
+  } catch { /* fall through */ }
+  if (!raw || raw.trim().length < 5) {
+    try { raw = await fastAnswer(prompt, undefined, 'free'); } catch { raw = ''; }
+  }
+  const sev = (raw.match(/SEVERITY:\s*(critical|high|medium|low)/i)?.[1] || 'medium').toLowerCase() as Triage['severity'];
+  const conf = Math.max(0, Math.min(100, parseInt(raw.match(/CONFIDENCE:\s*(\d{1,3})/i)?.[1] || '50', 10)));
+  const cause = raw.match(/CAUSE:\s*(.+)/i)?.[1]?.trim() || 'Unclassified production error — open the signal to run a full diagnosis.';
+  const firstLine = (hintTitle || stackTrace.split('\n').find(l => l.trim()) || 'Production error').trim();
+  return {
+    title: firstLine.slice(0, 120),
+    rootCause: cause,
+    severity: sev,
+    confidence: conf,
   };
 }

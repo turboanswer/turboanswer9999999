@@ -379,6 +379,42 @@ export async function getPullRequestChecks(
   return { state, total, passed, failed, pending, runs, headSha };
 }
 
+export type CulpritCommit = { sha: string; author: string; date: string; message: string; url: string };
+
+/**
+ * AI git-bisect helper: find the most recent commit that touched a given file path
+ * on a branch. The commit that last changed the failing file is, by far, the most
+ * likely culprit that introduced a regression. Returns null if nothing is found
+ * (no token, file never committed, API error).
+ */
+export async function getLatestCommitForPath(
+  owner: string,
+  repo: string,
+  path: string,
+  branch: string,
+  token: string,
+): Promise<CulpritCommit | null> {
+  try {
+    const q = `/repos/${owner}/${repo}/commits?path=${encodeURIComponent(path)}&sha=${encodeURIComponent(branch)}&per_page=1`;
+    const arr = await ghFetch(token, q);
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const c = arr[0];
+    const author =
+      c?.author?.login ||
+      c?.commit?.author?.name ||
+      'unknown';
+    return {
+      sha: c?.sha || 'unknown',
+      author,
+      date: c?.commit?.author?.date || '',
+      message: (c?.commit?.message || '').split('\n')[0].slice(0, 140),
+      url: c?.html_url || `https://github.com/${owner}/${repo}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
 let _cachedGhConn: any = null;
 export async function getReplitGithubToken(): Promise<string | null> {
   try {

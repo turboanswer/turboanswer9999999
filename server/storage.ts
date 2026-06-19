@@ -1,6 +1,6 @@
 import { users, conversations, messages, auditLogs, adminNotifications, enterpriseCodes, enterpriseCodeRedemptions, crisisConversations, crisisMessages, promoCodes, codeProjects, betaApplications, betaFeedback, deepThinkUsage, stackTraceDiagnoses, escalations, type User, type Conversation, type InsertConversation, type Message, type InsertMessage, type AuditLog, type InsertAuditLog, type AdminNotification, type InsertAdminNotification, type EnterpriseCode, type EnterpriseCodeRedemption, type CrisisConversation, type InsertCrisisConversation, type CrisisMessage, type InsertCrisisMessage, type PromoCode, type InsertPromoCode, type InsertStackTraceDiagnosis, type StackTraceDiagnosisRow, type Escalation, type InsertEscalation } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, ne } from "drizzle-orm";
 
 export async function getDeepThinkUsage(userId: string, date: string): Promise<number> {
   const [row] = await db
@@ -119,6 +119,16 @@ export interface IStorage {
   getStackTraceDiagnosis(id: number, userId: string): Promise<StackTraceDiagnosisRow | undefined>;
   deleteStackTraceDiagnosis(id: number, userId: string): Promise<void>;
   setStackTraceDiagnosisPrUrl(id: number, userId: string, prUrl: string): Promise<StackTraceDiagnosisRow | undefined>;
+  incrementStackTraceTrial(userId: string): Promise<User>;
+  updateStackTraceCredits(userId: string, cents: number): Promise<User>;
+  grantStackTraceCredit(userId: string, cents: number): Promise<User>;
+  consumeStackTraceTrial(userId: string, limit: number): Promise<{ ok: boolean; trialUsed: number }>;
+  refundStackTraceTrial(userId: string): Promise<void>;
+  debitStackTraceCredits(userId: string, cost: number): Promise<{ ok: boolean; credits: number }>;
+  refundStackTraceCredits(userId: string, cost: number): Promise<number>;
+  setStackTraceIngestToken(userId: string, token: string): Promise<User>;
+  getUserByStackTraceIngestToken(token: string): Promise<User | undefined>;
+  getStackTraceSignalsByUser(userId: string, limit?: number): Promise<StackTraceDiagnosisRow[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -878,7 +888,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveStackTraceDiagnosis(data: InsertStackTraceDiagnosis): Promise<StackTraceDiagnosisRow> {
-    const [row] = await db.insert(stackTraceDiagnoses).values(data).returning();
+    const [row] = await db.insert(stackTraceDiagnoses).values(data as any).returning();
     return row;
   }
 
@@ -912,6 +922,129 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(stackTraceDiagnoses.id, id), eq(stackTraceDiagnoses.userId, userId)))
       .returning();
     return row || undefined;
+  }
+
+  // ── Stack Trace Surgeon: trial + metered credits + ingest ──────────────────
+  async incrementStackTraceTrial(userId: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ stackTraceTrialUsed: sql`COALESCE(${users.stackTraceTrialUsed}, 0) + 1` })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  // Set the metered balance to an absolute value (cents). Floor at 0.
+  async updateStackTraceCredits(userId: string, cents: number): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ stackTraceCredits: Math.max(0, Math.round(cents)) })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  // One-time grant of the welcome credit. Atomic + idempotent: a single
+  // conditional UPDATE that only fires when the flag is still false, and ADDS
+  // the grant to the live balance (never overwrites it). Concurrent first-paid
+  // requests can therefore grant at most once and never reset a debited balance.
+  async grantStackTraceCredit(userId: string, cents: number): Promise<User> {
+    const amount = Math.max(0, Math.round(cents));
+    const [granted] = await db
+      .update(users)
+      .set({
+        stackTraceCredits: sql`COALESCE(${users.stackTraceCredits}, 0) + ${amount}`,
+        stackTraceCreditGranted: true,
+      })
+      .where(and(eq(users.id, userId), sql`COALESCE(${users.stackTraceCreditGranted}, false) = false`))
+      .returning();
+    if (granted) return granted;
+    // Already granted (or lost the race) — return the current row unchanged.
+    const current = await this.getUser(userId);
+    if (!current) throw new Error("User not found");
+    return current;
+  }
+
+  // Atomically consume one trial slot. Single conditional UPDATE so two parallel
+  // requests can never both pass the gate. Returns ok=false if already at limit.
+  async consumeStackTraceTrial(userId: string, limit: number): Promise<{ ok: boolean; trialUsed: number }> {
+    const [user] = await db
+      .update(users)
+      .set({ stackTraceTrialUsed: sql`COALESCE(${users.stackTraceTrialUsed}, 0) + 1` })
+      .where(and(eq(users.id, userId), sql`COALESCE(${users.stackTraceTrialUsed}, 0) < ${limit}`))
+      .returning();
+    if (!user) {
+      const current = await this.getUser(userId);
+      return { ok: false, trialUsed: current?.stackTraceTrialUsed ?? limit };
+    }
+    return { ok: true, trialUsed: user.stackTraceTrialUsed ?? 0 };
+  }
+
+  // Give back a consumed trial slot when the underlying work failed.
+  async refundStackTraceTrial(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ stackTraceTrialUsed: sql`GREATEST(COALESCE(${users.stackTraceTrialUsed}, 0) - 1, 0)` })
+      .where(eq(users.id, userId));
+  }
+
+  // Atomically reserve `cost` cents. Single conditional UPDATE: decrement only
+  // when the balance is sufficient, so concurrent requests cannot overspend.
+  // Returns ok=false (and the live balance) when there aren't enough credits.
+  async debitStackTraceCredits(userId: string, cost: number): Promise<{ ok: boolean; credits: number }> {
+    const amount = Math.max(0, Math.round(cost));
+    const [user] = await db
+      .update(users)
+      .set({ stackTraceCredits: sql`COALESCE(${users.stackTraceCredits}, 0) - ${amount}` })
+      .where(and(eq(users.id, userId), sql`COALESCE(${users.stackTraceCredits}, 0) >= ${amount}`))
+      .returning();
+    if (!user) {
+      const current = await this.getUser(userId);
+      return { ok: false, credits: current?.stackTraceCredits ?? 0 };
+    }
+    return { ok: true, credits: user.stackTraceCredits ?? 0 };
+  }
+
+  // Return reserved credits when the underlying work failed. Returns new balance.
+  async refundStackTraceCredits(userId: string, cost: number): Promise<number> {
+    const amount = Math.max(0, Math.round(cost));
+    const [user] = await db
+      .update(users)
+      .set({ stackTraceCredits: sql`COALESCE(${users.stackTraceCredits}, 0) + ${amount}` })
+      .where(eq(users.id, userId))
+      .returning();
+    return user?.stackTraceCredits ?? 0;
+  }
+
+  async setStackTraceIngestToken(userId: string, token: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ stackTraceIngestToken: token })
+      .where(eq(users.id, userId))
+      .returning();
+    if (!user) throw new Error("User not found");
+    return user;
+  }
+
+  async getUserByStackTraceIngestToken(token: string): Promise<User | undefined> {
+    if (!token) return undefined;
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.stackTraceIngestToken, token));
+    return user || undefined;
+  }
+
+  // Signals feed = auto-ingested errors (source != 'manual').
+  async getStackTraceSignalsByUser(userId: string, limit: number = 50): Promise<StackTraceDiagnosisRow[]> {
+    return await db
+      .select()
+      .from(stackTraceDiagnoses)
+      .where(and(eq(stackTraceDiagnoses.userId, userId), ne(stackTraceDiagnoses.source, 'manual')))
+      .orderBy(desc(stackTraceDiagnoses.createdAt))
+      .limit(limit);
   }
 }
 

@@ -74,6 +74,15 @@ export const users = pgTable("users", {
   dailyQuestionsUsed: integer("daily_questions_used").default(0),
   dailyQuestionsResetAt: timestamp("daily_questions_reset_at"),
   timezone: varchar("timezone").default("UTC"),
+  // ── Stack Trace Surgeon: trial + metered credits ──────────────────────────
+  // Free/Pro users get a small free trial of diagnoses before the upgrade wall.
+  stackTraceTrialUsed: integer("stack_trace_trial_used").default(0),
+  // Metered balance in CENTS. Granted once ($35) when a user reaches a paid tier.
+  stackTraceCredits: integer("stack_trace_credits").default(0),
+  // Whether the one-time $35 credit has already been granted (so it can't be farmed).
+  stackTraceCreditGranted: boolean("stack_trace_credit_granted").default(false),
+  // Per-user secret token for the public error-ingest webhook (Sentry / log drains).
+  stackTraceIngestToken: text("stack_trace_ingest_token"),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
