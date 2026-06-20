@@ -258,6 +258,40 @@ export default function Chat() {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
 
+  // Pick up a screenshot/image shared into the installed app (Web Share Target)
+  // or opened via the OS "Open with" file handler, and attach it to the composer.
+  useEffect(() => {
+    let cancelled = false;
+    const cleanUrl = () => {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("shared");
+        url.searchParams.delete("source");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      } catch {}
+    };
+    const attach = (dataUrl: string) => {
+      if (cancelled || !dataUrl) return;
+      setAttachedImage(dataUrl);
+      cleanUrl();
+      toast({ title: "Screenshot attached", description: "Ask Turbo anything about it." });
+    };
+    // Late-arriving file-handler launches (cold start) fire this event.
+    const onShared = (e: Event) => attach((e as CustomEvent).detail as string);
+    window.addEventListener("turbo:shared-image", onShared as EventListener);
+    (async () => {
+      try {
+        const { consumeSharedImage } = await import("@/lib/pwa");
+        const dataUrl = await consumeSharedImage();
+        if (dataUrl) attach(dataUrl);
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("turbo:shared-image", onShared as EventListener);
+    };
+  }, []);
+
   const isImageFile = (file: File) => file.type.startsWith("image/");
 
   const routeIncomingFile = (file: File) => {
