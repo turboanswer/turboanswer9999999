@@ -10,7 +10,7 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, and, desc, or, inArray, gt, lt, sql, isNull } from "drizzle-orm";
-import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, referralCodes, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks } from "@shared/schema";
+import { insertConversationSchema, insertMessageSchema, adminInviteTokens, betaApplications, betaFeedback, referralCodes, workgroups, workgroupMembers, workgroupInvites, workgroupMessages, workgroupApprovals, supportTickets, supportTicketMessages, ticketNotifications, users, conversations, messages, collabRooms, collabRoomMembers, collabRoomMessages, factChecks, featureFlags } from "@shared/schema";
 import { generateAIResponse, getAvailableModels } from "./services/multi-ai";
 import { moderateContent } from "./services/content-moderation";
 import { 
@@ -9381,6 +9381,134 @@ Rules:
       if (!check) return res.status(404).json({ error: 'No fact-check found' });
       res.json(check);
     } catch (e: any) { res.status(500).json({ error: 'Failed to fetch fact-check' }); }
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Feature Flags (Admin only)
+  // ────────────────────────────────────────────────────────────────────
+  app.get('/api/admin/feature-flags', isAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(featureFlags);
+      res.json(rows);
+    } catch (error: any) {
+      console.error('Feature flags list error:', error);
+      res.status(500).json({ message: 'Failed to fetch feature flags' });
+    }
+  });
+
+  app.post('/api/admin/feature-flags', isAdmin, async (req, res) => {
+    try {
+      const { key, name, description, scope, tierRestriction } = req.body;
+      if (!key || !name) return res.status(400).json({ message: 'key and name are required' });
+      const validScopes = ['global', 'tier', 'user'];
+      const validTiers = ['free', 'pro', 'research', 'enterprise'];
+      const normalizedScope = (scope || 'global').toLowerCase();
+      if (!validScopes.includes(normalizedScope)) {
+        return res.status(400).json({ message: `scope must be one of ${validScopes.join(', ')}` });
+      }
+      const normalizedTier = tierRestriction ? tierRestriction.toLowerCase().trim() : null;
+      if (normalizedScope === 'tier') {
+        if (!normalizedTier || !validTiers.includes(normalizedTier)) {
+          return res.status(400).json({ message: `tier flags require a valid tierRestriction from ${validTiers.join(', ')}` });
+        }
+      }
+      if (normalizedTier && !validTiers.includes(normalizedTier)) {
+        return res.status(400).json({ message: `tierRestriction must be one of ${validTiers.join(', ')}` });
+      }
+      const [row] = await db.insert(featureFlags).values({
+        key: key.trim().toLowerCase(),
+        name: name.trim(),
+        description: description || null,
+        enabled: false,
+        scope: normalizedScope,
+        tierRestriction: normalizedScope === 'tier' ? normalizedTier : null,
+      }).onConflictDoNothing().returning();
+      if (!row) return res.status(409).json({ message: 'Feature flag already exists' });
+      res.json(row);
+    } catch (error: any) {
+      console.error('Feature flag create error:', error);
+      res.status(500).json({ message: 'Failed to create feature flag' });
+    }
+  });
+
+  app.patch('/api/admin/feature-flags/:id', isAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid flag id' });
+      const { enabled, name, description, scope, tierRestriction } = req.body;
+      const validScopes = ['global', 'tier', 'user'];
+      const validTiers = ['free', 'pro', 'research', 'enterprise'];
+      const normalizedScope = scope !== undefined ? scope.toLowerCase() : undefined;
+      if (normalizedScope !== undefined && !validScopes.includes(normalizedScope)) {
+        return res.status(400).json({ message: `scope must be one of ${validScopes.join(', ')}` });
+      }
+      const normalizedTier = tierRestriction !== undefined ? (tierRestriction ? tierRestriction.toLowerCase().trim() : null) : undefined;
+      if (normalizedScope === 'tier') {
+        if (!normalizedTier || !validTiers.includes(normalizedTier)) {
+          return res.status(400).json({ message: `tier flags require a valid tierRestriction from ${validTiers.join(', ')}` });
+        }
+      }
+      if (normalizedTier !== undefined && normalizedTier !== null && !validTiers.includes(normalizedTier)) {
+        return res.status(400).json({ message: `tierRestriction must be one of ${validTiers.join(', ')}` });
+      }
+      const adminUser = req.user?.claims?.sub ? await storage.getUser(req.user.claims.sub) : null;
+      const [row] = await db.update(featureFlags)
+        .set({
+          ...(enabled !== undefined ? { enabled: !!enabled } : {}),
+          ...(name !== undefined ? { name: name.trim() } : {}),
+          ...(description !== undefined ? { description: description || null } : {}),
+          ...(scope !== undefined ? { scope: normalizedScope } : {}),
+          ...(tierRestriction !== undefined ? { tierRestriction: normalizedScope === 'tier' ? normalizedTier : null } : {}),
+          updatedAt: new Date(),
+          updatedBy: adminUser?.email || null,
+        })
+        .where(eq(featureFlags.id, id))
+        .returning();
+      if (!row) return res.status(404).json({ message: 'Feature flag not found' });
+      res.json(row);
+    } catch (error: any) {
+      console.error('Feature flag update error:', error);
+      res.status(500).json({ message: 'Failed to update feature flag' });
+    }
+  });
+
+  app.delete('/api/admin/feature-flags/:id', isAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ message: 'Invalid flag id' });
+      const [row] = await db.delete(featureFlags).where(eq(featureFlags.id, id)).returning();
+      if (!row) return res.status(404).json({ message: 'Feature flag not found' });
+      res.json({ message: 'Deleted', flag: row });
+    } catch (error: any) {
+      console.error('Feature flag delete error:', error);
+      res.status(500).json({ message: 'Failed to delete feature flag' });
+    }
+  });
+
+  // Public feature flag check (for client gating)
+  app.get('/api/feature-flags', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await getFullUser(req);
+      const rows = await db.select().from(featureFlags);
+      const effective = rows.map((f: any) => {
+        if (!f.enabled) return { key: f.key, enabled: false };
+        if (f.scope === 'global') return { key: f.key, enabled: true };
+        if (f.scope === 'tier') {
+          const tier = (user?.subscriptionTier || 'free').toLowerCase();
+          const allowed = ['free', 'pro', 'research', 'enterprise'];
+          const reqIdx = f.tierRestriction ? allowed.indexOf(f.tierRestriction) : -1;
+          const userIdx = allowed.indexOf(tier);
+          return { key: f.key, enabled: userIdx >= reqIdx && reqIdx >= 0 };
+        }
+        if (f.scope === 'user') {
+          return { key: f.key, enabled: !!user };
+        }
+        return { key: f.key, enabled: false };
+      });
+      res.json(effective);
+    } catch (error: any) {
+      res.status(500).json({ message: 'Failed to fetch feature flags' });
+    }
   });
 
   // ============ END OF ROUTES ============

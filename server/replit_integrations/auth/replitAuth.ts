@@ -885,6 +885,32 @@ export async function setupAuth(app: Express) {
     }
   });
 
+  // Disable 2FA for the currently signed-in user (requires password re-auth).
+  app.post("/api/2fa/disable", async (req, res) => {
+    try {
+      const userId = (req.session as any).userId;
+      if (!userId) return res.status(401).json({ message: "Please sign in first." });
+      const { password } = req.body;
+      if (!password || typeof password !== "string") {
+        return res.status(400).json({ message: "Current password is required to disable 2FA." });
+      }
+      const user = await authStorage.getUser(userId);
+      if (!user) return res.status(401).json({ message: "Please sign in first." });
+      if (!user.password) {
+        return res.status(400).json({ message: "Password-based accounts only." });
+      }
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) {
+        return res.status(400).json({ message: "Incorrect password." });
+      }
+      await authStorage.disableTwoFactor(user.id);
+      res.json({ message: "Two-factor authentication has been disabled." });
+    } catch (error: any) {
+      console.error("2FA disable error:", error);
+      res.status(500).json({ message: "Could not disable 2FA. Please try again." });
+    }
+  });
+
   app.get("/api/logout", (req, res) => {
     req.session.destroy((err) => {
       res.redirect("/");

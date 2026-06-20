@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { redisSet, redisGet, redisDel } from '../redis';
 
 export type ThreatType =
   | 'ddos'
@@ -30,9 +31,56 @@ interface IPData {
   blockedAt?: Date;
 }
 
-const ipData = new Map<string, IPData>();
 const intrusionLog: IntrusionEvent[] = [];
 let eventCounter = 0;
+
+// Local fast-access Map — kept for synchronous middleware reads/writes.
+const ipData = new Map<string, IPData>();
+
+// Redis cross-instance sync (best-effort; never blocks the request path)
+const REDIS_IP_PREFIX = 'intrusion:ip:';
+const REDIS_TTL = 3600;
+
+function syncToRedis(ip: string, data: IPData): void {
+  redisSet(
+    `${REDIS_IP_PREFIX}${ip}`,
+    JSON.stringify({
+      requests: data.requests,
+      failedAuths: data.failedAuths,
+      notFounds: data.notFounds,
+      blocked: data.blocked,
+      blockedAt: data.blockedAt ? data.blockedAt.toISOString() : undefined,
+    }),
+    REDIS_TTL
+  ).catch(() => {
+    /* best-effort; never crash the request path */
+  });
+}
+
+function unsyncFromRedis(ip: string): void {
+  redisDel(`${REDIS_IP_PREFIX}${ip}`).catch(() => {
+    /* best-effort */
+  });
+}
+
+async function hydrateIPFromRedis(ip: string): Promise<void> {
+  if (ipData.has(ip)) return;
+  const raw = await redisGet(`${REDIS_IP_PREFIX}${ip}`);
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    const data: IPData = {
+      requests: parsed.requests || [],
+      failedAuths: parsed.failedAuths || [],
+      notFounds: parsed.notFounds || [],
+      blocked: parsed.blocked || false,
+      blockedAt: parsed.blockedAt ? new Date(parsed.blockedAt) : undefined,
+    };
+    ipData.set(ip, data);
+  } catch {
+    /* best-effort */
+  }
+}
 
 let onCriticalThreat: ((scenario: string, reason: string) => void) | null = null;
 
@@ -112,7 +160,7 @@ function scanRequest(req: Request): boolean {
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 export function applyIntrusionMiddleware(app: any) {
-  app.use((req: Request, res: Response, next: NextFunction) => {
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
     const ip = getClientIP(req);
     const t = now();
 
@@ -120,9 +168,13 @@ export function applyIntrusionMiddleware(app: any) {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/widget')) return next();
 
     if (!ipData.has(ip)) {
+      await hydrateIPFromRedis(ip);
+    }
+    if (!ipData.has(ip)) {
       ipData.set(ip, { requests: [], failedAuths: [], notFounds: [], blocked: false });
     }
     const data = ipData.get(ip)!;
+    syncToRedis(ip, data);
 
     data.requests  = prune(data.requests,  60_000);
     data.notFounds = prune(data.notFounds, 60_000);
@@ -137,6 +189,7 @@ export function applyIntrusionMiddleware(app: any) {
         data.requests = [];
         data.failedAuths = [];
         data.notFounds = [];
+        syncToRedis(ip, data);
       } else {
         res.status(429).json({ error: 'Your IP has been blocked due to suspicious activity. Please try again in a few minutes.' });
         return;
@@ -149,6 +202,7 @@ export function applyIntrusionMiddleware(app: any) {
     if (data.requests.length > 300) {
       data.blocked = true;
       data.blockedAt = new Date();
+      syncToRedis(ip, data);
       addEvent({
         timestamp: new Date(), type: 'ddos', ip,
         details: `${data.requests.length} requests in 60s — DDoS threshold (300/min) exceeded`,
@@ -169,6 +223,7 @@ export function applyIntrusionMiddleware(app: any) {
     if (!skipInjection && scanRequest(req)) {
       data.blocked = true;
       data.blockedAt = new Date();
+      syncToRedis(ip, data);
       addEvent({
         timestamp: new Date(), type: 'injection', ip,
         details: `Injection pattern on ${req.method} ${req.path}`,
@@ -196,6 +251,7 @@ export function applyIntrusionMiddleware(app: any) {
         data.blocked = true;
         data.blockedAt = new Date();
       }
+      syncToRedis(ip, data);
       res.status(404).json({ error: 'Not found' });
       return;
     }
@@ -205,6 +261,7 @@ export function applyIntrusionMiddleware(app: any) {
     if (BLOCKED_UA.test(userAgent)) {
       data.blocked = true;
       data.blockedAt = new Date();
+      syncToRedis(ip, data);
       addEvent({
         timestamp: new Date(), type: 'scanning', ip,
         details: `Blocked hacking tool UA: ${userAgent.substring(0, 80)}`,
@@ -243,6 +300,7 @@ export function applyIntrusionMiddleware(app: any) {
           data.failedAuths = [];
         }
       }
+      syncToRedis(ip, data);
     });
 
     next();
@@ -284,6 +342,7 @@ export function unblockIP(ip: string): boolean {
   if (!d) return false;
   d.blocked = false;
   d.blockedAt = undefined;
+  syncToRedis(ip, d);
   return true;
 }
 

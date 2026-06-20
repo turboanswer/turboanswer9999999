@@ -171,6 +171,13 @@ export default function Pricing() {
 
   const { data: authUser } = useQuery<{ id: number } | null>({ queryKey: ["/api/auth/user"] });
 
+  const { data: subscriptionStatus } = useQuery<{ tier: string; status: string }>({
+    queryKey: ["/api/subscription-status"],
+    enabled: !!authUser,
+  });
+
+  const currentTier = (subscriptionStatus?.tier || 'free').toLowerCase();
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -180,7 +187,7 @@ export default function Pricing() {
     }}>
       {/* Back button */}
       <div style={{ maxWidth: 1100, margin: '0 auto', marginBottom: 24 }}>
-        <Link href={authUser ? "/home" : "/"}>
+        <Link href={authUser ? "/chat" : "/"}>
           <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', background: 'none', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>
             <ArrowLeft size={15} /> Back
           </button>
@@ -368,22 +375,23 @@ export default function Pricing() {
               ))}
             </div>
 
-            {plan.id === 'free' ? (
+            {plan.id === currentTier ? (
               <button
-                onClick={() => { window.location.href = '/'; }}
+                disabled
                 style={{
                   width: '100%',
                   padding: '16px',
-                  backgroundColor: '#374151',
-                  color: 'white',
-                  border: 'none',
+                  backgroundColor: '#1e293b',
+                  color: '#60a5fa',
+                  border: '2px solid #3b82f6',
                   borderRadius: '8px',
                   fontSize: '16px',
                   fontWeight: '600',
-                  cursor: 'pointer'
+                  cursor: 'default',
+                  opacity: 1
                 }}
               >
-                Start Free
+                ✓ Current Plan
               </button>
             ) : (
               <>

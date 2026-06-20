@@ -1352,6 +1352,19 @@ export default function Chat() {
             </button>
 
             <div className="hidden sm:flex items-center gap-0.5">
+              {/* Account link for logged-in users */}
+              {user && (
+                <Link href="/ai-settings">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`h-8 px-3 rounded-full hidden sm:flex items-center gap-1.5 ${isDark ? 'text-[#9aa0a6] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
+                    title="My Account"
+                  >
+                    <User className="h-4 w-4" /> My Account
+                  </Button>
+                </Link>
+              )}
               <Link href="/media-editor">
                 <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 rounded-full ${isDark ? 'text-[#9aa0a6] hover:text-[#e3e3e3] hover:bg-[#1e1f20]' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`} title="Media Editor">
                   <Scissors className="h-4 w-4" />

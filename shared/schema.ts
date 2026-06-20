@@ -22,6 +22,22 @@ export const adminInviteTokens = _pgTable("admin_invite_tokens", {
 export type AdminInviteToken = typeof adminInviteTokens.$inferSelect;
 export type InsertAdminInviteToken = typeof adminInviteTokens.$inferInsert;
 
+export const featureFlags = _pgTable("feature_flags", {
+  id: _serial("id").primaryKey(),
+  key: _varchar("key", { length: 64 }).notNull().unique(),
+  name: _text("name").notNull(),
+  description: _text("description"),
+  enabled: _boolean("enabled").default(false).notNull(),
+  scope: _varchar("scope", { length: 32 }).default("global").notNull(), // 'global' | 'tier' | 'user'
+  tierRestriction: _varchar("tier_restriction", { length: 32 }), // e.g. 'pro', 'research'
+  updatedAt: _timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: _text("updated_by"),
+});
+
+export type FeatureFlag = typeof featureFlags.$inferSelect;
+export type InsertFeatureFlag = typeof featureFlags.$inferInsert;
+export const insertFeatureFlagSchema = createInsertSchema(featureFlags).omit({ id: true, updatedAt: true });
+
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   title: text("title").default("New Conversation"),

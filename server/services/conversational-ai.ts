@@ -1,5 +1,56 @@
 import { callDirect } from './direct-router';
 import { emotionalAI } from './emotional-ai';
+import { redisSet, redisGet, redisDel } from '../redis';
+
+const REDIS_PROFILE_PREFIX = 'convai:profile:';
+const REDIS_PROFILE_TTL = 7200;
+
+function syncProfileToRedis(userId: string, profile: UserProfile): void {
+  redisSet(
+    `${REDIS_PROFILE_PREFIX}${userId}`,
+    JSON.stringify({
+      name: profile.name,
+      preferences: profile.preferences,
+      conversationHistory: profile.conversationHistory.map(h => ({
+        message: h.message,
+        response: h.response,
+        timestamp: h.timestamp.toISOString(),
+        mood: h.mood,
+      })),
+      personalityMatch: profile.personalityMatch,
+      relationshipLevel: profile.relationshipLevel,
+    }),
+    REDIS_PROFILE_TTL
+  ).catch(() => { /* best-effort */ });
+}
+
+function unsyncProfileFromRedis(userId: string): void {
+  redisDel(`${REDIS_PROFILE_PREFIX}${userId}`).catch(() => { /* best-effort */ });
+}
+
+async function _hydrateProfileFromRedis(userId: string, intoMap: Map<string, UserProfile>): Promise<void> {
+  if (intoMap.has(userId)) return;
+  const raw = await redisGet(`${REDIS_PROFILE_PREFIX}${userId}`);
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    const profile: UserProfile = {
+      name: parsed.name,
+      preferences: parsed.preferences || [],
+      conversationHistory: (parsed.conversationHistory || []).map((h: any) => ({
+        message: h.message,
+        response: h.response,
+        timestamp: new Date(h.timestamp),
+        mood: h.mood,
+      })),
+      personalityMatch: parsed.personalityMatch,
+      relationshipLevel: parsed.relationshipLevel || 1,
+    };
+    intoMap.set(userId, profile);
+  } catch {
+    /* best-effort */
+  }
+}
 
 interface ConversationPersonality {
   style: 'friendly' | 'professional' | 'casual' | 'enthusiastic' | 'supportive';
@@ -52,11 +103,16 @@ export class ConversationalAI {
     }
   ];
 
+  private async hydrateProfileFromRedis(userId: string): Promise<void> {
+    await _hydrateProfileFromRedis(userId, this.userProfiles);
+  }
+
   async generateConversationalResponse(
     userMessage: string,
     conversationHistory: Array<{role: string, content: string}> = [],
     userId: string = "default"
   ): Promise<string> {
+    await this.hydrateProfileFromRedis(userId);
     // Get or create user profile
     let userProfile = this.userProfiles.get(userId) || this.createUserProfile(userId);
     
@@ -105,9 +161,10 @@ export class ConversationalAI {
         if (firstKey) this.userProfiles.delete(firstKey);
       }
       this.userProfiles.set(userId, userProfile);
-      
+      syncProfileToRedis(userId, userProfile);
+
       return aiResponse;
-      
+
     } catch (error) {
       console.error("Error generating conversational response:", error);
       return this.getFallbackResponse(userProfile, emotionalContext);
@@ -149,6 +206,7 @@ export class ConversationalAI {
     }
     
     this.userProfiles.set(userId, profile);
+    syncProfileToRedis(userId, profile);
   }
 
   private buildConversationalPrompt(userProfile: UserProfile, emotionalContext: any): string {
@@ -284,6 +342,7 @@ Remember: You're not just answering questions - you're having a real conversatio
 
   clearUserProfile(userId: string): void {
     this.userProfiles.delete(userId);
+    unsyncProfileFromRedis(userId);
   }
 }
 

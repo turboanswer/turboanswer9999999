@@ -131,7 +131,7 @@ interface EscalationData {
   createdAt: string;
 }
 
-type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes' | 'emailTemplates' | 'tickets' | 'escalations';
+type TabType = 'commandcenter' | 'overview' | 'users' | 'subscriptions' | 'system' | 'notifications' | 'flagged' | 'invite' | 'beta' | 'promoCodes' | 'emailTemplates' | 'tickets' | 'escalations' | 'featureFlags';
 
 const EMAIL_TEMPLATES_LIST = [
   { id: 'account-banned', label: 'Account Banned', icon: Ban, color: '#ef4444', description: 'Notify a user that their account has been banned for violating guidelines.' },
@@ -773,6 +773,7 @@ export default function EmployeeDashboard() {
     { id: 'beta' as TabType, icon: FlaskConical, label: 'Beta Testing' },
     { id: 'promoCodes' as TabType, icon: Gift, label: 'Promo Codes' },
     { id: 'emailTemplates' as TabType, icon: Mail, label: 'Email Templates' },
+    { id: 'featureFlags' as TabType, icon: SlidersHorizontal, label: 'Feature Flags' },
   ];
 
   const svcStatus = systemHealth?.services;
@@ -1160,6 +1161,10 @@ export default function EmployeeDashboard() {
         )}
         {activeTab === 'emailTemplates' && (
           <EmailTemplatesTab />
+        )}
+
+        {activeTab === 'featureFlags' && (
+          <FeatureFlagsTab />
         )}
 
           </div>
@@ -4666,6 +4671,166 @@ function AzureOpsPanel() {
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function FeatureFlagsTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { user: currentUser } = useAuth();
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ key: '', name: '', description: '', scope: 'global', tierRestriction: '' });
+
+  const { data: flags = [], isLoading } = useQuery<any[]>({
+    queryKey: ['/api/admin/feature-flags'],
+    refetchInterval: 30000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/feature-flags', form),
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      if (data.message && !data.id) { toast({ title: 'Error', description: data.message, variant: 'destructive' }); return; }
+      toast({ title: 'Feature flag created', description: `Flag "${data.name}" is ready` });
+      qc.invalidateQueries({ queryKey: ['/api/admin/feature-flags'] });
+      setShowCreate(false);
+      setForm({ key: '', name: '', description: '', scope: 'global', tierRestriction: '' });
+    },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => apiRequest('PATCH', `/api/admin/feature-flags/${id}`, { enabled }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/admin/feature-flags'] }); toast({ title: 'Flag updated' }); },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/admin/feature-flags/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['/api/admin/feature-flags'] }); toast({ title: 'Flag deleted' }); },
+    onError: (e: any) => toast({ title: 'Error', description: e.message, variant: 'destructive' }),
+  });
+
+  const scopes = [
+    { value: 'global', label: 'Global' },
+    { value: 'tier', label: 'Tier Restricted' },
+    { value: 'user', label: 'User Specific' },
+  ];
+
+  const tiers = [
+    { value: '', label: 'Any tier' },
+    { value: 'free', label: 'Free' },
+    { value: 'pro', label: 'Pro' },
+    { value: 'research', label: 'Research' },
+    { value: 'enterprise', label: 'Enterprise' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white">Feature Flags</h2>
+          <p className="text-gray-400 text-sm mt-1">Toggle features on/off for all users or specific tiers</p>
+        </div>
+        <Button onClick={() => setShowCreate(!showCreate)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+          <Plus className="h-4 w-4" /> New Flag
+        </Button>
+      </div>
+
+      {showCreate && (
+        <Card className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white text-base">Create Feature Flag</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Key (machine name)</label>
+                <Input value={form.key} onChange={e => setForm({ ...form, key: e.target.value })} placeholder="e.g. new_ui_v2" className="bg-gray-800 border-gray-700 text-white text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Display Name</label>
+                <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. New UI v2" className="bg-gray-800 border-gray-700 text-white text-sm" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">Description</label>
+              <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="What this flag controls..." className="bg-gray-800 border-gray-700 text-white text-sm" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Scope</label>
+                <select value={form.scope} onChange={e => setForm({ ...form, scope: e.target.value })} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm">
+                  {scopes.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Tier Restriction</label>
+                <select value={form.tierRestriction} onChange={e => setForm({ ...form, tierRestriction: e.target.value })} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white text-sm">
+                  {tiers.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !form.key.trim() || !form.name.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {createMutation.isPending ? 'Creating...' : 'Create Flag'}
+              </Button>
+              <Button onClick={() => setShowCreate(false)} variant="ghost" className="text-gray-400 hover:text-white">Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="bg-gray-900 border-gray-800">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-800 bg-gray-800/50">
+                  <th className="text-left p-3 text-sm font-medium text-gray-300">Flag</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-300">Key</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-300">Scope</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-300">Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-300">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr><td colSpan={5} className="p-6 text-center text-gray-500 text-sm">Loading...</td></tr>
+                ) : flags.length === 0 ? (
+                  <tr><td colSpan={5} className="p-6 text-center text-gray-500 text-sm">No feature flags yet. Create one to get started.</td></tr>
+                ) : flags.map((f: any) => (
+                  <tr key={f.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="p-3">
+                      <div className="font-medium text-white text-sm">{f.name}</div>
+                      <div className="text-xs text-gray-500">{f.description || 'No description'}</div>
+                    </td>
+                    <td className="p-3"><code className="text-xs text-gray-400 font-mono bg-gray-800 px-1.5 py-0.5 rounded">{f.key}</code></td>
+                    <td className="p-3">
+                      <span className="text-xs text-gray-400">{f.scope}</span>
+                      {f.tierRestriction && <span className="text-xs text-amber-400 ml-1">({f.tierRestriction}+)</span>}
+                    </td>
+                    <td className="p-3">
+                      <button
+                        onClick={() => toggleMutation.mutate({ id: f.id, enabled: !f.enabled })}
+                        className={`text-xs px-2 py-1 rounded font-medium transition-colors ${f.enabled ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}
+                      >
+                        {f.enabled ? 'ON' : 'OFF'}
+                      </button>
+                    </td>
+                    <td className="p-3">
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-400 hover:bg-red-900/20" onClick={() => deleteMutation.mutate(f.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

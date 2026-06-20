@@ -1,4 +1,51 @@
 import { callDirect } from "./direct-router.js";
+import { redisSet, redisGet, redisDel } from "../redis";
+
+const REDIS_MEMORY_PREFIX = "emai:memory:";
+const REDIS_MEMORY_TTL = 7200;
+
+function syncMemoryToRedis(userId: string, memory: ConversationMemory): void {
+  redisSet(
+    `${REDIS_MEMORY_PREFIX}${userId}`,
+    JSON.stringify({
+      userPersonality: memory.userPersonality,
+      previousEmotions: memory.previousEmotions,
+      conversationHistory: memory.conversationHistory.map(h => ({
+        message: h.message,
+        emotion: h.emotion,
+        timestamp: h.timestamp.toISOString(),
+      })),
+      relationshipLevel: memory.relationshipLevel,
+    }),
+    REDIS_MEMORY_TTL
+  ).catch(() => { /* best-effort */ });
+}
+
+function unsyncMemoryFromRedis(userId: string): void {
+  redisDel(`${REDIS_MEMORY_PREFIX}${userId}`).catch(() => { /* best-effort */ });
+}
+
+async function _hydrateMemoryFromRedis(userId: string, intoMap: Map<string, ConversationMemory>): Promise<void> {
+  if (intoMap.has(userId)) return;
+  const raw = await redisGet(`${REDIS_MEMORY_PREFIX}${userId}`);
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    const memory: ConversationMemory = {
+      userPersonality: parsed.userPersonality,
+      previousEmotions: parsed.previousEmotions || [],
+      conversationHistory: (parsed.conversationHistory || []).map((h: any) => ({
+        message: h.message,
+        emotion: h.emotion,
+        timestamp: new Date(h.timestamp),
+      })),
+      relationshipLevel: parsed.relationshipLevel || 1,
+    };
+    intoMap.set(userId, memory);
+  } catch {
+    /* best-effort */
+  }
+}
 
 function hasAIKey(): boolean {
   return !!(process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.AZURE_OPENAI_API_KEY);
@@ -31,6 +78,7 @@ export class EmotionalAI {
   private conversationMemory: Map<string, ConversationMemory> = new Map();
 
   async analyzeEmotionalState(message: string, userId: string = "default"): Promise<EmotionalContext> {
+    await _hydrateMemoryFromRedis(userId, this.conversationMemory);
     const neutral: EmotionalContext = {
       emotions: ["neutral"],
       intensity: 5,
@@ -114,6 +162,7 @@ Consider:
       if (firstKey) this.conversationMemory.delete(firstKey);
     }
     this.conversationMemory.set(userId, memory);
+    syncMemoryToRedis(userId, memory);
 
     const emotionalPrompt = this.buildEmotionalPrompt(emotionalContext, memory);
     const contextHistory = this.buildContextualHistory(conversationHistory, memory);
@@ -280,6 +329,7 @@ Remember: You're not just answering questions - you're having a genuine human co
 
   clearUserMemory(userId: string): void {
     this.conversationMemory.delete(userId);
+    unsyncMemoryFromRedis(userId);
   }
 }
 

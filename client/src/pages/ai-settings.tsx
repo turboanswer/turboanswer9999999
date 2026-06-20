@@ -20,6 +20,113 @@ import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import TwoFactorSetup from "@/components/TwoFactorSetup";
+
+// ── Inline 2FA panel for settings ─────────────────────────────────────────────
+function TwoFactorSetupPanel({ enabled }: { enabled: boolean }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [phase, setPhase] = useState<"idle" | "setup" | "disable">("idle");
+  const [setupData, setSetupData] = useState<{ qr: string; otpauthUrl: string; backupCodes: string[]; email: string } | null>(null);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableLoading, setDisableLoading] = useState(false);
+
+  const startSetup = async () => {
+    try {
+      const res = await fetch("/api/2fa/start-setup", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Error", description: data.message || "Could not start 2FA setup", variant: "destructive" });
+        return;
+      }
+      setSetupData({ qr: data.qr, otpauthUrl: data.otpauthUrl, backupCodes: data.backupCodes, email: data.email });
+      setPhase("setup");
+    } catch {
+      toast({ title: "Error", description: "Could not start 2FA setup", variant: "destructive" });
+    }
+  };
+
+  const handleDisable = async () => {
+    if (!disablePassword.trim()) {
+      toast({ title: "Password required", description: "Enter your current password to disable 2FA.", variant: "destructive" });
+      return;
+    }
+    setDisableLoading(true);
+    try {
+      const res = await fetch("/api/2fa/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ password: disablePassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "2FA Disabled", description: data.message });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        setPhase("idle");
+        setDisablePassword("");
+      } else {
+        toast({ title: "Error", description: data.message || "Failed to disable 2FA", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to disable 2FA", variant: "destructive" });
+    } finally {
+      setDisableLoading(false);
+    }
+  };
+
+  if (phase === "setup" && setupData) {
+    return (
+      <TwoFactorSetup
+        qr={setupData.qr}
+        otpauthUrl={setupData.otpauthUrl}
+        backupCodes={setupData.backupCodes}
+        email={setupData.email}
+        onVerified={() => {
+          toast({ title: "2FA Enabled", description: "Your account is now protected with two-factor authentication." });
+          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          setPhase("idle");
+          setSetupData(null);
+        }}
+      />
+    );
+  }
+
+  if (phase === "disable") {
+    return (
+      <div style={{ background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 16 }}>
+        <p style={{ fontSize: 13, color: "#fca5a5", marginBottom: 12 }}>To disable 2FA, enter your current password.</p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="password"
+            value={disablePassword}
+            onChange={e => setDisablePassword(e.target.value)}
+            placeholder="Current password"
+            style={{ flex: 1, padding: "10px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, color: "#e3e3e3", fontSize: 13, outline: "none" }}
+          />
+          <button onClick={handleDisable} disabled={disableLoading} style={{ padding: "10px 18px", background: "#dc2626", border: "none", borderRadius: 10, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, opacity: disableLoading ? 0.6 : 1 }}>
+            {disableLoading ? "Disabling…" : "Disable 2FA"}
+          </button>
+        </div>
+        <button onClick={() => { setPhase("idle"); setDisablePassword(""); }} style={{ marginTop: 8, fontSize: 12, color: "#9ca3af", background: "none", border: "none", cursor: "pointer" }}>Cancel</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {enabled ? (
+        <button onClick={() => setPhase("disable")} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, color: "#f87171", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+          <Lock size={15} /> Disable 2FA
+        </button>
+      ) : (
+        <button onClick={startSetup} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 10, color: "#22c55e", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+          <Shield size={15} /> Enable 2FA
+        </button>
+      )}
+    </div>
+  );
+}
 
 // ── Pref helpers ──────────────────────────────────────────────────────────────
 function usePref<T>(key: string, def: T): [T, (v: T) => void] {
@@ -36,6 +143,7 @@ const TABS = [
   { id: "ai",          label: "AI & Models",  icon: Brain },
   { id: "connections", label: "Connections",  icon: Link2 },
   { id: "privacy",     label: "Privacy",      icon: Shield },
+  { id: "security",    label: "Security",     icon: Lock },
   { id: "billing",     label: "Billing",      icon: CreditCard },
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
@@ -639,6 +747,37 @@ export default function AISettings() {
                 </SettingRow>
                 <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, fontSize: 12, color: "#6ee7b7" }}>
                   Your conversations are stored securely. Crisis support data is AES-256-GCM encrypted and never shared.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ SECURITY ══ */}
+          {activeTab === "security" && (
+            <div>
+              {sectionTitle("Security", "Protect your account with two-factor authentication")}
+              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Two-Factor Authentication</div>
+                <SettingRow label="2FA Status" desc={user?.twoFactorEnabled ? "Your account is protected with an authenticator app" : "Add an extra layer of security to your account"}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: user?.twoFactorEnabled ? "#22c55e" : "#f59e0b" }}>
+                    {user?.twoFactorEnabled ? "✓ Enabled" : "Not Enabled"}
+                  </span>
+                </SettingRow>
+                <div style={{ marginTop: 16 }}>
+                  <TwoFactorSetupPanel enabled={user?.twoFactorEnabled || false} />
+                </div>
+              </div>
+
+              <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.muted, marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>Account Security</div>
+                <SettingRow label="Email address" desc="Your login email">
+                  <span style={{ fontSize: 13, color: C.muted }}>{displayEmail}</span>
+                </SettingRow>
+                <SettingRow label="Password" desc="Change your account password">
+                  <Link href="/forgot-password"><span style={{ fontSize: 13, color: accentColor, cursor: "pointer" }}>Change →</span></Link>
+                </SettingRow>
+                <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, fontSize: 12, color: "#6ee7b7" }}>
+                  TurboAnswer uses industry-standard encryption and security practices. Your account data is protected with bcrypt-hashed passwords and optional TOTP-based two-factor authentication.
                 </div>
               </div>
             </div>

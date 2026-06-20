@@ -148,6 +148,20 @@ const NEW_TABLES: Array<{ name: string; ddl: string }> = [
       updated_at TIMESTAMP DEFAULT now()
     )`,
   },
+  {
+    name: "feature_flags",
+    ddl: `CREATE TABLE IF NOT EXISTS feature_flags (
+      id SERIAL PRIMARY KEY,
+      key VARCHAR(64) NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT,
+      enabled BOOLEAN NOT NULL DEFAULT false,
+      scope VARCHAR(32) NOT NULL DEFAULT 'global',
+      tier_restriction VARCHAR(32),
+      updated_at TIMESTAMP NOT NULL DEFAULT now(),
+      updated_by TEXT
+    )`,
+  },
 ];
 
 async function tableExists(table: string): Promise<boolean> {
