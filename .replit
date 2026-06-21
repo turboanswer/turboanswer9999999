@@ -77,6 +77,7 @@ AZURE_TENANT_ID = "4030dc9c-e588-4d62-8539-6be1c1f927ce"
 AZURE_CLIENT_ID = "708de6eb-cfb7-4b56-83eb-73e1bea05af7"
 AZURE_RESOURCE_GROUP = "turboanswergroup_group"
 AZURE_APP_SERVICE_NAME = "turboanswergroup"
+NEON_DATABASE_URL = "postgresql://neondb_owner:npg_0rwQtGygdhD2@ep-lively-block-anylrnt0-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 [postMerge]
 path = "scripts/post-merge.sh"
