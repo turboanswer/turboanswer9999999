@@ -491,7 +491,7 @@ Output STRICT JSON:
 // Surgeon.
 function claudeModelForTier(tier?: string): string {
   const t = (tier || 'free').toLowerCase();
-  if (t === 'enterprise' || t === 'owner') return 'openai/gpt-5.5-pro';
+  if (t === 'enterprise' || t === 'owner') return 'openai/gpt-5-pro';
   if (t === 'research') return 'openai/gpt-5.4-mini';
   if (t === 'pro') return 'openai/gpt-4.1';
   return 'openai/gpt-4o-mini';

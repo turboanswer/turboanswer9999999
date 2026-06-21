@@ -1,10 +1,10 @@
 import { fastAnswer } from "./reasoning-engine.js";
 import { callDirect } from "./direct-router.js";
 
-// Stack Trace Surgeon runs EXCLUSIVELY on the GPT-5.1 Codex deployment — the only
+// Stack Trace Surgeon runs EXCLUSIVELY on the GPT-5.2 Codex deployment — the only
 // feature in the app that uses Codex. Falls back to the tier-routed answer chain
 // via fastAnswer if the model is unavailable, so the feature never goes silent.
-const SURGEON_MODEL = 'openai/gpt-5.1-codex';
+const SURGEON_MODEL = 'openai/gpt-5.2-codex';
 
 export type ModelUsage = { promptTokens: number; completionTokens: number };
 

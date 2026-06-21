@@ -4,11 +4,15 @@
 //
 // The entire text engine now runs on the GPT line-up served by the Azure
 // OpenAI / AI Foundry resource:
-//   gpt-4o-mini   → free tier  (Turbo AI)
-//   gpt-4.1       → pro tier   (Turbo AI Pro)
-//   gpt-5.4-mini  → research   (Matrix AI)
-//   gpt-5.5-pro   → enterprise
-//   gpt-5.1-codex → Stack Trace Surgeon ONLY
+//   gpt-4o-mini   → free tier  (Turbo AI)          [chat-completions]
+//   gpt-4.1       → pro tier   (Turbo AI Pro)       [chat-completions]
+//   gpt-5.4-mini  → research   (Matrix AI)          [chat-completions]
+//   gpt-5-pro     → enterprise                      [Responses API only]
+//   gpt-5.2-codex → Stack Trace Surgeon ONLY        [Responses API only]
+//
+// NOTE: gpt-5-pro and gpt-5.2-codex do NOT support /chat/completions on Azure
+// (they 400 "operation is unsupported"); they are only reachable via the
+// /openai/responses endpoint, so resolveModel flags them usesResponsesApi.
 //
 // Every deployment name, the API version, and the chat endpoint are
 // env-overridable so a naming difference in Azure is a config change, not a
@@ -38,6 +42,12 @@ type Resolved = {
   // GPT-5 family (incl. codex) needs max_completion_tokens (not max_tokens) and
   // only the DEFAULT temperature; it also accepts reasoning_effort.
   isGpt5: boolean;
+  // True for deployments that ONLY support Azure's /openai/responses endpoint
+  // (gpt-5-pro, gpt-5.2-codex) and reject /chat/completions.
+  usesResponsesApi?: boolean;
+  // Reasoning effort for Responses-API models. gpt-5-pro ONLY accepts 'high';
+  // gpt-5.2-codex accepts 'low'. Ignored for chat-completions deployments.
+  reasoningEffort?: string;
   // Best-effort public-OpenAI model name for the optional api.openai.com fallback.
   publicModel: string;
   // Short label for diagnostics.
@@ -55,18 +65,20 @@ function resolveModel(orId: string): Resolved {
   // Stack Trace Surgeon — exclusive Codex model.
   if (m.includes('codex')) {
     return {
-      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT_CODEX || 'gpt-5.1-codex',
-      isGpt5: true, publicModel: 'gpt-5', label: 'codex',
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT_CODEX || 'gpt-5.2-codex',
+      isGpt5: true, usesResponsesApi: true, reasoningEffort: process.env.AZURE_OPENAI_CODEX_EFFORT || 'low',
+      publicModel: 'gpt-5', label: 'codex',
     };
   }
   // Enterprise top engine. NOTE: legacy "opus" is intentionally NOT routed here —
   // historically Opus was the Matrix/research model, so legacy anthropic/claude-opus
   // call sites resolve to gpt-5.4-mini (Matrix) below. Enterprise routing comes
-  // through explicit openai/gpt-5.5-pro ids (claudeModelForTier), not the opus hint.
-  if (m.includes('5.5') || m.includes('5-5') || m.includes('enterprise')) {
+  // through explicit openai/gpt-5-pro ids (claudeModelForTier), not the opus hint.
+  if (m.includes('5.5') || m.includes('5-5') || m.includes('enterprise') || m.includes('5-pro') || (m.includes('gpt-5') && m.includes('pro'))) {
     return {
-      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_PRO || 'gpt-5.5-pro',
-      isGpt5: true, publicModel: 'gpt-5', label: 'gpt5-pro',
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_PRO || 'gpt-5-pro',
+      isGpt5: true, usesResponsesApi: true, reasoningEffort: process.env.AZURE_OPENAI_PRO_EFFORT || 'high',
+      publicModel: 'gpt-5', label: 'gpt5-pro',
     };
   }
   // Matrix AI (research) — also where legacy "opus" lands.
@@ -105,16 +117,19 @@ function apiVersion(): string {
 // ORIGIN of AZURE_OPENAI_ENDPOINT (path portion irrelevant) so any value — bare
 // host, /api/projects/..., or a portal Target URI — resolves to the same correct
 // URL. Override the whole base with AZURE_OPENAI_CHAT_ENDPOINT if needed.
-function azureOpenAIUrl(deployment: string): string {
+function azureOrigin(): string {
   const override = (process.env.AZURE_OPENAI_CHAT_ENDPOINT || '').replace(/\/+$/, '');
-  let origin = override;
-  if (!origin) {
-    const raw = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
-    try { origin = new URL(raw).origin; } catch { origin = raw.replace(/(https?:\/\/[^/]+).*/i, '$1'); }
-  } else {
-    try { origin = new URL(override).origin; } catch { /* keep override as-is */ }
-  }
-  return `${origin}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${apiVersion()}`;
+  if (override) { try { return new URL(override).origin; } catch { return override; } }
+  const raw = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+  try { return new URL(raw).origin; } catch { return raw.replace(/(https?:\/\/[^/]+).*/i, '$1'); }
+}
+function azureOpenAIUrl(deployment: string): string {
+  return `${azureOrigin()}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${apiVersion()}`;
+}
+// Azure's newer Responses endpoint — required by gpt-5-pro / gpt-5.2-codex, which
+// reject /chat/completions. The deployment goes in the body (model), not the path.
+function azureResponsesUrl(): string {
+  return `${azureOrigin()}/openai/responses?api-version=${apiVersion()}`;
 }
 
 // Convert an Anthropic-style content value (string OR array of content blocks,
@@ -224,11 +239,106 @@ async function publicOpenAINonStream(r: Resolved, messages: Message[], opts: Cal
   return out;
 }
 
+// ── Azure Responses API (gpt-5-pro / gpt-5.2-codex) ──────────────────────────
+// These deployments only answer on /openai/responses. The request/response
+// shapes differ from chat-completions: system prompt → `instructions`, the
+// conversation → typed `input` items, output text is nested under output[].
+
+function toResponsesInput(messages: Message[]): { instructions: string; input: any[] } {
+  const sys: string[] = [];
+  const input: any[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') {
+      if (typeof m.content === 'string') sys.push(m.content);
+      else if (Array.isArray(m.content)) sys.push(m.content.map((b: any) => (b?.type === 'text' ? (b.text ?? '') : '')).join('\n'));
+      continue;
+    }
+    const isAssistant = m.role === 'assistant';
+    const textType = isAssistant ? 'output_text' : 'input_text';
+    const parts: any[] = [];
+    if (typeof m.content === 'string') {
+      parts.push({ type: textType, text: m.content });
+    } else if (Array.isArray(m.content)) {
+      for (const b of m.content) {
+        if (!b || typeof b !== 'object') { parts.push({ type: textType, text: String(b ?? '') }); continue; }
+        if (b.type === 'text') { parts.push({ type: textType, text: b.text ?? '' }); continue; }
+        if (b.type === 'image_url' && !isAssistant) { parts.push({ type: 'input_image', image_url: typeof b.image_url === 'string' ? b.image_url : b.image_url?.url }); continue; }
+        if (b.type === 'image' && b.source && !isAssistant) {
+          const url = b.source.type === 'base64' ? `data:${b.source.media_type};base64,${b.source.data}` : b.source.url;
+          parts.push({ type: 'input_image', image_url: url }); continue;
+        }
+        parts.push({ type: textType, text: typeof b.text === 'string' ? b.text : '' });
+      }
+    }
+    input.push({ role: m.role, content: parts });
+  }
+  return { instructions: sys.join('\n\n'), input };
+}
+
+function buildResponsesBody(r: Resolved, messages: Message[], opts: CallOpts): any {
+  const { instructions, input } = toResponsesInput(messages);
+  // Reasoning tokens count against max_output_tokens, so keep generous headroom
+  // or the response can complete with reasoning only and no visible text.
+  const body: any = { model: r.deployment, input, max_output_tokens: Math.max(opts.maxTokens ?? 1500, 2048) };
+  if (instructions) body.instructions = instructions;
+  const effort = r.reasoningEffort;
+  if (effort) body.reasoning = { effort };
+  if (opts.jsonMode) body.text = { format: { type: 'json_object' } };
+  return body;
+}
+
+function parseResponsesText(data: any): string | null {
+  if (typeof data?.output_text === 'string' && data.output_text) return data.output_text;
+  const out = Array.isArray(data?.output) ? data.output : [];
+  // Concatenate every output_text segment across all message items so multi-part
+  // answers aren't truncated to just the first chunk.
+  const text = out
+    .filter((o: any) => o?.type === 'message')
+    .flatMap((o: any) => (Array.isArray(o.content) ? o.content : []))
+    .filter((c: any) => c?.type === 'output_text' && typeof c.text === 'string')
+    .map((c: any) => c.text)
+    .join('');
+  return text || null;
+}
+
+async function azureResponsesNonStream(r: Resolved, messages: Message[], opts: CallOpts, signal: AbortSignal): Promise<string | null> {
+  const creds = azureCreds();
+  if (!creds) { opts.onProviderError?.('Azure OpenAI not configured (AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT missing)'); return null; }
+  const res = await azureFetchWithRetry(azureResponsesUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
+    body: JSON.stringify(buildResponsesBody(r, messages, opts)),
+    signal,
+  }, opts, `azure-responses(${r.deployment})`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    const detail = `azure-responses(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+    opts.onProviderError?.(detail);
+    console.warn(`[Router/Azure-Responses] ${detail}`);
+    return null;
+  }
+  const data: any = await res.json();
+  const u = data?.usage;
+  if (u && opts.onUsage) opts.onUsage({ promptTokens: u.input_tokens ?? 0, completionTokens: u.output_tokens ?? 0 });
+  let text = parseResponsesText(data);
+  if (text && opts.jsonMode) text = stripJsonFences(text);
+  if (!text) opts.onProviderError?.(`azure-responses(${r.deployment}) returned no text (status ${data?.status})`);
+  return text;
+}
+
 export async function callDirect(orModelId: string, messages: Message[], opts: CallOpts = {}): Promise<string | null> {
   const r = resolveModel(orModelId);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
+    if (r.usesResponsesApi) {
+      const out = await azureResponsesNonStream(r, messages, opts, ctrl.signal);
+      if (out) { clearTimeout(t); return out; }
+      const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+      clearTimeout(t);
+      if (fb) { console.warn(`[Router] used public-OpenAI fallback for ${r.label}`); return fb; }
+      return null;
+    }
     const creds = azureCreds();
     if (creds) {
       const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
@@ -276,6 +386,16 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
   try {
+    // Responses-API models don't stream here — fetch the full answer and emit it
+    // as one chunk so the SSE contract to callers is preserved.
+    if (r.usesResponsesApi) {
+      const out = await azureResponsesNonStream(r, messages, opts, ctrl.signal);
+      if (out) { clearTimeout(t); onChunk(out); return out; }
+      const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+      clearTimeout(t);
+      if (fb) { console.warn(`[Router-stream] used public-OpenAI fallback for ${r.label}`); onChunk(fb); return fb; }
+      return null;
+    }
     const creds = azureCreds();
     if (creds) {
       const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
