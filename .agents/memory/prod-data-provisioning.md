@@ -6,10 +6,15 @@ description: Why role/seed data that must exist in production can't be written f
 # Provisioning privileged roles / seed data into production
 
 The production deployment connects to its **own** database — distinct from every
-dev secret (DATABASE_URL, NEON_DATABASE_URL, AZURE_DATABASE_URL). That prod DB is
-**not reachable** from the dev shell, and the database skill's production queries are
-**read-only**. So you cannot seed or fix a prod row (e.g. flip a user's role flag) by
-writing to any dev DB or by running SQL against prod.
+dev secret (DATABASE_URL, NEON_DATABASE_URL, AZURE_DATABASE_URL). The database skill's
+production queries are **read-only**, so you cannot seed/fix a prod row through it.
+
+CAVEAT (see cross-db-data-copy.md): the Azure runtime/prod Postgres is reachable
+directly from the dev sandbox **if** the user allowlists the sandbox egress IP on the
+Azure Postgres firewall — at which point you CAN write to it (e.g. via psql/pg). The
+"not reachable" assumption only holds while the firewall blocks the sandbox. The
+login-time app-layer grant below is still the right pattern for self-healing role/seed
+provisioning that survives sandbox IP churn and needs no firewall.
 
 **Symptom that reveals this:** a live login returns different field values than the
 same account shows in every dev DB (e.g. live receptionist came back firstName
