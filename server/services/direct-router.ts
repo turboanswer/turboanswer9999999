@@ -167,6 +167,29 @@ function resolveModel(orId: string): Resolved {
   return { provider: 'anthropic', modelName: name };
 }
 
+// Azure Foundry enforces per-minute input-token rate limits (HTTP 429 with a
+// Retry-After header). A single transient burst shouldn't fail the user's
+// request, so retry the SAME call a bounded number of times, honoring
+// Retry-After but capping the wait so a live chat never stalls for the full
+// (often 45s) window. A 429'd request is rejected before it consumes quota, so
+// retrying does not itself add to the rate-limit pressure.
+async function azureFetchWithRetry(url: string, init: RequestInit, opts: CallOpts, label: string): Promise<Response> {
+  const maxRetries = 2;
+  let attempt = 0;
+  let res = await fetch(url, init);
+  while (res.status === 429 && attempt < maxRetries) {
+    const raHeader = parseInt(res.headers.get('retry-after') || '', 10);
+    const waitMs = Math.min((Number.isFinite(raHeader) && raHeader > 0 ? raHeader : 2) * 1000, 8000);
+    attempt++;
+    const note = `${label} rate-limited (HTTP 429) — retry ${attempt}/${maxRetries} in ${waitMs}ms`;
+    opts.onProviderError?.(note);
+    console.warn(`[Router/Azure-Claude] ${note}`);
+    await new Promise(r => setTimeout(r, waitMs));
+    res = await fetch(url, init);
+  }
+  return res;
+}
+
 export async function callDirect(orModelId: string, messages: Message[], opts: CallOpts = {}): Promise<string | null> {
   const r = resolveModel(orModelId);
   const ctrl = new AbortController();
@@ -184,12 +207,12 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
         if (key && ep && (useAzureForAnthropic() || isFoundryEndpoint(ep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await fetch(azureAnthropicUrl(), {
+          const res = await azureFetchWithRetry(azureAnthropicUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
             signal: ctrl.signal,
-          });
+          }, opts, `azure-claude(${deployment})`);
           if (res.ok) {
             const data: any = await res.json();
             let text = extractAnthropicText(data);
@@ -259,12 +282,12 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
         if (akey && aep && (useAzureForAnthropic() || isFoundryEndpoint(aep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await fetch(azureAnthropicUrl(), {
+          const res = await azureFetchWithRetry(azureAnthropicUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, true, isOpus)),
             signal: ctrl.signal,
-          });
+          }, opts, `azure-claude-stream(${deployment})`);
           if (res.ok && res.body) {
             const reader = (res.body as any).getReader();
             const dec = new TextDecoder();
@@ -308,12 +331,12 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
           // `if (acc) return acc` above returns on any emitted content), so a
           // single-chunk non-streaming answer cannot double-emit.
           try {
-            const ns = await fetch(azureAnthropicUrl(), {
+            const ns = await azureFetchWithRetry(azureAnthropicUrl(), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
               body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
               signal: ctrl.signal,
-            });
+            }, opts, `azure-claude-nonstream(${deployment})`);
             if (ns.ok) {
               const data: any = await ns.json();
               const text = extractAnthropicText(data);
