@@ -12,3 +12,5 @@ Long conversations (or a few large pasted messages) can exceed a model's context
 - The guard lives in `direct-router.ts` (`fitMessagesToContext`, called at the top of both `callDirect` and `callDirectStream`) so ALL paths are protected, not just one route. Each resolved model carries a `contextLimit` (gpt-4o-mini 128k, gpt-4.1 1M, gpt-5.x 256k).
 - It keeps all system messages + the most recent turn, drops the OLDEST turns first, and truncates a single oversized text message as a last resort; it reserves output headroom (`maxTokens` + buffer). Token estimate is ~chars/4 plus a flat per-image cost — pragmatic, not exact, so keep a generous reserve.
 - Residual (currently unhandled, low-risk for this app): system-only overflow and oversized structured/vision payloads are not trimmed. If those ever 400, the next step is a retry-on-400-context loop that re-trims more aggressively.
+
+**Verified live in prod** via an oversized widget message (~180k tokens → HTTP 200 instead of the old 400). See prod-deploy-pipeline.md for that probe technique.

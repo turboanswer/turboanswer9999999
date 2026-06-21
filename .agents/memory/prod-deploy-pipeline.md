@@ -43,6 +43,34 @@ actually shipped.
 URL — user should rotate it). Stale decoy repos exist under `tiagotschantret12-dotcom/*`
 (no workflows) — do not confuse them for the live repo.
 
+# A GitHub Actions run shows "failure" even when prod deployed fine — check per-JOB, not run conclusion
+The workflow has THREE jobs: `build`, `deploy` (→ real app `turboanswergroup`), and
+`deploy-fallback` (→ `EMERGECY-FALLBACK-START-EMERGECY-PROTOCAL`, a bogus/non-existent
+app name). The fallback job **fails on every run**, which drags the whole run's
+`conclusion` to `failure` — but the primary `deploy` job is usually `success`. So a red
+run does NOT mean prod failed. Always fetch the run's jobs
+(`/actions/runs/{id}/jobs`) and read the `deploy` job's conclusion + its "Deploy to
+Azure Web App" step. (Cleanup TODO: delete/fix the fallback job so runs stop showing
+false failures.)
+
+# Azure finishes deploys ASYNC — GitHub "success" ≠ code live yet
+`azure/webapps-deploy` reports success when the package is handed off; Azure (Kudu
+OneDeploy) then swaps wwwroot + restarts the worker minutes later. So a prod error
+timestamped a few minutes AFTER the GH job's "success" can still be OLD code serving
+during the swap. To see what's ACTUALLY live, list ARM deployments:
+`GET {siteBasePath}/deployments` with **api-version 2026-03-15** (older versions 400 in
+westus2) → the entry with `active:true` and `status:4` (=success) is the running build;
+its `end_time` is when it went live. Also: the running log TAG identifies the code
+version (e.g. old `[Router/Azure/gpt-4o-mini-stream]` vs current
+`[Router/Azure-OpenAI-stream]`) — a mismatch means prod is behind.
+
+# Strongest live verification: oversized widget message (no auth, exercises the engine)
+To prove a context/engine fix is LIVE (not just deployed), POST `/api/widget/conversation`
+{domain,userAgent} → `conversationId`, then POST `/api/widget/message`
+{sessionId|conversationId, message, domain} with a deliberately HUGE `message`
+(~180k tokens of repeated text). 200 = the context-trim fix is live; 400 "maximum context
+length" = old code still running. Beats local in-process repro — it hits the real deploy.
+
 # CI already normalizes the lockfile
 The workflow has a "Normalize lockfile registry URLs" step that seds
 `http://package-firewall.replit.local/npm/` → `https://registry.npmjs.org/` before
