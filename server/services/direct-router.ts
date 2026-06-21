@@ -96,6 +96,30 @@ function azureAnthropicUrl(): string {
   try { origin = new URL(norm).origin; } catch { origin = norm.replace(/(https?:\/\/[^/]+).*/i, '$1'); }
   return `${origin}/anthropic/v1/messages`;
 }
+// Prompt caching (Anthropic). The Azure Foundry rate limit counts UNCACHED input
+// tokens, and our system prompt (identity + formatting rules + any pinned context)
+// is re-sent on every call — identical across same-tier chats AND across every
+// classifier/router call. Marking the system block cache_control:ephemeral makes
+// that repeated prefix a cache HIT after the first call: read is ~90% cheaper and,
+// crucially, does NOT count as uncached input — the single biggest lever on the
+// 80k-tokens/min limit. Honored by both the direct Anthropic API and the Foundry
+// Anthropic passthrough; if a prefix is below the model's minimum cacheable size
+// it's silently ignored (no error). PROMPT_CACHE_DISABLED=1 is a kill-switch in
+// case a provider ever rejects the field in prod.
+// Set true the first time a provider rejects the cache_control field (HTTP 400),
+// so we degrade to plain (uncached) system prompts process-wide instead of failing
+// every request until someone flips PROMPT_CACHE_DISABLED. Self-healing.
+let cacheFieldRejected = false;
+function promptCachingEnabled(): boolean {
+  return process.env.PROMPT_CACHE_DISABLED !== '1' && process.env.PROMPT_CACHE_DISABLED !== 'true';
+}
+function cachedSystem(sys: string): any {
+  if (!sys) return undefined;
+  return (promptCachingEnabled() && !cacheFieldRejected)
+    ? [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }]
+    : sys;
+}
+
 // Build an Anthropic-native Messages API request body. System turns become the
 // top-level `system` string; user/assistant turns become the `messages` array.
 function buildAzureAnthropicBody(deployment: string, messages: Message[], opts: CallOpts, stream: boolean, isOpus: boolean): any {
@@ -117,7 +141,7 @@ function buildAzureAnthropicBody(deployment: string, messages: Message[], opts: 
     system += (system ? '\n\n' : '') + 'Respond with ONLY a single valid JSON value — no prose, no explanation, and no markdown code fences.';
   }
   const body: any = { model: deployment, max_tokens: opts.maxTokens ?? 1500, messages: msgs };
-  if (system) body.system = system;
+  if (system) body.system = cachedSystem(system);
   // Claude Opus 4.x on Azure Foundry only accepts the DEFAULT temperature (1) and
   // returns HTTP 400 ("invalid_request_error") for any NON-default temperature
   // (e.g. 0 or 0.3). Haiku/Sonnet accept any value. Omitting it for Opus lets it
@@ -173,10 +197,24 @@ function resolveModel(orId: string): Resolved {
 // Retry-After but capping the wait so a live chat never stalls for the full
 // (often 45s) window. A 429'd request is rejected before it consumes quota, so
 // retrying does not itself add to the rate-limit pressure.
-async function azureFetchWithRetry(url: string, init: RequestInit, opts: CallOpts, label: string): Promise<Response> {
+async function azureFetchWithRetry(url: string, buildInit: () => RequestInit, opts: CallOpts, label: string): Promise<Response> {
   const maxRetries = 2;
   let attempt = 0;
-  let res = await fetch(url, init);
+  let res = await fetch(url, buildInit());
+  // Self-heal: if Azure Foundry rejects the prompt-cache field (HTTP 400 mentioning
+  // cache_control/ephemeral), disable caching process-wide and retry ONCE with a
+  // freshly built (uncached) body. Prevents a cache incompatibility from failing
+  // every request when there is no overflow provider to fall through to.
+  if (res.status === 400 && promptCachingEnabled() && !cacheFieldRejected) {
+    const peek = await res.clone().text().catch(() => '');
+    if (/cache_control|ephemeral/i.test(peek)) {
+      cacheFieldRejected = true;
+      const note = `${label} rejected prompt caching (HTTP 400) — disabling cache process-wide and retrying uncached`;
+      opts.onProviderError?.(note);
+      console.warn(`[Router/Azure-Claude] ${note}`);
+      res = await fetch(url, buildInit());
+    }
+  }
   while (res.status === 429 && attempt < maxRetries) {
     const raHeader = parseInt(res.headers.get('retry-after') || '', 10);
     const waitMs = Math.min((Number.isFinite(raHeader) && raHeader > 0 ? raHeader : 2) * 1000, 8000);
@@ -185,7 +223,7 @@ async function azureFetchWithRetry(url: string, init: RequestInit, opts: CallOpt
     opts.onProviderError?.(note);
     console.warn(`[Router/Azure-Claude] ${note}`);
     await new Promise(r => setTimeout(r, waitMs));
-    res = await fetch(url, init);
+    res = await fetch(url, buildInit());
   }
   return res;
 }
@@ -207,12 +245,12 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
         if (key && ep && (useAzureForAnthropic() || isFoundryEndpoint(ep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await azureFetchWithRetry(azureAnthropicUrl(), {
+          const res = await azureFetchWithRetry(azureAnthropicUrl(), () => ({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
             signal: ctrl.signal,
-          }, opts, `azure-claude(${deployment})`);
+          }), opts, `azure-claude(${deployment})`);
           if (res.ok) {
             const data: any = await res.json();
             let text = extractAnthropicText(data);
@@ -244,7 +282,7 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
       const res = await fetch(`${base}/v1/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: r.modelName, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, ...(sys ? { system: sys } : {}), messages: msgs }),
+        body: JSON.stringify({ model: r.modelName, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, ...(sys ? { system: cachedSystem(sys) } : {}), messages: msgs }),
         signal: ctrl.signal,
       });
       clearTimeout(t);
@@ -282,12 +320,12 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
         if (akey && aep && (useAzureForAnthropic() || isFoundryEndpoint(aep))) {
           const deployment = claudeAzureDeployment(r.modelName);
           const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await azureFetchWithRetry(azureAnthropicUrl(), {
+          const res = await azureFetchWithRetry(azureAnthropicUrl(), () => ({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
             body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, true, isOpus)),
             signal: ctrl.signal,
-          }, opts, `azure-claude-stream(${deployment})`);
+          }), opts, `azure-claude-stream(${deployment})`);
           if (res.ok && res.body) {
             const reader = (res.body as any).getReader();
             const dec = new TextDecoder();
@@ -331,12 +369,12 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
           // `if (acc) return acc` above returns on any emitted content), so a
           // single-chunk non-streaming answer cannot double-emit.
           try {
-            const ns = await azureFetchWithRetry(azureAnthropicUrl(), {
+            const ns = await azureFetchWithRetry(azureAnthropicUrl(), () => ({
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
               body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
               signal: ctrl.signal,
-            }, opts, `azure-claude-nonstream(${deployment})`);
+            }), opts, `azure-claude-nonstream(${deployment})`);
             if (ns.ok) {
               const data: any = await ns.json();
               const text = extractAnthropicText(data);
@@ -368,7 +406,7 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
         if (m.role === 'system') sys += (sys ? '\n\n' : '') + m.content;
         else msgs.push({ role: m.role, content: m.content });
       }
-      const res = await fetch(`${base}/v1/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: r.modelName, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, ...(sys ? { system: sys } : {}), messages: msgs, stream: true }), signal: ctrl.signal });
+      const res = await fetch(`${base}/v1/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: r.modelName, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, ...(sys ? { system: cachedSystem(sys) } : {}), messages: msgs, stream: true }), signal: ctrl.signal });
       if (!res.ok || !res.body) {
         if (!res.ok) { const txt = await res.text().catch(() => ''); opts.onProviderError?.(`anthropic(${r.modelName}) HTTP ${res.status}: ${txt.slice(0, 160)}`); }
         else opts.onProviderError?.(`anthropic(${r.modelName}) returned no response body`);

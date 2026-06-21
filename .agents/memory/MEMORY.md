@@ -13,6 +13,7 @@
 - [Dual-provider billing safety](dual-provider-billing.md) — granting via Stripe MUST cancel+clear any PayPal sub (and vice versa) or users double-bill; gate "Manage Billing" on provider==stripe.
 - [Code Studio multi-file model](code-studio-multifile.md) — projects stored as file arrays; serving/preview re-inline css/js; generation builds one HTML then splits into index/styles/app.
 - [SSE token streaming](streaming-sse.md) — fast/retrieval/deep all stream via answerForTierStream; never cascade to another deployment after a chunk reached the client (duplicates the stream).
+- [Azure Claude scaling & rate limits](azure-claude-scaling.md) — 429 = per-min UNCACHED input tokens; fix with system-block prompt caching (self-heal on 400); overflow key & quota DON'T come from Replit in prod (Azure App Service), set ANTHROPIC_API_KEY there.
 - [AI response language](ai-response-language.md) — "wrong language" is usually the Google Translate DOM widget, not the model; require explicit-choice flag, default English; server must always pin language incl. deep mode.
 - [Prod schema drift](prod-schema-drift.md) — prod Azure Postgres never runs `drizzle-kit push`; new tables MUST be added to `NEW_TABLES` in `server/db-migrations.ts` or they 500 in prod only.
 - [Prod data provisioning](prod-data-provisioning.md) — prod DB is unreachable from dev + read-only; seed privileged roles via login-time app grant (allowlist), not manual SQL.
