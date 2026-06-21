@@ -209,12 +209,14 @@ function azureCreds(): { key: string; endpoint: string } | null {
   return null;
 }
 
-// Optional safety net: api.openai.com using OPENAI_API_KEY. Default ON so a chat
-// never goes dark if the Azure deployment is briefly unreachable, but every use
-// is logged loudly via onProviderError so an Azure misconfiguration still
-// surfaces. Disable with OPENAI_PUBLIC_FALLBACK=0.
+// Optional safety net: api.openai.com using OPENAI_API_KEY. Default OFF — the
+// text engine is Azure-only by design and "fails loud", so a real Azure problem
+// (key/endpoint/deployment) surfaces directly instead of being masked by a
+// public-OpenAI error (e.g. a misconfigured OPENAI_API_KEY producing a
+// confusing 401 that points users at platform.openai.com). Opt in explicitly
+// with OPENAI_PUBLIC_FALLBACK=1.
 function publicFallbackEnabled(): boolean {
-  return process.env.OPENAI_PUBLIC_FALLBACK !== '0' && process.env.OPENAI_PUBLIC_FALLBACK !== 'false';
+  return process.env.OPENAI_PUBLIC_FALLBACK === '1' || process.env.OPENAI_PUBLIC_FALLBACK === 'true';
 }
 
 async function publicOpenAINonStream(r: Resolved, messages: Message[], opts: CallOpts, signal: AbortSignal): Promise<string | null> {

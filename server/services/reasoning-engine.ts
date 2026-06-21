@@ -591,13 +591,13 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
   // Scale timeout with budget: ~50 tok/sec floor + 10s headroom, min 25s, max 120s.
   const timeoutMs = Math.min(120_000, Math.max(25_000, shaped.maxTokens * 20 + 10_000));
   let providerErr = '';
-  const out = await answerForTier(question, routingTier(tier, question), { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history, onProviderError: (d) => { providerErr = d; } });
+  const out = await answerForTier(question, routingTier(tier, question), { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history, onProviderError: (d) => { providerErr = providerErr ? `${providerErr} | ${d}` : d; } });
   if (out) return out;
   // No silent fallback — surface the failure so the route returns a real HTTP
   // error and the UI can offer a retry instead of persisting a fake assistant
   // message in chat history. Include the real provider detail (no secrets) so
   // the cause is visible instead of a generic "engine failed".
-  throw new Error(`AI_ENGINE_UNAVAILABLE: Claude failed${providerErr ? ` — ${providerErr}` : ' (no provider detail captured)'}`);
+  throw new Error(`AI_ENGINE_UNAVAILABLE: AI engine failed${providerErr ? ` — ${providerErr}` : ' (no provider detail captured)'}`);
 }
 
 // ============= STREAMING (token-by-token) FAST PATH =============
@@ -663,11 +663,11 @@ export async function fastAnswerStream(
   const out = await answerForTierStream(
     question,
     routingTier(tier, question),
-    { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history, onProviderError: (d) => { providerErr = d; } },
+    { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history, onProviderError: (d) => { providerErr = providerErr ? `${providerErr} | ${d}` : d; } },
     onChunk,
   );
   if (out) return out;
-  throw new Error(`AI_PROVIDERS_UNAVAILABLE: Claude streaming failed${providerErr ? ` — ${providerErr}` : ' (no provider detail captured)'}`);
+  throw new Error(`AI_PROVIDERS_UNAVAILABLE: AI engine streaming failed${providerErr ? ` — ${providerErr}` : ' (no provider detail captured)'}`);
 }
 
 // ============= RETRIEVAL-ONLY PATH =============
