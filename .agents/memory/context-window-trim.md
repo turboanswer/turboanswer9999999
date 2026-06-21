@@ -8,9 +8,14 @@ Long conversations (or a few large pasted messages) can exceed a model's context
 
 **Why:** prod free-tier chat 400'd at 164k tokens > 128k; the public-OpenAI fallback then masked it with a misleading 401. Capping by tokens at the model chokepoint fixes it for every route at once.
 
-**How to apply:**
-- The guard lives in `direct-router.ts` (`fitMessagesToContext`, called at the top of both `callDirect` and `callDirectStream`) so ALL paths are protected, not just one route. Each resolved model carries a `contextLimit` (gpt-4o-mini 128k, gpt-4.1 1M, gpt-5.x 256k).
-- It keeps all system messages + the most recent turn, drops the OLDEST turns first, and truncates a single oversized text message as a last resort; it reserves output headroom (`maxTokens` + buffer). Token estimate is ~chars/4 plus a flat per-image cost — pragmatic, not exact, so keep a generous reserve.
-- Residual (currently unhandled, low-risk for this app): system-only overflow and oversized structured/vision payloads are not trimmed. If those ever 400, the next step is a retry-on-400-context loop that re-trims more aggressively.
+**Estimate UNDER-counts — trimming "to budget" is not enough by itself.** The chars/4 estimate under-counts real Azure tokens for code/JSON/non-English, so a payload the trimmer believed was ~122k (budget = contextLimit − reserve ≈ 95% of window) was really ~160k → STILL a 400 even though the trim ran. Two changes were needed: (1) estimate divisor 4 → 3.5 (slight over-count) and cap input at ~70% of the window (`min(contextLimit − reserve, contextLimit*0.70*factor)`), not ~95%; (2) the real guarantee — a retry-on-context-400 loop.
 
-**Verified live in prod** via an oversized widget message (~180k tokens → HTTP 200 instead of the old 400). See prod-deploy-pipeline.md for that probe technique.
+**The guarantee is the retry, not the estimate.** `callDirect`/`callDirectStream` loop over `factors = [1, 0.6, 0.4]`, calling `fitMessagesToContext(messages, r, opts, factor)` per attempt; on a 400 whose body matches `isContextLengthError(...)` they re-trim harder and retry, else report+break. Any estimation error is absorbed by shrinking the budget and retrying — don't chase a "perfect" token count.
+
+**How to apply:**
+- The guard lives in `direct-router.ts` (`fitMessagesToContext`, now called PER-ATTEMPT inside the retry loop of both `callDirect` and `callDirectStream`, not once up top). Each resolved model carries a `contextLimit` (gpt-4o-mini 128k, gpt-4.1 1M, gpt-5.x 256k).
+- It keeps all system messages + the most recent turn, drops the OLDEST turns first, and truncates a single oversized text message as a last resort; it reserves output headroom (`maxTokens` + buffer).
+- Streaming retry is SAFE from duplicate output: a context-length 400 is rejected at request time (`res.ok` false) before any SSE chunk is emitted; once `consumeOpenAIStream` has emitted deltas it returns non-empty `acc` and the loop does NOT retry. The empty-stream non-stream fallback reuses the SAME fitted messages from that attempt. Public/non-stream fallbacks now also receive FITTED messages (they used to get raw history — latent bug).
+- Residual (still unhandled, low-risk): system-only overflow and oversized structured/vision payloads are never trimmed/truncated, so an extreme one could still 400 after the final 0.4 attempt. The responses-API path (gpt-5-pro/codex, 256k) has no retry loop yet. Next step if either bites: allow truncating oversized system text + structured-content text on the final attempt, and reuse the retry wrapper for `azureResponsesNonStream`.
+
+**Verified e2e** against the real Azure endpoint: 122 msgs / ~432k est tokens → trimmed 122→23 → HTTP 200 with a normal answer (no 400). Prod deploy is via git push → GitHub Actions → Azure App Service (NOT Replit Deploy); see prod-deploy-pipeline.md.

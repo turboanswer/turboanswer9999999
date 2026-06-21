@@ -335,11 +335,11 @@ async function azureResponsesNonStream(r: Resolved, messages: Message[], opts: C
 // are counted by their text length plus a flat per-image cost; this only needs
 // to be good enough to keep us safely under the model's context window.
 function estimateContentTokens(content: any): number {
-  if (typeof content === 'string') return Math.ceil(content.length / 4);
+  if (typeof content === 'string') return Math.ceil(content.length / 3.5);
   if (Array.isArray(content)) {
     let n = 0;
     for (const b of content) {
-      if (b && typeof b.text === 'string') n += Math.ceil(b.text.length / 4);
+      if (b && typeof b.text === 'string') n += Math.ceil(b.text.length / 3.5);
       else if (b && (b.type === 'image' || b.type === 'image_url' || b.source)) n += 1200;
       else n += 50;
     }
@@ -348,9 +348,18 @@ function estimateContentTokens(content: any): number {
   return 0;
 }
 
+// True when an Azure 400 body is a context-window overflow (vs. some other 400).
+// Used to re-trim harder and retry instead of failing the user's request.
+function isContextLengthError(body: string): boolean {
+  const b = (body || '').toLowerCase();
+  return b.includes('context length') || b.includes('maximum context')
+    || b.includes('context_length_exceeded') || b.includes('reduce the length')
+    || (b.includes('token') && b.includes('maximum') && b.includes('length'));
+}
+
 function truncateContentText(content: any, maxTokens: number): any {
   if (typeof content !== 'string') return content; // never truncate structured/vision content
-  const maxChars = Math.max(800, maxTokens * 4);
+  const maxChars = Math.max(800, Math.floor(maxTokens * 3.5));
   if (content.length <= maxChars) return content;
   const head = Math.floor(maxChars * 0.6);
   const tail = maxChars - head;
@@ -363,9 +372,14 @@ function truncateContentText(content: any, maxTokens: number): any {
 // text message only as a last resort. Prevents Azure HTTP 400 "maximum context
 // length exceeded" when a long conversation (or a huge pasted message) blows
 // past the limit (e.g. gpt-4o-mini's 128k).
-function fitMessagesToContext(messages: Message[], r: Resolved, opts: CallOpts): Message[] {
+function fitMessagesToContext(messages: Message[], r: Resolved, opts: CallOpts, factor = 1): Message[] {
   const reserve = Math.max(opts.maxTokens ?? 1500, 2048) + 4000;
-  const budget = Math.max(2000, r.contextLimit - reserve);
+  // The token estimate (chars/3.5) still UNDER-counts real tokens for code,
+  // JSON, and non-English text, so never fill the whole window: cap input at
+  // ~70% of the model context and shrink further (smaller `factor`) on each
+  // retry. Dropping a few old turns is always better than a hard 400.
+  const cap = Math.floor(r.contextLimit * 0.70 * factor);
+  const budget = Math.max(1500, Math.min(r.contextLimit - reserve, cap));
   const per = (m: Message) => estimateContentTokens(m.content) + 8;
   const total = messages.reduce((s, m) => s + per(m), 0);
   if (total <= budget) return messages;
@@ -398,45 +412,57 @@ function fitMessagesToContext(messages: Message[], r: Resolved, opts: CallOpts):
 
 export async function callDirect(orModelId: string, messages: Message[], opts: CallOpts = {}): Promise<string | null> {
   const r = resolveModel(orModelId);
-  messages = fitMessagesToContext(messages, r, opts);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
     if (r.usesResponsesApi) {
-      const out = await azureResponsesNonStream(r, messages, opts, ctrl.signal);
+      const fitted = fitMessagesToContext(messages, r, opts);
+      const out = await azureResponsesNonStream(r, fitted, opts, ctrl.signal);
       if (out) { clearTimeout(t); return out; }
-      const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+      const fb = await publicOpenAINonStream(r, fitted, opts, ctrl.signal);
       clearTimeout(t);
       if (fb) { console.warn(`[Router] used public-OpenAI fallback for ${r.label}`); return fb; }
       return null;
     }
     const creds = azureCreds();
     if (creds) {
-      const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
-        body: JSON.stringify(buildOpenAIBody(r, messages, opts, false)),
-        signal: ctrl.signal,
-      }, opts, `azure-openai(${r.deployment})`);
-      if (res.ok) {
-        const data: any = await res.json();
-        const u = data?.usage;
-        if (u && opts.onUsage) opts.onUsage({ promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0 });
-        let text = data?.choices?.[0]?.message?.content || null;
-        if (text && opts.jsonMode) text = stripJsonFences(text);
-        if (text) { clearTimeout(t); return text; }
-        opts.onProviderError?.(`azure-openai(${r.deployment}) HTTP 200 but no text in response`);
-      } else {
+      // Re-trim and retry on a context-length 400: the token estimate can
+      // under-count (dense code/JSON/non-English), so if Azure still rejects we
+      // shrink the budget hard and try again rather than failing the user.
+      const factors = [1, 0.6, 0.4];
+      for (let attempt = 0; attempt < factors.length; attempt++) {
+        const fitted = fitMessagesToContext(messages, r, opts, factors[attempt]);
+        const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
+          body: JSON.stringify(buildOpenAIBody(r, fitted, opts, false)),
+          signal: ctrl.signal,
+        }, opts, `azure-openai(${r.deployment})`);
+        if (res.ok) {
+          const data: any = await res.json();
+          const u = data?.usage;
+          if (u && opts.onUsage) opts.onUsage({ promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0 });
+          let text = data?.choices?.[0]?.message?.content || null;
+          if (text && opts.jsonMode) text = stripJsonFences(text);
+          if (text) { clearTimeout(t); return text; }
+          opts.onProviderError?.(`azure-openai(${r.deployment}) HTTP 200 but no text in response`);
+          break;
+        }
         const txt = await res.text().catch(() => '');
+        if (res.status === 400 && isContextLengthError(txt) && attempt < factors.length - 1) {
+          console.warn(`[Router/Azure-OpenAI] context-length 400 — re-trimming harder (factor ${factors[attempt + 1]}) and retrying`);
+          continue;
+        }
         const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
         opts.onProviderError?.(detail);
         console.warn(`[Router/Azure-OpenAI] ${detail}`);
+        break;
       }
     } else {
       opts.onProviderError?.('Azure OpenAI not configured (AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT missing)');
     }
     // Optional public-OpenAI safety net.
-    const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+    const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6), opts, ctrl.signal);
     clearTimeout(t);
     if (fb) { console.warn(`[Router] used public-OpenAI fallback for ${r.label}`); return fb; }
     return null;
@@ -454,61 +480,73 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
 
 export async function callDirectStream(orModelId: string, messages: Message[], opts: CallOpts, onChunk: (text: string) => void): Promise<string | null> {
   const r = resolveModel(orModelId);
-  messages = fitMessagesToContext(messages, r, opts);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
   try {
     // Responses-API models don't stream here — fetch the full answer and emit it
     // as one chunk so the SSE contract to callers is preserved.
     if (r.usesResponsesApi) {
-      const out = await azureResponsesNonStream(r, messages, opts, ctrl.signal);
+      const fitted = fitMessagesToContext(messages, r, opts);
+      const out = await azureResponsesNonStream(r, fitted, opts, ctrl.signal);
       if (out) { clearTimeout(t); onChunk(out); return out; }
-      const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+      const fb = await publicOpenAINonStream(r, fitted, opts, ctrl.signal);
       clearTimeout(t);
       if (fb) { console.warn(`[Router-stream] used public-OpenAI fallback for ${r.label}`); onChunk(fb); return fb; }
       return null;
     }
     const creds = azureCreds();
     if (creds) {
-      const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
-        body: JSON.stringify(buildOpenAIBody(r, messages, opts, true)),
-        signal: ctrl.signal,
-      }, opts, `azure-openai-stream(${r.deployment})`);
-      if (res.ok && res.body) {
-        const acc = await consumeOpenAIStream(res, onChunk);
-        if (acc) { clearTimeout(t); return acc; }
-        opts.onProviderError?.(`azure-openai(${r.deployment}) stream connected (HTTP 200) but produced no content`);
-        // Stream came back empty (some proxies drop the SSE body) — retry the
-        // SAME deployment NON-streaming and emit as a single chunk so the user
-        // still gets their answer. Reaching here guarantees nothing was emitted.
-        const ns = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
+      // Re-trim and retry on a context-length 400 BEFORE any chunk is emitted
+      // (a context overflow is rejected at request time, so nothing has streamed
+      // yet — safe to retry without duplicating output).
+      const factors = [1, 0.6, 0.4];
+      for (let attempt = 0; attempt < factors.length; attempt++) {
+        const fitted = fitMessagesToContext(messages, r, opts, factors[attempt]);
+        const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
-          body: JSON.stringify(buildOpenAIBody(r, messages, opts, false)),
+          body: JSON.stringify(buildOpenAIBody(r, fitted, opts, true)),
           signal: ctrl.signal,
-        }, opts, `azure-openai-nonstream(${r.deployment})`);
-        if (ns.ok) {
-          const data: any = await ns.json();
-          const text = data?.choices?.[0]?.message?.content || null;
-          if (text) { clearTimeout(t); onChunk(text); return text; }
-        } else {
-          const txt = await ns.text().catch(() => '');
-          opts.onProviderError?.(`azure-openai(${r.deployment}) non-stream fallback HTTP ${ns.status}: ${txt.slice(0, 160)}`);
+        }, opts, `azure-openai-stream(${r.deployment})`);
+        if (res.ok && res.body) {
+          const acc = await consumeOpenAIStream(res, onChunk);
+          if (acc) { clearTimeout(t); return acc; }
+          opts.onProviderError?.(`azure-openai(${r.deployment}) stream connected (HTTP 200) but produced no content`);
+          // Stream came back empty (some proxies drop the SSE body) — retry the
+          // SAME deployment NON-streaming and emit as a single chunk so the user
+          // still gets their answer. Reaching here guarantees nothing was emitted.
+          const ns = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
+            body: JSON.stringify(buildOpenAIBody(r, fitted, opts, false)),
+            signal: ctrl.signal,
+          }, opts, `azure-openai-nonstream(${r.deployment})`);
+          if (ns.ok) {
+            const data: any = await ns.json();
+            const text = data?.choices?.[0]?.message?.content || null;
+            if (text) { clearTimeout(t); onChunk(text); return text; }
+          } else {
+            const txt = await ns.text().catch(() => '');
+            opts.onProviderError?.(`azure-openai(${r.deployment}) non-stream fallback HTTP ${ns.status}: ${txt.slice(0, 160)}`);
+          }
+          break;
         }
-      } else {
         const txt = await res.text().catch(() => '');
+        if (res.status === 400 && isContextLengthError(txt) && attempt < factors.length - 1) {
+          console.warn(`[Router/Azure-OpenAI-stream] context-length 400 — re-trimming harder (factor ${factors[attempt + 1]}) and retrying`);
+          continue;
+        }
         const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
         opts.onProviderError?.(detail);
         console.warn(`[Router/Azure-OpenAI-stream] ${detail}`);
+        break;
       }
     } else {
       opts.onProviderError?.('Azure OpenAI not configured (AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT missing)');
     }
     // Public-OpenAI safety net (non-streaming; emit as one chunk). Only reached
     // if nothing was streamed to the client above.
-    const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+    const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6), opts, ctrl.signal);
     clearTimeout(t);
     if (fb) { console.warn(`[Router-stream] used public-OpenAI fallback for ${r.label}`); onChunk(fb); return fb; }
     return null;
