@@ -50,6 +50,9 @@ type Resolved = {
   reasoningEffort?: string;
   // Best-effort public-OpenAI model name for the optional api.openai.com fallback.
   publicModel: string;
+  // Approx model context window in tokens (input + output). Used to trim history
+  // so a long conversation never 400s with "maximum context length exceeded".
+  contextLimit: number;
   // Short label for diagnostics.
   label: string;
 };
@@ -67,7 +70,7 @@ function resolveModel(orId: string): Resolved {
     return {
       deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT_CODEX || 'gpt-5.2-codex',
       isGpt5: true, usesResponsesApi: true, reasoningEffort: process.env.AZURE_OPENAI_CODEX_EFFORT || 'low',
-      publicModel: 'gpt-5', label: 'codex',
+      publicModel: 'gpt-5', contextLimit: 256_000, label: 'codex',
     };
   }
   // Enterprise top engine. NOTE: legacy "opus" is intentionally NOT routed here —
@@ -78,34 +81,34 @@ function resolveModel(orId: string): Resolved {
     return {
       deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_PRO || 'gpt-5-pro',
       isGpt5: true, usesResponsesApi: true, reasoningEffort: process.env.AZURE_OPENAI_PRO_EFFORT || 'high',
-      publicModel: 'gpt-5', label: 'gpt5-pro',
+      publicModel: 'gpt-5', contextLimit: 256_000, label: 'gpt5-pro',
     };
   }
   // Matrix AI (research) — also where legacy "opus" lands.
   if (m.includes('5.4') || m.includes('5-4') || m.includes('matrix') || m.includes('opus') || (m.includes('gpt-5') && m.includes('mini'))) {
     return {
       deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_MINI || 'gpt-5.4-mini',
-      isGpt5: true, publicModel: 'gpt-5-mini', label: 'gpt5-mini',
+      isGpt5: true, publicModel: 'gpt-5-mini', contextLimit: 256_000, label: 'gpt5-mini',
     };
   }
   // Generic GPT-5.
   if (m.includes('gpt-5') || m.includes('gpt5')) {
     return {
       deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_MINI || 'gpt-5.4-mini',
-      isGpt5: true, publicModel: 'gpt-5-mini', label: 'gpt5',
+      isGpt5: true, publicModel: 'gpt-5-mini', contextLimit: 256_000, label: 'gpt5',
     };
   }
   // Pro tier — gpt-4.1 (also where legacy "sonnet" and bare "gpt-4o" land).
   if (m.includes('4.1') || m.includes('4-1') || m.includes('sonnet') || (m.includes('gpt-4o') && !m.includes('mini'))) {
     return {
       deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT41 || 'gpt-4.1',
-      isGpt5: false, publicModel: 'gpt-4.1', label: 'gpt-4.1',
+      isGpt5: false, publicModel: 'gpt-4.1', contextLimit: 1_000_000, label: 'gpt-4.1',
     };
   }
   // Free tier / everything else (haiku, nano, mini, flash, lite, small, gpt-4o-mini).
   return {
     deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O_MINI || 'gpt-4o-mini',
-    isGpt5: false, publicModel: 'gpt-4o-mini', label: 'gpt-4o-mini',
+    isGpt5: false, publicModel: 'gpt-4o-mini', contextLimit: 128_000, label: 'gpt-4o-mini',
   };
 }
 
@@ -328,8 +331,74 @@ async function azureResponsesNonStream(r: Resolved, messages: Message[], opts: C
   return text;
 }
 
+// Rough token estimate (~4 chars/token for English). Structured/vision blocks
+// are counted by their text length plus a flat per-image cost; this only needs
+// to be good enough to keep us safely under the model's context window.
+function estimateContentTokens(content: any): number {
+  if (typeof content === 'string') return Math.ceil(content.length / 4);
+  if (Array.isArray(content)) {
+    let n = 0;
+    for (const b of content) {
+      if (b && typeof b.text === 'string') n += Math.ceil(b.text.length / 4);
+      else if (b && (b.type === 'image' || b.type === 'image_url' || b.source)) n += 1200;
+      else n += 50;
+    }
+    return n;
+  }
+  return 0;
+}
+
+function truncateContentText(content: any, maxTokens: number): any {
+  if (typeof content !== 'string') return content; // never truncate structured/vision content
+  const maxChars = Math.max(800, maxTokens * 4);
+  if (content.length <= maxChars) return content;
+  const head = Math.floor(maxChars * 0.6);
+  const tail = maxChars - head;
+  return content.slice(0, head) + '\n\n[…earlier text trimmed to fit the model context window…]\n\n' + content.slice(content.length - tail);
+}
+
+// Trim the assembled messages so they fit the model's context window, leaving
+// room for the response. Keeps ALL system messages and the most recent turn,
+// drops the OLDEST conversation turns first, and truncates a single oversized
+// text message only as a last resort. Prevents Azure HTTP 400 "maximum context
+// length exceeded" when a long conversation (or a huge pasted message) blows
+// past the limit (e.g. gpt-4o-mini's 128k).
+function fitMessagesToContext(messages: Message[], r: Resolved, opts: CallOpts): Message[] {
+  const reserve = Math.max(opts.maxTokens ?? 1500, 2048) + 4000;
+  const budget = Math.max(2000, r.contextLimit - reserve);
+  const per = (m: Message) => estimateContentTokens(m.content) + 8;
+  const total = messages.reduce((s, m) => s + per(m), 0);
+  if (total <= budget) return messages;
+
+  const systems = messages.filter(m => m.role === 'system');
+  const convo = messages.filter(m => m.role !== 'system');
+  let used = systems.reduce((s, m) => s + per(m), 0);
+
+  const kept: Message[] = [];
+  for (let i = convo.length - 1; i >= 0; i--) {
+    const cost = per(convo[i]);
+    if (kept.length === 0 || used + cost <= budget) { kept.unshift(convo[i]); used += cost; }
+    else break; // budget exhausted — drop the remaining (older) turns
+  }
+
+  // If what we kept still overflows (e.g. the latest message alone is huge),
+  // truncate the single largest kept message's text down to fit.
+  if (used > budget && kept.length > 0) {
+    let idx = 0, max = -1;
+    kept.forEach((m, i) => { const c = estimateContentTokens(m.content); if (c > max) { max = c; idx = i; } });
+    const overflow = used - budget;
+    const allowed = Math.max(200, estimateContentTokens(kept[idx].content) - overflow - 50);
+    kept[idx] = { ...kept[idx], content: truncateContentText(kept[idx].content, allowed) };
+  }
+
+  const result = [...systems, ...kept];
+  console.warn(`[Router] context-trim ${r.label}: ${messages.length}→${result.length} msgs (~${total} tok > ~${budget} budget)`);
+  return result;
+}
+
 export async function callDirect(orModelId: string, messages: Message[], opts: CallOpts = {}): Promise<string | null> {
   const r = resolveModel(orModelId);
+  messages = fitMessagesToContext(messages, r, opts);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
@@ -385,6 +454,7 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
 
 export async function callDirectStream(orModelId: string, messages: Message[], opts: CallOpts, onChunk: (text: string) => void): Promise<string | null> {
   const r = resolveModel(orModelId);
+  messages = fitMessagesToContext(messages, r, opts);
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
   try {
