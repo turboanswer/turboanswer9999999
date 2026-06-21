@@ -77,10 +77,13 @@ export const users = pgTable("users", {
   // ── Stack Trace Surgeon: trial + metered credits ──────────────────────────
   // Free/Pro users get a small free trial of diagnoses before the upgrade wall.
   stackTraceTrialUsed: integer("stack_trace_trial_used").default(0),
-  // Metered balance in CENTS. Granted once ($35) when a user reaches a paid tier.
+  // Metered balance in CENTS. Enterprise gets a recurring monthly STS allowance.
   stackTraceCredits: integer("stack_trace_credits").default(0),
-  // Whether the one-time $35 credit has already been granted (so it can't be farmed).
+  // Whether a credit has ever been granted (legacy one-time flag, kept for display).
   stackTraceCreditGranted: boolean("stack_trace_credit_granted").default(false),
+  // Billing period ("YYYY-MM") the current monthly STS allowance was granted for.
+  // Drives the recurring reset: a new period re-grants the full monthly credit.
+  stackTraceCreditPeriod: text("stack_trace_credit_period"),
   // Per-user secret token for the public error-ingest webhook (Sentry / log drains).
   stackTraceIngestToken: text("stack_trace_ingest_token"),
 });

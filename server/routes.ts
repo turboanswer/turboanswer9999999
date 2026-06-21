@@ -950,26 +950,46 @@ function downloadAAB(){
   // mentioned in the trace, fetch JUST those files from the repo, and feed
   // {trace + relevant source} to the AI for a focused root-cause diagnosis.
   //
-  // ACCESS MODEL (revolutionary upgrade):
-  //  • Free / Pro: STS_TRIAL_LIMIT free diagnoses, then an upgrade wall.
-  //  • Research / Enterprise: a one-time STS_GRANT_CENTS ($35) welcome credit,
-  //    then strict per-use metering (diagnose = 50¢, PR/apply = 150¢, stop at 0).
+  // ACCESS MODEL:
+  //  • Free / Pro / Research: STS_TRIAL_LIMIT free diagnoses, then an upgrade wall.
+  //  • Enterprise: a recurring $100/month allowance, then per-use metering at the
+  //    call's ACTUAL Codex cost + a flat per-use fee (stops at 0, resets monthly).
   //  • Owner / Employee: unlimited, never charged.
-  const STS_DIAGNOSE_COST_CENTS = 50;
-  const STS_ACTION_COST_CENTS = 150;   // open-PR or direct-apply
+  // ── STS billing: Enterprise-only metered model ───────────────────────────────
+  // Stack Trace Surgeon is bundled with Enterprise. Enterprise includes a recurring
+  // $100/month STS allowance; each use is then metered at the call's ACTUAL model
+  // cost (gpt-5.1-codex tokens) plus a flat per-use fee. Non-enterprise tiers get a
+  // short free trial, then an upgrade wall. Owner / Employee = unlimited, never charged.
   const STS_TRIAL_LIMIT = 2;
-  const STS_GRANT_CENTS = 3500;        // one-time $35 welcome credit on upgrade
+  const STS_MONTHLY_CREDIT_CENTS = parseInt(process.env.STS_MONTHLY_CREDIT_CENTS || '', 10) || 10000; // $100/mo allowance
+  const STS_PER_USE_FEE_CENTS = parseInt(process.env.STS_PER_USE_FEE_CENTS || '', 10) || 20;          // flat +20¢ per use
+  const STS_RESERVE_CENTS = parseInt(process.env.STS_RESERVE_CENTS || '', 10) || 300;                 // conservative pre-work hold, reconciled to actual
+  // gpt-5.1-codex token pricing in CENTS per 1,000,000 tokens (env-overridable).
+  const STS_CODEX_INPUT_CENTS_PER_M = parseFloat(process.env.STS_CODEX_INPUT_CENTS_PER_M || '') || 125;    // $1.25 / 1M input
+  const STS_CODEX_OUTPUT_CENTS_PER_M = parseFloat(process.env.STS_CODEX_OUTPUT_CENTS_PER_M || '') || 1000; // $10.00 / 1M output
+  const stsPeriod = () => new Date().toISOString().slice(0, 7); // "YYYY-MM" (UTC)
+  // Cost of one metered STS use: actual Codex token cost + flat per-use fee.
+  const stsUseCostCents = (usage?: { promptTokens: number; completionTokens: number }) => {
+    const p = usage?.promptTokens ?? 0;
+    const c = usage?.completionTokens ?? 0;
+    const modelCents = (p * STS_CODEX_INPUT_CENTS_PER_M + c * STS_CODEX_OUTPUT_CENTS_PER_M) / 1_000_000;
+    return Math.ceil(modelCents) + STS_PER_USE_FEE_CENTS;
+  };
 
-  // Resolve the caller's access posture once. Grants the one-time credit on the
-  // first paid-tier visit. Returns enough for both the gate and the spend log.
+  // Resolve the caller's access posture once. For Enterprise, ensures the recurring
+  // monthly allowance is granted for the current billing period. Returns enough for
+  // both the gate and the spend log.
   async function stsResolveAccess(userId: string, user: any) {
     const tier = (user?.subscriptionTier || 'free').toLowerCase();
     const ownerLike = isOwnerAccount(user) || (user as any)?.isEmployee === true;
-    const paid = tier === 'research' || tier === 'enterprise';
+    // STS is an Enterprise-bundled feature now — Research/Matrix no longer carries it.
+    const paid = tier === 'enterprise';
     let current = user;
-    if (paid && !ownerLike && current?.stackTraceCreditGranted !== true) {
-      try { current = await storage.grantStackTraceCredit(userId, STS_GRANT_CENTS); }
-      catch (e: any) { console.error('[StackTraceSurgeon] grant failed:', e?.message || e); }
+    if (paid && !ownerLike) {
+      // Recurring allowance: re-grants the full $100 on the first use of each new
+      // billing period; a no-op (keeps the spent-down balance) within the same period.
+      try { current = await storage.ensureStackTraceMonthlyCredit(userId, STS_MONTHLY_CREDIT_CENTS, stsPeriod()); }
+      catch (e: any) { console.error('[StackTraceSurgeon] monthly grant failed:', e?.message || e); }
     }
     const credits = Math.max(0, current?.stackTraceCredits ?? 0);
     const trialUsed = Math.max(0, current?.stackTraceTrialUsed ?? 0);
@@ -1012,10 +1032,12 @@ function downloadAAB(){
       let reservedTrial = false;
       if (!acc.ownerLike) {
         if (acc.paid) {
-          const debit = await storage.debitStackTraceCredits(userId, STS_DIAGNOSE_COST_CENTS);
+          // Reserve a conservative hold up front so concurrent requests can't
+          // overspend; reconciled down to the ACTUAL cost after the work below.
+          const debit = await storage.debitStackTraceCredits(userId, STS_RESERVE_CENTS);
           if (!debit.ok) {
             return res.status(402).json({
-              message: "You're out of Stack Trace Surgeon credits. Top up to keep diagnosing.",
+              message: "You're out of Stack Trace Surgeon credits for this month. Your $100 allowance resets at the start of the next billing period.",
               code: "OUT_OF_CREDITS",
               credits: debit.credits,
             });
@@ -1026,7 +1048,7 @@ function downloadAAB(){
           const t = await storage.consumeStackTraceTrial(userId, STS_TRIAL_LIMIT);
           if (!t.ok) {
             return res.status(402).json({
-              message: `You've used all ${STS_TRIAL_LIMIT} free diagnoses. Upgrade to Research to unlock the full debug terminal — including a $35 welcome credit.`,
+              message: `You've used all ${STS_TRIAL_LIMIT} free diagnoses. Stack Trace Surgeon is included with Enterprise, which comes with a $100/month debugging allowance.`,
               code: "TRIAL_EXHAUSTED",
               trialUsed: t.trialUsed,
               trialLimit: STS_TRIAL_LIMIT,
@@ -1044,9 +1066,29 @@ function downloadAAB(){
         result = await diagnoseStackTrace(stackTrace, repoUrl, effectiveTier, githubToken && typeof githubToken === 'string' ? githubToken : undefined);
       } catch (e: any) {
         // Work failed — refund the reservation so failures are always free.
-        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_DIAGNOSE_COST_CENTS); } catch {} }
+        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_RESERVE_CENTS); } catch {} }
         if (reservedTrial) { try { await storage.refundStackTraceTrial(userId); } catch {} }
         throw e;
+      }
+
+      // Reconcile the up-front reservation to the ACTUAL metered cost (Codex token
+      // cost + flat per-use fee): refund the unused remainder, or debit any shortfall
+      // (best-effort, floored at 0). Trial uses are never charged.
+      let lastUseCostCents: number | undefined;
+      if (reservedCredits) {
+        const actual = stsUseCostCents(result.modelUsage);
+        lastUseCostCents = actual;
+        const delta = STS_RESERVE_CENTS - actual;
+        try {
+          if (delta > 0) {
+            creditsRemaining = await storage.refundStackTraceCredits(userId, delta);
+          } else if (delta < 0) {
+            // Race-safe floored debit: never clobbers concurrent balance changes.
+            creditsRemaining = await storage.debitStackTraceCreditsFloor(userId, -delta);
+          }
+        } catch (e: any) {
+          console.error('[StackTraceSurgeon] reconcile failed:', e?.message || e);
+        }
       }
 
       // Auto-save to history (best-effort; never block the response on this).
@@ -1078,8 +1120,10 @@ function downloadAAB(){
         console.error("[StackTraceSurgeon] Save failed:", e?.message || e);
       }
 
+      // Don't leak internal metering telemetry (token counts) to the client.
+      const { modelUsage: _omitUsage, ...resultPublic } = result;
       res.json({
-        ...result,
+        ...resultPublic,
         id: savedId,
         account: {
           ownerLike: acc.ownerLike,
@@ -1088,7 +1132,9 @@ function downloadAAB(){
           credits: creditsRemaining,
           trialUsed,
           trialLimit: STS_TRIAL_LIMIT,
-          diagnoseCostCents: STS_DIAGNOSE_COST_CENTS,
+          lastUseCostCents,
+          perUseFeeCents: STS_PER_USE_FEE_CENTS,
+          monthlyCreditCents: STS_MONTHLY_CREDIT_CENTS,
         },
       });
     } catch (error: any) {
@@ -1111,11 +1157,11 @@ function downloadAAB(){
         tier: acc.tier,
         credits: acc.credits,
         creditGranted: acc.user?.stackTraceCreditGranted === true,
+        creditPeriod: acc.user?.stackTraceCreditPeriod ?? null,
         trialUsed: acc.trialUsed,
         trialLimit: STS_TRIAL_LIMIT,
-        diagnoseCostCents: STS_DIAGNOSE_COST_CENTS,
-        actionCostCents: STS_ACTION_COST_CENTS,
-        grantCents: STS_GRANT_CENTS,
+        perUseFeeCents: STS_PER_USE_FEE_CENTS,
+        monthlyCreditCents: STS_MONTHLY_CREDIT_CENTS,
         ingestToken,
       });
     } catch (e: any) {
@@ -1386,9 +1432,9 @@ function downloadAAB(){
       let creditsRemaining = acc.credits;
       let reservedCredits = false;
       if (!acc.ownerLike) {
-        const debit = await storage.debitStackTraceCredits(userId, STS_ACTION_COST_CENTS);
+        const debit = await storage.debitStackTraceCredits(userId, STS_PER_USE_FEE_CENTS);
         if (!debit.ok) {
-          return res.status(402).json({ message: "Not enough credits to open a PR.", code: "OUT_OF_CREDITS", credits: debit.credits });
+          return res.status(402).json({ message: "Opening a PR requires an Enterprise plan with an active Stack Trace Surgeon allowance.", code: "OUT_OF_CREDITS", credits: debit.credits });
         }
         reservedCredits = true;
         creditsRemaining = debit.credits;
@@ -1407,7 +1453,7 @@ function downloadAAB(){
           token: githubToken,
         });
       } catch (e: any) {
-        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_ACTION_COST_CENTS); } catch {} }
+        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_PER_USE_FEE_CENTS); } catch {} }
         throw e;
       }
 
@@ -1437,13 +1483,13 @@ function downloadAAB(){
       const user = userId ? await storage.getUser(userId) : null;
       // Direct-to-main commits use the workspace owner's GitHub OAuth token (the token
       // attached to the Replit GitHub integration). Only the actual owner/employees may
-      // push under that identity — paid Research-tier customers must use the safer
+      // push under that identity — paid Enterprise customers must use the safer
       // PR flow (which still requires their own PAT, not the integration token).
       const ownerLike = isOwnerAccount(user) || (user as any)?.isEmployee === true;
       const { githubToken: providedTokenForGate } = req.body || {};
       const hasOwnPat = typeof providedTokenForGate === 'string' && providedTokenForGate.trim().length > 0;
       const tier = (user?.subscriptionTier || 'free').toLowerCase();
-      const tierAllows = tier === 'research' || tier === 'enterprise';
+      const tierAllows = tier === 'enterprise'; // STS is Enterprise-only
       if (!ownerLike && !(tierAllows && hasOwnPat)) {
         return res.status(403).json({
           message: "Direct-apply is owner-only when using the Replit GitHub integration. Paste your own personal-access token to apply with your own GitHub identity.",
@@ -1451,9 +1497,9 @@ function downloadAAB(){
         });
       }
 
-      // Metering: paid (non-owner) users spend STS_ACTION_COST_CENTS per apply.
-      // Grant the welcome credit if this is their first paid action. The actual
-      // atomic reservation happens just before the commit (so validation is free).
+      // Metering: non-owner users spend the flat per-use fee per apply (no model
+      // call here, so there is no token cost to meter). The atomic reservation
+      // happens just before the commit (so validation is free).
       const acc = await stsResolveAccess(userId, user);
 
       const { diagnosisId, githubToken: providedToken, confirmedDirect } = req.body || {};
@@ -1535,14 +1581,14 @@ function downloadAAB(){
       if (!acc.ownerLike) {
         let debit;
         try {
-          debit = await storage.debitStackTraceCredits(userId, STS_ACTION_COST_CENTS);
+          debit = await storage.debitStackTraceCredits(userId, STS_PER_USE_FEE_CENTS);
         } catch (e) {
           _applyFixInFlight.delete(inflightKey); // never leak the in-flight lock on a DB error
           throw e;
         }
         if (!debit.ok) {
           _applyFixInFlight.delete(inflightKey);
-          return res.status(402).json({ message: "Not enough credits to apply a fix.", code: "OUT_OF_CREDITS", credits: debit.credits });
+          return res.status(402).json({ message: "Applying a fix requires an Enterprise plan with an active Stack Trace Surgeon allowance.", code: "OUT_OF_CREDITS", credits: debit.credits });
         }
         reservedCredits = true;
         creditsRemaining = debit.credits;
@@ -1559,7 +1605,7 @@ function downloadAAB(){
           token: githubToken,
         });
       } catch (e: any) {
-        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_ACTION_COST_CENTS); } catch {} }
+        if (reservedCredits) { try { await storage.refundStackTraceCredits(userId, STS_PER_USE_FEE_CENTS); } catch {} }
         throw e;
       } finally {
         _applyFixInFlight.delete(inflightKey);
@@ -2025,7 +2071,6 @@ Formatting rules:
   }
 
   // Send a message and get AI response
-  const FREE_DAILY_LIMIT = 25;
 
   app.get("/api/daily-usage", isAuthenticated, async (req: any, res) => {
     try {
@@ -2037,16 +2082,8 @@ Formatting rules:
       const rawTierUsage = user.subscriptionTier || 'free';
       const usageHasReferralPro = !!(user.referralProUntil && new Date(user.referralProUntil) > new Date());
       const tier = (rawTierUsage === 'free' && (user.isBetaTester || usageHasReferralPro)) ? 'pro' : rawTierUsage;
-      if (tier !== 'free' || isOwnerAccount(user)) {
-        return res.json({ used: 0, limit: -1, remaining: -1, tier: isOwnerAccount(user) ? 'owner' : tier });
-      }
-      const now = new Date();
-      const resetAt = user.dailyQuestionsResetAt ? new Date(user.dailyQuestionsResetAt) : null;
-      let used = user.dailyQuestionsUsed || 0;
-      if (!resetAt || now >= resetAt) {
-        used = 0;
-      }
-      return res.json({ used, limit: FREE_DAILY_LIMIT, remaining: FREE_DAILY_LIMIT - used, tier });
+      // All tiers are unlimited — the free daily question cap has been removed.
+      return res.json({ used: 0, limit: -1, remaining: -1, tier: isOwnerAccount(user) ? 'owner' : tier });
     } catch (err: any) {
       console.error('Daily usage error:', err);
       res.status(500).json({ message: "Failed to get daily usage" });
@@ -2108,47 +2145,7 @@ Formatting rules:
           }
         }
 
-        // Beta perks lift free → pro: beta testers and active referral-Pro holders bypass the daily cap.
-        const senderRawTier = sender?.subscriptionTier || 'free';
-        const senderHasReferralPro = !!(sender?.referralProUntil && new Date(sender.referralProUntil) > new Date());
-        const senderEffectiveTier = (senderRawTier === 'free' && (sender?.isBetaTester || senderHasReferralPro)) ? 'pro' : senderRawTier;
-        if (senderEffectiveTier === 'free' && !isOwnerAccount(sender)) {
-          const now = new Date();
-          const resetAt = sender?.dailyQuestionsResetAt ? new Date(sender.dailyQuestionsResetAt) : null;
-          let used = sender?.dailyQuestionsUsed || 0;
-          if (!resetAt || now >= resetAt) {
-            used = 0;
-          }
-          if (used >= FREE_DAILY_LIMIT) {
-            return res.status(429).json({
-              message: "You've reached your daily limit of 25 free questions. Upgrade to Pro for unlimited questions!",
-              code: "DAILY_LIMIT_REACHED",
-              used,
-              limit: FREE_DAILY_LIMIT,
-            });
-          }
-          const userTz = sender?.timezone || 'UTC';
-          let nextMidnight: Date;
-          try {
-            const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
-            nextMidnight = new Date(nowInTz);
-            nextMidnight.setHours(24, 0, 0, 0);
-            const offset = nextMidnight.getTime() - nowInTz.getTime();
-            nextMidnight = new Date(now.getTime() + offset);
-          } catch {
-            nextMidnight = new Date(now);
-            nextMidnight.setUTCHours(24, 0, 0, 0);
-          }
-          const { db } = await import('./db');
-          const { users } = await import('@shared/schema');
-          const { eq } = await import('drizzle-orm');
-          await db.update(users)
-            .set({
-              dailyQuestionsUsed: used + 1,
-              dailyQuestionsResetAt: (!resetAt || now >= resetAt) ? nextMidnight : resetAt,
-            })
-            .where(eq(users.id, sendingUserId));
-        }
+        // Free tier is unlimited — the daily question cap has been removed.
       }
 
       const conversation = await storage.getConversation(conversationId);
@@ -2485,38 +2482,7 @@ Formatting rules:
       const isStaff = isOwner || (user as any)?.isEmployee === true;
       const effectiveTier = isStaff ? 'owner' : tier;
 
-      // Free-tier daily question limit (same as legacy endpoint)
-      if (tier === 'free' && !isStaff) {
-        const now = new Date();
-        const resetAt = user?.dailyQuestionsResetAt ? new Date(user.dailyQuestionsResetAt) : null;
-        let used = user?.dailyQuestionsUsed || 0;
-        if (!resetAt || now >= resetAt) used = 0;
-        if (used >= FREE_DAILY_LIMIT) {
-          return res.status(429).json({
-            message: "You've reached your daily limit of 25 free questions. Upgrade to Pro for unlimited questions!",
-            code: "DAILY_LIMIT_REACHED",
-            used, limit: FREE_DAILY_LIMIT,
-          });
-        }
-        const userTz = user?.timezone || 'UTC';
-        let nextMidnight: Date;
-        try {
-          const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: userTz }));
-          nextMidnight = new Date(nowInTz);
-          nextMidnight.setHours(24, 0, 0, 0);
-          const offset = nextMidnight.getTime() - nowInTz.getTime();
-          nextMidnight = new Date(now.getTime() + offset);
-        } catch {
-          nextMidnight = new Date(now);
-          nextMidnight.setUTCHours(24, 0, 0, 0);
-        }
-        const { db } = await import('./db');
-        const { users } = await import('@shared/schema');
-        const { eq } = await import('drizzle-orm');
-        await db.update(users)
-          .set({ dailyQuestionsUsed: used + 1, dailyQuestionsResetAt: (!resetAt || now >= resetAt) ? nextMidnight : resetAt })
-          .where(eq(users.id, userId));
-      }
+      // Free tier is unlimited — the daily question cap has been removed.
 
       const conversation = await storage.getConversation(conversationId);
       if (!conversation) return res.status(404).json({ message: "Conversation not found" });

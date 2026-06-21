@@ -19,7 +19,7 @@ const PLANS = [
     border: 'border-zinc-700',
     icon: <Bot className="h-5 w-5 text-zinc-400" />,
     features: [
-      '⚡ Claude Haiku 5.5',
+      '⚡ GPT-4o mini',
       'Sub-300ms answers',
       'Voice commands',
       'Unlimited conversations',
@@ -38,7 +38,7 @@ const PLANS = [
     border: 'border-purple-500/40',
     icon: <Zap className="h-5 w-5 text-purple-400" />,
     features: [
-      '🧠 Claude Sonnet 4.6',
+      '🧠 GPT-4.1',
       'Superior code & writing quality',
       'Image Studio',
       'Priority email & support ticket help',
@@ -58,8 +58,8 @@ const PLANS = [
     border: 'border-indigo-400/50',
     icon: <Sparkles className="h-5 w-5 text-indigo-300" />,
     features: [
-      '🔬 Matrix AI Panel: Claude Opus 4.8 + Claude Sonnet 4.6 in parallel',
-      'Judged & synthesized by Claude Opus 4.8',
+      '🔬 Matrix AI Panel: GPT-5.4 + GPT-4.1 in parallel',
+      'Judged & synthesized by GPT-5.4',
       'Deep expert-level responses',
       'Image Studio',
       'Everything in Turbo AI Pro',

@@ -103,8 +103,8 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   pro: {
     "claude-sonnet-4": {
       name: "Turbo AI Pro",
-      provider: "anthropic",
-      description: "Powered by Claude Sonnet 4.6 — top-tier reasoning, coding, and writing in one fast shot",
+      provider: "openai",
+      description: "Powered by GPT-4.1 — top-tier reasoning, coding, and writing in one fast shot",
       maxTokens: 4096,
       temperature: 0.3,
     },
@@ -113,7 +113,7 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
     "matrix-research": {
       name: "Matrix AI",
       provider: "multi-agent",
-      description: "Matrix AI — multiple Claude experts analyze in parallel, then Claude Opus 4.8 synthesizes a verified answer",
+      description: "Matrix AI — multiple expert engines reason in parallel, then GPT-5.4 synthesizes a verified answer",
       maxTokens: 4096,
       temperature: 0.1,
     },
@@ -122,7 +122,7 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
     "enterprise-research": {
       name: "Matrix AI (Enterprise)",
       provider: "multi-agent",
-      description: "Matrix AI for entire teams — enterprise-grade Claude-powered reasoning with cited, verified answers",
+      description: "Matrix AI for entire teams — enterprise-grade GPT-5.5 Pro reasoning with cited, verified answers",
       maxTokens: 4096,
       temperature: 0.1,
     },
@@ -130,8 +130,8 @@ export const AI_MODELS: Record<string, Record<string, any>> = {
   free: {
     "claude-sonnet-3-7": {
       name: "Turbo AI",
-      provider: "anthropic",
-      description: "Powered by Claude Haiku 5.5 — fast, smart answers for everyday questions",
+      provider: "openai",
+      description: "Powered by GPT-4o mini — fast, smart answers for everyday questions",
       maxTokens: 2048,
       temperature: 0.4,
     },
@@ -166,7 +166,7 @@ Your single-word verdict:`;
     // non-Claude provider is used. If Claude is unavailable we return "unknown"
     // rather than guessing.
     const { callDirect } = await import('./direct-router.js');
-    const verdictText = await callDirect('anthropic/claude-haiku', [
+    const verdictText = await callDirect('openai/gpt-4o-mini', [
       { role: 'user', content: verifyPrompt },
     ], { maxTokens: 10, temperature: 0, timeoutMs: 5000 });
 
@@ -229,7 +229,7 @@ Formatting rules — follow STRICTLY:
   ];
 
   const { callDirect } = await import('./direct-router.js');
-  for (const visionModel of ['anthropic/claude-sonnet-4.5', 'anthropic/claude-haiku']) {
+  for (const visionModel of ['openai/gpt-4.1', 'openai/gpt-4o-mini']) {
     let providerErr = '';
     const text = await callDirect(visionModel, [
       { role: 'system', content: systemPrompt },
@@ -353,7 +353,7 @@ export async function generateAIResponse(
       console.log(`[AI] ${selectedModel} → Deep Think OFF → Claude Opus (single-model)`);
       const systemPrompt = `${IDENTITY_RULE}\n\nYou are Turbo Answer Research — a warm, friendly, and approachable AI assistant. Talk like a kind, knowledgeable friend who genuinely enjoys helping. When someone greets you or makes small talk, respond naturally and warmly (e.g. "Doing great, thanks for asking! How can I help today?"). Give thorough, accurate answers without filler or excessive disclaimers. Only mention TurboAnswer was developed by Tiago Tschantret if directly asked.\n\n${formattingRules}${behaviorInstruction ? '\n\n' + behaviorInstruction : ''}${languageInstruction ? '\n\n' + languageInstruction : ''}${additionalContext}`;
       const userBlock = recentHistory ? `Context:\n${recentHistory}\n\nUser: ${fullQuestion}` : fullQuestion;
-      const text = await callDirect('anthropic/claude-opus-4-1', [
+      const text = await callDirect('openai/gpt-5.4-mini', [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userBlock },
       ], { maxTokens: 6000, temperature: 0.3, timeoutMs: 90000 });
@@ -372,7 +372,7 @@ export async function generateAIResponse(
         : systemPrompt;
 
       console.log(`[AI] Pro → Claude Sonnet (${proShape.complexity}, ${proShape.maxTokens} tok)`);
-      const text = await callDirect('anthropic/claude-sonnet-4.5', [
+      const text = await callDirect('openai/gpt-4.1', [
         { role: 'system', content: sysWithPrecision },
         { role: 'user', content: userBlock },
       ], { maxTokens: proShape.maxTokens, temperature: proShape.temperature, timeoutMs: 45000 });

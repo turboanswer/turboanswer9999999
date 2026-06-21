@@ -61,7 +61,7 @@ export default function Landing() {
         </h1>
         
         <p className="max-w-2xl text-lg md:text-xl text-[#A1A1AA] mb-10 leading-relaxed font-light">
-          A premium AI assistant for professionals. Intelligent multi-model routing across Claude Opus, Sonnet, and Haiku, delivering ultra-fast, trustworthy insights without the hallucinations.
+          A premium AI assistant for professionals. Intelligent multi-model routing across GPT-5.4, GPT-4.1, and GPT-4o mini, delivering ultra-fast, trustworthy insights without the hallucinations.
         </p>
         
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
@@ -144,7 +144,7 @@ export default function Landing() {
                 </div>
                 <h3 className="text-xl font-medium text-white mb-3">Multi-Model Routing</h3>
                 <p className="text-[#A1A1AA] leading-relaxed">
-                  Dynamic dispatch between Claude Opus 4.8, Sonnet 4.6, and Haiku 5.5. The optimal intelligence engine is selected per-query.
+                  Dynamic dispatch between GPT-5.4, GPT-4.1, and GPT-4o mini. The optimal intelligence engine is selected per-query.
                 </p>
               </div>
             </div>
@@ -214,13 +214,13 @@ export default function Landing() {
                     <div className="w-10 h-10 rounded bg-[#111] border border-[#222] flex items-center justify-center shrink-0">
                       <Cpu className="h-5 w-5 text-[#EDEDED]" />
                     </div>
-                    <div className="text-sm font-medium text-[#EDEDED]">Claude Sonnet 4.6</div>
+                    <div className="text-sm font-medium text-[#EDEDED]">GPT-4.1</div>
                   </div>
                   <div className="flex items-center gap-4 opacity-40">
                     <div className="w-10 h-10 rounded bg-[#111] border border-[#222] flex items-center justify-center shrink-0">
                       <Cpu className="h-5 w-5 text-[#EDEDED]" />
                     </div>
-                    <div className="text-sm font-medium text-[#EDEDED]">Claude Haiku 5.5</div>
+                    <div className="text-sm font-medium text-[#EDEDED]">GPT-4o mini</div>
                   </div>
                 </div>
                 
@@ -476,9 +476,9 @@ export default function Landing() {
 
           <div className="grid md:grid-cols-4 gap-6 md:gap-8">
             {[
-              { name: "Turbo", price: "$0", desc: "For individuals", features: ["Claude Haiku 5.5", "Fast answers", "Voice commands", "Document analysis"] },
-              { name: "Turbo AI Pro", price: "$10", desc: "For professionals", features: ["Claude Sonnet 4.6", "Priority routing", "Unlimited queries", "Email support"], featured: true },
-              { name: "Matrix AI", price: "$35", desc: "Maximum intelligence", features: ["Claude Opus 4.8 + Sonnet 4.6 panel", "Citation enforcement", "Unlimited everything", "Priority support"] },
+              { name: "Turbo", price: "$0", desc: "For individuals", features: ["GPT-4o mini", "Fast answers", "Voice commands", "Document analysis"] },
+              { name: "Turbo AI Pro", price: "$10", desc: "For professionals", features: ["GPT-4.1", "Priority routing", "Unlimited queries", "Email support"], featured: true },
+              { name: "Matrix AI", price: "$35", desc: "Maximum intelligence", features: ["GPT-5.4 + GPT-4.1 panel", "Citation enforcement", "Unlimited everything", "Priority support"] },
               { name: "Enterprise", price: "$100", desc: "For teams", features: ["Up to 5 members", "Shareable team code", "Zero data retention", "Dedicated support"] }
             ].map((plan, i) => (
               <div key={i} className={`rounded-2xl p-8 md:p-10 flex flex-col ${plan.featured ? "bg-[#0A0A0A] border border-[#333] shadow-[0_0_40px_rgba(74,71,246,0.08)] relative transform md:-translate-y-2" : "bg-transparent border border-[#222]"}`}>

@@ -39,9 +39,10 @@ type Account = {
   creditGranted?: boolean;
   trialUsed: number;
   trialLimit: number;
-  diagnoseCostCents: number;
-  actionCostCents?: number;
-  grantCents?: number;
+  creditPeriod?: string | null;
+  perUseFeeCents?: number;
+  monthlyCreditCents?: number;
+  lastUseCostCents?: number;
   ingestToken?: string;
 };
 
@@ -139,7 +140,7 @@ export default function StackTraceSurgeon() {
   const outOfAccess = (() => {
     if (!account) return false;
     if (account.ownerLike) return false;
-    if (account.paid) return account.credits < account.diagnoseCostCents;
+    if (account.paid) return account.credits < (account.perUseFeeCents ?? 20);
     return account.trialUsed >= account.trialLimit;
   })();
 
@@ -411,7 +412,7 @@ export default function StackTraceSurgeon() {
   // ── Access readout values ──────────────────────────────────────────────────
   const accessMode = account?.ownerLike ? 'unlimited' : account?.paid ? 'metered' : 'trial';
   const trialRemaining = account ? Math.max(0, account.trialLimit - account.trialUsed) : 0;
-  const grantCents = account?.grantCents ?? 3500;
+  const monthlyCreditCents = account?.monthlyCreditCents ?? 10000;
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
@@ -479,7 +480,7 @@ export default function StackTraceSurgeon() {
           account={account}
           accessMode={accessMode}
           trialRemaining={trialRemaining}
-          grantCents={grantCents}
+          monthlyCreditCents={monthlyCreditCents}
         />
 
         {/* ── MAIN GRID ── */}
@@ -542,7 +543,7 @@ export default function StackTraceSurgeon() {
               {/* INITIATE */}
               <div className="mt-4">
                 {walled ? (
-                  <UpgradeWall walled={walled} paid={!!account?.paid} grantCents={grantCents} />
+                  <UpgradeWall walled={walled} paid={!!account?.paid} monthlyCreditCents={monthlyCreditCents} />
                 ) : (
                   <Button
                     onClick={runDiagnosis}
@@ -560,7 +561,7 @@ export default function StackTraceSurgeon() {
                 )}
                 {!walled && !account?.ownerLike && account?.paid && (
                   <div className="text-[10px] mt-1.5 text-center" style={{ color: C.subtext }}>
-                    Costs {money(account.diagnoseCostCents)} per diagnosis · balance {money(account.credits)}
+                    Metered at cost + {money(account.perUseFeeCents ?? 20)}/use · balance {money(account.credits)}
                   </div>
                 )}
                 {!walled && !account?.ownerLike && !account?.paid && (
@@ -811,7 +812,7 @@ export default function StackTraceSurgeon() {
                   )}
 
                   {!account?.ownerLike && account?.paid && (
-                    <p className="text-[10px]" style={{ color: C.subtext }}>Shipping a fix (PR or apply) costs {money(account.actionCostCents ?? 150)} · balance {money(account.credits)}.</p>
+                    <p className="text-[10px]" style={{ color: C.subtext }}>Shipping a fix (PR or apply) costs {money(account.perUseFeeCents ?? 20)} · balance {money(account.credits)}.</p>
                   )}
 
                   {showApplyConfirm && (
@@ -898,7 +899,7 @@ function Panel({ title, icon, right, children, className }: { title: string; ico
 }
 
 // ─── ACCESS / CLEARANCE READOUT ───────────────────────────────────────────────
-function AccessReadout({ account, accessMode, trialRemaining, grantCents }: { account?: Account; accessMode: string; trialRemaining: number; grantCents: number }) {
+function AccessReadout({ account, accessMode, trialRemaining, monthlyCreditCents }: { account?: Account; accessMode: string; trialRemaining: number; monthlyCreditCents: number }) {
   if (!account) {
     return <div className="rounded-lg px-4 py-3 text-[11px]" style={{ background: C.panel, border: `1px solid ${C.border}`, color: C.subtext }}>Establishing secure connection…</div>;
   }
@@ -917,18 +918,18 @@ function AccessReadout({ account, accessMode, trialRemaining, grantCents }: { ac
   }
 
   if (accessMode === 'metered') {
-    const pct = Math.min(100, (account.credits / grantCents) * 100);
+    const pct = Math.min(100, (account.credits / monthlyCreditCents) * 100);
     return (
       <div className="rounded-lg px-4 py-3" style={baseStyle} data-testid="access-readout">
         <div className="flex items-center justify-between mb-1.5">
-          <div className="text-[11px] font-bold tracking-widest" style={{ color: C.cyan }}>OPERATIONS CREDIT</div>
+          <div className="text-[11px] font-bold tracking-widest" style={{ color: C.cyan }}>MONTHLY ALLOWANCE</div>
           <div className="text-[13px] font-bold tabular-nums" style={{ color: C.cyan }}>{money(account.credits)}</div>
         </div>
         <div className="h-2 rounded-full overflow-hidden mb-1.5" style={{ background: C.codeBg, border: `1px solid ${C.border}` }}>
           <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: BRAND_GRADIENT }} />
         </div>
         <div className="text-[10px]" style={{ color: C.subtext }}>
-          Diagnosis {money(account.diagnoseCostCents)} · Ship fix {money(account.actionCostCents ?? 150)} · Operations halt at $0.00
+          {money(monthlyCreditCents)}/mo included · metered at actual cost + {money(account.perUseFeeCents ?? 20)}/use · resets next billing period
         </div>
       </div>
     );
@@ -949,15 +950,15 @@ function AccessReadout({ account, accessMode, trialRemaining, grantCents }: { ac
       </div>
       <div className="text-[10px]" style={{ color: C.subtext }}>
         {exhausted
-          ? `Trial complete. Upgrade to Research for the full terminal + a one-time ${money(grantCents)} operations credit.`
-          : `${account.trialLimit} free diagnoses, then upgrade for metered access with a ${money(grantCents)} welcome credit.`}
+          ? `Trial complete. Stack Trace Surgeon is included with Enterprise — ${money(monthlyCreditCents)}/month of debugging built in.`
+          : `${account.trialLimit} free diagnoses, then upgrade to Enterprise for ${money(monthlyCreditCents)}/month of metered access.`}
       </div>
     </div>
   );
 }
 
 // ─── UPGRADE WALL ─────────────────────────────────────────────────────────────
-function UpgradeWall({ walled, paid, grantCents }: { walled: { code: string; message: string }; paid: boolean; grantCents: number }) {
+function UpgradeWall({ walled, paid, monthlyCreditCents }: { walled: { code: string; message: string }; paid: boolean; monthlyCreditCents: number }) {
   const outOfCredits = walled.code === 'OUT_OF_CREDITS';
   return (
     <div className="rounded-lg p-4 text-center" style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.35)' }} data-testid="upgrade-wall">
@@ -968,7 +969,7 @@ function UpgradeWall({ walled, paid, grantCents }: { walled: { code: string; mes
       <p className="text-[11px] mb-3" style={{ color: C.subtext }}>{walled.message}</p>
       <Link href="/subscribe">
         <Button className="w-full h-10 text-[12px] font-bold tracking-wider" style={{ background: BRAND_GRADIENT, color: '#fff' }} data-testid="button-upgrade">
-          {outOfCredits ? 'TOP UP ACCESS' : `UNLOCK · ${money(grantCents)} CREDIT INCLUDED`}
+          {outOfCredits ? 'ALLOWANCE RESETS NEXT MONTH' : `UNLOCK · ${money(monthlyCreditCents)}/MO INCLUDED`}
         </Button>
       </Link>
     </div>

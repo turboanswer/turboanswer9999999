@@ -55,6 +55,7 @@ const USERS_COLUMNS: Array<{ name: string; ddl: string }> = [
   { name: "stack_trace_trial_used", ddl: "INTEGER DEFAULT 0" },
   { name: "stack_trace_credits", ddl: "INTEGER DEFAULT 0" },
   { name: "stack_trace_credit_granted", ddl: "BOOLEAN DEFAULT false" },
+  { name: "stack_trace_credit_period", ddl: "TEXT" },
   { name: "stack_trace_ingest_token", ddl: "TEXT" },
 ];
 

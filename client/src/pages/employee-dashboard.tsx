@@ -141,7 +141,7 @@ const EMAIL_TEMPLATES_LIST = [
   { id: 'account-deleted', label: 'Permanently Deleted', icon: Trash2, color: '#dc2626', description: 'Confirm to a user that their account and all data have been permanently deleted.' },
   { id: 'blacklist-added', label: 'Added to Blacklist', icon: ShieldOff, color: '#7f1d1d', description: 'Notify a user they have been added to the TurboAnswer blacklist.' },
   { id: 'blacklist-removed', label: 'Removed from Blacklist', icon: ShieldPlus, color: '#059669', description: 'Notify a user they have been removed from the TurboAnswer blacklist.' },
-  { id: 'product-update', label: 'Product Update', icon: Sparkles, color: '#8b5cf6', description: 'Announce the Claude Sonnet 4.8 upgrade. Send to one user as a test, or broadcast to every user.' },
+  { id: 'product-update', label: 'Product Update', icon: Sparkles, color: '#8b5cf6', description: 'Announce the GPT-4.1 upgrade. Send to one user as a test, or broadcast to every user.' },
 ];
 
 function getEmailTemplateBody(templateId: string, name: string, date: string): string {
@@ -154,7 +154,7 @@ function getEmailTemplateBody(templateId: string, name: string, date: string): s
     'account-deleted': `Dear ${name},\n\nThis email confirms that your TurboAnswer account has been permanently deleted as of ${date}.\n\nThe following actions have been completed:\n\n- All account data has been permanently removed from our systems\n- All conversation history has been deleted\n- Any active subscriptions have been cancelled\n- This action is irreversible and cannot be undone\n\nIf you wish to use TurboAnswer again in the future, you are welcome to create a new account at any time.\n\nThank you for being a part of the TurboAnswer community.`,
     'blacklist-added': `Dear ${name},\n\nWe are writing to inform you that your account has been added to the TurboAnswer blacklist effective ${date}.\n\nThe following restrictions are now in effect:\n\n- Your account has been permanently blocked from accessing TurboAnswer\n- You will not be able to create new accounts using the same credentials\n- Any active subscriptions have been cancelled and refunded where applicable\n- All associated data will be retained for security purposes\n\nThis action was taken due to severe or repeated violations of our terms of service.\n\nIf you believe this decision was made in error, you may submit an appeal by contacting appeals@turboanswer.it.com.`,
     'blacklist-removed': `Dear ${name},\n\nWe are pleased to inform you that your account has been removed from the TurboAnswer blacklist as of ${date}.\n\nYour access has been fully restored:\n\n- Your account is now fully active and accessible\n- You may log in and use all TurboAnswer services\n- You are welcome to subscribe to any of our plans\n- All platform features are available to you\n\nWe kindly ask that you continue to adhere to our community guidelines and terms of service.\n\nYou can log in at: ${appUrl}/login`,
-    'product-update': `Hi ${name},\n\nBig news — TurboAnswer just got its biggest intelligence upgrade yet. We're now powered by Claude Sonnet 4.8, the latest and most capable AI model available.\n\nHere's what that means for you:\n\n- Sharper, more accurate answers across coding, writing, research, and everyday questions\n- Stronger reasoning on complex, multi-step problems\n- Faster, more natural conversations that actually stay on topic\n- Better help with long documents, deep analysis, and detailed explanations\n\nThere's nothing you need to do — the upgrade is already live on your account. Just open TurboAnswer and ask anything.\n\nTry it now: https://turbo-answer.replit.app\n\nThank you for being part of TurboAnswer.`,
+    'product-update': `Hi ${name},\n\nBig news — TurboAnswer just got its biggest intelligence upgrade yet. We're now powered by GPT-4.1, the latest and most capable AI model available.\n\nHere's what that means for you:\n\n- Sharper, more accurate answers across coding, writing, research, and everyday questions\n- Stronger reasoning on complex, multi-step problems\n- Faster, more natural conversations that actually stay on topic\n- Better help with long documents, deep analysis, and detailed explanations\n\nThere's nothing you need to do — the upgrade is already live on your account. Just open TurboAnswer and ask anything.\n\nTry it now: https://turbo-answer.replit.app\n\nThank you for being part of TurboAnswer.`,
   };
   return bodies[templateId] || '';
 }
@@ -4125,7 +4125,7 @@ function CommandCenterAzure({
           <HubPanel icon={Brain} title="AI Models" iconColor="#a78bfa">
             <PropRow label="Status" value={svc?.ai || 'unknown'} valueColor={statusColor(svc?.ai)} />
             <PropRow label="Azure AI" value={runtime?.integrations.ai.openai ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openai ? '#4ade80' : '#94a3b8'} />
-            <PropRow label="Anthropic (Claude)" value={runtime?.integrations.ai.anthropic ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.anthropic ? '#4ade80' : '#94a3b8'} />
+            <PropRow label="Azure OpenAI" value={runtime?.integrations.ai.anthropic ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.anthropic ? '#4ade80' : '#94a3b8'} />
             <PropRow label="OpenRouter" value={runtime?.integrations.ai.openrouter ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.openrouter ? '#4ade80' : '#94a3b8'} />
             <PropRow label="Replicate (Imagen)" value={runtime?.integrations.ai.replicate ? 'Connected' : 'Off'} valueColor={runtime?.integrations.ai.replicate ? '#4ade80' : '#94a3b8'} />
           </HubPanel>
@@ -4314,7 +4314,7 @@ function CommandCenterAzure({
             <PropRow label="Image generation" value="On" valueColor="#4ade80" />
             <PropRow label="Photo editor" value="On" valueColor="#4ade80" />
             <PropRow label="Video generation" value="Replicate / Luma" valueColor="#4ade80" />
-            <PropRow label="Deep research" value="Claude Opus 4.8" valueColor="#4ade80" />
+            <PropRow label="Deep research" value="GPT-5.5 Pro" valueColor="#4ade80" />
             <PropRow label="Code Studio" value="On" valueColor="#4ade80" />
             <PropRow label="Workgroups" value="On" valueColor="#4ade80" />
             <PropRow label="Auto-translate" value="65+ languages" valueColor="#4ade80" />

@@ -1,16 +1,19 @@
 import { fastAnswer } from "./reasoning-engine.js";
 import { callDirect } from "./direct-router.js";
 
-// Stack Trace Surgeon uses GPT-4o via the direct OpenAI API (no OpenRouter).
-// Falls back to the tier-routed answer chain via fastAnswer if OpenAI is
-// unavailable, so the feature never goes silent.
-const SURGEON_MODEL = 'openai/gpt-4o';
+// Stack Trace Surgeon runs EXCLUSIVELY on the GPT-5.1 Codex deployment — the only
+// feature in the app that uses Codex. Falls back to the tier-routed answer chain
+// via fastAnswer if the model is unavailable, so the feature never goes silent.
+const SURGEON_MODEL = 'openai/gpt-5.1-codex';
 
-async function callSurgeonModel(prompt: string): Promise<string | null> {
+export type ModelUsage = { promptTokens: number; completionTokens: number };
+
+async function callSurgeonModel(prompt: string, onUsage?: (u: ModelUsage) => void): Promise<string | null> {
   return callDirect(SURGEON_MODEL, [{ role: 'user', content: prompt }], {
     maxTokens: 3000,
     temperature: 0.2,
     timeoutMs: 50000,
+    onUsage,
   });
 }
 
@@ -173,6 +176,9 @@ export type Diagnosis = {
   incidentSummary: string;                              // on-call incident brief
   postmortem: string;                                   // blameless postmortem (markdown)
   culprit: { sha: string; author: string; date: string; message: string; url: string } | null;
+  // Token usage of the Codex diagnosis call, when available — used for
+  // actual-cost metering. Undefined when the fallback answer chain was used.
+  modelUsage?: ModelUsage;
 };
 
 // ── Deep repo reasoning: follow local imports one hop ─────────────────────────
@@ -441,9 +447,11 @@ export async function diagnoseStackTrace(
   // Primary: GPT-4o via direct OpenAI API.
   // Fallback: tier-routed answer chain via fastAnswer (so we never go silent
   // if OpenAI is unavailable or rate-limited).
-  let raw = await callSurgeonModel(prompt);
+  let modelUsage: ModelUsage | undefined;
+  let raw = await callSurgeonModel(prompt, (u) => { modelUsage = u; });
   if (!raw || raw.trim().length < 20) {
     raw = await fastAnswer(prompt, undefined, tier);
+    modelUsage = undefined; // fallback chain — Codex usage not applicable
   }
   const parsed = splitDiagnosis(raw);
 
@@ -474,6 +482,7 @@ export async function diagnoseStackTrace(
     incidentSummary: parsed.incidentSummary,
     postmortem: parsed.postmortem,
     culprit,
+    modelUsage,
   };
 }
 

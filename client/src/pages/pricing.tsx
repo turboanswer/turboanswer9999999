@@ -22,9 +22,9 @@ const plans: PricingPlan[] = [
     name: 'Turbo',
     price: '$0',
     period: 'forever',
-    description: 'Powered by Claude Haiku 5.5',
+    description: 'Powered by GPT-4o mini',
     features: [
-      '⚡ Claude Haiku 5.5 — fast, friendly answers',
+      '⚡ GPT-4o mini — fast, friendly answers',
       'Voice commands',
       'Unlimited conversations',
       'Basic conversation history'
@@ -35,9 +35,9 @@ const plans: PricingPlan[] = [
     name: 'Turbo AI Pro',
     price: '$10',
     period: 'per month',
-    description: 'Powered by Claude Sonnet 4.6',
+    description: 'Powered by GPT-4.1',
     features: [
-      '🧠 Claude Sonnet 4.6 — our smartest everyday model',
+      '🧠 GPT-4.1 — our smartest everyday model',
       'Faster, longer, more nuanced answers',
       'Superior code & writing quality',
       'Image generation',
@@ -52,10 +52,10 @@ const plans: PricingPlan[] = [
     name: 'Matrix AI',
     price: '$35',
     period: 'per month',
-    description: 'Multi-model verification: Claude Opus 4.8 + Claude Sonnet 4.6',
+    description: 'Multi-model verification: GPT-5.4 + GPT-4.1',
     features: [
-      '🔬 Matrix AI Panel — Claude Opus 4.8 + Claude Sonnet 4.6 answer in parallel, judged by Claude',
-      '🩺 Stack Trace Surgeon — AI debugger that opens real GitHub PRs (Claude Opus 4.8)',
+      '🔬 Matrix AI Panel — GPT-5.4 + GPT-4.1 answer in parallel, judged by GPT-5.4',
+      '🩺 Stack Trace Surgeon — AI debugger that opens real GitHub PRs (GPT-5.1 Codex)',
       '🧠 Matrix AI Deep Research — 20+ sources cross-checked per question',
       '🖼️ Unlimited AI image generation',
       'Always-on maximum reasoning depth',
@@ -81,7 +81,7 @@ const plans: PricingPlan[] = [
     description: 'Matrix AI for up to 5 team members — save 43%',
     features: [
       '👥 Up to 5 team members on one plan',
-      '🔬 Same Matrix AI Panel: Claude Opus 4.8 + Claude Sonnet 4.6',
+      '🔬 Same Matrix AI Panel: GPT-5.4 + GPT-4.1',
       '🔐 Shareable 6-digit team code',
       'All Matrix AI features included',
       'Priority onboarding & support',

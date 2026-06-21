@@ -1,25 +1,26 @@
-// 3 expert perspectives, each on a different Claude model for genuine voice
-// diversity (Opus = deepest, Sonnet = balanced, Haiku = fast). Synthesis uses Opus.
+// 3 expert perspectives, each on a different GPT model for genuine voice
+// diversity (GPT-5.4 = deepest, GPT-4.1 = balanced, GPT-4o mini = fast).
+// Synthesis uses GPT-5.4 mini.
 const AGENT_PERSPECTIVES = [
   {
     id: 'architect',
     name: 'Technical Architect',
     prompt: 'You are a senior technical architect. Analyze this from a technical implementation perspective — focus on architecture, systems design, performance, scalability, and technical trade-offs. Be specific and practical.',
-    model: 'anthropic/claude-opus-4-1',
+    model: 'openai/gpt-5.4-mini',
     modelLabel: 'Matrix Architect',
   },
   {
     id: 'strategist',
     name: 'Business Strategist',
     prompt: 'You are a business strategist. Analyze this from a business perspective — focus on ROI, market positioning, competitive advantage, cost-benefit analysis, and business impact. Think like a CEO.',
-    model: 'anthropic/claude-sonnet-4.5',
+    model: 'openai/gpt-4.1',
     modelLabel: 'Matrix Strategist',
   },
   {
     id: 'skeptic',
     name: 'Devil\'s Advocate',
     prompt: 'You are a critical thinker and devil\'s advocate. Challenge the obvious answer. Find flaws in popular assumptions, present alternative viewpoints, and highlight what others might miss or get wrong.',
-    model: 'anthropic/claude-haiku',
+    model: 'openai/gpt-4o-mini',
     modelLabel: 'Matrix Skeptic',
   },
 ];
@@ -169,14 +170,14 @@ Write the synthesized response now:`;
   // syntheses fail we throw so the failure is surfaced loudly.
   let synthesis: string | null = null;
 
-  synthesis = await callOpenRouter('anthropic/claude-opus-4-1', synthesisPrompt, 6000, 0.15);
+  synthesis = await callOpenRouter('openai/gpt-5.4-mini', synthesisPrompt, 6000, 0.15);
   if (synthesis) {
-    console.log(`[Multi-Agent] Synthesis by Claude Opus`);
+    console.log(`[Multi-Agent] Synthesis by GPT-5.4 mini`);
   }
 
   if (!synthesis) {
-    synthesis = await callOpenRouter('anthropic/claude-sonnet-4.5', synthesisPrompt, 6000, 0.15);
-    if (synthesis) console.log(`[Multi-Agent] Synthesis by Claude Sonnet (fallback)`);
+    synthesis = await callOpenRouter('openai/gpt-4.1', synthesisPrompt, 6000, 0.15);
+    if (synthesis) console.log(`[Multi-Agent] Synthesis by GPT-4.1 (fallback)`);
   }
 
   if (!synthesis) {

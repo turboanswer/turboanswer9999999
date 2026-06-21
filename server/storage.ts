@@ -122,9 +122,11 @@ export interface IStorage {
   incrementStackTraceTrial(userId: string): Promise<User>;
   updateStackTraceCredits(userId: string, cents: number): Promise<User>;
   grantStackTraceCredit(userId: string, cents: number): Promise<User>;
+  ensureStackTraceMonthlyCredit(userId: string, amountCents: number, period: string): Promise<User>;
   consumeStackTraceTrial(userId: string, limit: number): Promise<{ ok: boolean; trialUsed: number }>;
   refundStackTraceTrial(userId: string): Promise<void>;
   debitStackTraceCredits(userId: string, cost: number): Promise<{ ok: boolean; credits: number }>;
+  debitStackTraceCreditsFloor(userId: string, amount: number): Promise<number>;
   refundStackTraceCredits(userId: string, cost: number): Promise<number>;
   setStackTraceIngestToken(userId: string, token: string): Promise<User>;
   getUserByStackTraceIngestToken(token: string): Promise<User | undefined>;
@@ -967,6 +969,28 @@ export class DatabaseStorage implements IStorage {
     return current;
   }
 
+  // Recurring monthly allowance (Enterprise STS). Atomic + idempotent per period:
+  // a single conditional UPDATE that SETS the balance to the full monthly amount
+  // and stamps the new period, but only fires when the stored period differs from
+  // the current one. Concurrent first-of-month calls therefore reset at most once,
+  // and a same-period call leaves any already-spent balance untouched.
+  async ensureStackTraceMonthlyCredit(userId: string, amountCents: number, period: string): Promise<User> {
+    const amount = Math.max(0, Math.round(amountCents));
+    const [granted] = await db
+      .update(users)
+      .set({
+        stackTraceCredits: amount,
+        stackTraceCreditPeriod: period,
+        stackTraceCreditGranted: true,
+      })
+      .where(and(eq(users.id, userId), sql`COALESCE(${users.stackTraceCreditPeriod}, '') <> ${period}`))
+      .returning();
+    if (granted) return granted;
+    const current = await this.getUser(userId);
+    if (!current) throw new Error("User not found");
+    return current;
+  }
+
   // Atomically consume one trial slot. Single conditional UPDATE so two parallel
   // requests can never both pass the gate. Returns ok=false if already at limit.
   async consumeStackTraceTrial(userId: string, limit: number): Promise<{ ok: boolean; trialUsed: number }> {
@@ -1007,7 +1031,19 @@ export class DatabaseStorage implements IStorage {
     return { ok: true, credits: user.stackTraceCredits ?? 0 };
   }
 
-  // Return reserved credits when the underlying work failed. Returns new balance.
+  // Atomic floored debit: never goes below zero and never clobbers concurrent
+  // balance changes (single GREATEST update). Used to reconcile a metering
+  // shortfall race-safely when the actual cost exceeds the up-front reservation.
+  async debitStackTraceCreditsFloor(userId: string, amount: number): Promise<number> {
+    const amt = Math.max(0, Math.round(amount));
+    const [user] = await db
+      .update(users)
+      .set({ stackTraceCredits: sql`GREATEST(0, COALESCE(${users.stackTraceCredits}, 0) - ${amt})` })
+      .where(eq(users.id, userId))
+      .returning();
+    return user?.stackTraceCredits ?? 0;
+  }
+
   async refundStackTraceCredits(userId: string, cost: number): Promise<number> {
     const amount = Math.max(0, Math.round(cost));
     const [user] = await db

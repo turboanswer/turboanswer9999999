@@ -12,20 +12,20 @@
 import { retrieveSources as retrieveSourcesMulti } from './retrievers';
 import { callDirect, callDirectStream, type Message } from './direct-router';
 
-const MODEL_ROUTER = 'anthropic/claude-haiku';
-const MODEL_PLANNER = 'anthropic/claude-haiku';
-// Verification panel: 3 strongest brands, all routed direct. Dropped x-ai/grok-4
-// and deepseek/deepseek-r1 (no direct keys + DeepSeek R1 was the slow link).
-// Three independent models is enough for quorum-of-2 verification while halving
-// panel latency vs the old 5-model setup.
+// Cheap internal overhead calls (routing, planning, verification, debate) run on
+// the fast non-reasoning model so small token budgets aren't eaten by reasoning
+// tokens. The synthesis judge runs on the Matrix model (gpt-5.4-mini).
+const MODEL_ROUTER = 'openai/gpt-4o-mini';
+const MODEL_PLANNER = 'openai/gpt-4o-mini';
+// Verification panel: 3 independent engines for quorum-of-2 verification.
 const MODEL_PANEL = [
-  { id: 'anthropic/claude-opus-4-1', name: 'Matrix Core α', costPer1k: 0.015 },
-  { id: 'anthropic/claude-sonnet-4.5', name: 'Matrix Core β', costPer1k: 0.015 },
-  { id: 'anthropic/claude-haiku', name: 'Matrix Core γ', costPer1k: 0.005 },
+  { id: 'openai/gpt-5.4-mini', name: 'Matrix Core α', costPer1k: 0.015 },
+  { id: 'openai/gpt-4.1', name: 'Matrix Core β', costPer1k: 0.010 },
+  { id: 'openai/gpt-4o-mini', name: 'Matrix Core γ', costPer1k: 0.002 },
 ];
-const MODEL_JUDGE = 'anthropic/claude-opus-4-1';
-const MODEL_VERIFIER = 'anthropic/claude-haiku';
-const MODEL_DEBATE = 'anthropic/claude-haiku';
+const MODEL_JUDGE = 'openai/gpt-5.4-mini';
+const MODEL_VERIFIER = 'openai/gpt-4o-mini';
+const MODEL_DEBATE = 'openai/gpt-4o-mini';
 
 const COST_CEILING_USD = 0.30;
 
@@ -485,14 +485,16 @@ Output STRICT JSON:
   return { verdict, claims, markedAnswer, confidence };
 }
 
-// Tier → Claude model. Free = Haiku (fast), Pro = Sonnet 4.5, Research /
-// Enterprise / Owner = Opus (deepest). These three Claude models are the whole
-// text engine; GPT/OpenAI is reserved strictly for image generation.
+// Tier → GPT model. Free = GPT-4o mini, Pro = GPT-4.1, Research (Matrix AI) =
+// GPT-5.4 mini, Enterprise / Owner = GPT-5.5 pro. These deployments are the whole
+// text engine; the GPT-5.1 Codex model is reserved exclusively for Stack Trace
+// Surgeon.
 function claudeModelForTier(tier?: string): string {
   const t = (tier || 'free').toLowerCase();
-  if (t === 'research' || t === 'enterprise' || t === 'owner') return 'anthropic/claude-opus-4-1';
-  if (t === 'pro') return 'anthropic/claude-sonnet-4.5';
-  return 'anthropic/claude-haiku';
+  if (t === 'enterprise' || t === 'owner') return 'openai/gpt-5.5-pro';
+  if (t === 'research') return 'openai/gpt-5.4-mini';
+  if (t === 'pro') return 'openai/gpt-4.1';
+  return 'openai/gpt-4o-mini';
 }
 
 // All text tiers answer EXCLUSIVELY on Claude (via the direct router). There is

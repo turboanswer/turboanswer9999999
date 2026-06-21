@@ -1,13 +1,19 @@
 // Direct provider router. Takes OpenRouter-style model IDs (e.g.
-// "anthropic/claude-sonnet-4.5", "openai/gpt-4o", "google/gemini-2.5-pro",
-// "groq/llama-3.3-70b-versatile") and dispatches to the corresponding native
-// provider API. Eliminates the OpenRouter middleman to:
-//   * Cut ~15% in markup costs
-//   * Remove one network hop (~150-300ms faster per call)
-//   * Increase reliability (no OR rate-limits)
+// "openai/gpt-4o-mini", "openai/gpt-5.4-mini", or legacy "anthropic/claude-*"
+// strings still passed by older call sites) and dispatches to Azure OpenAI.
 //
-// Function signatures intentionally mirror the old callOR / callORStream so
-// callers stay unchanged.
+// The entire text engine now runs on the GPT line-up served by the Azure
+// OpenAI / AI Foundry resource:
+//   gpt-4o-mini   → free tier  (Turbo AI)
+//   gpt-4.1       → pro tier   (Turbo AI Pro)
+//   gpt-5.4-mini  → research   (Matrix AI)
+//   gpt-5.5-pro   → enterprise
+//   gpt-5.1-codex → Stack Trace Surgeon ONLY
+//
+// Every deployment name, the API version, and the chat endpoint are
+// env-overridable so a naming difference in Azure is a config change, not a
+// code change. Function signatures intentionally mirror the old callDirect /
+// callDirectStream so callers stay unchanged.
 
 export type Message = { role: 'system' | 'user' | 'assistant'; content: any };
 
@@ -20,212 +26,202 @@ export type CallOpts = {
   // attempt fails (HTTP status + truncated body, "no key", or an exception). Lets
   // callers surface the REAL underlying cause instead of a generic "all failed".
   onProviderError?: (detail: string) => void;
+  // Usage hook: invoked once with the token counts reported by the provider for a
+  // successful non-stream call. Used for actual-cost metering (e.g. Stack Trace
+  // Surgeon). Not emitted for streaming calls.
+  onUsage?: (usage: { promptTokens: number; completionTokens: number }) => void;
 };
 
-type Resolved = { provider: 'anthropic'; modelName: string };
+type Resolved = {
+  // The Azure deployment name to call.
+  deployment: string;
+  // GPT-5 family (incl. codex) needs max_completion_tokens (not max_tokens) and
+  // only the DEFAULT temperature; it also accepts reasoning_effort.
+  isGpt5: boolean;
+  // Best-effort public-OpenAI model name for the optional api.openai.com fallback.
+  publicModel: string;
+  // Short label for diagnostics.
+  label: string;
+};
 
-// When set, Claude calls are billed to Azure (routed through Foundry MaaS)
-// instead of api.anthropic.com.
-function useAzureForAnthropic(): boolean {
-  return process.env.AZURE_HOSTED_ANTHROPIC === '1' || process.env.AZURE_HOSTED_ANTHROPIC === 'true';
-}
-// Azure AI Foundry resources host the Claude deployments and serve them via the
-// Anthropic-native Messages API (<resource-origin>/anthropic/v1/messages — the
-// "Target URI" the Foundry portal shows for each Claude deployment). The SAME
-// resource is reachable under two hostnames — `<name>.services.ai.azure.com` (the
-// AI Foundry form) and `<name>.cognitiveservices.azure.com` (the Azure AI Services
-// form shown on the Foundry Overview page). We accept EITHER form as a valid
-// Foundry endpoint so any environment that has the endpoint/key (e.g. the Azure
-// App Service) routes Claude through it WITHOUT requiring the AZURE_HOSTED_ANTHROPIC
-// flag, instead of falling through to an absent direct Anthropic key and failing
-// "all providers failed".
-//
-// IMPORTANT: although both hostnames point at the same resource, ONLY the
-// `services.ai.azure.com` form actually resolves the Claude MaaS deployments. The
-// `cognitiveservices.azure.com` form returns HTTP 404 "DeploymentNotFound" for
-// those same deployments, so `normalizeFoundryEndpoint()` rewrites the host. The
-// Messages endpoint is then built from the resource ORIGIN only (see
-// `azureAnthropicUrl()`), so the path portion of AZURE_OPENAI_ENDPOINT is
-// irrelevant — bare host, /api/projects/<project>, or the …/anthropic/v1/messages
-// Target URI all resolve to the same correct URL.
-function isFoundryEndpoint(ep: string): boolean {
-  const e = ep.toLowerCase();
-  // All three hostname forms the Foundry portal shows for this resource:
-  // services.ai.azure.com + openai.azure.com both resolve the Claude
-  // deployments (verified 200); cognitiveservices.azure.com 404s but points at
-  // the same resource and is normalized away in normalizeFoundryEndpoint().
-  return e.includes('services.ai.azure.com') || e.includes('cognitiveservices.azure.com') || e.includes('.openai.azure.com');
-}
-// Normalize a Foundry endpoint's HOST to the form that serves Claude MaaS
-// deployments. The cognitiveservices.azure.com and <name>.openai.azure.com forms
-// point at the SAME resource (identical resource name across all three hostname
-// forms) but do NOT resolve the Claude deployments — only services.ai.azure.com
-// does — so rewrite both to it.
-function normalizeFoundryEndpoint(ep: string): string {
-  return ep
-    .replace(/\.cognitiveservices\.azure\.com/i, '.services.ai.azure.com')
-    .replace(/\.openai\.azure\.com/i, '.services.ai.azure.com');
-}
-// Map a Claude model ID to its Azure AI Foundry deployment name. The three live
-// Claude deployments on this resource are the entire text engine:
-//   Haiku  → free tier (Turbo AI)
-//   Sonnet → pro tier  (Turbo AI Pro)
-//   Opus   → research / enterprise / owner (Matrix AI, top tier)
-// Override the defaults with AZURE_DEPLOYMENT_CLAUDE_{HAIKU,SONNET,OPUS} if your
-// deployment names differ.
-function claudeAzureDeployment(modelName: string): string {
-  const m = modelName.toLowerCase();
-  if (m.includes('haiku')) return process.env.AZURE_DEPLOYMENT_CLAUDE_HAIKU || 'claude-haiku-4-5';
-  if (m.includes('opus')) return process.env.AZURE_DEPLOYMENT_CLAUDE_OPUS || 'claude-opus-4-8';
-  return process.env.AZURE_DEPLOYMENT_CLAUDE_SONNET || 'claude-sonnet-4-5';
-}
-// Azure AI Foundry endpoint for the Claude deployments. The Foundry portal's
-// "Target URI" for each Claude deployment is <resource-origin>/anthropic/v1/messages
-// — the Anthropic-native Messages API — authenticated with the `x-api-key` header
-// (NOT `api-key`, which returns HTTP 401 "invalid subscription key or wrong API
-// endpoint"). We derive the URL from the RESOURCE ORIGIN only, so ANY value of
-// AZURE_OPENAI_ENDPOINT resolves correctly: the bare resource host, the
-// `/api/projects/<project>` form, OR the portal Target URI itself
-// (…/anthropic/v1/messages) all collapse to the same correct URL. This removes the
-// recurring outage where pasting the portal Target URI into AZURE_OPENAI_ENDPOINT
-// made the app build `…/anthropic/v1/messages/openai/v1/responses` → 401.
-function azureAnthropicUrl(): string {
-  const raw = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
-  const norm = normalizeFoundryEndpoint(raw);
-  let origin = norm;
-  try { origin = new URL(norm).origin; } catch { origin = norm.replace(/(https?:\/\/[^/]+).*/i, '$1'); }
-  return `${origin}/anthropic/v1/messages`;
-}
-// Prompt caching (Anthropic). The Azure Foundry rate limit counts UNCACHED input
-// tokens, and our system prompt (identity + formatting rules + any pinned context)
-// is re-sent on every call — identical across same-tier chats AND across every
-// classifier/router call. Marking the system block cache_control:ephemeral makes
-// that repeated prefix a cache HIT after the first call: read is ~90% cheaper and,
-// crucially, does NOT count as uncached input — the single biggest lever on the
-// 80k-tokens/min limit. Honored by both the direct Anthropic API and the Foundry
-// Anthropic passthrough; if a prefix is below the model's minimum cacheable size
-// it's silently ignored (no error). PROMPT_CACHE_DISABLED=1 is a kill-switch in
-// case a provider ever rejects the field in prod.
-// Set true the first time a provider rejects the cache_control field (HTTP 400),
-// so we degrade to plain (uncached) system prompts process-wide instead of failing
-// every request until someone flips PROMPT_CACHE_DISABLED. Self-healing.
-let cacheFieldRejected = false;
-function promptCachingEnabled(): boolean {
-  return process.env.PROMPT_CACHE_DISABLED !== '1' && process.env.PROMPT_CACHE_DISABLED !== 'true';
-}
-function cachedSystem(sys: string): any {
-  if (!sys) return undefined;
-  return (promptCachingEnabled() && !cacheFieldRejected)
-    ? [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }]
-    : sys;
+// ── Deployment resolution ────────────────────────────────────────────────────
+// Map any incoming model id (new openai/* ids OR legacy anthropic/* ids still
+// passed by older call sites) to an Azure OpenAI deployment, by capability hint.
+// Order matters: check the most specific hints first so "gpt-5.4-mini" is not
+// swallowed by the generic "mini" rule.
+function resolveModel(orId: string): Resolved {
+  const m = (orId || '').toLowerCase();
+
+  // Stack Trace Surgeon — exclusive Codex model.
+  if (m.includes('codex')) {
+    return {
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT_CODEX || 'gpt-5.1-codex',
+      isGpt5: true, publicModel: 'gpt-5', label: 'codex',
+    };
+  }
+  // Enterprise top engine. NOTE: legacy "opus" is intentionally NOT routed here —
+  // historically Opus was the Matrix/research model, so legacy anthropic/claude-opus
+  // call sites resolve to gpt-5.4-mini (Matrix) below. Enterprise routing comes
+  // through explicit openai/gpt-5.5-pro ids (claudeModelForTier), not the opus hint.
+  if (m.includes('5.5') || m.includes('5-5') || m.includes('enterprise')) {
+    return {
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_PRO || 'gpt-5.5-pro',
+      isGpt5: true, publicModel: 'gpt-5', label: 'gpt5-pro',
+    };
+  }
+  // Matrix AI (research) — also where legacy "opus" lands.
+  if (m.includes('5.4') || m.includes('5-4') || m.includes('matrix') || m.includes('opus') || (m.includes('gpt-5') && m.includes('mini'))) {
+    return {
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_MINI || 'gpt-5.4-mini',
+      isGpt5: true, publicModel: 'gpt-5-mini', label: 'gpt5-mini',
+    };
+  }
+  // Generic GPT-5.
+  if (m.includes('gpt-5') || m.includes('gpt5')) {
+    return {
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT5_MINI || 'gpt-5.4-mini',
+      isGpt5: true, publicModel: 'gpt-5-mini', label: 'gpt5',
+    };
+  }
+  // Pro tier — gpt-4.1 (also where legacy "sonnet" and bare "gpt-4o" land).
+  if (m.includes('4.1') || m.includes('4-1') || m.includes('sonnet') || (m.includes('gpt-4o') && !m.includes('mini'))) {
+    return {
+      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT41 || 'gpt-4.1',
+      isGpt5: false, publicModel: 'gpt-4.1', label: 'gpt-4.1',
+    };
+  }
+  // Free tier / everything else (haiku, nano, mini, flash, lite, small, gpt-4o-mini).
+  return {
+    deployment: process.env.AZURE_OPENAI_DEPLOYMENT_GPT4O_MINI || 'gpt-4o-mini',
+    isGpt5: false, publicModel: 'gpt-4o-mini', label: 'gpt-4o-mini',
+  };
 }
 
-// Build an Anthropic-native Messages API request body. System turns become the
-// top-level `system` string; user/assistant turns become the `messages` array.
-function buildAzureAnthropicBody(deployment: string, messages: Message[], opts: CallOpts, stream: boolean, isOpus: boolean): any {
-  let system = '';
-  const msgs: { role: string; content: any }[] = [];
-  for (const m of messages) {
-    if (m.role === 'system') {
-      const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-      system += (system ? '\n\n' : '') + c;
-    } else {
-      msgs.push({ role: m.role, content: m.content });
-    }
+function apiVersion(): string {
+  return process.env.AZURE_OPENAI_API_VERSION || '2025-04-01-preview';
+}
+
+// Build the Azure OpenAI chat-completions URL for a deployment. Uses the resource
+// ORIGIN of AZURE_OPENAI_ENDPOINT (path portion irrelevant) so any value — bare
+// host, /api/projects/..., or a portal Target URI — resolves to the same correct
+// URL. Override the whole base with AZURE_OPENAI_CHAT_ENDPOINT if needed.
+function azureOpenAIUrl(deployment: string): string {
+  const override = (process.env.AZURE_OPENAI_CHAT_ENDPOINT || '').replace(/\/+$/, '');
+  let origin = override;
+  if (!origin) {
+    const raw = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+    try { origin = new URL(raw).origin; } catch { origin = raw.replace(/(https?:\/\/[^/]+).*/i, '$1'); }
+  } else {
+    try { origin = new URL(override).origin; } catch { /* keep override as-is */ }
   }
-  // The Anthropic Messages API has no strict JSON response mode (unlike the old
-  // Responses API's text.format:json_object), so when jsonMode is requested we pin
-  // it via a system instruction; callers also strip any code fences via
-  // stripJsonFences on the result.
-  if (opts.jsonMode) {
-    system += (system ? '\n\n' : '') + 'Respond with ONLY a single valid JSON value — no prose, no explanation, and no markdown code fences.';
+  return `${origin}/openai/deployments/${encodeURIComponent(deployment)}/chat/completions?api-version=${apiVersion()}`;
+}
+
+// Convert an Anthropic-style content value (string OR array of content blocks,
+// including base64 image blocks used by the vision path) into the OpenAI
+// chat-completions content shape.
+function toOpenAIContent(content: any): any {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content.map((b: any) => {
+      if (!b || typeof b !== 'object') return { type: 'text', text: String(b ?? '') };
+      if (b.type === 'text') return { type: 'text', text: b.text ?? '' };
+      if (b.type === 'image_url') return b; // already OpenAI shape
+      if (b.type === 'image' && b.source) {
+        const url = b.source.type === 'base64'
+          ? `data:${b.source.media_type};base64,${b.source.data}`
+          : b.source.url;
+        return { type: 'image_url', image_url: { url } };
+      }
+      return b;
+    });
   }
-  const body: any = { model: deployment, max_tokens: opts.maxTokens ?? 1500, messages: msgs };
-  if (system) body.system = cachedSystem(system);
-  // Claude Opus 4.x on Azure Foundry only accepts the DEFAULT temperature (1) and
-  // returns HTTP 400 ("invalid_request_error") for any NON-default temperature
-  // (e.g. 0 or 0.3). Haiku/Sonnet accept any value. Omitting it for Opus lets it
-  // fall back to the default so top-tier (Matrix AI) calls don't fail. `isOpus` is
-  // derived from the resolved model name (not the deployment string) so a custom
-  // AZURE_DEPLOYMENT_CLAUDE_OPUS name can't silently regress this. Other models
-  // keep the requested temperature.
-  if (opts.temperature != null && !isOpus) body.temperature = opts.temperature;
-  if (stream) body.stream = true;
+  return content;
+}
+
+function buildOpenAIBody(r: Resolved, messages: Message[], opts: CallOpts, stream: boolean): any {
+  const msgs = messages.map(m => ({ role: m.role, content: toOpenAIContent(m.content) }));
+  const body: any = { model: r.deployment, messages: msgs };
+  const tokens = opts.maxTokens ?? 1500;
+  if (r.isGpt5) {
+    // Reasoning models: reasoning tokens count against the budget, so give them
+    // headroom; they reject custom temperature; they accept reasoning_effort.
+    body.max_completion_tokens = Math.max(tokens, 1024);
+    const effort = process.env.AZURE_OPENAI_REASONING_EFFORT || 'low';
+    if (effort) body.reasoning_effort = effort;
+  } else {
+    body.max_tokens = tokens;
+    if (opts.temperature != null) body.temperature = opts.temperature;
+  }
+  if (opts.jsonMode) body.response_format = { type: 'json_object' };
+  if (stream) {
+    body.stream = true;
+    body.stream_options = { include_usage: false };
+  }
   return body;
 }
-// Pull the assistant text out of an Anthropic Messages API payload by joining all
-// text content blocks.
-function extractAnthropicText(data: any): string | null {
-  if (!data) return null;
-  if (Array.isArray(data.content)) {
-    const text = data.content.map((b: any) => (typeof b?.text === 'string' ? b.text : '')).join('');
-    if (text) return text;
-  }
-  return null;
-}
+
 function stripJsonFences(s: string): string {
   return s.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
 }
 
-function resolveModel(orId: string): Resolved {
-  // The entire text engine runs EXCLUSIVELY on Anthropic Claude. There is no
-  // non-Claude path. Any model ID that reaches the router — including legacy
-  // Gemini/Google, OpenAI/GPT, Groq/Llama, Mistral or Azure-GPT ids still passed
-  // by older call sites — is transparently mapped to a Claude equivalent by tier.
-  // Already-dated Anthropic ids are preserved as-is.
-  const lower = orId.toLowerCase();
-  if (lower.includes('anthropic/') && /\d{8}/.test(lower)) {
-    return { provider: 'anthropic', modelName: orId.slice(orId.indexOf('/') + 1) };
-  }
-  // Tier mapping by capability hint in the id. "Small/fast" ids (haiku, nano,
-  // mini, flash, lite, small) → Haiku; "opus" → Opus; everything else → Sonnet.
-  const name =
-    lower.includes('opus') ? 'claude-opus-4-1-20250805' :
-    (lower.includes('haiku') || lower.includes('nano') || lower.includes('mini') ||
-     lower.includes('flash') || lower.includes('lite') || lower.includes('small'))
-      ? 'claude-3-5-haiku-20241022' :
-    (lower.includes('sonnet-4-5') || lower.includes('sonnet-4.5')) ? 'claude-sonnet-4-5-20250929' :
-    (lower.includes('sonnet-4') || lower.includes('sonnet4')) ? 'claude-sonnet-4-20250514' :
-    (lower.includes('sonnet-3-7') || lower.includes('sonnet-3.7') || lower.includes('3-7-sonnet')) ? 'claude-3-7-sonnet-20250219' :
-    'claude-sonnet-4-5-20250929';
-  return { provider: 'anthropic', modelName: name };
-}
-
-// Azure Foundry enforces per-minute input-token rate limits (HTTP 429 with a
-// Retry-After header). A single transient burst shouldn't fail the user's
-// request, so retry the SAME call a bounded number of times, honoring
-// Retry-After but capping the wait so a live chat never stalls for the full
-// (often 45s) window. A 429'd request is rejected before it consumes quota, so
-// retrying does not itself add to the rate-limit pressure.
-async function azureFetchWithRetry(url: string, buildInit: () => RequestInit, opts: CallOpts, label: string): Promise<Response> {
+// Azure enforces per-minute token rate limits (HTTP 429 with Retry-After). A
+// single transient burst shouldn't fail the user's request, so retry the SAME
+// call a bounded number of times, honoring Retry-After but capping the wait so a
+// live chat never stalls for the full window. A 429'd request is rejected before
+// it consumes quota, so retrying does not add to the rate-limit pressure.
+async function azureFetchWithRetry(url: string, init: RequestInit, opts: CallOpts, label: string): Promise<Response> {
   const maxRetries = 2;
   let attempt = 0;
-  let res = await fetch(url, buildInit());
-  // Self-heal: if Azure Foundry rejects the prompt-cache field (HTTP 400 mentioning
-  // cache_control/ephemeral), disable caching process-wide and retry ONCE with a
-  // freshly built (uncached) body. Prevents a cache incompatibility from failing
-  // every request when there is no overflow provider to fall through to.
-  if (res.status === 400 && promptCachingEnabled() && !cacheFieldRejected) {
-    const peek = await res.clone().text().catch(() => '');
-    if (/cache_control|ephemeral/i.test(peek)) {
-      cacheFieldRejected = true;
-      const note = `${label} rejected prompt caching (HTTP 400) — disabling cache process-wide and retrying uncached`;
-      opts.onProviderError?.(note);
-      console.warn(`[Router/Azure-Claude] ${note}`);
-      res = await fetch(url, buildInit());
-    }
-  }
+  let res = await fetch(url, init);
   while (res.status === 429 && attempt < maxRetries) {
     const raHeader = parseInt(res.headers.get('retry-after') || '', 10);
     const waitMs = Math.min((Number.isFinite(raHeader) && raHeader > 0 ? raHeader : 2) * 1000, 8000);
     attempt++;
     const note = `${label} rate-limited (HTTP 429) — retry ${attempt}/${maxRetries} in ${waitMs}ms`;
     opts.onProviderError?.(note);
-    console.warn(`[Router/Azure-Claude] ${note}`);
+    console.warn(`[Router/Azure-OpenAI] ${note}`);
     await new Promise(r => setTimeout(r, waitMs));
-    res = await fetch(url, buildInit());
+    res = await fetch(url, init);
   }
   return res;
+}
+
+function azureCreds(): { key: string; endpoint: string } | null {
+  const key = process.env.AZURE_OPENAI_API_KEY;
+  const endpoint = (process.env.AZURE_OPENAI_CHAT_ENDPOINT || process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
+  if (key && endpoint) return { key, endpoint };
+  return null;
+}
+
+// Optional safety net: api.openai.com using OPENAI_API_KEY. Default ON so a chat
+// never goes dark if the Azure deployment is briefly unreachable, but every use
+// is logged loudly via onProviderError so an Azure misconfiguration still
+// surfaces. Disable with OPENAI_PUBLIC_FALLBACK=0.
+function publicFallbackEnabled(): boolean {
+  return process.env.OPENAI_PUBLIC_FALLBACK !== '0' && process.env.OPENAI_PUBLIC_FALLBACK !== 'false';
+}
+
+async function publicOpenAINonStream(r: Resolved, messages: Message[], opts: CallOpts, signal: AbortSignal): Promise<string | null> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key || !publicFallbackEnabled()) return null;
+  const msgs = messages.map(m => ({ role: m.role, content: toOpenAIContent(m.content) }));
+  const body: any = { model: r.publicModel, messages: msgs };
+  if (r.isGpt5) { body.max_completion_tokens = Math.max(opts.maxTokens ?? 1500, 1024); }
+  else { body.max_tokens = opts.maxTokens ?? 1500; if (opts.temperature != null) body.temperature = opts.temperature; }
+  if (opts.jsonMode) body.response_format = { type: 'json_object' };
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify(body), signal,
+  });
+  if (!res.ok) { const txt = await res.text().catch(() => ''); opts.onProviderError?.(`openai-public(${r.publicModel}) HTTP ${res.status}: ${txt.slice(0, 160)}`); return null; }
+  const data: any = await res.json();
+  const u = data?.usage;
+  if (u && opts.onUsage) opts.onUsage({ promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0 });
+  let out = data?.choices?.[0]?.message?.content || null;
+  if (out && opts.jsonMode) out = stripJsonFences(out);
+  return out;
 }
 
 export async function callDirect(orModelId: string, messages: Message[], opts: CallOpts = {}): Promise<string | null> {
@@ -233,65 +229,36 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
-    {
-      // Path 1: Azure-hosted Claude via the Foundry Anthropic Messages API
-      // (services.ai.azure.com/anthropic/v1/messages, `x-api-key` header). Billed
-      // to Azure. Attempted whenever Foundry creds exist OR AZURE_HOSTED_ANTHROPIC
-      // forces it — we do NOT require the flag, so prod (Azure App Service) reaches
-      // Claude even if the flag was never set there.
-      {
-        const key = process.env.AZURE_OPENAI_API_KEY;
-        const ep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
-        if (key && ep && (useAzureForAnthropic() || isFoundryEndpoint(ep))) {
-          const deployment = claudeAzureDeployment(r.modelName);
-          const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await azureFetchWithRetry(azureAnthropicUrl(), () => ({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-            body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
-            signal: ctrl.signal,
-          }), opts, `azure-claude(${deployment})`);
-          if (res.ok) {
-            const data: any = await res.json();
-            let text = extractAnthropicText(data);
-            if (text && opts.jsonMode) text = stripJsonFences(text);
-            if (text) { clearTimeout(t); return text; }
-            opts.onProviderError?.(`azure-claude(${deployment}) HTTP 200 but no text in response`);
-          } else {
-            const txt = await res.text().catch(() => '');
-            const detail = `azure-claude(${deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
-            opts.onProviderError?.(detail);
-            console.warn(`[Router/Azure-Claude] ${detail}`);
-          }
-          // Fall through to direct Anthropic if Azure deployment fails.
-        }
-      }
-      // Path 2: Direct Anthropic API (billed to Anthropic).
-      const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-      const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-      if (!key) {
-        opts.onProviderError?.('no direct Anthropic key set (AZURE_OPENAI path was the only option and it failed above)');
-        return null;
-      }
-      let sys = '';
-      const msgs: any[] = [];
-      for (const m of messages) {
-        if (m.role === 'system') sys += (sys ? '\n\n' : '') + m.content;
-        else msgs.push({ role: m.role, content: m.content });
-      }
-      const res = await fetch(`${base}/v1/messages`, {
+    const creds = azureCreds();
+    if (creds) {
+      const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: r.modelName, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, ...(sys ? { system: cachedSystem(sys) } : {}), messages: msgs }),
+        headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
+        body: JSON.stringify(buildOpenAIBody(r, messages, opts, false)),
         signal: ctrl.signal,
-      });
-      clearTimeout(t);
-      if (!res.ok) { const txt = await res.text().catch(() => ''); const detail = `anthropic(${r.modelName}) HTTP ${res.status}: ${txt.slice(0, 200)}`; opts.onProviderError?.(detail); console.warn(`[Router/Anthropic] ${detail}`); return null; }
-      const data: any = await res.json();
-      const out = data.content?.[0]?.text || null;
-      if (!out) opts.onProviderError?.(`anthropic(${r.modelName}) HTTP 200 but no text in response`);
-      return out;
+      }, opts, `azure-openai(${r.deployment})`);
+      if (res.ok) {
+        const data: any = await res.json();
+        const u = data?.usage;
+        if (u && opts.onUsage) opts.onUsage({ promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0 });
+        let text = data?.choices?.[0]?.message?.content || null;
+        if (text && opts.jsonMode) text = stripJsonFences(text);
+        if (text) { clearTimeout(t); return text; }
+        opts.onProviderError?.(`azure-openai(${r.deployment}) HTTP 200 but no text in response`);
+      } else {
+        const txt = await res.text().catch(() => '');
+        const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+        opts.onProviderError?.(detail);
+        console.warn(`[Router/Azure-OpenAI] ${detail}`);
+      }
+    } else {
+      opts.onProviderError?.('Azure OpenAI not configured (AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT missing)');
     }
+    // Optional public-OpenAI safety net.
+    const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+    clearTimeout(t);
+    if (fb) { console.warn(`[Router] used public-OpenAI fallback for ${r.label}`); return fb; }
+    return null;
   } catch (err: any) {
     clearTimeout(t);
     const aborted = err?.name === 'AbortError';
@@ -309,133 +276,50 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 45000);
   try {
-    {
-      // Azure-hosted Claude streaming via the Foundry Anthropic Messages API
-      // (anthropic/v1/messages, `x-api-key`, SSE). Attempted whenever Foundry
-      // creds exist — see callDirect for why we do not require the
-      // AZURE_HOSTED_ANTHROPIC flag.
-      {
-        const akey = process.env.AZURE_OPENAI_API_KEY;
-        const aep = (process.env.AZURE_OPENAI_ENDPOINT || '').replace(/\/+$/, '');
-        if (akey && aep && (useAzureForAnthropic() || isFoundryEndpoint(aep))) {
-          const deployment = claudeAzureDeployment(r.modelName);
-          const isOpus = r.modelName.toLowerCase().includes('opus');
-          const res = await azureFetchWithRetry(azureAnthropicUrl(), () => ({
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
-            body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, true, isOpus)),
-            signal: ctrl.signal,
-          }), opts, `azure-claude-stream(${deployment})`);
-          if (res.ok && res.body) {
-            const reader = (res.body as any).getReader();
-            const dec = new TextDecoder();
-            let buf = '', acc = '', done = false;
-            while (!done) {
-              const { done: rd, value } = await reader.read();
-              if (rd) break;
-              buf += dec.decode(value, { stream: true });
-              let i;
-              while ((i = buf.indexOf('\n')) !== -1) {
-                const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-                if (!line.startsWith('data:')) continue;
-                const data = line.slice(5).trim(); if (!data) continue;
-                if (data === '[DONE]') { done = true; break; }
-                try {
-                  const p = JSON.parse(data);
-                  if (p.type === 'content_block_delta' && p.delta?.text) { acc += p.delta.text; onChunk(p.delta.text); }
-                  else if (p.type === 'message_stop' || p.type === 'error') { done = true; }
-                } catch {}
-              }
-            }
-            if (acc) { clearTimeout(t); return acc; }
-            opts.onProviderError?.(`azure-claude(${deployment}) stream connected (HTTP 200) but produced no content`);
-          } else {
-            const txt = await res.text().catch(() => '');
-            const detail = `azure-claude(${deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
-            opts.onProviderError?.(detail);
-            console.warn(`[Router/Azure-Claude-stream] ${detail}`);
-          }
-          // STREAMING FELL SHORT (empty SSE body or non-200). Before giving up,
-          // retry the SAME Claude deployment NON-streaming on the identical
-          // endpoint. The streamed SSE body can come back empty in some prod
-          // runtimes / behind proxies (Azure App Service, Cloudflare) even
-          // though the non-streaming Responses call returns the full answer
-          // reliably (verified: the non-streaming widget path works in prod
-          // while streaming chat threw "providers all failed"). Returning the
-          // text lets the caller emit it as a single chunk so the user still
-          // gets their answer instead of an error. Still 100% Claude — same
-          // model, same Azure endpoint, only the transport degrades.
-          // Reaching here guarantees NOTHING was streamed to the client (the
-          // `if (acc) return acc` above returns on any emitted content), so a
-          // single-chunk non-streaming answer cannot double-emit.
-          try {
-            const ns = await azureFetchWithRetry(azureAnthropicUrl(), () => ({
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': akey, 'anthropic-version': '2023-06-01' },
-              body: JSON.stringify(buildAzureAnthropicBody(deployment, messages, opts, false, isOpus)),
-              signal: ctrl.signal,
-            }), opts, `azure-claude-nonstream(${deployment})`);
-            if (ns.ok) {
-              const data: any = await ns.json();
-              const text = extractAnthropicText(data);
-              if (text) { clearTimeout(t); return text; }
-              opts.onProviderError?.(`azure-claude(${deployment}) non-stream fallback HTTP 200 but no text`);
-            } else {
-              const txt = await ns.text().catch(() => '');
-              const d = `azure-claude(${deployment}) non-stream fallback HTTP ${ns.status}: ${txt.slice(0, 160)}`;
-              opts.onProviderError?.(d);
-              console.warn(`[Router/Azure-Claude-nonstream-fallback] ${d}`);
-            }
-          } catch (e: any) {
-            if (e?.name !== 'AbortError') {
-              opts.onProviderError?.(`azure-claude(${deployment}) non-stream fallback exception: ${e?.message || e}`);
-            }
-          }
-          // Fall through to direct Anthropic only if nothing was emitted.
+    const creds = azureCreds();
+    if (creds) {
+      const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
+        body: JSON.stringify(buildOpenAIBody(r, messages, opts, true)),
+        signal: ctrl.signal,
+      }, opts, `azure-openai-stream(${r.deployment})`);
+      if (res.ok && res.body) {
+        const acc = await consumeOpenAIStream(res, onChunk);
+        if (acc) { clearTimeout(t); return acc; }
+        opts.onProviderError?.(`azure-openai(${r.deployment}) stream connected (HTTP 200) but produced no content`);
+        // Stream came back empty (some proxies drop the SSE body) — retry the
+        // SAME deployment NON-streaming and emit as a single chunk so the user
+        // still gets their answer. Reaching here guarantees nothing was emitted.
+        const ns = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
+          body: JSON.stringify(buildOpenAIBody(r, messages, opts, false)),
+          signal: ctrl.signal,
+        }, opts, `azure-openai-nonstream(${r.deployment})`);
+        if (ns.ok) {
+          const data: any = await ns.json();
+          const text = data?.choices?.[0]?.message?.content || null;
+          if (text) { clearTimeout(t); onChunk(text); return text; }
+        } else {
+          const txt = await ns.text().catch(() => '');
+          opts.onProviderError?.(`azure-openai(${r.deployment}) non-stream fallback HTTP ${ns.status}: ${txt.slice(0, 160)}`);
         }
+      } else {
+        const txt = await res.text().catch(() => '');
+        const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+        opts.onProviderError?.(detail);
+        console.warn(`[Router/Azure-OpenAI-stream] ${detail}`);
       }
-      const key = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-      const base = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-      if (!key) {
-        opts.onProviderError?.('no direct Anthropic key set (AZURE_OPENAI path was the only option and it failed above)');
-        return null;
-      }
-      let sys = '';
-      const msgs: any[] = [];
-      for (const m of messages) {
-        if (m.role === 'system') sys += (sys ? '\n\n' : '') + m.content;
-        else msgs.push({ role: m.role, content: m.content });
-      }
-      const res = await fetch(`${base}/v1/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: r.modelName, max_tokens: opts.maxTokens ?? 1500, temperature: opts.temperature ?? 0.3, ...(sys ? { system: cachedSystem(sys) } : {}), messages: msgs, stream: true }), signal: ctrl.signal });
-      if (!res.ok || !res.body) {
-        if (!res.ok) { const txt = await res.text().catch(() => ''); opts.onProviderError?.(`anthropic(${r.modelName}) HTTP ${res.status}: ${txt.slice(0, 160)}`); }
-        else opts.onProviderError?.(`anthropic(${r.modelName}) returned no response body`);
-        clearTimeout(t);
-        return null;
-      }
-      const reader = (res.body as any).getReader();
-      const dec = new TextDecoder();
-      let buf = '', acc = '', done = false;
-      while (!done) {
-        const { done: rd, value } = await reader.read();
-        if (rd) break;
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while ((i = buf.indexOf('\n')) !== -1) {
-          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-          if (!line.startsWith('data:')) continue;
-          const data = line.slice(5).trim(); if (!data) continue;
-          try {
-            const p = JSON.parse(data);
-            if (p.type === 'content_block_delta' && p.delta?.text) { acc += p.delta.text; onChunk(p.delta.text); }
-            else if (p.type === 'message_stop') { done = true; }
-          } catch {}
-        }
-      }
-      clearTimeout(t);
-      if (!acc) opts.onProviderError?.(`anthropic(${r.modelName}) stream produced no content`);
-      return acc || null;
+    } else {
+      opts.onProviderError?.('Azure OpenAI not configured (AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT missing)');
     }
+    // Public-OpenAI safety net (non-streaming; emit as one chunk). Only reached
+    // if nothing was streamed to the client above.
+    const fb = await publicOpenAINonStream(r, messages, opts, ctrl.signal);
+    clearTimeout(t);
+    if (fb) { console.warn(`[Router-stream] used public-OpenAI fallback for ${r.label}`); onChunk(fb); return fb; }
+    return null;
   } catch (err: any) {
     clearTimeout(t);
     const aborted = err?.name === 'AbortError';
@@ -446,4 +330,31 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
     console.warn(`[Router-stream] ${orModelId} failed: ${err?.message || err}`);
     return null;
   }
+}
+
+// Parse an OpenAI-style SSE stream, calling onChunk for each delta and returning
+// the accumulated text.
+async function consumeOpenAIStream(res: Response, onChunk: (text: string) => void): Promise<string> {
+  const reader = (res.body as any).getReader();
+  const dec = new TextDecoder();
+  let buf = '', acc = '', done = false;
+  while (!done) {
+    const { done: rd, value } = await reader.read();
+    if (rd) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim(); if (!data) continue;
+      if (data === '[DONE]') { done = true; break; }
+      try {
+        const p = JSON.parse(data);
+        const delta = p?.choices?.[0]?.delta?.content;
+        if (typeof delta === 'string' && delta) { acc += delta; onChunk(delta); }
+        if (p?.choices?.[0]?.finish_reason) { done = true; }
+      } catch { /* partial JSON across chunks — wait for more */ }
+    }
+  }
+  return acc;
 }
