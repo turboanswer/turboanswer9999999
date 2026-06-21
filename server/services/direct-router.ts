@@ -318,7 +318,7 @@ async function azureResponsesNonStream(r: Resolved, messages: Message[], opts: C
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     if (res.status === 400 && isContextLengthError(txt)) onCtxError?.(txt);
-    const detail = `azure-responses(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+    const detail = azureErrorDetail(`azure-responses(${r.deployment})`, res.status, txt);
     opts.onProviderError?.(detail);
     console.warn(`[Router/Azure-Responses] ${detail}`);
     return null;
@@ -356,6 +356,35 @@ function isContextLengthError(body: string): boolean {
   return b.includes('context length') || b.includes('maximum context')
     || b.includes('context_length_exceeded') || b.includes('reduce the length')
     || (b.includes('token') && b.includes('maximum') && b.includes('length'));
+}
+
+// Clean, user-facing message for Azure content-filter (Responsible AI) blocks.
+// Deliberately free of any provider/internal detail so it can be shown directly
+// to end users. Prefixed with CONTENT_FILTER: in surfaced detail strings so the
+// reasoning engine can recognise it and present this message without the generic
+// "AI engine failed" wrapper.
+export const CONTENT_FILTER_MESSAGE = 'Your message was blocked by the AI safety filter. Please rephrase your request and try again.';
+
+// True when an Azure error body is a Responsible-AI / content-filter rejection
+// (prompt or completion blocked) rather than some other 4xx. Azure returns these
+// as a 400 with code "content_filter" / "ResponsibleAIPolicyViolation" and a body
+// mentioning its "content management policy".
+function isContentFilterError(body: string): boolean {
+  const b = (body || '').toLowerCase();
+  return b.includes('content_filter')
+    || b.includes('content management policy')
+    || b.includes('responsibleaipolicy')
+    || b.includes('content_filter_result')
+    || b.includes('jailbreak');
+}
+
+// Build the detail string surfaced to callers for a non-OK Azure response. When
+// the cause is the content filter, swap Azure's raw error body for a clean,
+// user-safe message (tagged CONTENT_FILTER:) so end users never see Azure's
+// internal "content management policy" text in a toast.
+function azureErrorDetail(label: string, status: number, body: string): string {
+  if (status === 400 && isContentFilterError(body)) return `CONTENT_FILTER: ${CONTENT_FILTER_MESSAGE}`;
+  return `${label} HTTP ${status}: ${(body || '').slice(0, 200)}`;
 }
 
 function truncateContentText(content: any, maxTokens: number): any {
@@ -510,7 +539,7 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
           console.warn(`[Router/Azure-OpenAI] context-length 400 — re-trimming harder and retrying`);
           continue;
         }
-        const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+        const detail = azureErrorDetail(`azure-openai(${r.deployment})`, res.status, txt);
         opts.onProviderError?.(detail);
         console.warn(`[Router/Azure-OpenAI] ${detail}`);
         break;
@@ -594,7 +623,7 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
             if (text) { clearTimeout(t); onChunk(text); return text; }
           } else {
             const txt = await ns.text().catch(() => '');
-            opts.onProviderError?.(`azure-openai(${r.deployment}) non-stream fallback HTTP ${ns.status}: ${txt.slice(0, 160)}`);
+            opts.onProviderError?.(azureErrorDetail(`azure-openai(${r.deployment}) non-stream fallback`, ns.status, txt));
           }
           break;
         }
@@ -603,7 +632,7 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
           console.warn(`[Router/Azure-OpenAI-stream] context-length 400 — re-trimming harder and retrying`);
           continue;
         }
-        const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
+        const detail = azureErrorDetail(`azure-openai(${r.deployment})`, res.status, txt);
         opts.onProviderError?.(detail);
         console.warn(`[Router/Azure-OpenAI-stream] ${detail}`);
         break;

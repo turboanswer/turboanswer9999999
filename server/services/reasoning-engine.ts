@@ -10,7 +10,7 @@
  * model by tier.
  */
 import { retrieveSources as retrieveSourcesMulti } from './retrievers';
-import { callDirect, callDirectStream, type Message } from './direct-router';
+import { callDirect, callDirectStream, CONTENT_FILTER_MESSAGE, type Message } from './direct-router';
 
 // Cheap internal overhead calls (routing, planning, verification, debate) run on
 // the fast non-reasoning model so small token budgets aren't eaten by reasoning
@@ -593,6 +593,9 @@ export async function fastAnswer(question: string, system?: string, tier?: strin
   let providerErr = '';
   const out = await answerForTier(question, routingTier(tier, question), { maxTokens: shaped.maxTokens, temperature: shaped.temperature, system: shaped.system, timeoutMs, history, onProviderError: (d) => { providerErr = providerErr ? `${providerErr} | ${d}` : d; } });
   if (out) return out;
+  // A content-filter block is a user-actionable situation, not an outage — show
+  // the clean "rephrase and try again" message instead of the technical wrapper.
+  if (providerErr.includes('CONTENT_FILTER:')) throw new Error(CONTENT_FILTER_MESSAGE);
   // No silent fallback — surface the failure so the route returns a real HTTP
   // error and the UI can offer a retry instead of persisting a fake assistant
   // message in chat history. Include the real provider detail (no secrets) so
@@ -667,6 +670,8 @@ export async function fastAnswerStream(
     onChunk,
   );
   if (out) return out;
+  // Content-filter blocks get the clean, user-facing message (see fastAnswer).
+  if (providerErr.includes('CONTENT_FILTER:')) throw new Error(CONTENT_FILTER_MESSAGE);
   throw new Error(`AI_PROVIDERS_UNAVAILABLE: AI engine streaming failed${providerErr ? ` — ${providerErr}` : ' (no provider detail captured)'}`);
 }
 
