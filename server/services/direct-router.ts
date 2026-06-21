@@ -306,7 +306,7 @@ function parseResponsesText(data: any): string | null {
   return text || null;
 }
 
-async function azureResponsesNonStream(r: Resolved, messages: Message[], opts: CallOpts, signal: AbortSignal): Promise<string | null> {
+async function azureResponsesNonStream(r: Resolved, messages: Message[], opts: CallOpts, signal: AbortSignal, onCtxError?: (body: string) => void): Promise<string | null> {
   const creds = azureCreds();
   if (!creds) { opts.onProviderError?.('Azure OpenAI not configured (AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT missing)'); return null; }
   const res = await azureFetchWithRetry(azureResponsesUrl(), {
@@ -317,6 +317,7 @@ async function azureResponsesNonStream(r: Resolved, messages: Message[], opts: C
   }, opts, `azure-responses(${r.deployment})`);
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
+    if (res.status === 400 && isContextLengthError(txt)) onCtxError?.(txt);
     const detail = `azure-responses(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
     opts.onProviderError?.(detail);
     console.warn(`[Router/Azure-Responses] ${detail}`);
@@ -358,12 +359,30 @@ function isContextLengthError(body: string): boolean {
 }
 
 function truncateContentText(content: any, maxTokens: number): any {
-  if (typeof content !== 'string') return content; // never truncate structured/vision content
-  const maxChars = Math.max(800, Math.floor(maxTokens * 3.5));
-  if (content.length <= maxChars) return content;
-  const head = Math.floor(maxChars * 0.6);
-  const tail = maxChars - head;
-  return content.slice(0, head) + '\n\n[…earlier text trimmed to fit the model context window…]\n\n' + content.slice(content.length - tail);
+  const maxChars = Math.max(400, Math.floor(maxTokens * 3.5));
+  if (typeof content === 'string') {
+    if (content.length <= maxChars) return content;
+    const head = Math.floor(maxChars * 0.6);
+    const tail = maxChars - head;
+    return content.slice(0, head) + '\n\n[…earlier text trimmed to fit the model context window…]\n\n' + content.slice(content.length - tail);
+  }
+  // Structured/vision content: truncate text blocks proportionally and, as a
+  // final guard, drop the oldest image blocks (keeping at least one) so an
+  // image-heavy message can never overflow the window on its own.
+  if (Array.isArray(content)) {
+    const textBlocks = content.filter((b: any) => b && typeof b.text === 'string').length || 1;
+    const perText = Math.max(120, Math.floor(maxTokens / textBlocks));
+    let blocks = content.map((b: any) =>
+      (b && typeof b.text === 'string') ? { ...b, text: truncateContentText(b.text, perText) } : b);
+    while (estimateContentTokens(blocks) > maxTokens) {
+      const imgCount = blocks.filter((b: any) => b && (b.type === 'image' || b.type === 'image_url' || b.source)).length;
+      if (imgCount <= 1) break;
+      const dropIdx = blocks.findIndex((b: any) => b && (b.type === 'image' || b.type === 'image_url' || b.source));
+      blocks = blocks.filter((_: any, i: number) => i !== dropIdx);
+    }
+    return blocks;
+  }
+  return content;
 }
 
 // Trim the assembled messages so they fit the model's context window, leaving
@@ -372,14 +391,17 @@ function truncateContentText(content: any, maxTokens: number): any {
 // text message only as a last resort. Prevents Azure HTTP 400 "maximum context
 // length exceeded" when a long conversation (or a huge pasted message) blows
 // past the limit (e.g. gpt-4o-mini's 128k).
-function fitMessagesToContext(messages: Message[], r: Resolved, opts: CallOpts, factor = 1): Message[] {
+function fitMessagesToContext(messages: Message[], r: Resolved, opts: CallOpts, factor = 1, absCap = Infinity): Message[] {
   const reserve = Math.max(opts.maxTokens ?? 1500, 2048) + 4000;
   // The token estimate (chars/3.5) still UNDER-counts real tokens for code,
   // JSON, and non-English text, so never fill the whole window: cap input at
   // ~70% of the model context and shrink further (smaller `factor`) on each
-  // retry. Dropping a few old turns is always better than a hard 400.
+  // retry. `absCap` is an absolute estimated-token ceiling used by retries so we
+  // converge to a size safe even if a model's configured contextLimit is larger
+  // than its real Azure deployment window. Dropping a few old turns is always
+  // better than a hard 400.
   const cap = Math.floor(r.contextLimit * 0.70 * factor);
-  const budget = Math.max(1500, Math.min(r.contextLimit - reserve, cap));
+  const budget = Math.max(1500, Math.min(r.contextLimit - reserve, cap, absCap));
   const per = (m: Message) => estimateContentTokens(m.content) + 8;
   const total = messages.reduce((s, m) => s + per(m), 0);
   if (total <= budget) return messages;
@@ -395,20 +417,42 @@ function fitMessagesToContext(messages: Message[], r: Resolved, opts: CallOpts, 
     else break; // budget exhausted — drop the remaining (older) turns
   }
 
-  // If what we kept still overflows (e.g. the latest message alone is huge),
-  // truncate the single largest kept message's text down to fit.
-  if (used > budget && kept.length > 0) {
-    let idx = 0, max = -1;
-    kept.forEach((m, i) => { const c = estimateContentTokens(m.content); if (c > max) { max = c; idx = i; } });
-    const overflow = used - budget;
-    const allowed = Math.max(200, estimateContentTokens(kept[idx].content) - overflow - 50);
-    kept[idx] = { ...kept[idx], content: truncateContentText(kept[idx].content, allowed) };
+  // If what we kept (plus the always-kept system messages) still overflows —
+  // e.g. the latest message alone is huge, the system prompt(s) dominate, or the
+  // payload is image-heavy — truncate the largest message's text repeatedly
+  // until it fits. System messages are truncated only here, as an absolute last
+  // resort: a hard 400 (no answer at all) is worse than a trimmed prompt. The
+  // largest message is cut first, so a giant pasted user message goes before the
+  // (smaller) system prompt does.
+  const all = [...systems, ...kept];
+  const frozen = new Set<number>(); // messages that can't shrink further (e.g. a lone image)
+  let curTotal = all.reduce((s, m) => s + per(m), 0);
+  for (let guard = 0; curTotal > budget && guard < 100; guard++) {
+    let idx = -1, max = -1;
+    all.forEach((m, i) => { if (frozen.has(i)) return; const c = estimateContentTokens(m.content); if (c > max) { max = c; idx = i; } });
+    if (idx === -1) break; // nothing left to shrink
+    const cur = estimateContentTokens(all[idx].content);
+    const allowed = Math.max(120, cur - (curTotal - budget) - 50);
+    const next = { ...all[idx], content: truncateContentText(all[idx].content, allowed) };
+    if (estimateContentTokens(next.content) >= cur) { frozen.add(idx); continue; } // skip this one; keep shrinking the others
+    all[idx] = next;
+    curTotal = all.reduce((s, m) => s + per(m), 0);
   }
 
-  const result = [...systems, ...kept];
-  console.warn(`[Router] context-trim ${r.label}: ${messages.length}→${result.length} msgs (~${total} tok > ~${budget} budget)`);
+  const result = all;
+  console.warn(`[Router] context-trim ${r.label}: ${messages.length}→${result.length} msgs (~${total} tok > ~${budget} budget, final ~${curTotal})`);
   return result;
 }
+
+// Retry budgets for context-length 400s. Each attempt re-trims smaller; the
+// absolute caps (in estimated tokens) guarantee convergence to a size safe for
+// the smallest REAL Azure window we serve (gpt-4o-mini, 128k) even if a model's
+// configured contextLimit is set larger than its real deployment window.
+const CTX_RETRY_ATTEMPTS: Array<{ factor: number; absCap?: number }> = [
+  { factor: 1 },
+  { factor: 0.6, absCap: 90_000 },
+  { factor: 0.4, absCap: 45_000 },
+];
 
 export async function callDirect(orModelId: string, messages: Message[], opts: CallOpts = {}): Promise<string | null> {
   const r = resolveModel(orModelId);
@@ -416,10 +460,21 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
   const t = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30000);
   try {
     if (r.usesResponsesApi) {
-      const fitted = fitMessagesToContext(messages, r, opts);
-      const out = await azureResponsesNonStream(r, fitted, opts, ctrl.signal);
-      if (out) { clearTimeout(t); return out; }
-      const fb = await publicOpenAINonStream(r, fitted, opts, ctrl.signal);
+      // Responses-API models (gpt-5-pro / codex) retry on a context-length 400
+      // too, converging to an absolute-safe size via CTX_RETRY_ATTEMPTS.
+      for (let attempt = 0; attempt < CTX_RETRY_ATTEMPTS.length; attempt++) {
+        const a = CTX_RETRY_ATTEMPTS[attempt];
+        const fitted = fitMessagesToContext(messages, r, opts, a.factor, a.absCap ?? Infinity);
+        let ctxErr = false;
+        const out = await azureResponsesNonStream(r, fitted, opts, ctrl.signal, () => { ctxErr = true; });
+        if (out) { clearTimeout(t); return out; }
+        if (ctxErr && attempt < CTX_RETRY_ATTEMPTS.length - 1) {
+          console.warn(`[Router/Azure-Responses] context-length 400 — re-trimming harder and retrying`);
+          continue;
+        }
+        break;
+      }
+      const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6, 90_000), opts, ctrl.signal);
       clearTimeout(t);
       if (fb) { console.warn(`[Router] used public-OpenAI fallback for ${r.label}`); return fb; }
       return null;
@@ -428,10 +483,12 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
     if (creds) {
       // Re-trim and retry on a context-length 400: the token estimate can
       // under-count (dense code/JSON/non-English), so if Azure still rejects we
-      // shrink the budget hard and try again rather than failing the user.
-      const factors = [1, 0.6, 0.4];
-      for (let attempt = 0; attempt < factors.length; attempt++) {
-        const fitted = fitMessagesToContext(messages, r, opts, factors[attempt]);
+      // shrink the budget hard and try again rather than failing the user. The
+      // absolute caps converge to a size safe even if a model's configured
+      // contextLimit is larger than its real Azure deployment window.
+      for (let attempt = 0; attempt < CTX_RETRY_ATTEMPTS.length; attempt++) {
+        const a = CTX_RETRY_ATTEMPTS[attempt];
+        const fitted = fitMessagesToContext(messages, r, opts, a.factor, a.absCap ?? Infinity);
         const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
@@ -449,8 +506,8 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
           break;
         }
         const txt = await res.text().catch(() => '');
-        if (res.status === 400 && isContextLengthError(txt) && attempt < factors.length - 1) {
-          console.warn(`[Router/Azure-OpenAI] context-length 400 — re-trimming harder (factor ${factors[attempt + 1]}) and retrying`);
+        if (res.status === 400 && isContextLengthError(txt) && attempt < CTX_RETRY_ATTEMPTS.length - 1) {
+          console.warn(`[Router/Azure-OpenAI] context-length 400 — re-trimming harder and retrying`);
           continue;
         }
         const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
@@ -462,7 +519,7 @@ export async function callDirect(orModelId: string, messages: Message[], opts: C
       opts.onProviderError?.('Azure OpenAI not configured (AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT missing)');
     }
     // Optional public-OpenAI safety net.
-    const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6), opts, ctrl.signal);
+    const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6, 90_000), opts, ctrl.signal);
     clearTimeout(t);
     if (fb) { console.warn(`[Router] used public-OpenAI fallback for ${r.label}`); return fb; }
     return null;
@@ -486,10 +543,19 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
     // Responses-API models don't stream here — fetch the full answer and emit it
     // as one chunk so the SSE contract to callers is preserved.
     if (r.usesResponsesApi) {
-      const fitted = fitMessagesToContext(messages, r, opts);
-      const out = await azureResponsesNonStream(r, fitted, opts, ctrl.signal);
-      if (out) { clearTimeout(t); onChunk(out); return out; }
-      const fb = await publicOpenAINonStream(r, fitted, opts, ctrl.signal);
+      for (let attempt = 0; attempt < CTX_RETRY_ATTEMPTS.length; attempt++) {
+        const a = CTX_RETRY_ATTEMPTS[attempt];
+        const fitted = fitMessagesToContext(messages, r, opts, a.factor, a.absCap ?? Infinity);
+        let ctxErr = false;
+        const out = await azureResponsesNonStream(r, fitted, opts, ctrl.signal, () => { ctxErr = true; });
+        if (out) { clearTimeout(t); onChunk(out); return out; }
+        if (ctxErr && attempt < CTX_RETRY_ATTEMPTS.length - 1) {
+          console.warn(`[Router-stream/Azure-Responses] context-length 400 — re-trimming harder and retrying`);
+          continue;
+        }
+        break;
+      }
+      const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6, 90_000), opts, ctrl.signal);
       clearTimeout(t);
       if (fb) { console.warn(`[Router-stream] used public-OpenAI fallback for ${r.label}`); onChunk(fb); return fb; }
       return null;
@@ -498,10 +564,11 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
     if (creds) {
       // Re-trim and retry on a context-length 400 BEFORE any chunk is emitted
       // (a context overflow is rejected at request time, so nothing has streamed
-      // yet — safe to retry without duplicating output).
-      const factors = [1, 0.6, 0.4];
-      for (let attempt = 0; attempt < factors.length; attempt++) {
-        const fitted = fitMessagesToContext(messages, r, opts, factors[attempt]);
+      // yet — safe to retry without duplicating output). Absolute caps converge
+      // to a size safe even if contextLimit is set larger than the real window.
+      for (let attempt = 0; attempt < CTX_RETRY_ATTEMPTS.length; attempt++) {
+        const a = CTX_RETRY_ATTEMPTS[attempt];
+        const fitted = fitMessagesToContext(messages, r, opts, a.factor, a.absCap ?? Infinity);
         const res = await azureFetchWithRetry(azureOpenAIUrl(r.deployment), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'api-key': creds.key },
@@ -532,8 +599,8 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
           break;
         }
         const txt = await res.text().catch(() => '');
-        if (res.status === 400 && isContextLengthError(txt) && attempt < factors.length - 1) {
-          console.warn(`[Router/Azure-OpenAI-stream] context-length 400 — re-trimming harder (factor ${factors[attempt + 1]}) and retrying`);
+        if (res.status === 400 && isContextLengthError(txt) && attempt < CTX_RETRY_ATTEMPTS.length - 1) {
+          console.warn(`[Router/Azure-OpenAI-stream] context-length 400 — re-trimming harder and retrying`);
           continue;
         }
         const detail = `azure-openai(${r.deployment}) HTTP ${res.status}: ${txt.slice(0, 200)}`;
@@ -546,7 +613,7 @@ export async function callDirectStream(orModelId: string, messages: Message[], o
     }
     // Public-OpenAI safety net (non-streaming; emit as one chunk). Only reached
     // if nothing was streamed to the client above.
-    const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6), opts, ctrl.signal);
+    const fb = await publicOpenAINonStream(r, fitMessagesToContext(messages, r, opts, 0.6, 90_000), opts, ctrl.signal);
     clearTimeout(t);
     if (fb) { console.warn(`[Router-stream] used public-OpenAI fallback for ${r.label}`); onChunk(fb); return fb; }
     return null;
