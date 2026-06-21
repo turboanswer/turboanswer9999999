@@ -83,11 +83,11 @@ export function adaptiveShape(question: string, tier: 'free' | 'pro' | 'research
 } {
   const complexity = _classifyComplexity(question || '');
   const budgets: Record<string, Record<_Complexity, number>> = {
-    free:       { trivial: 120, short: 350,  normal: 600,  complex: 1000 },
-    pro:        { trivial: 150, short: 800,  normal: 1500, complex: 2000 },
-    research:   { trivial: 150, short: 1000, normal: 1600, complex: 2000 },
-    enterprise: { trivial: 150, short: 1000, normal: 1600, complex: 2000 },
-    owner:      { trivial: 150, short: 1000, normal: 1600, complex: 2000 },
+    free:       { trivial: 120, short: 400,  normal: 800,  complex: 1500 },
+    pro:        { trivial: 150, short: 1000, normal: 2500, complex: 4096 },
+    research:   { trivial: 150, short: 1200, normal: 3000, complex: 6000 },
+    enterprise: { trivial: 150, short: 1200, normal: 3000, complex: 6000 },
+    owner:      { trivial: 150, short: 1200, normal: 3000, complex: 6000 },
   };
   const tempByComplexity: Record<_Complexity, number> = { trivial: 0.7, short: 0.5, normal: 0.4, complex: 0.25 };
   const tierBudget = budgets[tier] || budgets.free;
@@ -213,61 +213,39 @@ Formatting rules — follow STRICTLY:
 
   const recentHistory = conversationHistory.slice(-6).map(m => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${m.content}`).join('\n');
   const userText = userMessage?.trim() || "What do you see in this image? Please describe it and let me know how I can help.";
-  const fullPrompt = recentHistory
-    ? `${systemPrompt}\n\nRecent conversation:\n${recentHistory}\n\nUser's new question about the attached image: ${userText}`
-    : `${systemPrompt}\n\nUser: ${userText}`;
+  // Route vision through the SHARED Claude router (direct-router) so it uses the
+  // exact same providers as the rest of the stack: Azure Foundry Claude first
+  // (the ONLY Claude path configured in production — prod has AZURE_OPENAI_API_KEY
+  // + endpoint but NO direct Anthropic key), then direct Anthropic in dev.
+  // Previously this function checked ONLY for a direct Anthropic key and threw
+  // AI_ENGINE_UNAVAILABLE whenever it was absent — which is exactly the prod case,
+  // so every uploaded image crashed with a 500. The router's body builder passes
+  // structured `content` arrays through unchanged, so Anthropic image blocks work
+  // over both the Azure Foundry and direct Anthropic Messages APIs.
+  const historyPreamble = recentHistory ? `Recent conversation:\n${recentHistory}\n\n` : '';
+  const visionUserContent: any[] = [
+    { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64Data } },
+    { type: 'text', text: `${historyPreamble}${userText}` },
+  ];
 
-  // Primary: Claude Sonnet 4.5 vision (matches the rest of the stack).
-  const anthropicKeyVision = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  const anthropicBaseVision = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || 'https://api.anthropic.com';
-  if (anthropicKeyVision) {
-    const claudeVisionModels = ['claude-sonnet-4-5-20250929', 'claude-sonnet-4-20250514'];
-    for (const model of claudeVisionModels) {
-      try {
-        const dataUrl = imageDataUrl;
-        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (!m) break;
-        const mediaType = m[1];
-        const b64 = m[2];
-        const res = await fetch(`${anthropicBaseVision}/v1/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKeyVision, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({
-            model,
-            max_tokens: 1500,
-            temperature: 0.6,
-            system: systemPrompt,
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
-                { type: 'text', text: userText },
-              ],
-            }],
-          }),
-        });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '');
-          console.error(`[Vision] Claude ${model} error ${res.status}: ${errText.slice(0, 200)}`);
-          if (res.status === 401 || res.status === 403) break;
-          continue;
-        }
-        const data: any = await res.json();
-        const text = data?.content?.[0]?.text;
-        if (text && String(text).trim()) {
-          console.log(`[Vision] Claude ${model} succeeded`);
-          return String(text);
-        }
-      } catch (e: any) {
-        console.error(`[Vision] Claude ${model} threw: ${e?.message || e}`);
-      }
+  const { callDirect } = await import('./direct-router.js');
+  for (const visionModel of ['anthropic/claude-sonnet-4.5', 'anthropic/claude-haiku']) {
+    let providerErr = '';
+    const text = await callDirect(visionModel, [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: visionUserContent },
+    ], { maxTokens: 2000, temperature: 0.6, timeoutMs: 45000, onProviderError: (d) => { providerErr = d; } });
+    if (text && text.trim()) {
+      console.log(`[Vision] ${visionModel} succeeded`);
+      return text;
     }
+    if (providerErr) console.error(`[Vision] ${visionModel} failed: ${providerErr}`);
   }
 
-  // Claude vision is the ONLY image path. There is no Azure/OpenAI/Gemini
-  // fallback. If every Claude vision model failed (or no Anthropic key is
-  // configured), fail loudly instead of silently switching providers.
-  throw new Error('AI_ENGINE_UNAVAILABLE: Claude vision is unavailable. Check the Anthropic API key / Azure Claude deployment.');
+  // Claude vision is the ONLY image path. If every Claude vision model failed
+  // (or no Claude provider is configured at all), fail loudly instead of
+  // silently switching providers.
+  throw new Error('AI_ENGINE_UNAVAILABLE: Claude vision is unavailable. Check the Azure Claude deployment / Anthropic API key.');
 }
 
 export async function generateAIResponse(
@@ -378,7 +356,7 @@ export async function generateAIResponse(
       const text = await callDirect('anthropic/claude-opus-4-1', [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userBlock },
-      ], { maxTokens: 2000, temperature: 0.3, timeoutMs: 45000 });
+      ], { maxTokens: 6000, temperature: 0.3, timeoutMs: 90000 });
       if (!text) throw new Error('AI_ENGINE_UNAVAILABLE: Claude (research single-model) returned no output.');
       return { text, usedGroundedSearch };
     } else if (selectedModel === 'gemini-pro' || selectedModel === 'gpt-4o' || selectedModel === 'claude-sonnet-4') {

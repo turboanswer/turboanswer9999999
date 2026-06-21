@@ -162,6 +162,24 @@ const NEW_TABLES: Array<{ name: string; ddl: string }> = [
       updated_by TEXT
     )`,
   },
+  {
+    name: "crisis_conversations",
+    ddl: `CREATE TABLE IF NOT EXISTS crisis_conversations (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT now()
+    )`,
+  },
+  {
+    name: "crisis_messages",
+    ddl: `CREATE TABLE IF NOT EXISTS crisis_messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER NOT NULL REFERENCES crisis_conversations(id),
+      encrypted_content TEXT NOT NULL,
+      role TEXT NOT NULL,
+      timestamp TIMESTAMP NOT NULL DEFAULT now()
+    )`,
+  },
 ];
 
 async function tableExists(table: string): Promise<boolean> {

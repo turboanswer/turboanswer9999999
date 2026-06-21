@@ -82,7 +82,7 @@ function tryComputeArithmetic(question: string): string | null {
 // direct-router (which always resolves to Claude). There is no non-Claude path.
 async function callOpenRouter(model: string, prompt: string, maxTokens: number, temperature: number): Promise<string | null> {
   const { callDirect } = await import('./direct-router.js');
-  return callDirect(model, [{ role: 'user', content: prompt }], { maxTokens, temperature, timeoutMs: 45000 });
+  return callDirect(model, [{ role: 'user', content: prompt }], { maxTokens, temperature, timeoutMs: 90000 });
 }
 
 async function callAgent(perspective: typeof AGENT_PERSPECTIVES[0], question: string, verifiedAnswer?: string | null): Promise<{ id: string; name: string; model: string; response: string } | null> {
@@ -169,13 +169,13 @@ Write the synthesized response now:`;
   // syntheses fail we throw so the failure is surfaced loudly.
   let synthesis: string | null = null;
 
-  synthesis = await callOpenRouter('anthropic/claude-opus-4-1', synthesisPrompt, 4096, 0.15);
+  synthesis = await callOpenRouter('anthropic/claude-opus-4-1', synthesisPrompt, 6000, 0.15);
   if (synthesis) {
     console.log(`[Multi-Agent] Synthesis by Claude Opus`);
   }
 
   if (!synthesis) {
-    synthesis = await callOpenRouter('anthropic/claude-sonnet-4.5', synthesisPrompt, 4096, 0.15);
+    synthesis = await callOpenRouter('anthropic/claude-sonnet-4.5', synthesisPrompt, 6000, 0.15);
     if (synthesis) console.log(`[Multi-Agent] Synthesis by Claude Sonnet (fallback)`);
   }
 
