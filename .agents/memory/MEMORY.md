@@ -1,4 +1,5 @@
 - [Design language "Clear Blue"](design-language.md) — clean Gemini-grade blue minimal; ONE shared --ai-gradient (blue→violet→magenta), reuse it, keep spark disciplined, update desktop chat.tsx + mobile MobileChatUI THEME together; never claim "ten models" (one per tier).
+- [Chat render performance](chat-render-perf.md) — chat "freezes ~3 questions in" = client O(messages×tokens) re-render, NOT a rate limit; fix = memoize per-message renderer ({content,role,isDark}) + batch streamed token setState; renderer feeds both desktop + mobile.
 - [Tier gating pattern](tier-gating.md) — server routes must use `isOwnerAccount(user) || user.isEmployee` alongside subscriptionTier; tier string alone misses staff accounts.
 - [Azure runtime DB vs Neon](azure-runtime-db.md) — runtime DB is Azure; new tables/columns must go in server/db-migrations.ts (db:push only hits Neon, not runtime).
 - [Reach Azure DB from sandbox + cross-DB copy](cross-db-data-copy.md) — Azure prod IS reachable from dev if you allowlist the sandbox egress IP (curl ipify; IP changes on restart); copy data between managed PGs via psql \copy + topo order + --single-transaction, not pg_dump/node-pg.

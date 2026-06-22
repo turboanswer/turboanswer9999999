@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { cleanMarkdown } from "@/lib/clean-markdown";
@@ -23,6 +23,82 @@ import turboLogo from "@assets/file_000000007ff071f8a754520ac27c6ba4_17704232395
 import MobileChatUI from "@/components/MobileChatUI";
 
 const isNativeMobile = !!(window as any).Capacitor?.isNativePlatform?.();
+
+// Memoized so a message bubble only re-runs the (expensive) markdown cleaning +
+// media/tag regex when its OWN content/role/theme changes. Previously this work
+// ran for every message on every streamed token, which froze long conversations
+// a few questions in.
+const MessageContent = memo(function MessageContent({ content, role, isDark }: { content: string; role: string; isDark: boolean }) {
+  // Extract media from the RAW text FIRST, then clean ONLY the text segments.
+  // cleanMarkdown must never run over an image/audio data URL — doing so can
+  // shatter the markdown and dump a giant wall of base64 as plain text.
+  const cleanText = (t: string) => (role === 'assistant' ? cleanMarkdown(t) : t);
+  const mediaRegex = /!\[([^\]]*)\]\((data:image\/[^)]+|https?:\/\/[^)\s]+)\)|\[AUDIO:(data:audio\/[^\]]+)\]/g;
+  const parts: Array<{ type: 'text' | 'image' | 'audio'; value: string; alt?: string }> = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = mediaRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) parts.push({ type: 'text', value: cleanText(content.slice(lastIndex, match.index)) });
+    if (match[2]) parts.push({ type: 'image', value: match[2], alt: match[1] });
+    else if (match[3]) parts.push({ type: 'audio', value: match[3] });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < content.length) parts.push({ type: 'text', value: cleanText(content.slice(lastIndex)) });
+  const renderTextWithTags = (text: string) => {
+    // Highlight [unverified]…[/unverified] / [contested]…[/contested] / [unverified] sentence / [contested] sentence
+    const tagRegex = /\[(unverified|contested)\](?:\s*([\s\S]*?)(?:\s*\[\/(?:unverified|contested)\])|([^[\n.!?]*[.!?]?))/g;
+    const out: any[] = [];
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let i = 0;
+    while ((m = tagRegex.exec(text)) !== null) {
+      if (m.index > last) out.push(<span key={`t${i++}`}>{text.slice(last, m.index)}</span>);
+      const tag = m[1];
+      const inner = (m[2] || m[3] || '').trim();
+      const cls = tag === 'contested'
+        ? (isDark ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40' : 'bg-amber-50 text-amber-800 border border-amber-300')
+        : (isDark ? 'bg-red-500/15 text-red-300 border border-red-500/40' : 'bg-red-50 text-red-800 border border-red-300');
+      out.push(
+        <span key={`u${i++}`} className={`inline px-1 py-0.5 rounded ${cls}`} title={tag === 'contested' ? 'Models disagreed on this claim' : 'This claim could not be verified'}>
+          <span className="text-[9px] font-bold uppercase mr-1 opacity-70">{tag}</span>{inner}
+        </span>
+      );
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) out.push(<span key={`t${i++}`}>{text.slice(last)}</span>);
+    return out.length ? out : text;
+  };
+  if (parts.length === 0) {
+    return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(cleanText(content))}</span>;
+  }
+  if (parts.length === 1 && parts[0].type === 'text') {
+    return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(parts[0].value)}</span>;
+  }
+  return (
+    <div className="space-y-3">
+      {parts.map((part, i) => {
+        if (part.type === 'image') {
+          return (
+            <div key={i} className={`rounded-lg overflow-hidden border ${isDark ? 'border-zinc-600' : 'border-gray-300'}`}>
+              <img src={part.value} alt={part.alt || 'Generated image'} className="w-full max-w-md h-auto" />
+              <div className={`flex gap-2 p-2 ${isDark ? 'bg-zinc-900/50' : 'bg-gray-100'}`}>
+                <a href={part.value} download={`turbo-image-${Date.now()}.png`} className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1">Download</a>
+              </div>
+            </div>
+          );
+        }
+        if (part.type === 'audio') {
+          return (
+            <div key={i} className={`rounded-lg p-3 border ${isDark ? 'border-zinc-600 bg-zinc-900/50' : 'border-gray-300 bg-gray-50'}`}>
+              <audio controls autoPlay src={part.value} className="w-full max-w-md" />
+            </div>
+          );
+        }
+        return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(part.value)}</span>;
+      })}
+    </div>
+  );
+});
 
 export default function Chat() {
   const [, setLocation] = useLocation();
@@ -392,8 +468,15 @@ export default function Chat() {
   const [executingAction, setExecutingAction] = useState(false);
   const [autoDowngraded, setAutoDowngraded] = useState(false);
   const streamSessionRef = useRef(0);
+  // Token-stream batching: coalesce SSE chunks into ~60ms flushes so a React
+  // render isn't triggered on every single token (which re-rendered the whole
+  // chat and froze long conversations a few questions in).
+  const streamBufRef = useRef("");
+  const streamFlushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetReasoningState = () => {
+    if (streamFlushRef.current) { clearTimeout(streamFlushRef.current); streamFlushRef.current = null; }
+    streamBufRef.current = "";
     setReasoningStages([]);
     setReasoningSources([]);
     setReasoningPanel([]);
@@ -402,6 +485,14 @@ export default function Chat() {
     setAutoDowngraded(false);
     setQuotaWarning(null);
   };
+
+  // Clear any pending token-flush timer if the component unmounts mid-stream
+  // so we don't try to setState after unmount.
+  useEffect(() => {
+    return () => {
+      if (streamFlushRef.current) { clearTimeout(streamFlushRef.current); streamFlushRef.current = null; }
+    };
+  }, []);
 
   const runStreamingMessage = async (content: string, convId: number): Promise<any> => {
     resetReasoningState();
@@ -475,7 +566,17 @@ export default function Chat() {
           break;
         case 'chunk':
           if (typeof data?.text === 'string' && data.text.length) {
-            setStreamingText(prev => prev + data.text);
+            // Buffer tokens and flush on a ~60ms timer instead of re-rendering
+            // the whole chat on every single token (the long-convo freeze).
+            streamBufRef.current += data.text;
+            if (!streamFlushRef.current) {
+              streamFlushRef.current = setTimeout(() => {
+                streamFlushRef.current = null;
+                const buffered = streamBufRef.current;
+                streamBufRef.current = "";
+                if (buffered) setStreamingText(prev => prev + buffered);
+              }, 60);
+            }
           }
           break;
         case 'route':
@@ -530,6 +631,15 @@ export default function Chat() {
     }
     // Flush any trailing event that wasn't terminated by a blank line.
     if (buffer.trim().length) processBlock(buffer);
+
+    // Flush any buffered streaming tokens immediately so the live bubble shows
+    // the complete answer the moment the stream ends (before `saved` replaces it).
+    if (streamFlushRef.current) { clearTimeout(streamFlushRef.current); streamFlushRef.current = null; }
+    if (streamBufRef.current) {
+      const buffered = streamBufRef.current;
+      streamBufRef.current = "";
+      setStreamingText(prev => prev + buffered);
+    }
 
     if (streamErr && !saved) throw new Error(streamErr);
     return saved;
@@ -788,77 +898,12 @@ export default function Chat() {
     toast({ title: "Language Changed", description: `Switched to ${languageCode.toUpperCase()}` });
   };
 
-  const renderMessageContent = (content: string, role: string) => {
-    // Extract media from the RAW text FIRST, then clean ONLY the text segments.
-    // cleanMarkdown must never run over an image/audio data URL — doing so can
-    // shatter the markdown and dump a giant wall of base64 as plain text.
-    const cleanText = (t: string) => (role === 'assistant' ? cleanMarkdown(t) : t);
-    const mediaRegex = /!\[([^\]]*)\]\((data:image\/[^)]+|https?:\/\/[^)\s]+)\)|\[AUDIO:(data:audio\/[^\]]+)\]/g;
-    const parts: Array<{ type: 'text' | 'image' | 'audio'; value: string; alt?: string }> = [];
-    let lastIndex = 0;
-    let match;
-    while ((match = mediaRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) parts.push({ type: 'text', value: cleanText(content.slice(lastIndex, match.index)) });
-      if (match[2]) parts.push({ type: 'image', value: match[2], alt: match[1] });
-      else if (match[3]) parts.push({ type: 'audio', value: match[3] });
-      lastIndex = match.index + match[0].length;
-    }
-    if (lastIndex < content.length) parts.push({ type: 'text', value: cleanText(content.slice(lastIndex)) });
-    const renderTextWithTags = (text: string) => {
-      // Highlight [unverified]…[/unverified] / [contested]…[/contested] / [unverified] sentence / [contested] sentence
-      const tagRegex = /\[(unverified|contested)\](?:\s*([\s\S]*?)(?:\s*\[\/(?:unverified|contested)\])|([^[\n.!?]*[.!?]?))/g;
-      const out: any[] = [];
-      let last = 0;
-      let m: RegExpExecArray | null;
-      let i = 0;
-      while ((m = tagRegex.exec(text)) !== null) {
-        if (m.index > last) out.push(<span key={`t${i++}`}>{text.slice(last, m.index)}</span>);
-        const tag = m[1];
-        const inner = (m[2] || m[3] || '').trim();
-        const cls = tag === 'contested'
-          ? (isDark ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40' : 'bg-amber-50 text-amber-800 border border-amber-300')
-          : (isDark ? 'bg-red-500/15 text-red-300 border border-red-500/40' : 'bg-red-50 text-red-800 border border-red-300');
-        out.push(
-          <span key={`u${i++}`} className={`inline px-1 py-0.5 rounded ${cls}`} title={tag === 'contested' ? 'Models disagreed on this claim' : 'This claim could not be verified'}>
-            <span className="text-[9px] font-bold uppercase mr-1 opacity-70">{tag}</span>{inner}
-          </span>
-        );
-        last = m.index + m[0].length;
-      }
-      if (last < text.length) out.push(<span key={`t${i++}`}>{text.slice(last)}</span>);
-      return out.length ? out : text;
-    };
-    if (parts.length === 0) {
-      return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(cleanText(content))}</span>;
-    }
-    if (parts.length === 1 && parts[0].type === 'text') {
-      return <span style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(parts[0].value)}</span>;
-    }
-    return (
-      <div className="space-y-3">
-        {parts.map((part, i) => {
-          if (part.type === 'image') {
-            return (
-              <div key={i} className={`rounded-lg overflow-hidden border ${isDark ? 'border-zinc-600' : 'border-gray-300'}`}>
-                <img src={part.value} alt={part.alt || 'Generated image'} className="w-full max-w-md h-auto" />
-                <div className={`flex gap-2 p-2 ${isDark ? 'bg-zinc-900/50' : 'bg-gray-100'}`}>
-                  <a href={part.value} download={`turbo-image-${Date.now()}.png`} className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1">Download</a>
-                </div>
-              </div>
-            );
-          }
-          if (part.type === 'audio') {
-            return (
-              <div key={i} className={`rounded-lg p-3 border ${isDark ? 'border-zinc-600 bg-zinc-900/50' : 'border-gray-300 bg-gray-50'}`}>
-                <audio controls autoPlay src={part.value} className="w-full max-w-md" />
-              </div>
-            );
-          }
-          return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{renderTextWithTags(part.value)}</span>;
-        })}
-      </div>
-    );
-  };
+  // Thin wrapper around the memoized <MessageContent>. Keeping the same call
+  // signature means both the desktop list and MobileChatUI (which receives this
+  // as a prop) benefit from the memoization with no further changes.
+  const renderMessageContent = (content: string, role: string) => (
+    <MessageContent content={content} role={role} isDark={isDark} />
+  );
 
   const formatTimestamp = (timestamp: string | Date) => {
     const date = new Date(timestamp);
