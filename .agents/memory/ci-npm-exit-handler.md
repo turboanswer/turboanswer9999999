@@ -11,6 +11,8 @@ Integrity hashes stay valid because the proxy mirrors npmjs.org byte-for-byte. V
 
 **RECURRENCE GUARD (now in place):** both `.github/workflows/main_turboanswergroup.yml` and `android-build.yml` have a "Normalize lockfile registry URLs" step that runs the sed above on the runner BEFORE install (ephemeral, not committed). So even if a new dep re-pollutes the lock, CI self-heals. Keep that step; if it's ever removed and a dep is added in Replit, the failure returns.
 
+**NEW Azure web app symptom:** connecting a brand-new Azure App Service via Deployment Center auto-generates a VANILLA workflow that does NOT have the normalize step, so its first sync fails at install even though the main app deploys fine. Two fixes: (1) commit the lockfile with registry.npmjs.org URLs (one-time, helps until the next dep add), and (2) add the same "Normalize lockfile registry URLs" sed step to the new app's workflow for permanent immunity. "Is this an Azure issue?" → no, it's the lockfile.
+
 **HOW TO RECOGNIZE / WHEN IT RECURS:** any time someone adds a dependency in Replit and then deploys via the GitHub Actions workflows, the new transitive packages will carry the firewall URL. The deploy/Android build will fail at the install step. The CI log shows only `Exit handler never called!`; do NOT chase memory/npm-version/retry theories — grep the lockfile for `package-firewall.replit.local` FIRST.
 
 **Dead ends already tried (don't repeat):** pinning npm version + retry loop; npm@11 upgrade; adding 6G swap (runner had 14Gi free RAM, never OOM); NODE_OPTIONS heap bump. None mattered — it was never memory or an npm bug.
